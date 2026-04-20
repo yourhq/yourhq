@@ -1,0 +1,62 @@
+{
+  "name": "HQ Dev",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "dockerDashComposeVersion": "v2"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "24"
+    },
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.12"
+    }
+  },
+
+  "forwardPorts": [3000, 6901],
+  "portsAttributes": {
+    "3000": {
+      "label": "HQ UI",
+      "onAutoForward": "openBrowser"
+    },
+    "6901": {
+      "label": "noVNC (gateway desktop)",
+      "onAutoForward": "silent"
+    }
+  },
+
+  "postCreateCommand": ".devcontainer/post-create.sh",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-azuretools.vscode-docker",
+        "bradlc.vscode-tailwindcss",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-python.python"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "files.exclude": {
+          "**/node_modules": true,
+          "**/.next": true
+        }
+      }
+    }
+  },
+
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8gb",
+    "storage": "32gb"
+  },
+
+  "remoteUser": "vscode",
+
+  "mounts": [
+    "source=yourhq-devcontainer-bashhistory,target=/home/vscode/.bash_history.d,type=volume"
+  ]
+}
