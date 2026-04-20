@@ -38,7 +38,10 @@ RUN pip install --no-cache-dir --break-system-packages websocket-client==1.8.0
 
 RUN npm install -g openclaw@${OPENCLAW_VERSION}
 
-RUN useradd -m -u 1000 -s /bin/bash openclaw
+# Ubuntu 24.04 ships with a pre-created `ubuntu` user at UID 1000.
+RUN userdel -r ubuntu 2>/dev/null || true \
+    && groupadd -g 1000 openclaw \
+    && useradd -m -u 1000 -g 1000 -s /bin/bash openclaw
 
 COPY --chown=openclaw:openclaw gateway/daemons/command_runner.py /app/command_runner.py
 COPY --chown=openclaw:openclaw gateway/scripts /home/openclaw/.yourhq-infra

@@ -106,7 +106,11 @@ RUN set -eux; \
 RUN npm install -g openclaw@${OPENCLAW_VERSION}
 
 # ── Create non-root user ─────────────────────────────────────
-RUN useradd -m -u 1000 -s /bin/bash openclaw \
+# Ubuntu 24.04 ships with a pre-created `ubuntu` user at UID 1000.
+# Remove it so we can own UID 1000 with our `openclaw` user.
+RUN userdel -r ubuntu 2>/dev/null || true \
+    && groupadd -g 1000 openclaw \
+    && useradd -m -u 1000 -g 1000 -s /bin/bash openclaw \
     && mkdir -p /home/openclaw/.openclaw /home/openclaw/.ssh \
     && chown -R openclaw:openclaw /home/openclaw
 

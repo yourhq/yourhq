@@ -5,12 +5,18 @@
 # =============================================================================
 FROM node:24-slim AS deps
 WORKDIR /app
-COPY apps/ui/package.json apps/ui/package-lock.json* ./
-RUN npm ci --legacy-peer-deps
+# Copy lockfile explicitly — the wildcard glob silently skips if missing,
+# which can produce non-reproducible builds across architectures.
+COPY apps/ui/package.json apps/ui/package-lock.json ./
+# libc6 needed for Next.js SWC native binaries in slim images.
+RUN apt-get update && apt-get install -y --no-install-recommends libc6 \
+    && rm -rf /var/lib/apt/lists/*
+RUN npm ci --legacy-peer-deps --no-audit --no-fund
 
 FROM node:24-slim AS builder
 WORKDIR /app
-ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    NODE_OPTIONS="--max-old-space-size=4096"
 COPY --from=deps /app/node_modules ./node_modules
 COPY apps/ui/. .
 RUN npm run build
