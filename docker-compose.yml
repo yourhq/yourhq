@@ -45,6 +45,10 @@ services:
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       GITHUB_REPO_OWNER: ${GITHUB_REPO_OWNER:-}
       GITHUB_REPO_NAME: ${GITHUB_REPO_NAME:-}
+      # Reverse-proxy origin allowlist (Codespaces, VPS behind nginx, etc.)
+      CODESPACE_NAME: ${CODESPACE_NAME:-}
+      GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN: ${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
     ports:
       - "${UI_PORT:-3000}:3000"
     volumes:
