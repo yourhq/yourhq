@@ -40,7 +40,7 @@ Common failures:
 
 Prove the UI connects to Supabase and renders real data.
 
-1. In `.env`, fill in `SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
+1. In `.env`, fill in `SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`. Both `NEXT_PUBLIC_*` entries are required — they're baked into the Next.js client bundle at build time, so they must be set **before** `docker compose build ui`. If you change them afterward, rebuild with `docker compose build --no-cache ui`.
 2. Create an auth user in Supabase → Authentication → Users → Add user → "Create new user."
 
 ```bash

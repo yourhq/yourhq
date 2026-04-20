@@ -31,6 +31,11 @@ services:
     build:
       context: .
       dockerfile: apps/ui/Dockerfile
+      args:
+        # NEXT_PUBLIC_* vars must be baked in at build time for the Next.js
+        # client bundle. Fall back to SUPABASE_URL for the public URL.
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-${SUPABASE_URL}}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
     container_name: ${COMPOSE_PROJECT:-yourhq}-ui
     restart: unless-stopped
     environment:
