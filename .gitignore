@@ -1,0 +1,39 @@
+# env + secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+openclaw_deploy_key*
+
+# Node / Next
+node_modules/
+.next/
+out/
+dist/
+.turbo/
+coverage/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+.claude/
+*.swp
+*.swo
+
+# Test output
+.nyc_output/
+
+# Local Docker state (only when using bind-mount dev overrides)
+data/

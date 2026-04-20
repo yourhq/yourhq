@@ -1,0 +1,86 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import type { AgentCommand, CommandStatus } from "@/lib/agents/types";
+import { useRealtime } from "./use-realtime";
+
+const PAGE_SIZE = 20;
+
+interface UseAgentCommandsOptions {
+  /** Filter to a specific agent. Omit for system-wide commands. */
+  agentId?: string;
+  /** Only show system commands (no agent_id). */
+  systemOnly?: boolean;
+}
+
+export function useAgentCommands({ agentId, systemOnly }: UseAgentCommandsOptions = {}) {
+  const [commands, setCommands] = useState<AgentCommand[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<CommandStatus | "all">("all");
+
+  const supabase = useMemo(() => createClient(), []);
+
+  const fetchCommands = useCallback(async (offset = 0) => {
+    if (offset === 0) setLoading(true);
+
+    let query = supabase
+      .from("agent_commands")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (agentId) query = query.eq("agent_id", agentId);
+    if (systemOnly) query = query.is("agent_id", null);
+    if (statusFilter !== "all") query = query.eq("status", statusFilter);
+
+    const { data, error } = await query;
+    if (!error && data) {
+      const typed = data as unknown as AgentCommand[];
+      if (offset === 0) {
+        setCommands(typed);
+      } else {
+        setCommands((prev) => [...prev, ...typed]);
+      }
+      setHasMore(typed.length === PAGE_SIZE);
+    }
+    setLoading(false);
+  }, [supabase, agentId, systemOnly, statusFilter]);
+
+  useEffect(() => {
+    fetchCommands(0);
+  }, [fetchCommands]);
+
+  // Subscribe to realtime changes for live status updates
+  useRealtime({
+    table: "agent_commands",
+    ...(agentId ? { filter: `agent_id=eq.${agentId}` } : {}),
+    onPayload: () => {
+      fetchCommands(0);
+    },
+  });
+
+  // For system-only mode, also subscribe without agent filter
+  useRealtime({
+    table: "agent_commands",
+    enabled: !!systemOnly && !agentId,
+    onPayload: () => {
+      fetchCommands(0);
+    },
+  });
+
+  function loadMore() {
+    fetchCommands(commands.length);
+  }
+
+  return {
+    commands,
+    loading,
+    hasMore,
+    loadMore,
+    statusFilter,
+    setStatusFilter,
+    refetch: () => fetchCommands(0),
+  };
+}

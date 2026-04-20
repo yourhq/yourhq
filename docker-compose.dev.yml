@@ -1,0 +1,51 @@
+# =============================================================================
+# Development overlay. Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Changes from production:
+#   - UI runs `next dev` with source mounted for live-reload
+#   - Daemons run from source-mounted code (no rebuild on edit)
+#   - Gateway runs entrypoint from source (edits take effect on restart)
+# =============================================================================
+
+services:
+
+  ui:
+    image: node:24-slim
+    build: !reset
+    working_dir: /app
+    command: sh -c "npm install --legacy-peer-deps && npm run dev"
+    environment:
+      NODE_ENV: development
+      CHOKIDAR_USEPOLLING: "true"
+    volumes:
+      - ./apps/ui:/app
+      - ui-node-modules:/app/node_modules
+      - ui-next-cache:/app/.next
+      - ui-config:/config
+
+  gateway:
+    volumes:
+      # Override entrypoint from source so you can edit without rebuilding
+      - ./gateway/entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+      - ./gateway/scripts/plugins:/opt/openclaw-plugins:ro
+      - ./templates:/opt/templates:ro
+      # Persistent state still in named volumes
+      - gateway-state:/home/openclaw/.openclaw
+      - gateway-chrome-profile:/home/openclaw/.config/google-chrome
+
+  dispatcher:
+    volumes:
+      - ./gateway/daemons/inbox_dispatcher.py:/app/inbox_dispatcher.py:ro
+      - gateway-state:/home/openclaw/.openclaw:ro
+
+  runner:
+    volumes:
+      - ./gateway/daemons/command_runner.py:/app/command_runner.py:ro
+      - ./gateway/scripts:/home/openclaw/.yourhq-infra:ro
+      - gateway-state:/home/openclaw/.openclaw
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  ui-node-modules:
+  ui-next-cache:

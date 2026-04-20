@@ -1,0 +1,11 @@
+{
+  "slug": "crm-researcher",
+  "name": "CRM Researcher",
+  "description": "Information researcher who finds, verifies, and structures high-quality people and company data for the CRM.",
+  "team": "research",
+  "model": "openai-codex/gpt-5.4",
+  "domains": [],
+  "capabilities": [],
+  "telegram_token_env": "TELEGRAM_TOKEN_AGENT_CRM_RESEARCHER",
+  "browser_profile_color": "#7c3aed"
+}

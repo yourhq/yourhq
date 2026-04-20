@@ -1,0 +1,11 @@
+{
+  "slug": "script-writer",
+  "name": "Script Writer",
+  "description": "Spoken-content writer who crafts clear, engaging scripts that sound natural and hold attention on video.",
+  "team": "content",
+  "model": "openai-codex/gpt-5.4",
+  "domains": [],
+  "capabilities": [],
+  "telegram_token_env": "TELEGRAM_TOKEN_AGENT_SCRIPT_WRITER",
+  "browser_profile_color": "#0ea5e9"
+}

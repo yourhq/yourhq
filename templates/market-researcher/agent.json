@@ -1,0 +1,11 @@
+{
+  "slug": "market-researcher",
+  "name": "Market Researcher",
+  "description": "External intelligence agent who scans markets, spots patterns, and surfaces meaningful signals.",
+  "team": "research",
+  "model": "openai-codex/gpt-5.4",
+  "domains": [],
+  "capabilities": [],
+  "telegram_token_env": "TELEGRAM_TOKEN_AGENT_MARKET_RESEARCHER",
+  "browser_profile_color": "#64748b"
+}

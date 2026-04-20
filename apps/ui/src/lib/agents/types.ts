@@ -1,0 +1,143 @@
+// Agent Types — mirrors Supabase schema
+
+export type AgentStatus = "online" | "offline" | "error" | "paused";
+
+export interface Agent {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  avatar_url: string | null;
+  status: AgentStatus;
+  last_seen_at: string | null;
+  domains: string[];
+  capabilities: string[] | null;
+  config: Record<string, unknown>;
+  meta: Record<string, unknown>;
+}
+
+// Constants
+
+export const AGENT_STATUSES: { value: AgentStatus; label: string }[] = [
+  { value: "online", label: "Online" },
+  { value: "offline", label: "Offline" },
+  { value: "error", label: "Error" },
+  { value: "paused", label: "Paused" },
+];
+
+export const AGENT_STATUS_COLORS: Record<AgentStatus, string> = {
+  online: "bg-green-500/20 text-green-400",
+  offline: "bg-gray-500/20 text-gray-400",
+  error: "bg-red-500/20 text-red-400",
+  paused: "bg-yellow-500/20 text-yellow-400",
+};
+
+export const AGENT_STATUS_DOT_COLORS: Record<AgentStatus, string> = {
+  online: "bg-green-500",
+  offline: "bg-gray-500",
+  error: "bg-red-500",
+  paused: "bg-yellow-500",
+};
+
+export const DOMAIN_LABELS: Record<string, string> = {
+  crm: "CRM",
+  tasks: "Tasks",
+  assets: "Assets",
+  analytics: "Analytics",
+};
+
+// Shape of the JSON manifest stored at agent.json in each agent branch.
+export interface AgentManifest {
+  slug: string;
+  name: string;
+  description: string;
+  emoji?: string;
+  team?: string;
+  model?: string;
+  domains?: string[];
+  capabilities?: string[];
+  telegram_token_env?: string;
+  browser_profile_color?: string;
+  [key: string]: unknown;
+}
+
+// Discovered template returned by GET /api/agents/templates
+export interface AgentTemplate {
+  branch: string;
+  name: string;
+  description: string;
+  emoji?: string;
+  team?: string;
+  domains?: string[];
+  capabilities?: string[];
+}
+
+// Shape we stash into agents.meta via the create wizard.
+export interface AgentMeta {
+  emoji?: string;
+  team?: string;
+  template_branch?: string | null;
+  telegram_token_env?: string;
+}
+
+// ── Agent Commands (lifecycle management from UI → EC2 daemon) ──
+
+export type CommandAction =
+  | "provision"
+  | "approve_pairing"
+  | "update"
+  | "remove"
+  | "restart_gateway"
+  | "update_all"
+  | "restart_dispatcher";
+
+export type CommandStatus = "pending" | "leased" | "running" | "done" | "failed";
+
+export interface AgentCommand {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  agent_id: string | null;
+  agent_slug: string | null;
+  action: CommandAction;
+  payload: Record<string, unknown>;
+  status: CommandStatus;
+  leased_at: string | null;
+  leased_until: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  failed_at: string | null;
+  exit_code: number | null;
+  stdout: string | null;
+  stderr: string | null;
+  error_message: string | null;
+  requested_by: string | null;
+}
+
+export const AGENT_COMMAND_ACTIONS: CommandAction[] = [
+  "provision", "approve_pairing", "update", "remove",
+];
+
+export const SYSTEM_COMMAND_ACTIONS: CommandAction[] = [
+  "restart_gateway", "update_all", "restart_dispatcher",
+];
+
+export const COMMAND_ACTION_LABELS: Record<CommandAction, string> = {
+  provision: "Provision",
+  approve_pairing: "Approve Pairing",
+  update: "Update Agent",
+  remove: "Remove Agent",
+  restart_gateway: "Restart Gateway",
+  update_all: "Update All Agents",
+  restart_dispatcher: "Restart Dispatcher",
+};
+
+export const COMMAND_STATUS_COLORS: Record<CommandStatus, string> = {
+  pending: "#3b82f6",
+  leased: "#f59e0b",
+  running: "#a855f7",
+  done: "#22c55e",
+  failed: "#ef4444",
+};

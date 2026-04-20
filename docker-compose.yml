@@ -1,0 +1,124 @@
+# =============================================================================
+# HQ — main Compose stack (UI + gateway + dispatcher + runner).
+#
+# Quick start:
+#   cp .env.example .env
+#   # edit .env — SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GATEWAY_ID, etc.
+#   docker compose up -d
+#
+# Run just the UI (e.g. on a laptop, with gateways elsewhere):
+#   docker compose up -d ui
+#
+# Run just the gateway stack (e.g. on a Mac mini, with UI elsewhere):
+#   docker compose up -d gateway dispatcher runner
+# =============================================================================
+
+name: ${COMPOSE_PROJECT:-yourhq}
+
+x-gateway-env: &gateway-env
+  SUPABASE_URL: ${SUPABASE_URL}
+  SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+  EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+  WORKSPACE_SLUG: ${WORKSPACE_SLUG:-}
+  GATEWAY_ID: ${GATEWAY_ID:-default}
+  GATEWAY_LABEL: ${GATEWAY_LABEL:-Primary gateway}
+  COMPOSE_PROJECT: ${COMPOSE_PROJECT:-yourhq}
+
+services:
+
+  ui:
+    image: ${UI_IMAGE:-ghcr.io/yourhq/yourhq-ui:latest}
+    build:
+      context: .
+      dockerfile: apps/ui/Dockerfile
+    container_name: ${COMPOSE_PROJECT:-yourhq}-ui
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-${SUPABASE_URL}}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_REPO_OWNER: ${GITHUB_REPO_OWNER:-}
+      GITHUB_REPO_NAME: ${GITHUB_REPO_NAME:-}
+    ports:
+      - "${UI_PORT:-3000}:3000"
+    volumes:
+      - ui-config:/config
+
+  gateway:
+    image: ${GATEWAY_IMAGE:-ghcr.io/yourhq/yourhq-gateway:latest}
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    container_name: ${COMPOSE_PROJECT:-yourhq}-gateway
+    restart: unless-stopped
+    environment:
+      <<: *gateway-env
+      GIT_REMOTE_URL: ${GIT_REMOTE_URL:-}
+      GIT_DEPLOY_KEY: ${GIT_DEPLOY_KEY:-}
+      TEMPLATES_SOURCE: ${TEMPLATES_SOURCE:-}
+      # Networking + remote desktop
+      TAILSCALE_AUTH_KEY: ${TAILSCALE_AUTH_KEY:-}
+      TAILSCALE_EXIT_NODE: ${TAILSCALE_EXIT_NODE:-}
+      NOVNC_BIND: ${NOVNC_BIND:-auto}
+      NOVNC_DOMAIN: ${NOVNC_DOMAIN:-}
+      CADDY_EMAIL: ${CADDY_EMAIL:-}
+      VNC_PASSWORD: ${VNC_PASSWORD:-}
+    # NET_ADMIN is required by Tailscale for userspace networking inside the
+    # container; harmless when Tailscale isn't used.
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    shm_size: 1gb  # Chrome benefits from larger /dev/shm
+    volumes:
+      - gateway-state:/home/openclaw/.openclaw
+      - gateway-chrome-profile:/home/openclaw/.config/google-chrome
+    ports:
+      # noVNC: only mapped to the host when NOVNC_BIND=public. For tailscale
+      # or local binds, the port stays inside the container namespace.
+      - "${NOVNC_HOST_PORT:-127.0.0.1:6901}:6901"
+
+  dispatcher:
+    image: ${DISPATCHER_IMAGE:-ghcr.io/yourhq/yourhq-dispatcher:latest}
+    build:
+      context: .
+      dockerfile: gateway/dispatcher/Dockerfile
+    container_name: ${COMPOSE_PROJECT:-yourhq}-dispatcher
+    restart: unless-stopped
+    depends_on:
+      - gateway
+    environment:
+      <<: *gateway-env
+      RECONCILE_INTERVAL: ${RECONCILE_INTERVAL:-60}
+      WAKE_COOLDOWN: ${WAKE_COOLDOWN:-30}
+    volumes:
+      - gateway-state:/home/openclaw/.openclaw:ro
+
+  runner:
+    image: ${RUNNER_IMAGE:-ghcr.io/yourhq/yourhq-runner:latest}
+    build:
+      context: .
+      dockerfile: gateway/runner/Dockerfile
+    container_name: ${COMPOSE_PROJECT:-yourhq}-runner
+    restart: unless-stopped
+    depends_on:
+      - gateway
+    environment:
+      <<: *gateway-env
+      RUNTIME_MODE: docker
+      POLL_INTERVAL: ${POLL_INTERVAL:-30}
+      COMMAND_TIMEOUT: ${COMMAND_TIMEOUT:-120}
+    volumes:
+      - gateway-state:/home/openclaw/.openclaw
+      # Docker socket for sibling-container restarts (restart_gateway,
+      # restart_dispatcher, update_self actions).
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  ui-config:
+    name: ${COMPOSE_PROJECT:-yourhq}-ui-config
+  gateway-state:
+    name: ${COMPOSE_PROJECT:-yourhq}-gateway-state
+  gateway-chrome-profile:
+    name: ${COMPOSE_PROJECT:-yourhq}-gateway-chrome-profile

@@ -1,0 +1,11 @@
+{
+  "slug": "analytics",
+  "name": "Analytics",
+  "description": "Performance analyst who turns activity and outcomes into clear metrics, trends, and actionable insight.",
+  "team": "analytics",
+  "model": "openai-codex/gpt-5.4",
+  "domains": [],
+  "capabilities": [],
+  "telegram_token_env": "TELEGRAM_TOKEN_AGENT_ANALYTICS",
+  "browser_profile_color": "#06b6d4"
+}

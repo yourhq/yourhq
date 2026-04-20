@@ -1,0 +1,406 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import {
+  Organization,
+  ContactOrganization,
+  ORG_TYPES,
+  ORG_SIZES,
+} from "@/lib/organizations/types";
+import { Contact } from "@/lib/crm/types";
+import { usePipelineStages } from "@/hooks/use-pipeline-stages";
+import { useFieldDefinitions } from "@/hooks/use-field-definitions";
+import { DynamicFieldGroups } from "@/components/shared/dynamic-field-group";
+import { DEFAULT_STAGE_COLOR } from "@/lib/fields/types";
+import { StatusDot } from "@/components/ui/status-dot";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
+import {
+  ArrowLeft,
+  Archive,
+  Pencil,
+  Globe,
+  MapPin,
+  Briefcase,
+  Users,
+  Building2,
+} from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { logAudit } from "@/lib/audit/log";
+import { toast } from "sonner";
+import { OrgForm } from "./org-form";
+
+interface OrgDetailProps {
+  organization: Organization;
+}
+
+export function OrgDetail({ organization: initial }: OrgDetailProps) {
+  const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
+  const [organization, setOrganization] = useState<Organization>(initial);
+  const [people, setPeople] = useState<(ContactOrganization & { contact: Contact })[]>([]);
+  const [editing, setEditing] = useState(false);
+
+  const { stages, stagesByKey } = usePipelineStages("organization");
+  const { groupedFields } = useFieldDefinitions("organization");
+
+  const fetchPeople = useCallback(async () => {
+    const { data } = await supabase
+      .from("contact_organizations")
+      .select("*, contact:contacts(*)")
+      .eq("org_id", organization.id)
+      .order("is_current", { ascending: false });
+    if (data) {
+      setPeople(data as (ContactOrganization & { contact: Contact })[]);
+    }
+  }, [supabase, organization.id]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchPeople();
+  }, [fetchPeople]);
+
+  async function handleStatusChange(newStatus: string) {
+    const status = newStatus === "none" ? null : newStatus;
+    const prev = organization.status;
+    setOrganization({ ...organization, status });
+    const { error } = await supabase
+      .from("organizations")
+      .update({ status })
+      .eq("id", organization.id);
+    if (error) {
+      setOrganization({ ...organization, status: prev });
+      toast.error("Failed to update status");
+      return;
+    }
+    logAudit(supabase, {
+      module: "crm",
+      entity_type: "organization",
+      entity_id: organization.id,
+      action: "updated",
+      summary: `Changed status on '${organization.name}'`,
+    });
+  }
+
+  async function handleArchive() {
+    await supabase
+      .from("organizations")
+      .update({ archived_at: new Date().toISOString() })
+      .eq("id", organization.id);
+    logAudit(supabase, {
+      module: "crm",
+      entity_type: "organization",
+      entity_id: organization.id,
+      action: "archived",
+      summary: `Archived organization '${organization.name}'`,
+    });
+    toast.success("Organization archived");
+    router.push("/dashboard/organizations");
+  }
+
+  async function onFormSaved() {
+    setEditing(false);
+    const { data } = await supabase
+      .from("organizations")
+      .select("*")
+      .eq("id", organization.id)
+      .single();
+    if (data) setOrganization(data as Organization);
+  }
+
+  const stage = organization.status ? stagesByKey[organization.status] : null;
+  const typeLabel = organization.type
+    ? ORG_TYPES.find((t) => t.value === organization.type)?.label ?? organization.type
+    : null;
+  const sizeLabel = organization.size
+    ? ORG_SIZES.find((s) => s.value === organization.size)?.label ?? organization.size
+    : null;
+
+  return (
+    <div className="flex h-full flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2 border-b border-border/50 px-4 py-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => router.push("/dashboard/organizations")}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+          <span className="text-sm font-medium truncate">{organization.name}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => setEditing(true)}
+          >
+            <Pencil className="mr-1 h-3 w-3" />
+            Edit
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={handleArchive}
+          >
+            <Archive className="mr-1 h-3 w-3" />
+            Archive
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* Main content */}
+        <div className="flex-1 overflow-auto p-6">
+          <Tabs defaultValue="overview">
+            <TabsList variant="line">
+              <TabsTrigger value="overview" className="text-xs">
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="people" className="text-xs">
+                People {people.length > 0 && `(${people.length})`}
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="overview" className="pt-6 space-y-6">
+              {/* Description */}
+              {organization.description && (
+                <div className="space-y-2">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Description
+                  </h3>
+                  <p className="text-sm text-foreground whitespace-pre-wrap">
+                    {organization.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Core details */}
+              <div className="space-y-2">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Details
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                  {typeLabel && (
+                    <DetailItem icon={Briefcase} label="Type" value={typeLabel} />
+                  )}
+                  {organization.industry && (
+                    <DetailItem
+                      icon={Building2}
+                      label="Industry"
+                      value={organization.industry}
+                    />
+                  )}
+                  {sizeLabel && (
+                    <DetailItem icon={Users} label="Size" value={sizeLabel} />
+                  )}
+                  {organization.location && (
+                    <DetailItem
+                      icon={MapPin}
+                      label="Location"
+                      value={organization.location}
+                    />
+                  )}
+                  {organization.website && (
+                    <DetailItem
+                      icon={Globe}
+                      label="Website"
+                      value={
+                        <a
+                          href={organization.website}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-foreground hover:underline"
+                        >
+                          {organization.website.replace(/^https?:\/\//, "")}
+                        </a>
+                      }
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Custom fields */}
+              {groupedFields.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Custom fields
+                  </h3>
+                  <DynamicFieldGroups
+                    groupedFields={groupedFields}
+                    values={organization.extended ?? {}}
+                    onChange={() => {
+                      /* readonly here — editing happens via form */
+                    }}
+                    openByDefault={groupedFields.map((g) => g.group)}
+                  />
+                </div>
+              )}
+
+              {/* Notes */}
+              {organization.notes && (
+                <div className="space-y-2">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Notes
+                  </h3>
+                  <p className="text-sm text-foreground whitespace-pre-wrap">
+                    {organization.notes}
+                  </p>
+                </div>
+              )}
+
+              {/* Tags */}
+              {organization.tags.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Tags
+                  </h3>
+                  <div className="flex flex-wrap gap-1">
+                    {organization.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="text-[11px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="people" className="pt-6">
+              {people.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">
+                  No people linked to this organization yet.
+                </p>
+              ) : (
+                <div className="space-y-1">
+                  {people.map((link) => (
+                    <Link
+                      key={link.id}
+                      href={`/dashboard/contacts/${link.contact.id}`}
+                      className="flex items-center justify-between gap-3 rounded-md border border-border/50 px-3 py-2 hover:bg-accent/40 transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium truncate">
+                          {link.contact.name}
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {link.role || link.contact.title || link.contact.email || "—"}
+                        </div>
+                      </div>
+                      {!link.is_current && (
+                        <span className="text-[10px] text-muted-foreground">Former</span>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        {/* Sidebar */}
+        <aside className="w-[260px] shrink-0 border-l border-border/50 p-4 space-y-4 overflow-auto">
+          <div className="space-y-1.5">
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Status
+            </label>
+            <Select
+              value={organization.status || "none"}
+              onValueChange={handleStatusChange}
+            >
+              <SelectTrigger className="h-7 text-xs">
+                {organization.status ? (
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: stage?.color ?? DEFAULT_STAGE_COLOR }}
+                    />
+                    <span>{stage?.label ?? organization.status}</span>
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground">No status</span>
+                )}
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No status</SelectItem>
+                {stages.map((s) => (
+                  <SelectItem key={s.stage_key} value={s.stage_key}>
+                    <span
+                      className="mr-1.5 inline-block h-2 w-2 rounded-full"
+                      style={{ backgroundColor: s.color ?? DEFAULT_STAGE_COLOR }}
+                    />
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1 pt-4 border-t border-border/50">
+            <div className="flex justify-between text-[11px] text-muted-foreground">
+              <span>Created</span>
+              <span>
+                {formatDistanceToNow(new Date(organization.created_at), {
+                  addSuffix: true,
+                })}
+              </span>
+            </div>
+            <div className="flex justify-between text-[11px] text-muted-foreground">
+              <span>Updated</span>
+              <span>
+                {formatDistanceToNow(new Date(organization.updated_at), {
+                  addSuffix: true,
+                })}
+              </span>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <OrgForm
+        open={editing}
+        onClose={() => setEditing(false)}
+        organization={organization}
+        onSaved={onFormSaved}
+      />
+    </div>
+  );
+}
+
+function DetailItem({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+      <span className="text-xs text-muted-foreground shrink-0">{label}:</span>
+      <span className="text-sm truncate">{value}</span>
+    </div>
+  );
+}
+
+// Avoid unused-symbol lint
+void StatusDot;

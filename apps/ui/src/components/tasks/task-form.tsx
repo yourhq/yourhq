@@ -1,0 +1,529 @@
+"use client";
+
+import { useEffect, useMemo, useState, useRef } from "react";
+import { createClient } from "@/lib/supabase/client";
+import type { Task, TaskStatus, TaskPriority, Stream } from "@/lib/tasks/types";
+import type { Agent } from "@/lib/agents/types";
+import { TASK_STATUSES, TASK_PRIORITIES } from "@/lib/tasks/types";
+import { logAudit } from "@/lib/audit/log";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { Textarea } from "@/components/ui/textarea";
+import { DatePickerButton } from "@/components/ui/date-picker-button";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import { TaskAttachments } from "./task-attachments";
+import { CommentThread } from "./comment-thread";
+import { useComments } from "@/hooks/use-comments";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
+import { Paperclip, MessageSquare, ChevronRight, Archive } from "lucide-react";
+import {
+  RecurrencePicker,
+  DEFAULT_RECURRENCE,
+  type RecurrenceValue,
+} from "./recurrence-picker";
+import {
+  RecurrenceScopeDialog,
+  type EditScope,
+} from "./recurrence-scope-dialog";
+import { useTaskSeries } from "@/hooks/use-task-series";
+import { browserTimezone, getWorkspaceTimezone } from "@/lib/workspace/timezone";
+import { shortCadenceLabel } from "@/lib/tasks/cadence";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+
+const PRIORITY_COLORS: Record<string, string> = {
+  urgent: "bg-red-500",
+  high: "bg-orange-500",
+  medium: "bg-yellow-500",
+  low: "bg-blue-500",
+};
+
+const STATUS_ICONS: Record<string, string> = {
+  todo: "○",
+  in_progress: "◐",
+  blocked: "◍",
+  done: "●",
+  cancelled: "⊘",
+};
+
+/** Sub-component to avoid conditional useComments hook call */
+function TaskFormComments({ taskId }: { taskId: string }) {
+  const { comments, loading, actions } = useComments(taskId);
+  return (
+    <CommentThread
+      comments={comments}
+      loading={loading}
+      onAddComment={actions.addComment}
+      onEditComment={actions.editComment}
+      onDeleteComment={actions.deleteComment}
+      portal={false}
+    />
+  );
+}
+
+interface TaskFormProps {
+  streams: Stream[];
+  editingTask: Task | null;
+  onSave: () => void;
+  onCancel: () => void;
+  onArchive?: (id: string) => void;
+}
+
+export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive }: TaskFormProps) {
+  const supabase = useMemo(() => createClient(), []);
+  const router = useRouter();
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [saving, setSaving] = useState(false);
+  const titleRef = useRef<HTMLTextAreaElement>(null);
+
+  const [title, setTitle] = useState(editingTask?.title ?? "");
+  const [description, setDescription] = useState(editingTask?.description ?? "");
+  const [status, setStatus] = useState<TaskStatus>(editingTask?.status ?? "todo");
+  const [priority, setPriority] = useState<TaskPriority>(editingTask?.priority ?? "medium");
+  const [streamId, setStreamId] = useState(editingTask?.stream_id ?? "none");
+  const [assignee, setAssignee] = useState(() => {
+    if (editingTask?.assignee_type === "human") return "me";
+    if (editingTask?.assignee_agent_id) return editingTask.assignee_agent_id;
+    return "none";
+  });
+  const [dueDate, setDueDate] = useState<string | null>(editingTask?.due_date ?? null);
+  const [showDescription, setShowDescription] = useState(!!editingTask?.description);
+  const [savedTaskId, setSavedTaskId] = useState<string | null>(editingTask?.id ?? null);
+  const [recurrence, setRecurrence] = useState<RecurrenceValue>(DEFAULT_RECURRENCE);
+  const [tz, setTz] = useState<string>(browserTimezone());
+  const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
+  const { actions: seriesActions } = useTaskSeries();
+  const editingSeriesId = editingTask?.series_id ?? null;
+
+  // Load workspace timezone
+  useEffect(() => {
+    getWorkspaceTimezone().then(setTz);
+  }, []);
+
+  // If editing an instance of a series, load the series to prefill recurrence.
+  useEffect(() => {
+    if (!editingSeriesId) return;
+    supabase
+      .from("task_series")
+      .select("*")
+      .eq("id", editingSeriesId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) return;
+        setRecurrence({
+          enabled: true,
+          cadenceType: data.cadence_type,
+          intervalN: data.interval_n ?? 1,
+          daysOfWeek: data.days_of_week ?? [],
+          dayOfMonth: data.day_of_month ?? null,
+          timeOfDay: (data.time_of_day ?? "09:00").slice(0, 5),
+        });
+        if (data.timezone) setTz(data.timezone);
+      });
+  }, [editingSeriesId, supabase]);
+
+  useEffect(() => {
+    supabase.from("agents").select("*").order("name").then(({ data }) => {
+      if (data) setAgents(data as Agent[]);
+    });
+  }, [supabase]);
+
+  // Auto-resize title
+  useEffect(() => {
+    if (titleRef.current) {
+      titleRef.current.style.height = "auto";
+      titleRef.current.style.height = titleRef.current.scrollHeight + "px";
+    }
+  }, [title]);
+
+  function buildTaskPayload() {
+    return {
+      title: title.trim(),
+      description: description.trim() || null,
+      status,
+      priority,
+      stream_id: streamId !== "none" ? streamId : null,
+      assignee_type:
+        assignee === "me"
+          ? ("human" as const)
+          : assignee !== "none"
+            ? ("agent" as const)
+            : null,
+      assignee_agent_id:
+        assignee !== "me" && assignee !== "none" ? assignee : null,
+      due_date: dueDate || null,
+    };
+  }
+
+  function buildSeriesPayload() {
+    return {
+      title: title.trim(),
+      description: description.trim() || null,
+      priority,
+      stream_id: streamId !== "none" ? streamId : null,
+      assignee_type:
+        assignee === "me"
+          ? ("human" as const)
+          : assignee !== "none"
+            ? ("agent" as const)
+            : null,
+      assignee_agent_id:
+        assignee !== "me" && assignee !== "none" ? assignee : null,
+      tags: [] as string[],
+      linked_entity_type: null,
+      linked_entity_id: null,
+      meta: {},
+      cadence_type: recurrence.cadenceType,
+      interval_n: recurrence.intervalN,
+      days_of_week: recurrence.daysOfWeek,
+      day_of_month:
+        recurrence.cadenceType === "monthly" ? recurrence.dayOfMonth : null,
+      time_of_day: recurrence.timeOfDay.length === 5
+        ? recurrence.timeOfDay + ":00"
+        : recurrence.timeOfDay,
+      timezone: tz,
+      is_paused: false,
+      starts_on: new Date().toISOString().slice(0, 10),
+      ends_on: null,
+      ends_after_count: null,
+      missed_policy: "auto_skip" as const,
+    };
+  }
+
+  async function handleSubmit(opts?: { autoSave?: boolean }) {
+    if (!title.trim()) return;
+
+    // Editing an existing recurring instance with modifications that should
+    // apply to all future: ask for scope first.
+    if (savedTaskId && editingSeriesId && recurrence.enabled && !opts?.autoSave) {
+      setScopeDialogOpen(true);
+      return;
+    }
+
+    setSaving(true);
+
+    const payload = buildTaskPayload();
+
+    // Recurrence enabled + no series yet (either no task saved, or a task
+    // was autosaved before recurrence was toggled on). Create series; if an
+    // orphan task row was autosaved, remove it — the spawn job owns instances.
+    if (recurrence.enabled && !editingSeriesId) {
+      const seriesPayload = buildSeriesPayload();
+      const series = await seriesActions.createSeries(seriesPayload);
+      if (series && savedTaskId) {
+        await supabase.from("tasks").delete().eq("id", savedTaskId);
+        setSavedTaskId(null);
+      }
+      setSaving(false);
+      if (series) {
+        const cadenceLabel = shortCadenceLabel(seriesPayload);
+        toast.success(`${cadenceLabel} task scheduled`, {
+          description: `'${payload.title}' will spawn on cadence.`,
+          action: {
+            label: "View series",
+            onClick: () =>
+              router.push(`/dashboard/tasks?series=${series.id}`),
+          },
+        });
+        if (!opts?.autoSave) onSave();
+      }
+      return;
+    }
+
+    if (savedTaskId) {
+      await supabase.from("tasks").update(payload).eq("id", savedTaskId);
+      logAudit(supabase, {
+        module: "tasks",
+        entity_type: "task",
+        entity_id: savedTaskId,
+        action: "updated",
+        summary: `Updated task '${payload.title}'`,
+      });
+    } else {
+      const { data: inserted } = await supabase
+        .from("tasks")
+        .insert(payload)
+        .select("id")
+        .single();
+      if (inserted) {
+        setSavedTaskId(inserted.id);
+        logAudit(supabase, {
+          module: "tasks",
+          entity_type: "task",
+          entity_id: inserted.id,
+          action: "created",
+          summary: `Created task '${payload.title}'`,
+        });
+      }
+    }
+
+    setSaving(false);
+    if (!opts?.autoSave) onSave();
+  }
+
+  async function handleScopeConfirm(scope: EditScope) {
+    setScopeDialogOpen(false);
+    if (!savedTaskId) return;
+    setSaving(true);
+
+    if (scope === "instance") {
+      await supabase.from("tasks").update(buildTaskPayload()).eq("id", savedTaskId);
+      logAudit(supabase, {
+        module: "tasks",
+        entity_type: "task",
+        entity_id: savedTaskId,
+        action: "updated",
+        summary: `Updated task occurrence`,
+      });
+    } else if (scope === "series" && editingSeriesId) {
+      // Update the series (recurrence + shared fields). Also update this
+      // instance so the visible row reflects the new fields now.
+      await seriesActions.updateSeries(editingSeriesId, buildSeriesPayload());
+      await supabase.from("tasks").update(buildTaskPayload()).eq("id", savedTaskId);
+    }
+
+    setSaving(false);
+    onSave();
+  }
+
+  async function handleAttachClick() {
+    if (!savedTaskId) {
+      // Auto-save the task first
+      await handleSubmit({ autoSave: true });
+    }
+  }
+
+  function handleTitleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (title.trim()) handleSubmit();
+    }
+  }
+
+  const selectedStream = streams.find((s) => s.id === streamId);
+  const selectedPriority = TASK_PRIORITIES.find((p) => p.value === priority);
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onCancel()}>
+      <DialogContent className="sm:max-w-xl p-0 gap-0 overflow-hidden max-h-[85dvh] flex flex-col">
+        <DialogTitle className="sr-only">
+          {editingTask ? "Edit task" : "New task"}
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          Create or edit a task with title, description, status, priority, stream, assignee, and due date.
+        </DialogDescription>
+        {/* Title area - the main focus */}
+        <div className="px-4 pt-4 pb-2">
+          <textarea
+            ref={titleRef}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={handleTitleKeyDown}
+            placeholder={editingTask ? "Task title" : "What needs to be done?"}
+            autoFocus
+            rows={1}
+            className="w-full resize-none overflow-hidden border-0 bg-transparent text-base font-medium text-foreground outline-none placeholder:text-muted-foreground/50"
+          />
+          {/* Description - expandable */}
+          {showDescription ? (
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Add description..."
+              rows={2}
+              className="mt-1 border-0 bg-transparent px-0 text-sm text-muted-foreground shadow-none resize-none focus-visible:ring-0 placeholder:text-muted-foreground/40"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowDescription(true)}
+              className="mt-1 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+            >
+              Add description...
+            </button>
+          )}
+        </div>
+
+        {/* Scrollable middle section */}
+        <div className="flex-1 overflow-y-auto min-h-0">
+        {/* Property bar - Linear-style inline tokens */}
+        <div className="flex flex-wrap items-center gap-1.5 border-t border-border/50 px-4 py-2.5">
+          {/* Status */}
+          <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
+            <SelectTrigger className="h-6 w-auto gap-1 border-border/50 bg-transparent px-2 text-xs font-normal hover:bg-accent">
+              <span className="text-muted-foreground">{STATUS_ICONS[status]}</span>
+              <span>{TASK_STATUSES.find((s) => s.value === status)?.label}</span>
+            </SelectTrigger>
+            <SelectContent portal={false}>
+              {TASK_STATUSES.map((s) => (
+                <SelectItem key={s.value} value={s.value}>
+                  <span className="mr-1.5 text-muted-foreground">{STATUS_ICONS[s.value]}</span>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Priority */}
+          <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
+            <SelectTrigger className="h-6 w-auto gap-1 border-border/50 bg-transparent px-2 text-xs font-normal hover:bg-accent">
+              <span className={cn("h-2 w-2 rounded-full", PRIORITY_COLORS[priority])} />
+              <span>{selectedPriority?.label}</span>
+            </SelectTrigger>
+            <SelectContent portal={false}>
+              {TASK_PRIORITIES.map((p) => (
+                <SelectItem key={p.value} value={p.value}>
+                  <span className={cn("mr-1.5 inline-block h-2 w-2 rounded-full", PRIORITY_COLORS[p.value])} />
+                  {p.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Stream */}
+          <Select value={streamId} onValueChange={setStreamId}>
+            <SelectTrigger className="h-6 w-auto gap-1 border-border/50 bg-transparent px-2 text-xs font-normal hover:bg-accent">
+              {selectedStream ? (
+                <>
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: selectedStream.color }} />
+                  <span>{selectedStream.name}</span>
+                </>
+              ) : (
+                <span className="text-muted-foreground">No stream</span>
+              )}
+            </SelectTrigger>
+            <SelectContent portal={false}>
+              <SelectItem value="none">No stream</SelectItem>
+              {streams.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  <span className="mr-1.5 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
+                  {s.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Assignee */}
+          <Select value={assignee} onValueChange={setAssignee}>
+            <SelectTrigger className="h-6 w-auto gap-1 border-border/50 bg-transparent px-2 text-xs font-normal hover:bg-accent">
+              <span className="text-muted-foreground">
+                {assignee === "none" ? "Unassigned" : assignee === "me" ? "Me" : agents.find((a) => a.id === assignee)?.name ?? "Agent"}
+              </span>
+            </SelectTrigger>
+            <SelectContent portal={false}>
+              <SelectItem value="none">Unassigned</SelectItem>
+              <SelectItem value="me">Me</SelectItem>
+              {agents.map((a) => (
+                <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Due date */}
+          <DatePickerButton
+            value={dueDate}
+            onChange={setDueDate}
+            placeholder="No due date"
+            className="h-6 w-auto border-border/50 bg-transparent px-2 text-xs font-normal hover:bg-accent"
+            portal={false}
+          />
+
+          {/* Recurrence */}
+          <RecurrencePicker value={recurrence} onChange={setRecurrence} timezone={tz} />
+        </div>
+
+        {/* Attachments section */}
+        {savedTaskId ? (
+          <div className="border-t border-border/50 px-4 py-2.5">
+            <TaskAttachments taskId={savedTaskId} />
+          </div>
+        ) : (
+          <div className="border-t border-border/50 px-4 py-2">
+            <button
+              type="button"
+              onClick={handleAttachClick}
+              disabled={saving || !title.trim()}
+              className="flex items-center gap-1 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors disabled:opacity-50"
+            >
+              <Paperclip className="h-3 w-3" />
+              Attach (saves task first)
+            </button>
+          </div>
+        )}
+
+        {/* Comments section — only for existing tasks */}
+        {savedTaskId && (
+          <div className="border-t border-border/50">
+            <Collapsible>
+              <CollapsibleTrigger className="flex w-full items-center gap-1.5 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <ChevronRight className="h-3 w-3 transition-transform duration-200 [[data-state=open]>&]:rotate-90" />
+                <MessageSquare className="h-3.5 w-3.5" />
+                <span className="font-medium">Comments</span>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="px-4 pb-3">
+                <TaskFormComments taskId={savedTaskId} />
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+        )}
+
+        </div>{/* end scrollable middle section */}
+
+        {/* Submit bar */}
+        <div className="flex items-center justify-between border-t border-border/50 px-4 py-2 shrink-0">
+          <div className="flex items-center gap-2">
+            {editingTask && onArchive && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  onArchive(editingTask.id);
+                  onCancel();
+                }}
+              >
+                <Archive className="h-3 w-3 mr-1" />
+                Archive
+              </Button>
+            )}
+            {!editingTask && !onArchive && (
+              <p className="text-[11px] text-muted-foreground/50">
+                Press Enter to {savedTaskId ? "save" : "create"}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button size="sm" className="h-7 text-xs" onClick={() => handleSubmit()} disabled={saving || !title.trim()}>
+              {saving && <Spinner className="mr-1.5 h-3 w-3" />}
+              {saving ? "Saving..." : savedTaskId ? "Save" : "Create"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+      <RecurrenceScopeDialog
+        open={scopeDialogOpen}
+        onCancel={() => setScopeDialogOpen(false)}
+        onConfirm={handleScopeConfirm}
+      />
+    </Dialog>
+  );
+}

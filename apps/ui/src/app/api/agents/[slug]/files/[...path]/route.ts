@@ -1,0 +1,147 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import {
+  getFileContent,
+  saveFile,
+  createFile,
+  deleteFile,
+} from "@/lib/github/client";
+import { logAudit } from "@/lib/audit/log";
+import { resolveAgentBranch } from "@/lib/workspace/branch";
+
+type RouteParams = { params: Promise<{ slug: string; path: string[] }> };
+
+async function authorize() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  return supabase;
+}
+
+export async function GET(_request: Request, { params }: RouteParams) {
+  if (!(await authorize())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { slug, path } = await params;
+  const branch = await resolveAgentBranch(slug);
+  const filePath = path.join("/");
+
+  try {
+    const file = await getFileContent(branch, filePath);
+    return NextResponse.json(file);
+  } catch (e: unknown) {
+    console.error("[api/agents/files] Error reading file:", e);
+    const message = e instanceof Error ? e.message : "Failed to read file";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function PUT(request: Request, { params }: RouteParams) {
+  const supabase = await authorize();
+  if (!supabase) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { slug, path } = await params;
+  const branch = await resolveAgentBranch(slug);
+  const filePath = path.join("/");
+  const body = await request.json() as { content: string; sha: string };
+
+  try {
+    const newSha = await saveFile(branch, filePath, body.content, body.sha);
+
+    logAudit(supabase, {
+      module: "agents",
+      entity_type: "agent_file",
+      entity_id: `${slug}/${filePath}`,
+      action: "updated",
+      summary: `Updated file ${filePath} on branch ${branch}`,
+    });
+
+    // Auto-enqueue an update command so the EC2 pulls the latest
+    const { data: agent } = await supabase
+      .from("agents")
+      .select("id")
+      .eq("slug", slug)
+      .maybeSingle();
+
+    if (agent) {
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase.from("agent_commands").insert({
+        agent_id: agent.id,
+        agent_slug: slug,
+        action: "update",
+        payload: { trigger: "file_push", file: filePath },
+        requested_by: user?.id ?? null,
+      });
+    }
+
+    return NextResponse.json({ sha: newSha, path: filePath });
+  } catch (e: unknown) {
+    console.error("[api/agents/files] Error saving file:", e);
+    const message = e instanceof Error ? e.message : "Failed to save file";
+    const status = message.includes("does not match") ? 409 : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
+}
+
+export async function POST(request: Request, { params }: RouteParams) {
+  const supabase = await authorize();
+  if (!supabase) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { slug, path } = await params;
+  const branch = await resolveAgentBranch(slug);
+  const filePath = path.join("/");
+  const body = await request.json() as { content?: string };
+
+  try {
+    const sha = await createFile(branch, filePath, body.content ?? "");
+
+    logAudit(supabase, {
+      module: "agents",
+      entity_type: "agent_file",
+      entity_id: `${slug}/${filePath}`,
+      action: "created",
+      summary: `Created file ${filePath} on branch ${branch}`,
+    });
+
+    return NextResponse.json({ sha, path: filePath }, { status: 201 });
+  } catch (e: unknown) {
+    console.error("[api/agents/files] Error creating file:", e);
+    const message = e instanceof Error ? e.message : "Failed to create file";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request, { params }: RouteParams) {
+  const supabase = await authorize();
+  if (!supabase) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { slug, path } = await params;
+  const branch = await resolveAgentBranch(slug);
+  const filePath = path.join("/");
+  const body = await request.json() as { sha: string };
+
+  try {
+    await deleteFile(branch, filePath, body.sha);
+
+    logAudit(supabase, {
+      module: "agents",
+      entity_type: "agent_file",
+      entity_id: `${slug}/${filePath}`,
+      action: "deleted",
+      summary: `Deleted file ${filePath} from branch ${branch}`,
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (e: unknown) {
+    console.error("[api/agents/files] Error deleting file:", e);
+    const message = e instanceof Error ? e.message : "Failed to delete file";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

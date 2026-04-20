@@ -1,0 +1,10 @@
+{
+  "id": "hq-bootstrap",
+  "name": "HQ Bootstrap",
+  "description": "Bootstraps HQ registration and boot-doc context for new sessions",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}
