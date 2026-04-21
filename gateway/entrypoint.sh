@@ -297,17 +297,31 @@ log "Starting XFCE session on :1 ..."
 # xfce4-session is the full-desktop entry point: panel, desktop,
 # window manager (xfwm4), settings daemon, file manager. dbus-launch
 # ensures there's a session bus for XFCE's components to talk over.
-# Errors and output go to a log so we can debug without polluting the
-# main container log.
+#
+# The env-var dance matters:
+# - XDG_CONFIG_DIRS must include /etc/xdg so XFCE finds its default
+#   session files (ships in /etc/xdg/xfce4 from the apt package).
+# - XDG_DATA_DIRS same idea for app .desktop files.
+# - XDG_RUNTIME_DIR is where xfconfd and friends put their sockets.
+#   Bare containers don't have one set.
 xdg-user-dirs-update 2>/dev/null || true
-DISPLAY=:1 XDG_SESSION_TYPE=x11 \
+
+XDG_RUNTIME_DIR="/tmp/runtime-$(id -u)"
+mkdir -p "$XDG_RUNTIME_DIR"
+chmod 700 "$XDG_RUNTIME_DIR"
+export XDG_RUNTIME_DIR
+
+DISPLAY=:1 \
+XDG_SESSION_TYPE=x11 \
+XDG_CONFIG_DIRS="/etc/xdg/xdg-xubuntu:/etc/xdg" \
+XDG_DATA_DIRS="/usr/local/share:/usr/share:/var/lib/snapd/desktop" \
   dbus-launch --exit-with-session startxfce4 \
   > "$HOME/xfce.log" 2>&1 &
 XFCE_PID=$!
-sleep 2
+sleep 3
 if ! kill -0 "$XFCE_PID" 2>/dev/null; then
   log "⚠ XFCE session exited immediately — tail log:"
-  tail -20 "$HOME/xfce.log" 2>&1 | sed 's/^/    /'
+  tail -30 "$HOME/xfce.log" 2>&1 | sed 's/^/    /'
 fi
 
 # ─────────────────────────────────────────────────────────────
