@@ -12,7 +12,7 @@
 #   4. Run `openclaw onboard` on first boot (creates openclaw.json).
 #   5. Patch openclaw.json with defaults (browser path, telegram, plugins).
 #   6. Install the hq-bootstrap plugin.
-#   7. Start Xvfb + fluxbox + the VNC server on :1.
+#   7. Start Xtigervnc + XFCE desktop on :1.
 #   8. Start websockify against the VNC server, binding per $NOVNC_BIND
 #      (local | tailscale | public). Optionally front with Caddy for TLS.
 #   9. Upsert this gateway's row in the Supabase `gateways` table so the UI
@@ -241,7 +241,7 @@ fi
 mkdir -p "$SHARED_AUTH"
 
 # ─────────────────────────────────────────────────────────────
-# 7. Xvfb + fluxbox + VNC server on :1
+# 7. Xtigervnc + XFCE desktop on :1
 # ─────────────────────────────────────────────────────────────
 
 # ─────────────────────────────────────────────────────────────
@@ -293,8 +293,22 @@ if ! kill -0 "$XVNC_PID" 2>/dev/null; then
   tail -20 "$HOME/.vnc/Xtigervnc.log" 2>&1 | sed 's/^/    /'
 fi
 
-log "Starting fluxbox (window manager) on :1 ..."
-DISPLAY=:1 fluxbox -log /dev/null > "$HOME/fluxbox.log" 2>&1 &
+log "Starting XFCE session on :1 ..."
+# xfce4-session is the full-desktop entry point: panel, desktop,
+# window manager (xfwm4), settings daemon, file manager. dbus-launch
+# ensures there's a session bus for XFCE's components to talk over.
+# Errors and output go to a log so we can debug without polluting the
+# main container log.
+xdg-user-dirs-update 2>/dev/null || true
+DISPLAY=:1 XDG_SESSION_TYPE=x11 \
+  dbus-launch --exit-with-session startxfce4 \
+  > "$HOME/xfce.log" 2>&1 &
+XFCE_PID=$!
+sleep 2
+if ! kill -0 "$XFCE_PID" 2>/dev/null; then
+  log "⚠ XFCE session exited immediately — tail log:"
+  tail -20 "$HOME/xfce.log" 2>&1 | sed 's/^/    /'
+fi
 
 # ─────────────────────────────────────────────────────────────
 # 8. websockify (noVNC) + optional Caddy

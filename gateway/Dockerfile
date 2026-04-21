@@ -1,7 +1,8 @@
 # =============================================================================
 # Gateway image — OpenClaw + Chrome + Xtigervnc + Tailscale + noVNC + Caddy.
 #
-# One container runs: Xtigervnc (X + VNC in one process), Chrome (via CDP),
+# One container runs: Xtigervnc (X + VNC in one process), XFCE (full desktop),
+# Chrome (via CDP),
 # noVNC/websockify (browser-based VNC), optional Tailscale (network join),
 # optional Caddy (TLS front-end for public-mode noVNC), and the OpenClaw
 # gateway itself (PID 1 via tini).
@@ -30,12 +31,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl wget gnupg jq git openssh-client unzip tini \
       python3 python3-pip \
       xvfb x11-utils x11-xkb-utils xkb-data dbus-x11 \
-      fluxbox \
       net-tools iproute2 iptables iputils-ping \
       fonts-liberation libatk-bridge2.0-0 libatk1.0-0 libcups2 \
       libdrm2 libgbm1 libgtk-3-0 libnspr4 libnss3 \
       libxcomposite1 libxdamage1 libxrandr2 xdg-utils \
       libxss1 libasound2t64 \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── XFCE desktop environment ─────────────────────────────────
+# A real desktop: panel, menu, file manager, terminal, settings,
+# wallpaper. `xfce4-goodies` adds standard apps (screenshot tool,
+# calculator, sensible panel plugins). `dbus-x11` and `xdg-user-dirs`
+# are prerequisites for a well-behaved session.
+# ~500 MB installed. Well worth the headroom for a usable experience.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      xfce4 xfce4-goodies xfce4-terminal \
+      thunar xdg-user-dirs \
     && rm -rf /var/lib/apt/lists/*
 
 # ── Node.js 24 (for OpenClaw CLI) ────────────────────────────
