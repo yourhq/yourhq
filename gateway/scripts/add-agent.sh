@@ -1,57 +1,172 @@
 #!/usr/bin/env bash
+# =============================================================================
+# Add (or re-provision) an agent.
+#
+# In the monorepo/Docker architecture the UI no longer creates the per-agent
+# git branch itself — this script does. It:
+#
+#   1. Creates <branch> (default "<workspace>/<slug>") off <source-branch>
+#      (default "default") if the branch doesn't already exist.
+#   2. Patches agent.json with the wizard inputs (slug, name, description,
+#      emoji, telegram_token_env).
+#   3. Fills in USER.md placeholder tokens from the owner profile.
+#   4. Commits the init patches so future `git pull`s are clean.
+#   5. Checks out the branch as a worktree.
+#   6. Patches openclaw.json with the agent's entry + telegram binding.
+#   7. Links the shared auth profile so this agent inherits Codex OAuth.
+#   8. Restarts the gateway so the new agent is picked up.
+#
+# Usage:
+#   ~/add-agent.sh <branch> \
+#     --token <telegram-bot-token> \
+#     [--source-branch <template-branch-or-default>] \
+#     [--slug <agent-slug>] \
+#     [--name <display-name>] \
+#     [--description <text>] \
+#     [--emoji <emoji>] \
+#     [--owner-name <name>] \
+#     [--owner-preferred-name <name>] \
+#     [--owner-timezone <tz>]
+#
+# Any optional flag can be omitted — defaults fall back to existing branch
+# content or placeholder values.
+# =============================================================================
 set -euo pipefail
 
 AGENT_NAME=""
 BOT_TOKEN=""
+SOURCE_BRANCH=""
+AGENT_SLUG=""
+AGENT_DISPLAY_NAME=""
+AGENT_DESCRIPTION=""
+AGENT_EMOJI=""
+OWNER_NAME=""
+OWNER_PREFERRED_NAME=""
+OWNER_TIMEZONE=""
+
 while [[ $# -gt 0 ]]; do
   case $1 in
-    --token) BOT_TOKEN="$2"; shift 2 ;;
-    --help|-h) echo "Usage: ~/add-agent.sh <branch> --token <token>"; exit 0 ;;
+    --token)                 BOT_TOKEN="$2"; shift 2 ;;
+    --source-branch)         SOURCE_BRANCH="$2"; shift 2 ;;
+    --slug)                  AGENT_SLUG="$2"; shift 2 ;;
+    --name)                  AGENT_DISPLAY_NAME="$2"; shift 2 ;;
+    --description)           AGENT_DESCRIPTION="$2"; shift 2 ;;
+    --emoji)                 AGENT_EMOJI="$2"; shift 2 ;;
+    --owner-name)            OWNER_NAME="$2"; shift 2 ;;
+    --owner-preferred-name)  OWNER_PREFERRED_NAME="$2"; shift 2 ;;
+    --owner-timezone)        OWNER_TIMEZONE="$2"; shift 2 ;;
+    --help|-h)
+      sed -n '2,35p' "$0"
+      exit 0
+      ;;
     *) AGENT_NAME="$1"; shift ;;
   esac
 done
-[ -z "$AGENT_NAME" ] && echo "Usage: ~/add-agent.sh <branch> --token <token>" && exit 1
+
+[ -z "$AGENT_NAME" ] && echo "ERROR: <branch> positional arg required. See --help." && exit 1
 [ -z "$BOT_TOKEN" ] && echo "ERROR: --token required." && exit 1
 
 CONFIG="$HOME/.openclaw/openclaw.json"
 REPO_DIR="$HOME/.openclaw/repo.git"
 WORKSPACE="$HOME/.openclaw/workspace-${AGENT_NAME}"
 [ ! -f "$CONFIG" ] && echo "ERROR: $CONFIG not found." && exit 1
-[ ! -d "$REPO_DIR" ] && echo "ERROR: Repo not found." && exit 1
+[ ! -d "$REPO_DIR" ] && echo "ERROR: Repo not found at $REPO_DIR." && exit 1
+
+# Fallbacks
+[ -z "$AGENT_SLUG" ] && AGENT_SLUG="${AGENT_NAME##*/}"
+[ -z "$SOURCE_BRANCH" ] && SOURCE_BRANCH="default"
 
 echo "══════════════════════════════════════════"
 echo "  Adding agent: $AGENT_NAME"
+echo "  Source:       $SOURCE_BRANCH"
+echo "  Slug:         $AGENT_SLUG"
 echo "══════════════════════════════════════════"
 
-# Fetch + worktree
-git -C "$REPO_DIR" fetch origin
+# ── 1. Ensure the agent's branch exists, created off the source ────────
+# `git show-ref` is cheap; if the branch exists we skip the creation step.
+if ! git -C "$REPO_DIR" show-ref --verify --quiet "refs/heads/$AGENT_NAME"; then
+  if ! git -C "$REPO_DIR" show-ref --verify --quiet "refs/heads/$SOURCE_BRANCH"; then
+    echo "ERROR: Source branch '$SOURCE_BRANCH' not found in $REPO_DIR."
+    echo "Available branches:"
+    git -C "$REPO_DIR" branch
+    exit 1
+  fi
+  echo "→ Creating branch $AGENT_NAME off $SOURCE_BRANCH ..."
+  git -C "$REPO_DIR" branch "$AGENT_NAME" "$SOURCE_BRANCH"
+fi
+
+# ── 2. Worktree (idempotent) ───────────────────────────────────────────
 if [ -d "$WORKSPACE" ]; then
-  echo "→ Workspace exists, pulling..."
-  cd "$WORKSPACE" && git pull origin "$AGENT_NAME"
+  echo "→ Worktree exists at $WORKSPACE, refreshing..."
+  git -C "$WORKSPACE" fetch origin 2>/dev/null || true
 else
-  echo "→ Creating git worktree..."
-  git -C "$REPO_DIR" worktree add "$WORKSPACE" "origin/$AGENT_NAME"
-  cd "$WORKSPACE"
-  git checkout -B "$AGENT_NAME" "origin/$AGENT_NAME"
-  git branch --set-upstream-to="origin/$AGENT_NAME" "$AGENT_NAME"
+  echo "→ Creating git worktree at $WORKSPACE ..."
+  git -C "$REPO_DIR" worktree add "$WORKSPACE" "$AGENT_NAME"
 fi
 
 cd "$WORKSPACE"
-git config user.email "openclaw-${AGENT_NAME}@agent.local"
-git config user.name "OpenClaw ($AGENT_NAME)"
+git config user.email "openclaw-${AGENT_SLUG}@agent.local"
+git config user.name "OpenClaw (${AGENT_SLUG})"
 git config push.default current
 
-# Read agent.json
+# ── 3. Patch agent.json with wizard inputs ─────────────────────────────
 AGENT_JSON="$WORKSPACE/agent.json"
-[ ! -f "$AGENT_JSON" ] && echo "ERROR: No agent.json in branch '$AGENT_NAME'" && exit 1
-AGENT_DISPLAY_NAME=$(jq -r '.name // empty' "$AGENT_JSON")
+[ ! -f "$AGENT_JSON" ] && echo "ERROR: No agent.json in $WORKSPACE — source branch is not a valid template." && exit 1
+
+TG_TOKEN_ENV="TELEGRAM_TOKEN_$(echo "$AGENT_SLUG" | tr '[:lower:]-' '[:upper:]_')"
+
+TMP=$(mktemp)
+jq \
+  --arg slug "$AGENT_SLUG" \
+  --arg name "$AGENT_DISPLAY_NAME" \
+  --arg desc "$AGENT_DESCRIPTION" \
+  --arg emoji "$AGENT_EMOJI" \
+  --arg tgEnv "$TG_TOKEN_ENV" \
+'
+  .slug = $slug |
+  (if $name != "" then .name = $name else . end) |
+  (if $desc != "" then .description = $desc else . end) |
+  (if $emoji != "" then .emoji = $emoji else . end) |
+  .telegram_token_env = $tgEnv
+' "$AGENT_JSON" > "$TMP" && mv "$TMP" "$AGENT_JSON"
+
+# ── 4. Fill USER.md placeholder tokens if the file exists ──────────────
+USER_MD="$WORKSPACE/USER.md"
+if [ -f "$USER_MD" ] && [ -n "$OWNER_NAME$OWNER_PREFERRED_NAME$OWNER_TIMEZONE" ]; then
+  echo "→ Populating USER.md with owner profile ..."
+  python3 - "$USER_MD" "$OWNER_NAME" "$OWNER_PREFERRED_NAME" "$OWNER_TIMEZONE" << 'PYEOF'
+import sys
+path, name, pref, tz = sys.argv[1:5]
+with open(path) as f:
+    content = f.read()
+if name:
+    content = content.replace("USER_NAME_HERE", name)
+if pref:
+    content = content.replace("PREFERRED_NAME_HERE", pref)
+if tz:
+    content = content.replace("TIMEZONE_HERE", tz)
+with open(path, "w") as f:
+    f.write(content)
+PYEOF
+fi
+
+# ── 5. Commit the initialization patches ───────────────────────────────
+if ! git diff --quiet; then
+  echo "→ Committing initialization patches ..."
+  git add agent.json USER.md 2>/dev/null || true
+  git add -A
+  git commit -q -m "feat: initialize agent ${AGENT_SLUG}" || true
+fi
+
+# ── 6. Read the patched manifest for downstream config ─────────────────
+AGENT_NAME_DISPLAY=$(jq -r '.name // empty' "$AGENT_JSON")
 AGENT_MODEL=$(jq -r '.model // "openai-codex/gpt-4o"' "$AGENT_JSON")
 BROWSER_PROFILE=$(jq -r '.browserProfile // empty' "$AGENT_JSON")
 BROWSER_COLOR=$(jq -r '.browserColor // "#FF4500"' "$AGENT_JSON")
-[ -z "$AGENT_DISPLAY_NAME" ] && AGENT_DISPLAY_NAME="$AGENT_NAME"
-echo "  Name: $AGENT_DISPLAY_NAME | Model: $AGENT_MODEL | Browser: ${BROWSER_PROFILE:-none}"
+[ -z "$AGENT_NAME_DISPLAY" ] && AGENT_NAME_DISPLAY="$AGENT_SLUG"
+echo "  Name: $AGENT_NAME_DISPLAY | Model: $AGENT_MODEL | Browser: ${BROWSER_PROFILE:-none}"
 
-# CDP port
+# ── 7. Allocate a CDP port (only if this agent uses a browser profile) ─
 CDP_PORT=""
 if [ -n "$BROWSER_PROFILE" ]; then
   USED_PORTS=$(jq -r '.browser.profiles // {} | to_entries[] | .value.cdpPort // empty' "$CONFIG" 2>/dev/null)
@@ -60,14 +175,12 @@ if [ -n "$BROWSER_PROFILE" ]; then
   [ "$CDP_PORT" -eq 18800 ] && CDP_PORT=18803
 fi
 
-# Derive simple slug for Telegram account ID (strip workspace prefix)
-# e.g., "flight-recap/marco" → "marco", "marco" → "marco"
 TG_ACCOUNT_ID="${AGENT_NAME##*/}"
 
-# Update config
-TEMP=$(mktemp)
+# ── 8. Update openclaw.json ────────────────────────────────────────────
+TMP=$(mktemp)
 jq \
-  --arg id "$AGENT_NAME" --arg name "$AGENT_DISPLAY_NAME" --arg workspace "$WORKSPACE" \
+  --arg id "$AGENT_NAME" --arg name "$AGENT_NAME_DISPLAY" --arg workspace "$WORKSPACE" \
   --arg model "$AGENT_MODEL" --arg bp "$BROWSER_PROFILE" --arg bc "$BROWSER_COLOR" \
   --arg botToken "$BOT_TOKEN" --arg tgAccount "$TG_ACCOUNT_ID" \
   --argjson cdpPort "${CDP_PORT:-null}" \
@@ -81,26 +194,24 @@ jq \
   .channels.telegram.accounts[$tgAccount] = { botToken: $botToken } |
   .bindings //= [] |
   .bindings = [.bindings[] | select(.agentId != $id)] + [{agentId: $id, match: {channel: "telegram", accountId: $tgAccount}}]
-' "$CONFIG" > "$TEMP" && mv "$TEMP" "$CONFIG"
+' "$CONFIG" > "$TMP" && mv "$TMP" "$CONFIG"
 
-# Desktop shortcut
+# ── 9. Desktop shortcut for Chrome profile (if any) ────────────────────
 if [ -n "$BROWSER_PROFILE" ] && [ -n "$CDP_PORT" ]; then
   mkdir -p "$HOME/Desktop"
-  cat > "$HOME/Desktop/Chrome-${AGENT_NAME}.desktop" << SHORTCUT
+  cat > "$HOME/Desktop/Chrome-${AGENT_SLUG}.desktop" << SHORTCUT
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=Chrome (${AGENT_DISPLAY_NAME})
+Name=Chrome (${AGENT_NAME_DISPLAY})
 Exec=/usr/bin/google-chrome-stable --user-data-dir=$HOME/.openclaw/browser/${BROWSER_PROFILE}/user-data --remote-debugging-port=${CDP_PORT}
 Icon=google-chrome
 Terminal=false
 SHORTCUT
-  chmod +x "$HOME/Desktop/Chrome-${AGENT_NAME}.desktop"
+  chmod +x "$HOME/Desktop/Chrome-${AGENT_SLUG}.desktop"
 fi
 
-# Symlink shared auth so this agent inherits the global OAuth credentials.
-# openclaw stores model auth per-agent; we keep one canonical copy in
-# ~/.openclaw/shared-auth/ and symlink every agent to it.
+# ── 10. Link shared auth (Codex OAuth inherited) ───────────────────────
 AGENT_DIR_ID=$(echo "$AGENT_NAME" | tr '/' '-')
 AGENT_AUTH_DIR="$HOME/.openclaw/agents/${AGENT_DIR_ID}/agent"
 SHARED_AUTH="$HOME/.openclaw/shared-auth"
@@ -112,5 +223,6 @@ if [ -d "$SHARED_AUTH" ] && [ -f "$SHARED_AUTH/auth-profiles.json" ]; then
   echo "→ Linked shared auth for $AGENT_NAME"
 fi
 
-openclaw gateway restart
+# ── 11. Restart gateway to pick up new agent ───────────────────────────
+openclaw gateway restart 2>/dev/null || true
 echo "✓ Agent '$AGENT_NAME' added. Pair: openclaw pairing approve telegram <CODE>"

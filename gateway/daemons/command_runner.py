@@ -171,7 +171,26 @@ def build_command(action, agent_slug, payload):
             return None, "Missing telegram_token in payload"
         if not validate_slug(agent_slug):
             return None, f"Invalid agent slug: {agent_slug}"
-        return [f"{HOME}/add-agent.sh", branch, "--token", token], f"Provisioning {agent_slug}"
+        # Phase 1: UI hands off init to the gateway. Payload carries the
+        # wizard inputs so add-agent.sh can create the per-agent branch
+        # locally off the template, patch agent.json, and fill USER.md.
+        args = [f"{HOME}/add-agent.sh", branch, "--token", token]
+        source_template = payload.get("source_template")
+        if source_template:
+            args += ["--source-branch", str(source_template)]
+        args += ["--slug", agent_slug]
+        for flag, key in [
+            ("--name", "name"),
+            ("--description", "description"),
+            ("--emoji", "emoji"),
+            ("--owner-name", "owner_name"),
+            ("--owner-preferred-name", "owner_preferred_name"),
+            ("--owner-timezone", "owner_timezone"),
+        ]:
+            val = payload.get(key)
+            if val:
+                args += [flag, str(val)]
+        return args, f"Provisioning {agent_slug}"
 
     elif action == "approve_pairing":
         code = payload.get("pairing_code")

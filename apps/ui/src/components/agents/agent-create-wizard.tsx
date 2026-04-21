@@ -219,13 +219,25 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
       setCreatedAgentId(result.agentId);
       setCreatedBranch(result.branch);
 
-      // Auto-enqueue provisioning on the EC2
+      // Auto-enqueue provisioning on the gateway. add-agent.sh on the
+      // gateway side handles branch creation off the source template,
+      // agent.json/USER.md patching, and openclaw.json wiring — the UI
+      // just passes the wizard inputs through.
       try {
         await enqueueAgentCommand({
           agentId: result.agentId,
           agentSlug: result.slug,
           action: "provision",
-          payload: token.trim() ? { telegram_token: token.trim() } : {},
+          payload: {
+            ...(token.trim() ? { telegram_token: token.trim() } : {}),
+            source_template: result.sourceBranch,
+            name: name.trim(),
+            description: description.trim() || undefined,
+            emoji: emoji || undefined,
+            owner_name: result.ownerName,
+            owner_preferred_name: result.ownerPreferredName,
+            owner_timezone: result.ownerTimezone,
+          },
         });
       } catch {
         // Non-fatal — retry button in provisioning step lets the user re-enqueue
