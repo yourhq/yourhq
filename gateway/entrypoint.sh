@@ -307,6 +307,14 @@ export XDG_RUNTIME_DIR="/tmp/runtime-$(id -u)"
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
 
+# XDG base dirs. Without these, xfconfd refuses to start ("Unable to
+# create configuration directory (null)") because some glib/xfconf
+# builds don't apply the $HOME/.config fallback automatically.
+export XDG_CONFIG_HOME="$HOME/.config"
+export XDG_DATA_HOME="$HOME/.local/share"
+export XDG_CACHE_HOME="$HOME/.cache"
+mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"
+
 export DISPLAY=:1
 export XDG_SESSION_TYPE=x11
 export XDG_CONFIG_DIRS="/etc/xdg"
