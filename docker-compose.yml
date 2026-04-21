@@ -45,6 +45,10 @@ services:
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       GITHUB_REPO_OWNER: ${GITHUB_REPO_OWNER:-}
       GITHUB_REPO_NAME: ${GITHUB_REPO_NAME:-}
+      # Gateway file-browser: UI talks directly to the gateway's files-API
+      # over the Docker internal network (default) or Tailscale.
+      GATEWAY_URL: ${GATEWAY_URL:-http://gateway:18790}
+      GATEWAY_AUTH_TOKEN: ${GATEWAY_AUTH_TOKEN}
       # Reverse-proxy origin allowlist (Codespaces, VPS behind nginx, etc.)
       CODESPACE_NAME: ${CODESPACE_NAME:-}
       GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN: ${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}
@@ -66,6 +70,10 @@ services:
       GIT_REMOTE_URL: ${GIT_REMOTE_URL:-}
       GIT_DEPLOY_KEY: ${GIT_DEPLOY_KEY:-}
       TEMPLATES_SOURCE: ${TEMPLATES_SOURCE:-}
+      # Files-API (gateway-side HTTP for the UI file browser)
+      GATEWAY_AUTH_TOKEN: ${GATEWAY_AUTH_TOKEN}
+      FILES_API_BIND: ${FILES_API_BIND:-docker}
+      FILES_API_PORT: ${FILES_API_PORT:-18790}
       # Networking + remote desktop
       TAILSCALE_AUTH_KEY: ${TAILSCALE_AUTH_KEY:-}
       TAILSCALE_EXIT_NODE: ${TAILSCALE_EXIT_NODE:-}

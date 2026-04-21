@@ -5,7 +5,7 @@ import {
   saveFile,
   createFile,
   deleteFile,
-} from "@/lib/github/client";
+} from "@/lib/agent-repo/gateway-backend";
 import { logAudit } from "@/lib/audit/log";
 import { resolveAgentBranch } from "@/lib/workspace/branch";
 
@@ -13,7 +13,9 @@ type RouteParams = { params: Promise<{ slug: string; path: string[] }> };
 
 async function authorize() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return null;
   return supabase;
 }
@@ -46,7 +48,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
   const { slug, path } = await params;
   const branch = await resolveAgentBranch(slug);
   const filePath = path.join("/");
-  const body = await request.json() as { content: string; sha: string };
+  const body = (await request.json()) as { content: string; sha: string };
 
   try {
     const newSha = await saveFile(branch, filePath, body.content, body.sha);
@@ -59,29 +61,16 @@ export async function PUT(request: Request, { params }: RouteParams) {
       summary: `Updated file ${filePath} on branch ${branch}`,
     });
 
-    // Auto-enqueue an update command so the EC2 pulls the latest
-    const { data: agent } = await supabase
-      .from("agents")
-      .select("id")
-      .eq("slug", slug)
-      .maybeSingle();
-
-    if (agent) {
-      const { data: { user } } = await supabase.auth.getUser();
-      await supabase.from("agent_commands").insert({
-        agent_id: agent.id,
-        agent_slug: slug,
-        action: "update",
-        payload: { trigger: "file_push", file: filePath },
-        requested_by: user?.id ?? null,
-      });
-    }
-
     return NextResponse.json({ sha: newSha, path: filePath });
   } catch (e: unknown) {
     console.error("[api/agents/files] Error saving file:", e);
     const message = e instanceof Error ? e.message : "Failed to save file";
-    const status = message.includes("does not match") ? 409 : 500;
+    const status =
+      (e as { status?: number }).status === 409 ||
+      message.includes("changed on disk") ||
+      message.includes("does not match")
+        ? 409
+        : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }
@@ -95,7 +84,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   const { slug, path } = await params;
   const branch = await resolveAgentBranch(slug);
   const filePath = path.join("/");
-  const body = await request.json() as { content?: string };
+  const body = (await request.json()) as { content?: string };
 
   try {
     const sha = await createFile(branch, filePath, body.content ?? "");
@@ -125,7 +114,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   const { slug, path } = await params;
   const branch = await resolveAgentBranch(slug);
   const filePath = path.join("/");
-  const body = await request.json() as { sha: string };
+  const body = (await request.json()) as { sha: string };
 
   try {
     await deleteFile(branch, filePath, body.sha);

@@ -125,6 +125,7 @@ COPY --chown=openclaw:openclaw templates /opt/templates
 COPY --chown=openclaw:openclaw gateway/scripts/plugins /opt/openclaw-plugins
 
 # ── Entrypoint ───────────────────────────────────────────────
+COPY --chown=openclaw:openclaw gateway/files_api.py /usr/local/bin/files_api.py
 COPY --chown=openclaw:openclaw gateway/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 

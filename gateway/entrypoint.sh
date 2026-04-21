@@ -371,7 +371,24 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────
-# 10. Launch OpenClaw gateway as PID 1 (well, exec'd under tini)
+# 10. Start files-API (only if GATEWAY_AUTH_TOKEN is set; else skip)
+#     The files-API serves the agent worktrees to the HQ UI over
+#     the Docker internal network (or Tailscale, if enabled).
+# ─────────────────────────────────────────────────────────────
+
+if [ -n "${GATEWAY_AUTH_TOKEN:-}" ] && [ "${FILES_API_BIND:-docker}" != "off" ]; then
+  log "Starting files-API (bind=${FILES_API_BIND:-docker}) ..."
+  FILES_API_BIND="${FILES_API_BIND:-docker}" \
+  FILES_API_PORT="${FILES_API_PORT:-18790}" \
+  GATEWAY_AUTH_TOKEN="$GATEWAY_AUTH_TOKEN" \
+  TAILSCALE_SOCKET="${TAILSCALE_SOCKET:-}" \
+  python3 /usr/local/bin/files_api.py > "$HOME/files-api.log" 2>&1 &
+else
+  log "files-API disabled (GATEWAY_AUTH_TOKEN empty or FILES_API_BIND=off)."
+fi
+
+# ─────────────────────────────────────────────────────────────
+# 11. Launch OpenClaw gateway as PID 1 (well, exec'd under tini)
 # ─────────────────────────────────────────────────────────────
 
 log "Starting openclaw gateway (foreground) ..."

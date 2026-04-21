@@ -21,42 +21,68 @@ export interface GitHubFileContent {
 }
 
 /**
- * Convert a flat list of GitHub tree entries into a nested file tree.
- * Sorts folders first, then files, alphabetically within each group.
+ * Convert a flat list of tree entries (from GitHub or the gateway's
+ * files-API) into a nested file tree. Folders are materialized either
+ * from explicit `type: "tree"` entries or inferred from blob parent
+ * paths so backends that only enumerate blobs still produce a correct
+ * tree.
  */
 export function buildFileTree(entries: GitHubTreeEntry[]): FileTreeNode[] {
-  const root: FileTreeNode[] = [];
   const folderMap = new Map<string, FileTreeNode>();
 
-  // Sort entries so parent folders are processed before children
-  const sorted = [...entries].sort((a, b) => a.path.localeCompare(b.path));
-
-  for (const entry of sorted) {
-    const parts = entry.path.split("/");
-    const name = parts[parts.length - 1];
-
+  const ensureFolder = (path: string): FileTreeNode => {
+    const existing = folderMap.get(path);
+    if (existing) return existing;
+    const parts = path.split("/");
     const node: FileTreeNode = {
-      name,
-      path: entry.path,
-      type: entry.type === "tree" ? "folder" : "file",
-      ...(entry.type === "blob" ? { sha: entry.sha } : {}),
-      ...(entry.type === "tree" ? { children: [] } : {}),
+      name: parts[parts.length - 1],
+      path,
+      type: "folder",
+      children: [],
     };
+    folderMap.set(path, node);
+    const parentPath = parts.slice(0, -1).join("/");
+    if (parentPath) {
+      ensureFolder(parentPath).children!.push(node);
+    } else {
+      // Defer root insertion; we collect roots at the end.
+    }
+    return node;
+  };
+
+  const root: FileTreeNode[] = [];
+  const roots = new Set<FileTreeNode>();
+
+  for (const entry of entries) {
+    const parts = entry.path.split("/");
+    const parentPath = parts.slice(0, -1).join("/");
+    const parent = parentPath ? ensureFolder(parentPath) : null;
 
     if (entry.type === "tree") {
-      folderMap.set(entry.path, node);
-    }
-
-    if (parts.length === 1) {
-      root.push(node);
+      const folder = ensureFolder(entry.path);
+      if (!parent) roots.add(folder);
     } else {
-      const parentPath = parts.slice(0, -1).join("/");
-      const parent = folderMap.get(parentPath);
-      if (parent?.children) {
-        parent.children.push(node);
+      const node: FileTreeNode = {
+        name: parts[parts.length - 1],
+        path: entry.path,
+        type: "file",
+        sha: entry.sha,
+      };
+      if (parent) {
+        parent.children!.push(node);
+      } else {
+        roots.add(node);
       }
     }
   }
+
+  // Root-level folders we inferred from blob paths.
+  for (const node of folderMap.values()) {
+    const parentPath = node.path.split("/").slice(0, -1).join("/");
+    if (!parentPath) roots.add(node);
+  }
+
+  root.push(...roots);
 
   // Sort: folders first, then files, alphabetically within each group
   const sortNodes = (nodes: FileTreeNode[]): FileTreeNode[] => {
