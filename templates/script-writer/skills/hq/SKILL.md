@@ -1,5 +1,5 @@
 ---
-name: command-center
+name: hq
 description: Connect to the HQ via Supabase. Use when you need to register yourself, search or create documents, claim tasks, post comments, manage contacts and organizations, log interactions, or query the audit trail. Also use at session startup to register and load boot documents.
 ---
 
@@ -22,13 +22,13 @@ At the beginning of every session, run these two steps:
 
 ### 1. Register yourself
 ```bash
-python3 {baseDir}/scripts/hq_register.py
+python3 skills/hq/scripts/hq_register.py
 ```
 This upserts your agent in the `agents` table and sets status to `online`.
 
 ### 2. Load boot documents
 ```bash
-python3 {baseDir}/scripts/hq_boot_docs.py
+python3 skills/hq/scripts/hq_boot_docs.py
 ```
 This fetches all documents tagged `boot:all` and `boot:YOUR_SLUG`. Read the output — it's your shared context.
 
@@ -38,14 +38,14 @@ Before writing to contacts or organizations, discover what fields and pipeline s
 
 ### Fetch custom field definitions
 ```bash
-python3 {baseDir}/scripts/hq_get_fields.py --entity-type contact
-python3 {baseDir}/scripts/hq_get_fields.py --entity-type organization
+python3 skills/hq/scripts/hq_get_fields.py --entity-type contact
+python3 skills/hq/scripts/hq_get_fields.py --entity-type organization
 ```
 Returns all active field definitions with keys, types, labels, and descriptions. The `description` field contains guidance for how to populate each field — read it before writing data.
 
 ### Fetch pipeline stages
 ```bash
-python3 {baseDir}/scripts/hq_get_pipeline.py --entity-type contact
+python3 skills/hq/scripts/hq_get_pipeline.py --entity-type contact
 ```
 Returns ordered stages with keys and labels. Only set a contact's `status` to a valid stage key from this list.
 
@@ -57,7 +57,7 @@ Contacts have universal fields (name, email, phone, company, title, etc.) as rea
 
 ### Update extended fields on a contact
 ```bash
-python3 {baseDir}/scripts/hq_update_extended.py contacts CONTACT_ID \
+python3 skills/hq/scripts/hq_update_extended.py contacts CONTACT_ID \
   --data '{"subscriber_count": 145000, "content_style": "vlog"}'
 ```
 This does an atomic read-modify-write: reads the current `extended`, merges your new fields, validates keys against `field_definitions`, and writes back. Unknown field keys are rejected.
@@ -66,7 +66,7 @@ To skip validation (for ad-hoc fields): `--no-validate`
 
 ### Log an interaction
 ```bash
-python3 {baseDir}/scripts/hq_log_interaction.py CONTACT_ID \
+python3 skills/hq/scripts/hq_log_interaction.py CONTACT_ID \
   --type email --direction outbound \
   --summary "Sent initial outreach" \
   --next-action "Follow up if no reply" --next-action-days 7
@@ -79,19 +79,19 @@ Optional: `--channel`, `--subject`, `--body`, `--org-id`, `--template-id`
 
 ### Create an organization
 ```bash
-python3 {baseDir}/scripts/hq_create_org.py --name "Acme Corp" --type company \
+python3 skills/hq/scripts/hq_create_org.py --name "Acme Corp" --type company \
   --website "https://acme.com" --industry "Aviation"
 ```
 Optional: `--location`, `--description`, `--tags tag1,tag2`, `--extended '{"key": "val"}'`
 
 ### Link a contact to an organization
 ```bash
-python3 {baseDir}/scripts/hq_link_contact_org.py CONTACT_ID ORG_ID --role "CEO"
+python3 skills/hq/scripts/hq_link_contact_org.py CONTACT_ID ORG_ID --role "CEO"
 ```
 
 ### Update extended fields on an organization
 ```bash
-python3 {baseDir}/scripts/hq_update_extended.py organizations ORG_ID \
+python3 skills/hq/scripts/hq_update_extended.py organizations ORG_ID \
   --data '{"deal_value": 50000}'
 ```
 
@@ -99,7 +99,7 @@ python3 {baseDir}/scripts/hq_update_extended.py organizations ORG_ID \
 
 ### Search documents (semantic)
 ```bash
-python3 {baseDir}/scripts/hq_search_docs.py "your natural language query"
+python3 skills/hq/scripts/hq_search_docs.py "your natural language query"
 ```
 Optional flags: `--tags tag1,tag2` `--folder-id UUID` `--limit 5`
 
@@ -107,17 +107,17 @@ Falls back to text search if embeddings aren't available.
 
 ### Get a specific document
 ```bash
-python3 {baseDir}/scripts/hq_get_doc.py DOCUMENT_ID
+python3 skills/hq/scripts/hq_get_doc.py DOCUMENT_ID
 ```
 
 ### Get documents by tag
 ```bash
-python3 {baseDir}/scripts/hq_get_docs_by_tag.py TAG_NAME
+python3 skills/hq/scripts/hq_get_docs_by_tag.py TAG_NAME
 ```
 
 ### Create a document
 ```bash
-python3 {baseDir}/scripts/hq_create_doc.py --title "Title" --content "Content here" --tags tag1,tag2
+python3 skills/hq/scripts/hq_create_doc.py --title "Title" --content "Content here" --tags tag1,tag2
 ```
 Optional: `--folder-id UUID`
 
@@ -125,7 +125,7 @@ Automatically generates an embedding on creation.
 
 ### Update a document
 ```bash
-python3 {baseDir}/scripts/hq_update_doc.py DOCUMENT_ID --title "New title" --content "New content" --tags tag1,tag2
+python3 skills/hq/scripts/hq_update_doc.py DOCUMENT_ID --title "New title" --content "New content" --tags tag1,tag2
 ```
 Automatically re-generates the embedding.
 
@@ -133,35 +133,35 @@ Automatically re-generates the embedding.
 
 ### List tasks
 ```bash
-python3 {baseDir}/scripts/hq_list_tasks.py
-python3 {baseDir}/scripts/hq_list_tasks.py --mine --status todo,in_progress
-python3 {baseDir}/scripts/hq_list_tasks.py --assignee-type human
-python3 {baseDir}/scripts/hq_list_tasks.py --stream-id STREAM_UUID --tag product
+python3 skills/hq/scripts/hq_list_tasks.py
+python3 skills/hq/scripts/hq_list_tasks.py --mine --status todo,in_progress
+python3 skills/hq/scripts/hq_list_tasks.py --assignee-type human
+python3 skills/hq/scripts/hq_list_tasks.py --stream-id STREAM_UUID --tag product
 ```
 Useful filters: `--status`, `--stream-id`, `--assignee-type`, `--agent-id`, `--mine`, `--tag`, `--limit`
 
 ### List my assigned tasks
 ```bash
-python3 {baseDir}/scripts/hq_my_tasks.py
+python3 skills/hq/scripts/hq_my_tasks.py
 ```
 Optional: `--status todo,in_progress`
 
 ### Claim a task
 ```bash
-python3 {baseDir}/scripts/hq_claim_task.py TASK_ID
+python3 skills/hq/scripts/hq_claim_task.py TASK_ID
 ```
 Sets status to `in_progress`, assigns you, and fetches any attached documents/assets.
 
 ### Assign a task
 ```bash
-python3 {baseDir}/scripts/hq_assign_task.py TASK_ID --agent-id AGENT_UUID
-python3 {baseDir}/scripts/hq_assign_task.py TASK_ID --human
+python3 skills/hq/scripts/hq_assign_task.py TASK_ID --agent-id AGENT_UUID
+python3 skills/hq/scripts/hq_assign_task.py TASK_ID --human
 ```
 Assigns a task to either an agent or marks it as assigned to a human.
 
 ### List tasks for humans
 ```bash
-python3 {baseDir}/scripts/hq_my_human_tasks.py
+python3 skills/hq/scripts/hq_my_human_tasks.py
 ```
 Optional: `--status todo,in_progress`
 
@@ -169,22 +169,22 @@ Note: `hq_list_tasks.py --assignee-type human` is the more general version.
 
 ### Complete a task
 ```bash
-python3 {baseDir}/scripts/hq_complete_task.py TASK_ID
+python3 skills/hq/scripts/hq_complete_task.py TASK_ID
 ```
 
 ### Attach a document/asset/URL to a task
 ```bash
-python3 {baseDir}/scripts/hq_attach_to_task.py TASK_ID --type document --entity-id DOC_UUID
-python3 {baseDir}/scripts/hq_attach_to_task.py TASK_ID --type url --url "https://example.com" --label "Reference"
+python3 skills/hq/scripts/hq_attach_to_task.py TASK_ID --type document --entity-id DOC_UUID
+python3 skills/hq/scripts/hq_attach_to_task.py TASK_ID --type url --url "https://example.com" --label "Reference"
 ```
 
 ## Comments
 
 ### Post a comment on any entity
 ```bash
-python3 {baseDir}/scripts/hq_comment_on.py task TASK_ID "Your comment here"
-python3 {baseDir}/scripts/hq_comment_on.py contact CONTACT_ID "Research notes from browser verification"
-python3 {baseDir}/scripts/hq_comment_on.py organization ORG_ID "Meeting summary"
+python3 skills/hq/scripts/hq_comment_on.py task TASK_ID "Your comment here"
+python3 skills/hq/scripts/hq_comment_on.py contact CONTACT_ID "Research notes from browser verification"
+python3 skills/hq/scripts/hq_comment_on.py organization ORG_ID "Meeting summary"
 ```
 Optional: `--parent-id COMMENT_UUID` for replies.
 
@@ -194,12 +194,12 @@ Optional: `--parent-id COMMENT_UUID` for replies.
 
 ### Insert a record (any table)
 ```bash
-python3 {baseDir}/scripts/hq_insert.py TABLE --data '{"field": "value"}' --module MODULE --entity-type TYPE
+python3 skills/hq/scripts/hq_insert.py TABLE --data '{"field": "value"}' --module MODULE --entity-type TYPE
 ```
 
 ### Update a record (any table)
 ```bash
-python3 {baseDir}/scripts/hq_update.py TABLE RECORD_ID --data '{"field": "value"}' --module MODULE --entity-type TYPE
+python3 skills/hq/scripts/hq_update.py TABLE RECORD_ID --data '{"field": "value"}' --module MODULE --entity-type TYPE
 ```
 
 Both commands automatically create audit_log entries with your agent identity.
@@ -208,13 +208,13 @@ Both commands automatically create audit_log entries with your agent identity.
 
 ### Send a heartbeat
 ```bash
-python3 {baseDir}/scripts/hq_heartbeat.py
+python3 skills/hq/scripts/hq_heartbeat.py
 ```
 Updates `last_seen_at` and sets status to `online`. Run this during heartbeat polls.
 
 ### Set status
 ```bash
-python3 {baseDir}/scripts/hq_heartbeat.py --status paused
+python3 skills/hq/scripts/hq_heartbeat.py --status paused
 ```
 
 ## Background Inbox
@@ -225,55 +225,55 @@ Your foreground conversation with your human is never interrupted. Inbox work ha
 
 ### Check inbox status
 ```bash
-python3 {baseDir}/scripts/hq_inbox_process.py --status
+python3 skills/hq/scripts/hq_inbox_process.py --status
 ```
 Shows pending, failed, and leased item counts.
 
 ### Process inbox items
 ```bash
-python3 {baseDir}/scripts/hq_inbox_process.py
+python3 skills/hq/scripts/hq_inbox_process.py
 ```
 Leases the next pending item and returns it with full context. Process up to 3 items per wake:
 ```bash
-python3 {baseDir}/scripts/hq_inbox_process.py --batch 3
+python3 skills/hq/scripts/hq_inbox_process.py --batch 3
 ```
 
 ### Handle each item
 
 For **task_assignment** and **task_reassignment** items:
 1. Read the task description and attachments (provided in context)
-2. Claim the task: `python3 {baseDir}/scripts/hq_claim_task.py TASK_ID`
+2. Claim the task: `python3 skills/hq/scripts/hq_claim_task.py TASK_ID`
 3. Do the work
-4. Complete it: `python3 {baseDir}/scripts/hq_complete_task.py TASK_ID`
-5. Mark inbox item done: `python3 {baseDir}/scripts/hq_inbox_done.py INBOX_ITEM_ID`
+4. Complete it: `python3 skills/hq/scripts/hq_complete_task.py TASK_ID`
+5. Mark inbox item done: `python3 skills/hq/scripts/hq_inbox_done.py INBOX_ITEM_ID`
 
 For **task_comment_mention** items:
 1. Read the comment and context (provided in context — includes entity_type and entity_id)
-2. Respond: `python3 {baseDir}/scripts/hq_comment_on.py task TASK_ID "Your response"`
-3. Mark inbox item done: `python3 {baseDir}/scripts/hq_inbox_done.py INBOX_ITEM_ID`
+2. Respond: `python3 skills/hq/scripts/hq_comment_on.py task TASK_ID "Your response"`
+3. Mark inbox item done: `python3 skills/hq/scripts/hq_inbox_done.py INBOX_ITEM_ID`
 
 For **contact_status_changed** items:
 1. Read the contact record (provided in context — custom fields are in `extended`)
-2. Fetch field definitions if needed: `python3 {baseDir}/scripts/hq_get_fields.py --entity-type contact`
+2. Fetch field definitions if needed: `python3 skills/hq/scripts/hq_get_fields.py --entity-type contact`
 3. Run the appropriate workflow for the new status — check your TOOLS.md for agent-specific instructions
-4. Mark inbox item done: `python3 {baseDir}/scripts/hq_inbox_done.py INBOX_ITEM_ID`
+4. Mark inbox item done: `python3 skills/hq/scripts/hq_inbox_done.py INBOX_ITEM_ID`
 
 For **contact_created** items:
 1. Read the contact record (provided in context)
 2. Assess whether the contact needs action from you
 3. Take action or skip
-4. Mark inbox item done: `python3 {baseDir}/scripts/hq_inbox_done.py INBOX_ITEM_ID`
+4. Mark inbox item done: `python3 skills/hq/scripts/hq_inbox_done.py INBOX_ITEM_ID`
 
 ### Mark items done or failed
 ```bash
-python3 {baseDir}/scripts/hq_inbox_done.py INBOX_ITEM_ID
-python3 {baseDir}/scripts/hq_inbox_fail.py INBOX_ITEM_ID "reason"
+python3 skills/hq/scripts/hq_inbox_done.py INBOX_ITEM_ID
+python3 skills/hq/scripts/hq_inbox_fail.py INBOX_ITEM_ID "reason"
 ```
 Failed items retry automatically (up to 3 attempts). After that, they go to dead letter.
 
 ### Escalate
 ```bash
-python3 {baseDir}/scripts/hq_escalate.py TASK_ID "Reason you're blocked"
+python3 skills/hq/scripts/hq_escalate.py TASK_ID "Reason you're blocked"
 ```
 Sets task to `blocked`, posts a comment mentioning @prajoth, sends Telegram notification. Then mark the inbox item done and move on.
 
