@@ -81,9 +81,16 @@ RUN set -eux; \
 # ── noVNC + websockify ───────────────────────────────────────
 # We use TigerVNC as the actual VNC server (already solid, supports :1 on
 # Xvfb's display), and websockify wraps it in a WebSocket noVNC can speak.
+# tigervnc-tools provides vncpasswd.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      tigervnc-standalone-server tigervnc-common \
+      tigervnc-standalone-server tigervnc-common tigervnc-tools \
     && rm -rf /var/lib/apt/lists/*
+
+# Xvfb writes its UNIX socket under /tmp/.X11-unix. Pre-create the
+# directory with proper ownership so it works when Xvfb runs as our
+# non-root user. Docker-managed /tmp is per-container so this can't be
+# done lazily at runtime without root.
+RUN mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix
 
 RUN pip3 install --no-cache-dir --break-system-packages websockify==0.12.0
 
