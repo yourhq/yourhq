@@ -306,16 +306,20 @@ log "Starting XFCE session on :1 ..."
 #   Bare containers don't have one set.
 xdg-user-dirs-update 2>/dev/null || true
 
-XDG_RUNTIME_DIR="/tmp/runtime-$(id -u)"
+export XDG_RUNTIME_DIR="/tmp/runtime-$(id -u)"
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
-export XDG_RUNTIME_DIR
 
-DISPLAY=:1 \
-XDG_SESSION_TYPE=x11 \
-XDG_CONFIG_DIRS="/etc/xdg/xdg-xubuntu:/etc/xdg" \
-XDG_DATA_DIRS="/usr/local/share:/usr/share:/var/lib/snapd/desktop" \
-  dbus-launch --exit-with-session startxfce4 \
+# Export these so dbus-launch and the inner xfce4-session inherit them.
+# dbus-launch has been observed to not propagate env vars that are only
+# set on its immediate invocation, so we put them in the shell's
+# environment first.
+export DISPLAY=:1
+export XDG_SESSION_TYPE=x11
+export XDG_CONFIG_DIRS="/etc/xdg"
+export XDG_DATA_DIRS="/usr/local/share:/usr/share"
+
+dbus-launch --exit-with-session startxfce4 \
   > "$HOME/xfce.log" 2>&1 &
 XFCE_PID=$!
 sleep 3
