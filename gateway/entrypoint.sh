@@ -294,33 +294,38 @@ if ! kill -0 "$XVNC_PID" 2>/dev/null; then
 fi
 
 log "Starting XFCE session on :1 ..."
-# xfce4-session is the full-desktop entry point: panel, desktop,
-# window manager (xfwm4), settings daemon, file manager. dbus-launch
-# ensures there's a session bus for XFCE's components to talk over.
-#
-# The env-var dance matters:
-# - XDG_CONFIG_DIRS must include /etc/xdg so XFCE finds its default
-#   session files (ships in /etc/xdg/xfce4 from the apt package).
-# - XDG_DATA_DIRS same idea for app .desktop files.
-# - XDG_RUNTIME_DIR is where xfconfd and friends put their sockets.
-#   Bare containers don't have one set.
+# XFCE's components talk over a session D-Bus. In a container we have
+# to start that bus ourselves: `dbus-launch --exit-with-session` has
+# been unreliable (xfce4-session ends up with no bus address, every
+# g_dbus_proxy_call_sync fails, and the panel/wm/settings never spawn).
+# Instead: start dbus-daemon explicitly, capture its address, export
+# it so all XFCE children inherit it.
+
 xdg-user-dirs-update 2>/dev/null || true
 
 export XDG_RUNTIME_DIR="/tmp/runtime-$(id -u)"
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
 
-# Export these so dbus-launch and the inner xfce4-session inherit them.
-# dbus-launch has been observed to not propagate env vars that are only
-# set on its immediate invocation, so we put them in the shell's
-# environment first.
 export DISPLAY=:1
 export XDG_SESSION_TYPE=x11
 export XDG_CONFIG_DIRS="/etc/xdg"
 export XDG_DATA_DIRS="/usr/local/share:/usr/share"
 
-dbus-launch --exit-with-session startxfce4 \
-  > "$HOME/xfce.log" 2>&1 &
+# Start a session D-Bus daemon, print its address + PID on stdout.
+# --syslog-only silences its own chatter. --fork detaches cleanly so
+# the address line is all we get from stdout.
+DBUS_OUT=$(dbus-daemon --session --fork --print-address=1 --print-pid=1 2>"$HOME/dbus.log")
+export DBUS_SESSION_BUS_ADDRESS="$(echo "$DBUS_OUT" | head -n1)"
+DBUS_PID="$(echo "$DBUS_OUT" | sed -n '2p')"
+if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
+  log "⚠ Failed to start session D-Bus — XFCE will not work."
+  tail -20 "$HOME/dbus.log" 2>&1 | sed 's/^/    /'
+else
+  log "  session D-Bus at $DBUS_SESSION_BUS_ADDRESS (pid $DBUS_PID)"
+fi
+
+startxfce4 > "$HOME/xfce.log" 2>&1 &
 XFCE_PID=$!
 sleep 3
 if ! kill -0 "$XFCE_PID" 2>/dev/null; then

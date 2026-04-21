@@ -103,10 +103,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       tigervnc-standalone-server tigervnc-common tigervnc-tools \
     && rm -rf /var/lib/apt/lists/*
 
-# X socket dir. Xtigervnc writes its socket under /tmp/.X11-unix; pre-
-# create it with the right perms so the container's non-root user can
-# use it.
-RUN mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix
+# X and ICE socket dirs. Xtigervnc writes its X socket under
+# /tmp/.X11-unix; XFCE/ICE uses /tmp/.ICE-unix. Pre-create both with
+# sticky perms so our non-root user can use them (they're on
+# Docker's per-container /tmp so this has to happen at build time).
+RUN mkdir -p /tmp/.X11-unix /tmp/.ICE-unix \
+    && chmod 1777 /tmp/.X11-unix /tmp/.ICE-unix
 
 RUN pip3 install --no-cache-dir --break-system-packages websockify==0.12.0
 
