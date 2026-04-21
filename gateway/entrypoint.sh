@@ -312,6 +312,19 @@ if [ -n "$NOVNC_LISTEN_ADDR" ]; then
     > "$HOME/.vnc/websockify.log" 2>&1 &
 fi
 
+# Warn when the gateway's desktop is reachable on 0.0.0.0 without TLS
+# in front. This is fine for auth-gated proxies (Codespaces) and
+# private networks, but dangerous on a VPS with a public IP. Caddy
+# only fronts TLS when NOVNC_DOMAIN is set; without it, websockify
+# is serving HTTP directly.
+if [ "$NOVNC_BIND" = "public" ] && [ -z "${NOVNC_DOMAIN:-}" ]; then
+  log "⚠ WARNING: noVNC bound to 0.0.0.0 without TLS."
+  log "  This is only safe on networks you trust — Codespaces (auth-gated),"
+  log "  local dev, or private networks. Do NOT use this on a VPS with a"
+  log "  public IP. For production set NOVNC_DOMAIN (enables Caddy + Let's"
+  log "  Encrypt) or use NOVNC_BIND=tailscale instead."
+fi
+
 if [ "$NOVNC_BIND" = "public" ] && [ -n "${NOVNC_DOMAIN:-}" ]; then
   log "Starting Caddy TLS front-end for $NOVNC_DOMAIN ..."
   cat > "$HOME/Caddyfile" << CADDYCFG
