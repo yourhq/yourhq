@@ -396,8 +396,12 @@ function VariantCard({
       {/* Header: label + angle */}
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <span className="font-mono font-medium">{label}</span>
-        <span>·</span>
-        <span className="truncate">{variant.angle.replace(/_/g, " ")}</span>
+        {variant.angle && (
+          <>
+            <span>·</span>
+            <span className="truncate">{variant.angle.replace(/_/g, " ")}</span>
+          </>
+        )}
       </div>
 
       {/* Subject (email only) */}

@@ -150,10 +150,43 @@ with open(path, "w") as f:
 PYEOF
 fi
 
+# ── 4b. Replace the template's IDENTITY.md `## Name` and `## Emoji`
+#      section bodies with the user-chosen values. Other sections (Role,
+#      Archetype, Vibe, Creature, etc.) stay intact so the template's
+#      character survives. Uses the wizard-supplied --name/--emoji CLI
+#      args; if either is empty we leave the corresponding section alone.
+IDENTITY_MD="$WORKSPACE/IDENTITY.md"
+if [ -f "$IDENTITY_MD" ] && [ -n "$AGENT_DISPLAY_NAME$AGENT_EMOJI" ]; then
+  echo "→ Populating IDENTITY.md (Name/Emoji sections) ..."
+  python3 - "$IDENTITY_MD" "$AGENT_DISPLAY_NAME" "$AGENT_EMOJI" << 'PYEOF'
+import re, sys
+path, name, emoji = sys.argv[1:4]
+with open(path) as f:
+    content = f.read()
+
+def replace_section(body, heading, value):
+    # Match `## Heading\n<body>` until the next `##` or end-of-file.
+    pattern = re.compile(
+        rf"(^|\n)(##\s+{re.escape(heading)}\s*\n)([\s\S]*?)(?=\n##\s|\s*$)",
+        re.IGNORECASE,
+    )
+    if not pattern.search(body):
+        return body
+    return pattern.sub(lambda m: f"{m.group(1)}{m.group(2)}{value}\n", body)
+
+if name:
+    content = replace_section(content, "Name", name)
+if emoji:
+    content = replace_section(content, "Emoji", emoji)
+with open(path, "w") as f:
+    f.write(content)
+PYEOF
+fi
+
 # ── 5. Commit the initialization patches ───────────────────────────────
 if ! git diff --quiet; then
   echo "→ Committing initialization patches ..."
-  git add agent.json USER.md 2>/dev/null || true
+  git add agent.json USER.md IDENTITY.md 2>/dev/null || true
   git add -A
   git commit -q -m "feat: initialize agent ${AGENT_SLUG}" || true
 fi
@@ -161,45 +194,51 @@ fi
 # ── 6. Read the patched manifest for downstream config ─────────────────
 AGENT_NAME_DISPLAY=$(jq -r '.name // empty' "$AGENT_JSON")
 AGENT_MODEL=$(jq -r '.model // "openai-codex/gpt-4o"' "$AGENT_JSON")
-BROWSER_PROFILE=$(jq -r '.browserProfile // empty' "$AGENT_JSON")
-BROWSER_COLOR=$(jq -r '.browserColor // "#FF4500"' "$AGENT_JSON")
+# Browser profile name is the bare agent slug — no workspace prefix, so
+# it's filesystem-safe (used as a dir name, openclaw config key, and
+# Desktop filename). Color comes from agent.json's browser_profile_color
+# (snake_case, matches template manifest schema). Every agent gets a
+# Chrome profile in this model — there's no opt-out.
+BROWSER_PROFILE="$AGENT_SLUG"
+BROWSER_COLOR=$(jq -r '.browser_profile_color // "#FF4500"' "$AGENT_JSON")
 [ -z "$AGENT_NAME_DISPLAY" ] && AGENT_NAME_DISPLAY="$AGENT_SLUG"
-echo "  Name: $AGENT_NAME_DISPLAY | Model: $AGENT_MODEL | Browser: ${BROWSER_PROFILE:-none}"
+echo "  Name: $AGENT_NAME_DISPLAY | Model: $AGENT_MODEL | Browser: $BROWSER_PROFILE"
 
-# ── 7. Allocate a CDP port (only if this agent uses a browser profile) ─
-CDP_PORT=""
-if [ -n "$BROWSER_PROFILE" ]; then
-  USED_PORTS=$(jq -r '.browser.profiles // {} | to_entries[] | .value.cdpPort // empty' "$CONFIG" 2>/dev/null)
-  CDP_PORT=18801
-  while echo "$USED_PORTS" | grep -q "^${CDP_PORT}$"; do CDP_PORT=$((CDP_PORT + 1)); done
-  [ "$CDP_PORT" -eq 18800 ] && CDP_PORT=18803
-fi
+# ── 7. Allocate a CDP port for this agent's Chrome ─────────────────────
+USED_PORTS=$(jq -r '.browser.profiles // {} | to_entries[] | .value.cdpPort // empty' "$CONFIG" 2>/dev/null)
+CDP_PORT=18801
+while echo "$USED_PORTS" | grep -q "^${CDP_PORT}$"; do CDP_PORT=$((CDP_PORT + 1)); done
+[ "$CDP_PORT" -eq 18800 ] && CDP_PORT=18803
 
 TG_ACCOUNT_ID="${AGENT_NAME##*/}"
 
 # ── 8. Update openclaw.json ────────────────────────────────────────────
+# Note: we don't write `browserProfile` into the .agents.list[] entry —
+# that produced invalid openclaw config. The profile is addressed via
+# .browser.profiles[<name>] keyed on $BROWSER_PROFILE.
 TMP=$(mktemp)
 jq \
   --arg id "$AGENT_NAME" --arg name "$AGENT_NAME_DISPLAY" --arg workspace "$WORKSPACE" \
   --arg model "$AGENT_MODEL" --arg bp "$BROWSER_PROFILE" --arg bc "$BROWSER_COLOR" \
   --arg botToken "$BOT_TOKEN" --arg tgAccount "$TG_ACCOUNT_ID" \
-  --argjson cdpPort "${CDP_PORT:-null}" \
+  --argjson cdpPort "$CDP_PORT" \
 '
   .agents.list //= [] |
   .agents.list = [.agents.list[] | select(.id != $id)] + [{
     id: $id, name: $name, workspace: $workspace, model: $model
-  } + (if $bp != "" then {browserProfile: $bp} else {} end)] |
-  (if $bp != "" and $cdpPort != null then .browser.profiles[$bp] = {cdpPort: $cdpPort, color: $bc} else . end) |
+  }] |
+  .browser.profiles[$bp] = {cdpPort: $cdpPort, color: $bc} |
   .channels.telegram.accounts //= {} |
   .channels.telegram.accounts[$tgAccount] = { botToken: $botToken } |
   .bindings //= [] |
   .bindings = [.bindings[] | select(.agentId != $id)] + [{agentId: $id, match: {channel: "telegram", accountId: $tgAccount}}]
 ' "$CONFIG" > "$TMP" && mv "$TMP" "$CONFIG"
 
-# ── 9. Desktop shortcut for Chrome profile (if any) ────────────────────
-if [ -n "$BROWSER_PROFILE" ] && [ -n "$CDP_PORT" ]; then
-  mkdir -p "$HOME/Desktop"
-  cat > "$HOME/Desktop/Chrome-${AGENT_SLUG}.desktop" << SHORTCUT
+# ── 9. Desktop shortcut for this agent's Chrome ────────────────────────
+# Pre-create the user-data dir so Chrome doesn't fight the first launch.
+mkdir -p "$HOME/Desktop" "$HOME/.openclaw/browser/${BROWSER_PROFILE}/user-data"
+SHORTCUT_FILE="$HOME/Desktop/Chrome-${BROWSER_PROFILE}.desktop"
+cat > "$SHORTCUT_FILE" << SHORTCUT
 [Desktop Entry]
 Version=1.0
 Type=Application
@@ -208,8 +247,7 @@ Exec=/usr/bin/google-chrome-stable --user-data-dir=$HOME/.openclaw/browser/${BRO
 Icon=google-chrome
 Terminal=false
 SHORTCUT
-  chmod +x "$HOME/Desktop/Chrome-${AGENT_SLUG}.desktop"
-fi
+chmod +x "$SHORTCUT_FILE"
 
 # ── 10. Link shared auth (Codex OAuth inherited) ───────────────────────
 AGENT_DIR_ID=$(echo "$AGENT_NAME" | tr '/' '-')

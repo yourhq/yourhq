@@ -105,7 +105,7 @@ export type DraftStatus = "draft" | "refining" | "approved" | "superseded";
 export interface DraftVariant {
   subject?: string;
   body: string;
-  angle: string;
+  angle?: string;
   index: number;
   notes?: string;
 }
