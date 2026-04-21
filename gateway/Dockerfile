@@ -38,15 +38,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libxss1 libasound2t64 \
     && rm -rf /var/lib/apt/lists/*
 
-# ── XFCE desktop environment ─────────────────────────────────
+# ── XFCE desktop environment + modern look ───────────────────
 # A real desktop: panel, menu, file manager, terminal, settings,
-# wallpaper. `xfce4-goodies` adds standard apps (screenshot tool,
-# calculator, sensible panel plugins). `dbus-x11` and `xdg-user-dirs`
-# are prerequisites for a well-behaved session.
-# ~500 MB installed. Well worth the headroom for a usable experience.
+# wallpaper. xfce4-goodies ships xfce4-whiskermenu-plugin (the
+# searchable app menu we wire up below). yaru-theme-* provides the
+# current Ubuntu GTK + icon theme. papirus-icon-theme adds a cleaner
+# icon set.
+#
+# ~500 MB for xfce + ~50 MB for themes. Well worth the headroom for
+# a usable experience.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       xfce4 xfce4-goodies xfce4-terminal \
+      xfce4-whiskermenu-plugin \
       thunar xdg-user-dirs \
+      yaru-theme-gtk yaru-theme-icon \
+      papirus-icon-theme \
     && rm -rf /var/lib/apt/lists/*
 
 # ── Node.js 24 (for OpenClaw CLI) ────────────────────────────
@@ -142,6 +148,19 @@ RUN userdel -r ubuntu 2>/dev/null || true \
          /home/openclaw/.local/share \
          /home/openclaw/.cache \
     && chown -R openclaw:openclaw /home/openclaw
+
+# ── XFCE system-wide defaults ────────────────────────────────
+# xfconfd reads /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/*.xml as
+# system defaults when the user's ~/.config/xfce4 version is missing
+# (which it is on first boot, since we don't ship dotfiles). These
+# files set the theme (Yaru-dark), icon theme (Papirus-Dark), panel
+# layout with whisker menu + clock, wallpaper (solid dark color),
+# and disable the power-manager popup (no battery in a container).
+COPY gateway/xfce-defaults/xsettings.xml                /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
+COPY gateway/xfce-defaults/xfwm4.xml                    /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
+COPY gateway/xfce-defaults/xfce4-panel.xml              /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
+COPY gateway/xfce-defaults/xfce4-desktop.xml            /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml
+COPY gateway/xfce-defaults/xfce4-power-manager.xml      /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-power-manager.xml
 
 # ── Bundle templates + bootstrap plugin ──────────────────────
 COPY --chown=openclaw:openclaw templates /opt/templates
