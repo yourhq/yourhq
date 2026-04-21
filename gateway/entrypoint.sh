@@ -293,6 +293,16 @@ if ! kill -0 "$XVNC_PID" 2>/dev/null; then
   tail -20 "$HOME/.vnc/Xtigervnc.log" 2>&1 | sed 's/^/    /'
 fi
 
+# Clipboard bridging. autocutsel copies text between X selections so
+# noVNC's clipboard panel ↔ the Linux desktop's primary + clipboard
+# selections stay in sync. Without this, text you paste into the
+# noVNC panel never lands in Chrome/terminal/etc.
+#   -s PRIMARY    mirrors CLIPBOARD → PRIMARY (so middle-click pastes it)
+#   -fork         detach, don't block the shell
+log "Starting autocutsel (clipboard sync) ..."
+DISPLAY=:1 autocutsel -fork > "$HOME/.vnc/autocutsel.log" 2>&1 || true
+DISPLAY=:1 autocutsel -fork -selection PRIMARY > "$HOME/.vnc/autocutsel-primary.log" 2>&1 || true
+
 log "Starting XFCE session on :1 ..."
 # XFCE's components talk over a session D-Bus. In a container we have
 # to start that bus ourselves: `dbus-launch --exit-with-session` has

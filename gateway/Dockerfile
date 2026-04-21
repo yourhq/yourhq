@@ -53,6 +53,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       thunar xdg-user-dirs \
       yaru-theme-gtk yaru-theme-icon \
       papirus-icon-theme \
+      autocutsel \
     && rm -rf /var/lib/apt/lists/*
 
 # ── Node.js 24 (for OpenClaw CLI) ────────────────────────────
