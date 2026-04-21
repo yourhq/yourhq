@@ -8,7 +8,7 @@
  * need to re-run the script for every edit — just re-run when templates
  * change.
  */
-import { readFileSync, writeFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, readdirSync, statSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -17,6 +17,26 @@ const UI_ROOT = resolve(__dirname, "..");
 const MONOREPO_ROOT = resolve(UI_ROOT, "..", "..");
 const TEMPLATES_DIR = resolve(MONOREPO_ROOT, "templates");
 const OUTPUT = resolve(UI_ROOT, "src", "generated", "templates.ts");
+
+// When this script runs inside the UI Docker image (build stage), the
+// monorepo's templates/ directory isn't part of the build context — only
+// apps/ui/ is. That's intentional: the committed src/generated/templates.ts
+// already has everything the image needs. Skip regeneration in that case.
+if (!existsSync(TEMPLATES_DIR)) {
+  if (existsSync(OUTPUT)) {
+    console.log(
+      "[templates-index] Templates dir not present (docker build?); " +
+        "using committed src/generated/templates.ts."
+    );
+    process.exit(0);
+  }
+  console.error(
+    `[templates-index] Templates dir missing at ${TEMPLATES_DIR} AND no ` +
+      `committed output at ${OUTPUT}. Run this script from the monorepo root ` +
+      `before building.`
+  );
+  process.exit(1);
+}
 
 function isDir(p) {
   try {
