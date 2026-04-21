@@ -268,9 +268,16 @@ if [ ! -f "$HOME/.vnc/passwd" ]; then
   echo "$VNC_PW" > "$OPENCLAW_HOME/.vnc-password"
   log "  VNC password written to $OPENCLAW_HOME/.vnc-password"
 fi
-# Start x0vncserver attached to the running :1 display (doesn't start its own X)
+# Start x0vncserver attached to the running :1 display (doesn't start its own X).
+# Provided by tigervnc-scraping-server.
 x0vncserver -display :1 -PasswordFile "$HOME/.vnc/passwd" \
   -rfbport 5901 -localhost=1 > "$HOME/.vnc/x0vncserver.log" 2>&1 &
+X0VNC_PID=$!
+sleep 1
+if ! kill -0 "$X0VNC_PID" 2>/dev/null; then
+  log "⚠ x0vncserver exited immediately — tail log:"
+  tail -20 "$HOME/.vnc/x0vncserver.log" 2>&1 | sed 's/^/    /'
+fi
 
 # ─────────────────────────────────────────────────────────────
 # 8. websockify (noVNC) + optional Caddy

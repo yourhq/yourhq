@@ -81,9 +81,12 @@ RUN set -eux; \
 # ── noVNC + websockify ───────────────────────────────────────
 # We use TigerVNC as the actual VNC server (already solid, supports :1 on
 # Xvfb's display), and websockify wraps it in a WebSocket noVNC can speak.
-# tigervnc-tools provides vncpasswd.
+# tigervnc-tools provides vncpasswd; tigervnc-scraping-server provides
+# x0vncserver (attaches to an already-running X server rather than starting
+# its own, which is exactly what we want since Xvfb handles display :1).
 RUN apt-get update && apt-get install -y --no-install-recommends \
       tigervnc-standalone-server tigervnc-common tigervnc-tools \
+      tigervnc-scraping-server \
     && rm -rf /var/lib/apt/lists/*
 
 # Xvfb writes its UNIX socket under /tmp/.X11-unix. Pre-create the
