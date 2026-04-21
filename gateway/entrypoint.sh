@@ -312,17 +312,27 @@ export XDG_SESSION_TYPE=x11
 export XDG_CONFIG_DIRS="/etc/xdg"
 export XDG_DATA_DIRS="/usr/local/share:/usr/share"
 
-# Start a session D-Bus daemon, print its address + PID on stdout.
-# --syslog-only silences its own chatter. --fork detaches cleanly so
-# the address line is all we get from stdout.
-DBUS_OUT=$(dbus-daemon --session --fork --print-address=1 --print-pid=1 2>"$HOME/dbus.log")
-export DBUS_SESSION_BUS_ADDRESS="$(echo "$DBUS_OUT" | head -n1)"
-DBUS_PID="$(echo "$DBUS_OUT" | sed -n '2p')"
-if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
-  log "⚠ Failed to start session D-Bus — XFCE will not work."
-  tail -20 "$HOME/dbus.log" 2>&1 | sed 's/^/    /'
+# Start session D-Bus with a deterministic socket path so we don't
+# have to parse `dbus-daemon --print-address` (which in some Docker
+# setups double-forks in a way that leaves its reported address
+# pointing at a socket the parent can't see).
+DBUS_SOCK="$XDG_RUNTIME_DIR/bus"
+rm -f "$DBUS_SOCK"
+dbus-daemon --session --nofork \
+  --address="unix:path=$DBUS_SOCK" \
+  > "$HOME/dbus.log" 2>&1 &
+DBUS_PID=$!
+# Wait for the socket to appear (usually <200ms).
+for _ in $(seq 1 40); do
+  [ -S "$DBUS_SOCK" ] && break
+  sleep 0.1
+done
+if [ -S "$DBUS_SOCK" ]; then
+  export DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_SOCK"
+  log "  session D-Bus ready at $DBUS_SESSION_BUS_ADDRESS (pid $DBUS_PID)"
 else
-  log "  session D-Bus at $DBUS_SESSION_BUS_ADDRESS (pid $DBUS_PID)"
+  log "⚠ session D-Bus socket never appeared at $DBUS_SOCK — XFCE will be broken."
+  tail -20 "$HOME/dbus.log" 2>&1 | sed 's/^/    /'
 fi
 
 startxfce4 > "$HOME/xfce.log" 2>&1 &
