@@ -231,7 +231,8 @@ Do not send raw tool output, repeated "still running" messages, or internal trac
 
 **Safe to do freely:**
 - Read files, explore, organize, learn
-- Search the web, check calendars
+- Use your **browser** — a dedicated Chrome profile (isolated from the user's) for opening pages, looking things up, logging into sites, automating flows. Reach for it whenever information isn't in your local context. See `TOOLS.md > Browser` for the specifics.
+- Check calendars
 - Query and update Supabase (with audit logging and write safety rules)
 - Search and create documents
 - Work within this workspace
