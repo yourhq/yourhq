@@ -17,7 +17,7 @@
 #      (local | tailscale | public). Optionally front with Caddy for TLS.
 #   9. Upsert this gateway's row in the Supabase `gateways` table so the UI
 #      can see it and populate reachable URLs.
-#  10. Exec `openclaw gateway start` as the container's main process.
+#  10. Exec `openclaw gateway run` as the container's main process.
 #
 # OAuth login is NOT run automatically — the UI triggers it via the command
 # queue in Phase 3, or you can run it manually:
@@ -201,9 +201,12 @@ fi
 
 if [ ! -f "$CONFIG" ]; then
   log "Running openclaw onboard (non-interactive) ..."
+  # --skip-health: we don't have a gateway running yet; the health probe
+  # is meaningless on first boot in a container. We launch the gateway
+  # ourselves at the end of this script.
   openclaw onboard \
     --non-interactive --flow quickstart \
-    --auth-choice skip --accept-risk \
+    --auth-choice skip --accept-risk --skip-health \
     --gateway-port 18789 --gateway-bind loopback \
     || log "  onboard exited non-zero — will retry next start"
 fi
@@ -242,6 +245,9 @@ mkdir -p "$SHARED_AUTH"
 # ─────────────────────────────────────────────────────────────
 
 log "Starting Xvfb :1 ..."
+# Clear stale X locks from a previous crashed run so Xvfb doesn't refuse
+# to start with "Server is already active for display 1".
+rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
 Xvfb :1 -screen 0 1920x1080x24 -nolisten tcp -noreset &
 XVFB_PID=$!
 for _ in $(seq 1 20); do
@@ -368,5 +374,7 @@ fi
 # 10. Launch OpenClaw gateway as PID 1 (well, exec'd under tini)
 # ─────────────────────────────────────────────────────────────
 
-log "Starting openclaw gateway ..."
-exec openclaw gateway start
+log "Starting openclaw gateway (foreground) ..."
+# `openclaw gateway start` expects systemd; `openclaw gateway run` is the
+# foreground command for containers.
+exec openclaw gateway run
