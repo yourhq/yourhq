@@ -1,7 +1,7 @@
 # =============================================================================
-# Gateway image — OpenClaw + Chrome + Xvfb + Tailscale + noVNC + Caddy.
+# Gateway image — OpenClaw + Chrome + Xtigervnc + Tailscale + noVNC + Caddy.
 #
-# One container runs: Xvfb (virtual display), Chrome (used by OpenClaw via CDP),
+# One container runs: Xtigervnc (X + VNC in one process), Chrome (via CDP),
 # noVNC/websockify (browser-based VNC), optional Tailscale (network join),
 # optional Caddy (TLS front-end for public-mode noVNC), and the OpenClaw
 # gateway itself (PID 1 via tini).
@@ -79,20 +79,22 @@ RUN set -eux; \
     mkdir -p /var/lib/tailscale /var/run/tailscale
 
 # ── noVNC + websockify ───────────────────────────────────────
-# We use TigerVNC as the actual VNC server (already solid, supports :1 on
-# Xvfb's display), and websockify wraps it in a WebSocket noVNC can speak.
-# tigervnc-tools provides vncpasswd; tigervnc-scraping-server provides
-# x0vncserver (attaches to an already-running X server rather than starting
-# its own, which is exactly what we want since Xvfb handles display :1).
+# We use TigerVNC's Xtigervnc — a combined X server + VNC server in one
+# process. It's what tigervncserver / vncserver wrap under the hood, and
+# it handles both the display and the RFB protocol cleanly on Debian/
+# Ubuntu (unlike tigervnc-scraping-server's perl-wrapped x0vncserver,
+# which ships broken on 24.04).
+#
+# tigervnc-standalone-server  provides Xtigervnc
+# tigervnc-tools              provides vncpasswd
+# tigervnc-common             runtime shared libs
 RUN apt-get update && apt-get install -y --no-install-recommends \
       tigervnc-standalone-server tigervnc-common tigervnc-tools \
-      tigervnc-scraping-server \
     && rm -rf /var/lib/apt/lists/*
 
-# Xvfb writes its UNIX socket under /tmp/.X11-unix. Pre-create the
-# directory with proper ownership so it works when Xvfb runs as our
-# non-root user. Docker-managed /tmp is per-container so this can't be
-# done lazily at runtime without root.
+# X socket dir. Xtigervnc writes its socket under /tmp/.X11-unix; pre-
+# create it with the right perms so the container's non-root user can
+# use it.
 RUN mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix
 
 RUN pip3 install --no-cache-dir --break-system-packages websockify==0.12.0

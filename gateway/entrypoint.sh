@@ -244,22 +244,16 @@ mkdir -p "$SHARED_AUTH"
 # 7. Xvfb + fluxbox + VNC server on :1
 # ─────────────────────────────────────────────────────────────
 
-log "Starting Xvfb :1 ..."
-# Clear stale X locks from a previous crashed run so Xvfb doesn't refuse
-# to start with "Server is already active for display 1".
-rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
-Xvfb :1 -screen 0 1920x1080x24 -nolisten tcp -noreset &
-XVFB_PID=$!
-for _ in $(seq 1 20); do
-  [ -e /tmp/.X11-unix/X1 ] && break
-  sleep 0.25
-done
+# ─────────────────────────────────────────────────────────────
+# 7. Xtigervnc (combined X server + VNC server) on :1
+# Replaces the prior Xvfb + x0vncserver two-process setup.
+# Xtigervnc handles both the X display and the VNC protocol in one
+# process, avoiding the perl-wrapper/defunct-child issues we hit
+# with tigervnc-scraping-server on Ubuntu 24.04.
+# ─────────────────────────────────────────────────────────────
 
-log "Starting fluxbox (window manager) ..."
-DISPLAY=:1 fluxbox -log /dev/null > "$HOME/fluxbox.log" 2>&1 &
-
-log "Starting VNC server on :1 (password auth) ..."
 mkdir -p "$HOME/.vnc"
+log "Preparing VNC password ..."
 if [ ! -f "$HOME/.vnc/passwd" ]; then
   VNC_PW="${VNC_PASSWORD:-$(head -c 12 /dev/urandom | base64 | tr -d '=+/' | head -c 12)}"
   printf '%s\n%s\n' "$VNC_PW" "$VNC_PW" | vncpasswd -f > "$HOME/.vnc/passwd" 2>/dev/null \
@@ -268,16 +262,39 @@ if [ ! -f "$HOME/.vnc/passwd" ]; then
   echo "$VNC_PW" > "$OPENCLAW_HOME/.vnc-password"
   log "  VNC password written to $OPENCLAW_HOME/.vnc-password"
 fi
-# Start x0vncserver attached to the running :1 display (doesn't start its own X).
-# Provided by tigervnc-scraping-server.
-x0vncserver -display :1 -PasswordFile "$HOME/.vnc/passwd" \
-  -rfbport 5901 -localhost=1 > "$HOME/.vnc/x0vncserver.log" 2>&1 &
-X0VNC_PID=$!
+
+# Clear stale X locks from a crashed previous run.
+rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
+
+log "Starting Xtigervnc :1 (integrated X + VNC) ..."
+# -rfbport 5901        RFB/VNC port websockify connects to
+# -rfbauth <file>      password file (same format as vncpasswd produces)
+# -localhost=1         only accept RFB from 127.0.0.1 (websockify in-container)
+# -SecurityTypes VncAuth  accept the password auth scheme we set up
+# -geometry / -depth   screen dimensions; 1920x1080 matches prior setup
+# -AlwaysShared=1      allow multiple viewers to connect concurrently
+Xtigervnc :1 \
+  -geometry 1920x1080 -depth 24 \
+  -rfbport 5901 -rfbauth "$HOME/.vnc/passwd" \
+  -SecurityTypes VncAuth \
+  -localhost=1 -AlwaysShared=1 \
+  > "$HOME/.vnc/Xtigervnc.log" 2>&1 &
+XVNC_PID=$!
+
+# Wait for the display socket to exist before starting WM.
+for _ in $(seq 1 20); do
+  [ -e /tmp/.X11-unix/X1 ] && break
+  sleep 0.25
+done
+
 sleep 1
-if ! kill -0 "$X0VNC_PID" 2>/dev/null; then
-  log "⚠ x0vncserver exited immediately — tail log:"
-  tail -20 "$HOME/.vnc/x0vncserver.log" 2>&1 | sed 's/^/    /'
+if ! kill -0 "$XVNC_PID" 2>/dev/null; then
+  log "⚠ Xtigervnc exited immediately — tail log:"
+  tail -20 "$HOME/.vnc/Xtigervnc.log" 2>&1 | sed 's/^/    /'
 fi
+
+log "Starting fluxbox (window manager) on :1 ..."
+DISPLAY=:1 fluxbox -log /dev/null > "$HOME/fluxbox.log" 2>&1 &
 
 # ─────────────────────────────────────────────────────────────
 # 8. websockify (noVNC) + optional Caddy
