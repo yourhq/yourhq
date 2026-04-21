@@ -53,10 +53,10 @@ async function request<T>(
 }
 
 function encodeBranch(branch: string): string {
-  // Preserve slashes inside the branch name (URL-encoded) so the server
-  // can round-trip them back. The files-API accepts either encoded or
-  // unencoded slashes — we keep them unencoded for readability.
-  return encodeURIComponent(branch).replace(/%2F/g, "/");
+  // Branch names can contain slashes (e.g. "my-workspace/coffee") which
+  // collide with URL path segmentation. Encode them fully so the server
+  // sees a single segment.
+  return encodeURIComponent(branch);
 }
 
 export async function getFileTree(branch: string): Promise<GitHubTreeEntry[]> {
