@@ -135,7 +135,12 @@ RUN npm install -g openclaw@${OPENCLAW_VERSION}
 RUN userdel -r ubuntu 2>/dev/null || true \
     && groupadd -g 1000 openclaw \
     && useradd -m -u 1000 -g 1000 -s /bin/bash openclaw \
-    && mkdir -p /home/openclaw/.openclaw /home/openclaw/.ssh \
+    && mkdir -p \
+         /home/openclaw/.openclaw \
+         /home/openclaw/.ssh \
+         /home/openclaw/.config/google-chrome \
+         /home/openclaw/.local/share \
+         /home/openclaw/.cache \
     && chown -R openclaw:openclaw /home/openclaw
 
 # ── Bundle templates + bootstrap plugin ──────────────────────
