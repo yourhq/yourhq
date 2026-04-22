@@ -194,7 +194,9 @@ RUN mkdir -p /etc/xdg/xfce4 /etc/xdg \
          'x-scheme-handler/https=google-chrome.desktop' \
          'x-scheme-handler/about=google-chrome.desktop' \
          'x-scheme-handler/unknown=google-chrome.desktop' \
-         > /etc/xdg/mimeapps.list
+         > /etc/xdg/mimeapps.list \
+    && install -o openclaw -g openclaw -m 644 \
+         /etc/xdg/mimeapps.list /home/openclaw/.config/mimeapps.list
 
 # ── Bundle templates + bootstrap plugin ──────────────────────
 COPY --chown=openclaw:openclaw templates /opt/templates

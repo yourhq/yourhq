@@ -222,6 +222,7 @@ if [ -f "$CONFIG" ]; then
     (if .agents.defaults.tools then del(.agents.defaults.tools) else . end) |
     .browser.executablePath //= "/usr/bin/google-chrome-stable" |
     .browser.defaultProfile //= "openclaw" |
+    .browser.noSandbox = true |
     .channels.telegram.enabled //= true |
     .channels.telegram.dmPolicy //= "pairing" |
     .channels.telegram.groupPolicy //= "open" |
@@ -313,6 +314,23 @@ log "Starting XFCE session on :1 ..."
 
 xdg-user-dirs-update 2>/dev/null || true
 
+# ~/Desktop is a per-container ephemeral dir, but agent shortcuts are
+# written by add-agent.sh in the runner container. Point ~/Desktop at
+# the shared .openclaw/Desktop/ so xfdesktop sees shortcuts created by
+# any container that writes to the gateway-state volume.
+mkdir -p "$HOME/.openclaw/Desktop"
+if [ ! -L "$HOME/Desktop" ]; then
+  # Could be: missing, a real empty dir, or a real dir with content.
+  # Only touch the first two — never blow away user content.
+  if [ ! -e "$HOME/Desktop" ]; then
+    ln -s "$HOME/.openclaw/Desktop" "$HOME/Desktop"
+  elif [ -d "$HOME/Desktop" ] && [ -z "$(ls -A "$HOME/Desktop" 2>/dev/null)" ]; then
+    rm -rf "$HOME/Desktop"
+    ln -s "$HOME/.openclaw/Desktop" "$HOME/Desktop"
+  fi
+fi
+
+
 export XDG_RUNTIME_DIR="/tmp/runtime-$(id -u)"
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
@@ -360,6 +378,19 @@ if ! kill -0 "$XFCE_PID" 2>/dev/null; then
   log "⚠ XFCE session exited immediately — tail log:"
   tail -30 "$HOME/xfce.log" 2>&1 | sed 's/^/    /'
 fi
+
+# Force desktop-icons style=2 at xfconf level. Our XML default is only
+# consulted when no user setting exists — xfconfd may stash a stale value
+# of 0 from an earlier run. Re-apply every boot so Desktop shortcuts
+# actually render. Wait briefly for xfconfd to come up under the new bus.
+for _ in $(seq 1 20); do
+  xfconf-query -c xfce4-desktop -l >/dev/null 2>&1 && break
+  sleep 0.25
+done
+xfconf-query -c xfce4-desktop -p /desktop-icons/style -s 2 --create -t int \
+  2>/dev/null || true
+# Reload xfdesktop so the style change takes effect immediately.
+xfdesktop --reload 2>/dev/null || true
 
 # ─────────────────────────────────────────────────────────────
 # 8. websockify (noVNC) + optional Caddy
@@ -440,12 +471,12 @@ import json, os
 urls = {}
 ts = os.environ.get("TS_IP", "")
 if ts:
-    urls["tailscale"] = f"http://{ts}:6901/vnc.html"
+    urls["tailscale"] = f"http://{ts}:6901/vnc.html?autoconnect=1&resize=remote"
 if os.environ.get("NOVNC_BIND_EFFECTIVE") == "public":
     dom = os.environ.get("NOVNC_DOMAIN", "")
     if dom:
-        urls["public"] = f"https://{dom}/vnc.html"
-urls["local"] = "http://localhost:6901/vnc.html"
+        urls["public"] = f"https://{dom}/vnc.html?autoconnect=1&resize=remote"
+urls["local"] = "http://localhost:6901/vnc.html?autoconnect=1&resize=remote"
 meta = {
     "reachable_urls": urls,
     "novnc_bind": os.environ.get("NOVNC_BIND_EFFECTIVE", "local"),
@@ -490,10 +521,39 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────
-# 11. Launch OpenClaw gateway as PID 1 (well, exec'd under tini)
+# 11. Clear stale Chrome profile locks
+# ─────────────────────────────────────────────────────────────
+# If the gateway crashed mid-browser-session (or the container got killed),
+# each agent's Chrome user-data-dir will have Singleton* symlinks pointing
+# at the dead process's hostname-PID. A fresh Chrome sees the lock, aborts
+# the launch, and openclaw reports "CDP websocket not reachable". Sweep
+# them all at boot so the first launch of the new gateway is clean.
+log "Clearing stale Chrome Singleton* locks in all agent profiles ..."
+find "$HOME/.openclaw/browser" -maxdepth 3 -name "Singleton*" -delete 2>/dev/null || true
+
+# ─────────────────────────────────────────────────────────────
+# 12. Launch OpenClaw gateway as PID 1 (well, exec'd under tini)
 # ─────────────────────────────────────────────────────────────
 
 log "Starting openclaw gateway (foreground) ..."
 # `openclaw gateway start` expects systemd; `openclaw gateway run` is the
 # foreground command for containers.
+#
+# Export the X11/XDG environment so openclaw's managed browser launcher
+# (which inherits process.env of the gateway) spawns Chrome into our
+# Xtigervnc display. Without these, Chrome-in-container can't find a
+# display and the wrapper reports "CDP websocket not reachable after
+# start" even though the process briefly exists. The XFCE subshell
+# above sets them locally; here we re-export for the openclaw process.
+export DISPLAY=:1
+export XDG_RUNTIME_DIR="/tmp/runtime-$(id -u)"
+export XDG_SESSION_TYPE=x11
+export XDG_CONFIG_HOME="$HOME/.config"
+export XDG_DATA_HOME="$HOME/.local/share"
+export XDG_CACHE_HOME="$HOME/.cache"
+export XDG_CONFIG_DIRS="/etc/xdg"
+export XDG_DATA_DIRS="/usr/local/share:/usr/share"
+[ -S "$XDG_RUNTIME_DIR/bus" ] && \
+  export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+
 exec openclaw gateway run

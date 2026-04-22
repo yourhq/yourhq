@@ -183,10 +183,28 @@ with open(path, "w") as f:
 PYEOF
 fi
 
+# ── 4c. Swap BROWSER_PROFILE_HERE placeholder in TOOLS.md with the
+#       agent's slug so the agent reads a concrete profile name it can
+#       pass as `profile:` on every browser tool call.
+TOOLS_MD="$WORKSPACE/TOOLS.md"
+if [ -f "$TOOLS_MD" ] && grep -q "BROWSER_PROFILE_HERE" "$TOOLS_MD"; then
+  echo "→ Patching TOOLS.md browser profile name ..."
+  # AGENT_SLUG is the bare agent slug (matches BROWSER_PROFILE).
+  python3 - "$TOOLS_MD" "$AGENT_SLUG" << 'PYEOF'
+import sys
+path, slug = sys.argv[1:3]
+with open(path) as f:
+    content = f.read()
+content = content.replace("BROWSER_PROFILE_HERE", slug)
+with open(path, "w") as f:
+    f.write(content)
+PYEOF
+fi
+
 # ── 5. Commit the initialization patches ───────────────────────────────
 if ! git diff --quiet; then
   echo "→ Committing initialization patches ..."
-  git add agent.json USER.md IDENTITY.md 2>/dev/null || true
+  git add agent.json USER.md IDENTITY.md TOOLS.md 2>/dev/null || true
   git add -A
   git commit -q -m "feat: initialize agent ${AGENT_SLUG}" || true
 fi
@@ -236,14 +254,17 @@ jq \
 
 # ── 9. Desktop shortcut for this agent's Chrome ────────────────────────
 # Pre-create the user-data dir so Chrome doesn't fight the first launch.
-mkdir -p "$HOME/Desktop" "$HOME/.openclaw/browser/${BROWSER_PROFILE}/user-data"
-SHORTCUT_FILE="$HOME/Desktop/Chrome-${BROWSER_PROFILE}.desktop"
+# Shortcut lives under .openclaw/ so it's on the shared gateway-state
+# volume — the gateway container symlinks ~/Desktop there at boot so
+# xfdesktop picks it up.
+mkdir -p "$HOME/.openclaw/Desktop" "$HOME/.openclaw/browser/${BROWSER_PROFILE}/user-data"
+SHORTCUT_FILE="$HOME/.openclaw/Desktop/Chrome-${BROWSER_PROFILE}.desktop"
 cat > "$SHORTCUT_FILE" << SHORTCUT
 [Desktop Entry]
 Version=1.0
 Type=Application
 Name=Chrome (${AGENT_NAME_DISPLAY})
-Exec=/usr/bin/google-chrome-stable --user-data-dir=$HOME/.openclaw/browser/${BROWSER_PROFILE}/user-data --remote-debugging-port=${CDP_PORT}
+Exec=/usr/bin/google-chrome-stable --no-sandbox --disable-dev-shm-usage --user-data-dir=$HOME/.openclaw/browser/${BROWSER_PROFILE}/user-data --remote-debugging-port=${CDP_PORT}
 Icon=google-chrome
 Terminal=false
 SHORTCUT

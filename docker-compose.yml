@@ -87,7 +87,10 @@ services:
       - NET_ADMIN
     devices:
       - /dev/net/tun:/dev/net/tun
-    shm_size: 1gb  # Chrome benefits from larger /dev/shm
+    # Chrome crashes on small /dev/shm in container mode. openclaw's managed
+    # browser launcher does not pass --disable-dev-shm-usage, so we give it
+    # enough shm to operate normally.
+    shm_size: 2gb
     volumes:
       - gateway-state:/home/openclaw/.openclaw
       - gateway-chrome-profile:/home/openclaw/.config/google-chrome
