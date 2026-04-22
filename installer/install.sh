@@ -67,13 +67,69 @@ say "${B}HQ installer${R}"
 say "${D}Self-host setup — clone, configure, run.${R}"
 say ""
 
+install_docker_linux() {
+  info "Installing Docker via get.docker.com ..."
+  local sh_cmd="sh"
+  if [ "$(id -u)" -ne 0 ]; then
+    if command -v sudo >/dev/null 2>&1; then
+      sh_cmd="sudo sh"
+    else
+      err "Need root or sudo to install Docker. Re-run as root or install Docker manually."
+      exit 1
+    fi
+  fi
+  curl -fsSL https://get.docker.com | $sh_cmd
+  if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+    sudo usermod -aG docker "$USER" || true
+    warn "Added $USER to the 'docker' group. You may need to re-login or run 'newgrp docker' for the group change to take effect in new shells."
+  fi
+  ok "Docker installed"
+}
+
 if ! command -v docker >/dev/null 2>&1; then
-  err "Docker is not installed."
-  say ""
-  say "Install Docker first, then re-run this script:"
-  say "  • macOS / Windows: ${C}https://docs.docker.com/desktop/${R}"
-  say "  • Linux:           ${C}https://docs.docker.com/engine/install/${R}"
-  exit 1
+  warn "Docker is not installed on this machine."
+  OS_NAME="$(uname -s)"
+  if [ "$OS_NAME" = "Linux" ]; then
+    say ""
+    say "  HQ runs on Docker. On Linux I can install it for you via the"
+    say "  official get.docker.com script — it covers all major distros."
+    say ""
+    REPLY=$(ask "Install Docker now? [Y/n]" "Y")
+    case "$REPLY" in
+      [Nn]*)
+        err "Docker is required. Install it manually and re-run this script."
+        say "  ${C}https://docs.docker.com/engine/install/${R}"
+        exit 1
+        ;;
+      *)
+        install_docker_linux
+        ;;
+    esac
+  elif [ "$OS_NAME" = "Darwin" ]; then
+    say ""
+    say "  ${B}You're on macOS.${R} Docker on Mac runs inside Docker Desktop,"
+    say "  a GUI app that can't be installed from a shell script."
+    say ""
+    say "  ${B}What to do:${R}"
+    say "    1. Download Docker Desktop: ${C}https://docs.docker.com/desktop/install/mac-install/${R}"
+    say "    2. Open the .dmg and drag Docker to Applications"
+    say "    3. Launch Docker Desktop (wait for the whale icon in the menu bar)"
+    say "    4. Re-run this installer"
+    say ""
+    exit 1
+  else
+    say ""
+    say "  ${B}You're on $OS_NAME.${R} Docker on Windows runs inside Docker Desktop,"
+    say "  which requires WSL2 and can't be installed from this script."
+    say ""
+    say "  ${B}What to do:${R}"
+    say "    1. Install WSL2: ${C}https://learn.microsoft.com/windows/wsl/install${R}"
+    say "    2. Install Docker Desktop: ${C}https://docs.docker.com/desktop/install/windows-install/${R}"
+    say "    3. Launch Docker Desktop (wait for the whale icon in the system tray)"
+    say "    4. Re-run this installer from a WSL shell"
+    say ""
+    exit 1
+  fi
 fi
 if ! docker compose version >/dev/null 2>&1; then
   err "docker compose plugin is not available."
