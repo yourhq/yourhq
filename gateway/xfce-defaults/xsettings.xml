@@ -20,8 +20,8 @@
     <property name="RGBA" type="string" value="rgb"/>
   </property>
   <property name="Gtk" type="empty">
-    <property name="FontName" type="string" value="Ubuntu 10"/>
-    <property name="MonospaceFontName" type="string" value="Ubuntu Mono 11"/>
+    <property name="FontName" type="string" value="Noto Sans 10"/>
+    <property name="MonospaceFontName" type="string" value="Noto Sans Mono 11"/>
     <property name="CursorThemeSize" type="empty"/>
     <property name="CursorThemeName" type="empty"/>
     <property name="DecorationLayout" type="string" value="menu:minimize,maximize,close"/>

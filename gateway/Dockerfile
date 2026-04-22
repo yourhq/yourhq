@@ -53,6 +53,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       thunar xdg-user-dirs \
       yaru-theme-gtk yaru-theme-icon \
       papirus-icon-theme \
+      fonts-ubuntu fonts-noto-color-emoji \
+      at-spi2-core \
       autocutsel \
     && rm -rf /var/lib/apt/lists/*
 
@@ -162,6 +164,37 @@ COPY gateway/xfce-defaults/xfwm4.xml                    /etc/xdg/xfce4/xfconf/xf
 COPY gateway/xfce-defaults/xfce4-panel.xml              /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
 COPY gateway/xfce-defaults/xfce4-desktop.xml            /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml
 COPY gateway/xfce-defaults/xfce4-power-manager.xml      /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-power-manager.xml
+
+# ── Default browser registration ─────────────────────────────
+# Without these, XFCE's "Web Browser" launcher (exo-open --launch
+# WebBrowser) and xdg-open both fail with "Failed to execute default
+# Web Browser. Input/output error." because no handler is registered
+# for http/https schemes. Register Chrome as the default at both the
+# exo/XFCE layer (helpers.rc) and the xdg-mime layer (mimeapps.list)
+# so every path finds it.
+RUN mkdir -p /etc/xdg/xfce4 /etc/xdg \
+    && printf '%s\n' \
+         'WebBrowser=custom-WebBrowser' \
+         > /etc/xdg/xfce4/helpers.rc \
+    && mkdir -p /usr/share/xfce4/helpers \
+    && printf '%s\n' \
+         '[Desktop Entry]' \
+         'Version=1.0' \
+         'Type=X-XFCE-Helper' \
+         'Name=Google Chrome' \
+         'Icon=google-chrome' \
+         'X-XFCE-Category=WebBrowser' \
+         'X-XFCE-Commands=/usr/bin/google-chrome-stable --no-sandbox --disable-dev-shm-usage' \
+         'X-XFCE-CommandsWithParameter=/usr/bin/google-chrome-stable --no-sandbox --disable-dev-shm-usage "%s"' \
+         > /usr/share/xfce4/helpers/custom-WebBrowser.desktop \
+    && printf '%s\n' \
+         '[Default Applications]' \
+         'text/html=google-chrome.desktop' \
+         'x-scheme-handler/http=google-chrome.desktop' \
+         'x-scheme-handler/https=google-chrome.desktop' \
+         'x-scheme-handler/about=google-chrome.desktop' \
+         'x-scheme-handler/unknown=google-chrome.desktop' \
+         > /etc/xdg/mimeapps.list
 
 # ── Bundle templates + bootstrap plugin ──────────────────────
 COPY --chown=openclaw:openclaw templates /opt/templates
