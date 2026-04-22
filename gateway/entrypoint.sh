@@ -380,18 +380,23 @@ if ! kill -0 "$XFCE_PID" 2>/dev/null; then
   tail -30 "$HOME/xfce.log" 2>&1 | sed 's/^/    /'
 fi
 
-# Force desktop-icons style=2 at xfconf level. Our XML default is only
-# consulted when no user setting exists — xfconfd may stash a stale value
-# of 0 from an earlier run. Re-apply every boot so Desktop shortcuts
-# actually render. Wait briefly for xfconfd to come up under the new bus.
-for _ in $(seq 1 20); do
-  xfconf-query -c xfce4-desktop -l >/dev/null 2>&1 && break
-  sleep 0.25
-done
-xfconf-query -c xfce4-desktop -p /desktop-icons/style -s 2 --create -t int \
-  2>/dev/null || true
-# Reload xfdesktop so the style change takes effect immediately.
-xfdesktop --reload 2>/dev/null || true
+# Force desktop-icons style=2 at xfconf level. Run in background with a
+# hard timeout — xfconfd may not be up yet, and xfdesktop --reload can
+# hang when invoked before xfdesktop itself is running. We don't block
+# the main startup on any of this; it's cosmetic.
+(
+  for _ in $(seq 1 40); do
+    xfconf-query -c xfce4-desktop -l >/dev/null 2>&1 && break
+    sleep 0.25
+  done
+  xfconf-query -c xfce4-desktop -p /desktop-icons/style -s 2 --create -t int \
+    2>/dev/null || true
+  # Only try to reload if an xfdesktop process is already running; with
+  # no daemon present, `xfdesktop --reload` can block waiting for one.
+  if pgrep -x xfdesktop >/dev/null 2>&1; then
+    timeout 3 xfdesktop --reload 2>/dev/null || true
+  fi
+) > "$HOME/xfconf-boot.log" 2>&1 &
 
 # ─────────────────────────────────────────────────────────────
 # 8. websockify (noVNC) + optional Caddy
