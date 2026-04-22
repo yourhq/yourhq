@@ -11,8 +11,8 @@ import sys
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-CC_SCRIPTS_DIR = SCRIPT_DIR.parent / "skills" / "command-center" / "scripts"
-sys.path.insert(0, str(CC_SCRIPTS_DIR))
+HQ_SCRIPTS_DIR = SCRIPT_DIR.parent / "skills" / "hq" / "scripts"
+sys.path.insert(0, str(HQ_SCRIPTS_DIR))
 
 from hq_base import check_env, api_get, api_post, api_patch, AGENT_SLUG, now_iso  # type: ignore
 
