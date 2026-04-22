@@ -95,11 +95,15 @@ fi
 cd "$TARGET"
 
 # Fetch compose files + env example from the repo if we're running via curl.
-REPO_RAW="https://raw.githubusercontent.com/yourhq/yourhq/main"
+REPO_RAW="${YOURHQ_REPO_RAW:-https://raw.githubusercontent.com/yourhq/yourhq/main}"
+CURL_AUTH=()
+if [ -n "${GH_TOKEN:-}" ]; then
+  CURL_AUTH=(-H "Authorization: Bearer $GH_TOKEN")
+fi
 if [ ! -f "docker-compose.yml" ]; then
   info "Downloading compose files ..."
-  curl -fsSL "$REPO_RAW/docker-compose.yml" -o docker-compose.yml
-  curl -fsSL "$REPO_RAW/.env.example" -o .env.example
+  curl -fsSL "${CURL_AUTH[@]}" "$REPO_RAW/docker-compose.yml" -o docker-compose.yml
+  curl -fsSL "${CURL_AUTH[@]}" "$REPO_RAW/.env.example" -o .env.example
   ok "Downloaded"
 fi
 

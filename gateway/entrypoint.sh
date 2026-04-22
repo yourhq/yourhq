@@ -220,6 +220,7 @@ if [ -f "$CONFIG" ]; then
   TMP=$(mktemp)
   jq --arg plugin_path "$PLUGIN_DIR" '
     (if .agents.defaults.tools then del(.agents.defaults.tools) else . end) |
+    .tools.profile = "full" |
     .browser.executablePath //= "/usr/bin/google-chrome-stable" |
     .browser.defaultProfile //= "openclaw" |
     .browser.noSandbox = true |
