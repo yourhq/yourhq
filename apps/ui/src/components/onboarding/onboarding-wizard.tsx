@@ -484,7 +484,11 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
                   <StepWorkspace
                     name={(data.workspaceName as string) ?? ""}
                     slug={(data.workspaceSlug as string) ?? ""}
-                    slugTouched={Boolean(data.workspaceSlug)}
+                    // Track "has the user edited the slug field directly?"
+                    // as an explicit flag in data — not derived from whether
+                    // slug is non-empty, or auto-slug breaks on the first
+                    // keystroke when `slug` becomes "a".
+                    slugTouched={Boolean(data.workspaceSlugTouched)}
                     description={(data.workspaceDescription as string) ?? ""}
                     // StepWorkspace emits { name, slug, slugTouched, description }
                     // from the original /setup wizard. Remap into our
@@ -493,6 +497,8 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
                       const next: Record<string, unknown> = {};
                       if ("name" in u) next.workspaceName = u.name;
                       if ("slug" in u) next.workspaceSlug = u.slug;
+                      if ("slugTouched" in u)
+                        next.workspaceSlugTouched = u.slugTouched;
                       if ("description" in u)
                         next.workspaceDescription = u.description;
                       patch(next);
