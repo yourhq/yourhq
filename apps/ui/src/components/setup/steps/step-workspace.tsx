@@ -3,11 +3,28 @@
 import { useRef, useEffect } from "react";
 import type { WizardState } from "../setup-wizard";
 
+// Used when auto-generating the slug from the workspace name — that source
+// is arbitrary prose, so we fully sanitize (lowercase, collapse non-alnum
+// runs into dashes, trim leading/trailing dashes).
 function slugify(value: string): string {
   return value
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
+    .slice(0, 40);
+}
+
+// Used when the user is typing directly into the slug field. We keep
+// only valid slug characters and collapse invalid runs into a single
+// dash — but we do NOT strip trailing dashes while the user is typing,
+// because otherwise pressing "-" in the middle of typing "foo-bar" would
+// silently delete the character (slugify would re-strip the trailing -
+// before the "b" arrives). Trailing-dash cleanup happens on blur.
+function sanitizeSlugInput(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-{2,}/g, "-")
     .slice(0, 40);
 }
 
@@ -65,11 +82,21 @@ export function StepWorkspace({ name, slug, slugTouched, description, onChange }
             type="text"
             value={slug}
             onChange={(e) => {
-              onChange({ slug: slugify(e.target.value), slugTouched: true });
+              onChange({
+                slug: sanitizeSlugInput(e.target.value),
+                slugTouched: true,
+              });
             }}
             onBlur={() => {
               if (!slug.trim()) {
                 onChange({ slug: slugify(name), slugTouched: false });
+              } else {
+                // Strip trailing dashes that the permissive typing sanitizer
+                // allowed (e.g. user typed "flight-" and tabbed away).
+                const cleaned = slug.replace(/-+$/g, "");
+                if (cleaned !== slug) {
+                  onChange({ slug: cleaned, slugTouched: true });
+                }
               }
             }}
             placeholder="auto-generated"
