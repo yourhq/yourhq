@@ -6,6 +6,7 @@ import {
   Layers,
   LayoutGrid,
   Server,
+  FolderKanban,
   ChevronRight,
   Settings as SettingsIcon,
 } from "lucide-react";
@@ -17,6 +18,12 @@ const SECTIONS = [
     icon: Sliders,
     title: "General",
     description: "Workspace name and basic preferences.",
+  },
+  {
+    href: "/dashboard/settings/projects",
+    icon: FolderKanban,
+    title: "Projects",
+    description: "Connect, edit, and switch between Supabase projects.",
   },
   {
     href: "/dashboard/settings/pipeline",
@@ -34,7 +41,7 @@ const SECTIONS = [
     href: "/dashboard/settings/system",
     icon: Server,
     title: "System",
-    description: "EC2 instance controls and command history.",
+    description: "Gateway controls and command history.",
   },
 ];
 

@@ -118,7 +118,7 @@ docker compose pull
 docker compose up -d
 ```
 
-For UI changes that touch `NEXT_PUBLIC_*` env vars, also `docker compose build --no-cache ui`.
+UI Supabase config lives in the project registry (runtime, not baked in), so no UI rebuild is ever required — just pull and restart.
 
 Phase 3 adds a UI "Update" button. Until then, SSH in and run the above.
 

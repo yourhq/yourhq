@@ -164,21 +164,33 @@ if [ ! -f "docker-compose.yml" ]; then
 fi
 
 # ── Supabase ────────────────────────────────────────────────
+# The UI no longer needs Supabase creds at install time — onboarding
+# collects them in the browser. But the gateway daemons (dispatcher +
+# runner + files-API) need Supabase at boot. Collect the default
+# project's creds here so they can start.
+#
+# If you only want to bring up the UI first (e.g. to demo), skip these —
+# the gateway won't start without them, but you can `docker compose up ui`
+# alone and complete Supabase setup in the browser first.
 say ""
-say "${B}1. Supabase${R}"
-say "${D}Create a free project at https://supabase.com, then paste the values below.${R}"
-say "${D}Find them under Project Settings → API.${R}"
+say "${B}1. Supabase (for the default gateway)${R}"
+say "${D}Create a free project at https://supabase.com and run${R}"
+say "${D}db/migrations/001_schema.sql in the SQL editor. Then paste the keys${R}"
+say "${D}from Project Settings → API.${R}"
 say ""
 
-SUPABASE_URL_VAL=$(ask "Supabase project URL" "")
-NEXT_PUBLIC_SUPABASE_ANON_KEY_VAL=$(ask "Supabase anon key" "" secret)
-SUPABASE_SERVICE_ROLE_KEY_VAL=$(ask "Supabase service role key" "" secret)
-WORKSPACE_SLUG_VAL=$(ask "Workspace slug (short, no spaces)" "my-workspace")
-
-if [ -z "$SUPABASE_URL_VAL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY_VAL" ]; then
-  err "Supabase URL and service role key are required."
-  exit 1
+SUPABASE_URL_VAL=$(ask "Supabase project URL (leave blank to skip gateway)" "")
+NEXT_PUBLIC_SUPABASE_ANON_KEY_VAL=""
+SUPABASE_SERVICE_ROLE_KEY_VAL=""
+WORKSPACE_SLUG_VAL=""
+if [ -n "$SUPABASE_URL_VAL" ]; then
+  NEXT_PUBLIC_SUPABASE_ANON_KEY_VAL=$(ask "Supabase anon key" "" secret)
+  SUPABASE_SERVICE_ROLE_KEY_VAL=$(ask "Supabase service role key" "" secret)
+  WORKSPACE_SLUG_VAL=$(ask "Workspace slug (short, no spaces)" "my-workspace")
 fi
+
+# Gateway auth token — shared secret between UI and gateway files-API.
+GATEWAY_AUTH_TOKEN_VAL=$(openssl rand -hex 32)
 
 # ── Networking ──────────────────────────────────────────────
 say ""
@@ -317,13 +329,12 @@ say "${B}5. Writing .env${R}"
 
 cat > .env << ENV_EOF
 SUPABASE_URL=$SUPABASE_URL_VAL
-NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL_VAL
-NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY_VAL
 SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY_VAL
 WORKSPACE_SLUG=$WORKSPACE_SLUG_VAL
 GATEWAY_ID=default
 GATEWAY_LABEL=Primary gateway
 COMPOSE_PROJECT=yourhq
+GATEWAY_AUTH_TOKEN=$GATEWAY_AUTH_TOKEN_VAL
 
 # Networking — controlled by the host, not the containers.
 NETWORKING_MODE=$NETWORKING_MODE_VAL
@@ -356,8 +367,16 @@ say "${B}6. Starting services${R}"
 info "Pulling images (first run takes a few minutes) ..."
 docker compose pull || warn "Some images could not be pulled — will try to build locally."
 
-info "Starting stack ..."
-docker compose up -d
+# If we didn't collect Supabase creds, only bring up the UI. The gateway
+# daemons can't boot without Supabase and would just restart-loop.
+if [ -n "$SUPABASE_URL_VAL" ]; then
+  info "Starting full stack (UI + gateway + dispatcher + runner) ..."
+  docker compose up -d
+else
+  info "Starting UI only — add a Supabase project in the browser, then"
+  info "  edit .env and run 'docker compose up -d' to start the gateway."
+  docker compose up -d ui
+fi
 
 # ── Health wait ─────────────────────────────────────────────
 info "Waiting for UI to become reachable on localhost:3000 ..."

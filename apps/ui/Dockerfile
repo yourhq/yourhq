@@ -15,15 +15,10 @@ RUN npm ci --legacy-peer-deps --no-audit --no-fund
 
 FROM node:24-slim AS builder
 WORKDIR /app
-# Next.js bakes NEXT_PUBLIC_* vars into the client bundle at build time.
-# Pass these in via `docker compose build` (the compose file forwards them
-# from .env into the build args below) so the resulting image contains
-# the right Supabase URL + anon key for the browser to use.
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
-    NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY \
-    NEXT_TELEMETRY_DISABLED=1 \
+# Supabase URL + anon key are injected at RUNTIME via window.__HQ_CONFIG__
+# (see apps/ui/src/lib/projects/inject-config.tsx). Nothing project-specific
+# is baked into the client bundle — the same image works for any user.
+ENV NEXT_TELEMETRY_DISABLED=1 \
     NODE_OPTIONS="--max-old-space-size=4096"
 COPY --from=deps /app/node_modules ./node_modules
 COPY apps/ui/. .

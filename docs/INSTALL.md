@@ -50,7 +50,7 @@ curl -fsSL install.yourhq.ai | bash
 The installer:
 
 1. Checks that Docker is present; prompts to install it if not (Linux only).
-2. Prompts for Supabase URL, anon key, service role key, workspace slug.
+2. Optionally prompts for Supabase URL + keys for the default gateway. **You can skip this** — if blank, only the UI comes up, and you connect Supabase in the browser via onboarding.
 3. Asks which networking mode you want:
    - **Local-only** (default) — HQ is reachable only on this machine.
    - **Tailscale** — installs Tailscale on the host; reachable from any device on your tailnet.
@@ -58,6 +58,8 @@ The installer:
 4. If you pick Tailscale, asks for your auth key and optionally an exit node.
 5. Writes `.env`, pulls images from GHCR, runs `docker compose up -d`.
 6. Opens your browser to `http://localhost:3000`.
+
+When you first load the UI, you'll see the **Connect Supabase** onboarding screen. Paste your URL + anon key + service role key there. On success, sign in with the Supabase auth user you created, and you're in.
 
 On a fresh machine: about 5 minutes. Most of that is image pulls.
 
@@ -123,11 +125,11 @@ See [docs/NETWORKING.md](NETWORKING.md) for the networking model and topology di
 ## Troubleshooting install
 
 - **"Docker is not installed"** on macOS/Windows: install Docker Desktop (GUI app), not the Linux installer.
-- **"Internal Server Error" on the UI** after install: `NEXT_PUBLIC_SUPABASE_*` weren't set when the image was built. Run `docker compose build --no-cache ui` then `docker compose up -d ui`.
+- **UI shows the onboarding screen every time I load it**: the `ui-config` volume got wiped or isn't persisting. Check `docker volume inspect yourhq-ui-config` and re-complete onboarding.
 - **"Pull access denied" on GHCR**: only relevant if the repo is private. `docker login ghcr.io -u <your-gh-user>` with a PAT that has `read:packages` scope.
 - **`docker compose up` fails with "port already in use"**: something else is on port 3000 or 6901 on your host. Change `UI_HOST_PORT` / `NOVNC_HOST_PORT` in `.env`.
 - **Setup wizard 500s on "Complete setup"**: CSRF origin mismatch. Set `ALLOWED_ORIGINS` in `.env` to match the host you're accessing from. Restart the UI.
-- **UI loads but login fails**: wrong Supabase creds or user doesn't exist. Re-check `.env`, re-create the user in Supabase.
+- **Onboarding validator says "workspace table doesn't exist"**: you haven't run the schema migration. Paste `db/migrations/001_schema.sql` into Supabase's SQL editor and retry.
 
 See [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md) for more.
 
@@ -140,12 +142,7 @@ docker compose pull
 docker compose up -d
 ```
 
-For UI image rebuilds (NEXT_PUBLIC changes, dependency updates):
-
-```bash
-docker compose build --no-cache ui
-docker compose up -d ui
-```
+UI Supabase config lives in the project registry (no rebuild needed after updates). Only pull and restart.
 
 ## Uninstalling
 

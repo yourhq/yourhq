@@ -28,19 +28,17 @@ The installer always runs `docker compose pull` (and falls back to `build` if th
 
 Each variable below lists: **Name / Required / Default / What it does / When to override**.
 
-### 2.1 Supabase (required)
+### 2.1 Supabase (required — for the gateway; UI manages its own)
 
-The entire stack is a front-end + daemons over a Supabase Postgres database. These four keys are non-negotiable.
+The gateway, dispatcher, and runner connect to a Supabase project read from `.env`. The UI manages its own list of Supabase projects at runtime via the project registry (see `/config/projects.json` + `/config/secrets.json` below) — UI Supabase creds are set in the browser during onboarding, not in `.env`.
 
-- **`SUPABASE_URL`** — **Required**. No default. The `https://xxxxxxxx.supabase.co` URL of your Supabase project. Used server-side by the gateway, dispatcher, and runner to talk to the REST API and log into the Postgres connection pool. Override if you migrate to a new Supabase project.
+- **`SUPABASE_URL`** — **Required for the gateway.** No default. The `https://xxxxxxxx.supabase.co` URL of the Supabase project this gateway serves. If empty at install time, the installer starts only the UI (user completes Supabase setup in the browser, then edits `.env` and runs `docker compose up -d` to bring up the gateway).
 
-- **`NEXT_PUBLIC_SUPABASE_URL`** — **Required (build-time)**. Defaults to `${SUPABASE_URL}` in `docker-compose.yml`. The URL the UI's browser bundle uses to reach Supabase. Almost always identical to `SUPABASE_URL`. Only override if the browser has to reach Supabase through a different hostname than the server (e.g. a custom domain in front of Supabase).
-
-- **`NEXT_PUBLIC_SUPABASE_ANON_KEY`** — **Required (build-time)**. No default. The public anon JWT from Supabase Project Settings → API. Baked into the UI image. Safe to expose in the browser because RLS enforces auth — but treat it as semi-public: rotating it requires rebuilding the UI image.
-
-- **`SUPABASE_SERVICE_ROLE_KEY`** — **Required, secret**. No default. The service-role JWT from Supabase Project Settings → API. Bypasses RLS, used by the gateway/dispatcher/runner for privileged writes and by the UI's server actions. **Never commit this.** Rotate it in the Supabase dashboard if leaked, then update `.env` and restart every service.
+- **`SUPABASE_SERVICE_ROLE_KEY`** — **Required for the gateway, secret**. No default. The service-role JWT from Supabase Project Settings → API. Bypasses RLS, used by the gateway/dispatcher/runner for privileged writes. **Never commit this.** Rotate it in the Supabase dashboard if leaked, then update `.env` and `docker compose up -d`.
 
 - **`EMBEDDING_API_KEY`** — **Optional**. Empty. OpenAI API key used by the gateway to embed documents when the knowledge-base vector search is enabled. Override to enable embeddings; leave empty to disable.
+
+**UI Supabase config** lives in the project registry files (`/config/projects.json` for URL + anon key, `/config/secrets.json` for service role key, mode 0600). Don't edit these by hand — use the onboarding screen on first boot, or Settings → Projects afterward.
 
 ### 2.2 Gateway identity
 
@@ -149,36 +147,16 @@ Next.js enforces an origin allowlist on server actions and form submissions. Whe
 
 ---
 
-## 3. Runtime vs build-time — the `NEXT_PUBLIC_*` gotcha
+## 3. Runtime Supabase config — no more NEXT_PUBLIC bake-in
 
-Next.js inlines every `NEXT_PUBLIC_*` variable into the client-side JS at build time. Once the UI image is built, those values are frozen in the bundle. You cannot change them by editing `.env` and restarting — the container starts the same pre-built bundle.
+The UI used to bake `NEXT_PUBLIC_SUPABASE_*` into the client bundle at build time, which meant every user had to `docker compose build ui` locally to stamp in their own Supabase values. That's gone.
 
-In this stack, two variables are build-time:
+Now the UI reads its Supabase config at **runtime** from the project registry (`/config/projects.json` + `/config/secrets.json`). The root layout renders a `<script>window.__HQ_CONFIG__ = {...}</script>` tag based on the active project's cookie, so the client bundle picks up whoever's connected without a rebuild.
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-
-The `docker-compose.yml` wires both as build args *and* runtime env:
-
-```yaml
-ui:
-  build:
-    args:
-      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-${SUPABASE_URL}}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-```
-
-The runtime env is there for completeness (server-side Next.js code can still read it) but the browser bundle only sees the build-arg version.
-
-**Why the installer builds UI locally instead of always pulling.** The prebuilt GHCR image was compiled against *somebody else's* Supabase project. If you pulled it and ran it, the browser bundle would try to connect to a Supabase instance you don't own. The installer runs `docker compose pull || build`, and when the pulled image is stamped with placeholder Supabase URLs, you have to rebuild locally to bake in yours. (In practice: the first run after editing Supabase creds needs `docker compose build ui`.)
-
-**The practical rule:** whenever you change `SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, or `NEXT_PUBLIC_SUPABASE_ANON_KEY`, you must rebuild the UI image:
-
-```bash
-docker compose build --no-cache ui && docker compose up -d ui
-```
-
-Not `restart`, not `up -d` alone — `build --no-cache` first.
+**Practical consequences:**
+- The GHCR `yourhq-ui:latest` image works for every user. No `docker compose build ui` required — ever.
+- Changing Supabase creds is a UI action (Settings → Projects → Rotate), not a rebuild.
+- `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` env vars are no longer read by the UI. Leave them unset.
 
 ---
 
@@ -190,7 +168,7 @@ If one of these leaks:
 
 - **`SUPABASE_SERVICE_ROLE_KEY`** — bypasses RLS and can read/write every row. **High severity.** Rotate in Supabase dashboard (Project Settings → API → "Generate new service_role key"). Update `.env`, then `docker compose up -d` to restart every service. Audit `audit_log` for suspicious activity.
 
-- **`NEXT_PUBLIC_SUPABASE_ANON_KEY`** — subject to RLS, so damage is bounded by your policies. Still rotate in the Supabase dashboard. Update `.env`, then `docker compose build --no-cache ui && docker compose up -d ui` (build-time — a plain restart won't pick it up).
+- **UI anon key** (stored in `/config/projects.json` per project) — subject to RLS, so damage is bounded by your policies. Rotate in the Supabase dashboard, then update it via Settings → Projects → the affected project in the UI.
 
 - **`GATEWAY_AUTH_TOKEN`** — auth between UI and files-API. Rotate by picking a new value (`openssl rand -hex 32`), writing it to `.env`, and running `docker compose up -d ui gateway` (both services must restart together so they agree on the token).
 
@@ -212,7 +190,7 @@ If one of these leaks:
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 ```
 
-**No environment variables change between production and development** — the dev overlay only changes volume mounts, commands, and the UI image (`node:24-slim` instead of the prebuilt UI image). Your `.env` works as-is. In particular, `NEXT_PUBLIC_SUPABASE_*` still need to be correct, but in dev they're picked up at `next dev` startup rather than baked in — so editing `.env` and restarting the `ui` service *does* pick them up in dev mode.
+**No environment variables change between production and development** — the dev overlay only changes volume mounts, commands, and the UI image (`node:24-slim` instead of the prebuilt UI image). Your `.env` works as-is. Supabase creds for the UI come from the project registry in both modes, so there's no "did I rebuild" confusion.
 
 ---
 
@@ -242,15 +220,9 @@ Edit `.env`, then run the appropriate Compose command to pick up the change. The
 docker compose up -d ui
 ```
 
-### UI build-time variables (`NEXT_PUBLIC_*`)
+### UI project config (no rebuild required)
 
-`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`:
-
-```bash
-docker compose build --no-cache ui && docker compose up -d ui
-```
-
-A plain `up -d` is **not** enough — the old image has the old values baked in.
+Supabase URL, anon key, service role key per project live in the project registry on the `ui-config` volume, not in `.env`. Change them via the UI (Settings → Projects → Edit / Rotate) — takes effect immediately on the next request.
 
 ### Gateway variables
 
@@ -290,20 +262,19 @@ docker compose up -d --force-recreate
 docker compose pull && docker compose up -d
 ```
 
-### Supabase keys — the whole stack
+### Gateway Supabase keys
 
-Changing `SUPABASE_URL` or `SUPABASE_SERVICE_ROLE_KEY` affects every service. Rebuild the UI (because of the linked `NEXT_PUBLIC_*` defaults) and restart everything:
+Changing the gateway's Supabase connection (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) affects the gateway, dispatcher, and runner. UI Supabase creds live in the project registry and don't need any restart:
 
 ```bash
-docker compose build --no-cache ui
-docker compose up -d
+docker compose up -d gateway dispatcher runner
 ```
 
 ---
 
 ## Troubleshooting checklist
 
-- **"The UI loads but login fails"** — your `NEXT_PUBLIC_SUPABASE_*` got out of sync with the server-side values. Rebuild `ui` (section 3).
+- **"The UI loads but login fails"** — the active project in the registry may have wrong creds. Open Settings → Projects → Edit or Rotate to fix, no restart needed.
 - **"File browser says 401 / auth error"** — `GATEWAY_AUTH_TOKEN` differs between UI and gateway, or is empty. Set it identically in `.env` and run `docker compose up -d ui gateway`.
 - **"Changed the port but the old one still works"** — port bindings need `--force-recreate` (section 7).
 - **"Changed `TEMPLATES_SOURCE` but I still see old templates"** — it's only read on first boot. See section 2.5.

@@ -40,6 +40,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ProjectSwitcher } from "@/components/projects/project-switcher";
 import * as React from "react";
 
 type NavItem = {
@@ -105,10 +106,14 @@ function SidebarInner({
   showLabels,
   pathname,
   onLinkClick,
+  activeProjectId,
+  projects,
 }: {
   showLabels: boolean;
   pathname: string;
   onLinkClick?: () => void;
+  activeProjectId: string | null;
+  projects: SwitcherProject[];
 }) {
   const { count: unreadCount } = useUnreadNotificationCount();
   const { showHelp } = useShortcuts();
@@ -124,23 +129,12 @@ function SidebarInner({
 
   return (
     <>
-      {/* Logo */}
-      <div className="flex h-12 shrink-0 items-center gap-2 px-3">
-        <Link
-          href="/dashboard"
-          className="flex items-center gap-2 overflow-hidden"
-          onClick={onLinkClick}
-        >
-          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-foreground/95 to-foreground/80 text-background">
-            <Sparkles className="h-3.5 w-3.5" />
-          </div>
-          {showLabels && (
-            <span className="truncate text-[13px] font-semibold tracking-tight text-foreground">
-              HQ
-            </span>
-          )}
-        </Link>
-      </div>
+      {/* Project switcher (renders as a plain label when ≤1 project) */}
+      <ProjectSwitcher
+        activeProjectId={activeProjectId}
+        projects={projects}
+        showLabels={showLabels}
+      />
 
       {/* Search hint — top of sidebar, Linear-style */}
       {showLabels && (
@@ -258,12 +252,22 @@ function SidebarInner({
   );
 }
 
+interface SwitcherProject {
+  id: string;
+  label: string;
+  emoji: string;
+}
+
 export function DashboardShell({
   user,
   children,
+  activeProjectId,
+  projects,
 }: {
   user: User;
   children: React.ReactNode;
+  activeProjectId: string | null;
+  projects: SwitcherProject[];
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -328,6 +332,8 @@ export function DashboardShell({
                     showLabels
                     pathname={pathname}
                     onLinkClick={handleMobileClose}
+                    activeProjectId={activeProjectId}
+                    projects={projects}
                   />
                 </div>
               </SheetContent>
@@ -340,7 +346,12 @@ export function DashboardShell({
                 collapsed ? "w-12" : "w-[220px]"
               )}
             >
-              <SidebarInner showLabels={!collapsed} pathname={pathname} />
+              <SidebarInner
+                showLabels={!collapsed}
+                pathname={pathname}
+                activeProjectId={activeProjectId}
+                projects={projects}
+              />
             </aside>
 
             {/* Main content */}

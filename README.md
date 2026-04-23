@@ -36,17 +36,17 @@ curl -fsSL install.yourhq.ai | bash
 
 The installer:
 1. Installs Docker if missing (Linux)
-2. Prompts for your Supabase credentials
-3. Picks your networking mode (local / Tailscale / public)
+2. Picks your networking mode (local / Tailscale / public)
+3. Optionally takes Supabase creds for the default gateway (skip to set up in the browser)
 4. Runs `docker compose up -d`
 5. Opens your browser to `http://localhost:3000`
 
-Takes about 5 minutes on a fresh machine.
+Then in the browser: paste your Supabase URL + keys in the onboarding screen, sign in, done. Takes about 5 minutes on a fresh machine.
 
 ### Prerequisites
 
 - Docker (installer can install it for you on Linux)
-- A Supabase project — [create a free one](https://supabase.com), then run [`db/migrations/001_schema.sql`](db/migrations/001_schema.sql) in the SQL editor
+- A Supabase project — [create a free one](https://supabase.com), then run [`db/migrations/001_schema.sql`](db/migrations/001_schema.sql) in the SQL editor. You paste the URL + keys into the UI once it's up.
 
 ### Manual install
 
@@ -55,9 +55,8 @@ Prefer to inspect the code first?
 ```bash
 git clone https://github.com/yourhq/yourhq.git
 cd yourhq
-cp .env.example .env
-# edit .env with your Supabase URL + keys
-docker compose up -d
+cp .env.example .env  # leave Supabase empty to set up in the browser
+docker compose up -d ui
 ```
 
 See [docs/INSTALL.md](docs/INSTALL.md) for every install path in detail.

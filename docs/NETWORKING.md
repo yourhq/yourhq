@@ -532,15 +532,10 @@ Set `NOVNC_BIND=local` in `.env` and restart `docker compose up -d gateway`.
 
 Almost always a Supabase URL / key mismatch. Check:
 
-```bash
-docker compose exec ui env | grep SUPABASE
-```
-
-`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` must be set.
-Remember the `NEXT_PUBLIC_*` values are **baked into the UI image at build
-time** (see `docker-compose.yml` build args). If you `docker compose pull`
-and the old values are baked in, the UI still uses them. `docker compose
-build ui --no-cache` forces a rebuild with current `.env` values.
+UI Supabase config lives in the project registry, not `.env`. Open the UI,
+go to Settings → Projects, and verify the active project's URL and keys
+are correct. To rotate or fix, use the Edit / Rotate buttons there —
+no rebuild needed.
 
 ### "Gateway doesn't appear in the UI"
 

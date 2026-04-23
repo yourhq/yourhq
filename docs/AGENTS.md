@@ -162,9 +162,9 @@ Every agent lives on its own git branch. File changes land on disk immediately, 
    ```
    Commit the updated `apps/ui/src/generated/templates.ts`.
 
-9. Build and test:
+9. Build and test (only needed if developing; `docker compose up -d` alone is fine for published images):
    ```bash
-   docker compose build ui
+   docker compose build ui    # rebuild only when you edit UI source
    docker compose up -d ui gateway
    ```
    Go to Agents → New Agent → your template should appear.

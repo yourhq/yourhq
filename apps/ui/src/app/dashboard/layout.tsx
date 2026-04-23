@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { getRegistry } from "@/lib/projects/registry";
 
 export const dynamic = "force-dynamic";
 
@@ -29,5 +30,20 @@ export default async function DashboardLayout({
     redirect("/setup");
   }
 
-  return <DashboardShell user={user}>{children}</DashboardShell>;
+  const registry = await getRegistry();
+  const switcherProjects = registry.projects.map((p) => ({
+    id: p.id,
+    label: p.label,
+    emoji: p.emoji,
+  }));
+
+  return (
+    <DashboardShell
+      user={user}
+      activeProjectId={registry.activeProjectId}
+      projects={switcherProjects}
+    >
+      {children}
+    </DashboardShell>
+  );
 }
