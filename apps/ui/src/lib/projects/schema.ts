@@ -9,6 +9,16 @@ import { z } from "zod";
 // Everything in here is safe to serve to the browser: URL, anon key,
 // labels. Never includes the service role key — that lives in secrets.json.
 
+// Where the UI is reachable from. The browser's allowed-origins list
+// derives from this — a tailnet address, a custom domain, localhost, etc.
+// Phase 2 lets the user add/remove these from Settings → Networking.
+export const uiOriginSchema = z.object({
+  url: z.string().url(),
+  label: z.string().min(1).max(40).optional(),
+  kind: z.enum(["localhost", "lan", "tailnet", "public", "custom"]).default("custom"),
+});
+export type UiOrigin = z.infer<typeof uiOriginSchema>;
+
 export const publicProjectSchema = z.object({
   id: z.string().uuid(),
   label: z.string().min(1).max(80),
@@ -17,12 +27,46 @@ export const publicProjectSchema = z.object({
   anonKey: z.string().min(20),
   isDefault: z.boolean(),
   createdAt: z.string().datetime(),
+  // Added in later Phase 2 work; optional for backward compat with older
+  // registries. Empty array means "accept only the default localhost origin."
+  uiOrigins: z.array(uiOriginSchema).optional().default([]),
 });
+
+// Onboarding state — resumable multi-step wizard. Written incrementally
+// to the registry so a closed tab or browser crash doesn't lose progress.
+// Once complete === true, the wizard stops redirecting to /onboarding.
+export const onboardingStateSchema = z.object({
+  version: z.literal(1),
+  step: z.enum([
+    "welcome",
+    "placement",
+    "supabase",
+    "networking",
+    "gateway",
+    "workspace",
+    "profile",
+    "pipeline",
+    "fields",
+    "streams",
+    "first_agent",
+    "done",
+  ]).default("welcome"),
+  complete: z.boolean().default(false),
+  // Free-form data we persist across steps. Zod'd loosely because the
+  // wizard keeps adding fields and we don't want a schema change every time.
+  data: z.record(z.string(), z.unknown()).default({}),
+  updatedAt: z.string().datetime(),
+});
+export type OnboardingState = z.infer<typeof onboardingStateSchema>;
 
 export const publicRegistrySchema = z.object({
   version: z.literal(1),
   activeProjectId: z.string().uuid().nullable(),
   projects: z.array(publicProjectSchema),
+  // Onboarding state is registry-wide, not per-project. A fresh install has
+  // no project yet, so it can't live inside the project. Once onboarding
+  // completes it stays at complete:true and we stop redirecting.
+  onboarding: onboardingStateSchema.optional(),
 });
 
 export type PublicProject = z.infer<typeof publicProjectSchema>;

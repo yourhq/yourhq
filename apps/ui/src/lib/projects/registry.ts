@@ -29,6 +29,8 @@ import {
   type ProjectSecrets,
   type ProjectWithSecrets,
   type SecretsFile,
+  type OnboardingState,
+  type UiOrigin,
 } from "./schema";
 
 const CONFIG_DIR = process.env.HQ_CONFIG_DIR ?? "/config";
@@ -88,7 +90,6 @@ async function writeJsonAtomic(
 async function withLock<T>(fn: () => Promise<T>): Promise<T> {
   await fs.mkdir(CONFIG_DIR, { recursive: true });
   const deadline = Date.now() + 5_000;
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     try {
       const handle = await fs.open(LOCK_PATH, "wx");
@@ -245,6 +246,7 @@ export async function addProject(input: AddProjectInput): Promise<PublicProject>
       anonKey: input.anonKey,
       isDefault,
       createdAt: now,
+      uiOrigins: [],
     };
 
     const nextRegistry: PublicRegistry = {
@@ -386,5 +388,74 @@ export async function setActiveProject(id: string): Promise<void> {
       { ...registry, activeProjectId: id },
       0o644,
     );
+  });
+}
+
+// ── Onboarding state ────────────────────────────────────────────────────
+
+/**
+ * Fetch the current onboarding state. Returns a fresh state keyed at
+ * step="welcome" if we haven't started yet.
+ */
+export async function getOnboardingState(): Promise<OnboardingState> {
+  const registry = await getRegistry();
+  if (registry.onboarding) return registry.onboarding;
+  return {
+    version: 1,
+    step: "welcome",
+    complete: false,
+    data: {},
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Merge updates into the onboarding state. The `data` blob deep-merges
+ * at the top level so callers can patch a single key without read-modify-write.
+ */
+export async function patchOnboardingState(
+  patch: Partial<Pick<OnboardingState, "step" | "complete">> & {
+    data?: Record<string, unknown>;
+  },
+): Promise<OnboardingState> {
+  return withLock(async () => {
+    const registry = await getRegistry();
+    const prev: OnboardingState = registry.onboarding ?? {
+      version: 1,
+      step: "welcome",
+      complete: false,
+      data: {},
+      updatedAt: new Date().toISOString(),
+    };
+
+    const next: OnboardingState = {
+      version: 1,
+      step: patch.step ?? prev.step,
+      complete: patch.complete ?? prev.complete,
+      data: { ...prev.data, ...(patch.data ?? {}) },
+      updatedAt: new Date().toISOString(),
+    };
+
+    await writeJsonAtomic(
+      REGISTRY_PATH,
+      { ...registry, onboarding: next },
+      0o644,
+    );
+    return next;
+  });
+}
+
+// ── UI origins (per-project) ────────────────────────────────────────────
+
+export async function setUiOrigins(
+  projectId: string,
+  origins: UiOrigin[],
+): Promise<void> {
+  return withLock(async () => {
+    const registry = await getRegistry();
+    const projects = registry.projects.map((p) =>
+      p.id === projectId ? { ...p, uiOrigins: origins } : p,
+    );
+    await writeJsonAtomic(REGISTRY_PATH, { ...registry, projects }, 0o644);
   });
 }

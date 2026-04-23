@@ -8,6 +8,7 @@ import {
   Server,
   FolderKanban,
   ChevronRight,
+  Globe,
   Settings as SettingsIcon,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
@@ -36,6 +37,12 @@ const SECTIONS = [
     icon: LayoutGrid,
     title: "Custom fields",
     description: "Define fields that appear on records.",
+  },
+  {
+    href: "/dashboard/settings/networking",
+    icon: Globe,
+    title: "Networking",
+    description: "Tailscale + how you reach HQ from other devices.",
   },
   {
     href: "/dashboard/settings/system",

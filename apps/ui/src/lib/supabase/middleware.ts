@@ -1,6 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { getActiveProject } from "@/lib/projects/registry";
+import {
+  getActiveProject,
+  getOnboardingState,
+} from "@/lib/projects/registry";
 import { ACTIVE_PROJECT_COOKIE } from "@/lib/projects/cookie";
 
 const ONBOARDING_PATH = "/onboarding";
@@ -69,15 +72,39 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users away from login/onboarding.
-  if (
-    user &&
-    (request.nextUrl.pathname.startsWith(LOGIN_PATH) ||
-      request.nextUrl.pathname.startsWith(ONBOARDING_PATH))
-  ) {
+  // Redirect authenticated users away from /login once they're signed in.
+  if (user && request.nextUrl.pathname.startsWith(LOGIN_PATH)) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
+  }
+
+  // Onboarding is a multi-step wizard that spans pre-auth (placement,
+  // Supabase creds, networking) and post-auth (workspace, pipeline, …)
+  // steps. We don't kick users out of /onboarding just because they've
+  // authenticated — but if onboarding is already complete, we do.
+  if (user && request.nextUrl.pathname.startsWith(ONBOARDING_PATH)) {
+    const onboarding = await getOnboardingState().catch(() => null);
+    if (onboarding?.complete) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // If onboarding isn't complete and the user is trying to access the
+  // dashboard, bounce them back to /onboarding to finish. This matters
+  // for resumable onboarding — close the tab mid-flow and come back.
+  if (
+    user &&
+    request.nextUrl.pathname.startsWith("/dashboard")
+  ) {
+    const onboarding = await getOnboardingState().catch(() => null);
+    if (onboarding && !onboarding.complete) {
+      const url = request.nextUrl.clone();
+      url.pathname = ONBOARDING_PATH;
+      return NextResponse.redirect(url);
+    }
   }
 
   return supabaseResponse;

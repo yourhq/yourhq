@@ -1,15 +1,22 @@
 # =============================================================================
 # HQ — main Compose stack (UI + gateway + dispatcher + runner).
 #
+# The installer only starts `ui` by default (~200 MB). Gateway services
+# move to the `gateway` profile so they only pull + run on machines that
+# actually host agents — a laptop that onboards a remote gateway never
+# downloads the 2 GB gateway image.
+#
 # Quick start:
-#   cp .env.example .env
-#   # edit .env — SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GATEWAY_ID, etc.
-#   docker compose up -d
+#   curl -fsSL install.yourhq.ai | bash      # runs `docker compose up -d ui`
 #
-# Run just the UI (e.g. on a laptop, with gateways elsewhere):
+# UI + local gateway (same host):
+#   docker compose --profile gateway up -d
+#
+# Gateway-only (remote machine):
+#   curl -fsSL install.yourhq.ai/gateway | GATEWAY_TOKEN=... bash
+#
+# Explicit service list (anywhere):
 #   docker compose up -d ui
-#
-# Run just the gateway stack (e.g. on a Mac mini, with UI elsewhere):
 #   docker compose up -d gateway dispatcher runner
 # =============================================================================
 
@@ -53,6 +60,18 @@ services:
       - "${UI_HOST_PORT:-127.0.0.1:3000}:3000"
     volumes:
       - ui-config:/config
+      # Docker socket — lets the UI start/stop the gateway profile on-demand
+      # when the user picks "run agents on this machine" during onboarding.
+      # Single-user self-hosted product; no multi-tenant concerns.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Host Tailscale socket (read-only). Used by the onboarding flow +
+      # Settings → Networking to detect whether the user has Tailscale
+      # running on the host and, if so, what address HQ is reachable at.
+      # Mount is optional — if the path doesn't exist on the host, Compose
+      # creates it as an empty directory and the UI falls back to "not
+      # installed." On macOS Docker Desktop this path is relative to the
+      # VM, not the host. The TAILSCALE_SOCKET env var lets users override.
+      - ${TAILSCALE_SOCKET_HOST:-/var/run/tailscale}:/var/run/tailscale:ro
 
   gateway:
     image: ${GATEWAY_IMAGE:-ghcr.io/yourhq/yourhq-gateway:latest}
@@ -61,6 +80,7 @@ services:
       dockerfile: gateway/Dockerfile
     container_name: ${COMPOSE_PROJECT:-yourhq}-gateway
     restart: unless-stopped
+    profiles: [gateway]
     environment:
       <<: *gateway-env
       GIT_REMOTE_URL: ${GIT_REMOTE_URL:-}
@@ -110,6 +130,7 @@ services:
       dockerfile: gateway/dispatcher/Dockerfile
     container_name: ${COMPOSE_PROJECT:-yourhq}-dispatcher
     restart: unless-stopped
+    profiles: [gateway]
     depends_on:
       - gateway
     environment:
@@ -129,6 +150,7 @@ services:
       dockerfile: gateway/runner/Dockerfile
     container_name: ${COMPOSE_PROJECT:-yourhq}-runner
     restart: unless-stopped
+    profiles: [gateway]
     depends_on:
       - gateway
     environment:
