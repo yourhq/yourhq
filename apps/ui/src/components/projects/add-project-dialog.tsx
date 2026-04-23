@@ -34,7 +34,6 @@ async function addProject(input: {
   anonKey: string;
   serviceRoleKey: string;
 }): Promise<AddResult> {
-  // Validate first.
   const validateRes = await fetch("/api/projects/validate", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -53,7 +52,6 @@ async function addProject(input: {
     };
   }
 
-  // Save.
   const createRes = await fetch("/api/projects", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -61,10 +59,7 @@ async function addProject(input: {
   });
   if (!createRes.ok) {
     const body = await createRes.json().catch(() => ({}));
-    return {
-      ok: false,
-      error: body.error ?? `Save failed (${createRes.status})`,
-    };
+    return { ok: false, error: body.error ?? `Save failed (${createRes.status})` };
   }
   return { ok: true };
 }
@@ -103,105 +98,124 @@ export function AddProjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Add a Supabase project</DialogTitle>
-          <DialogDescription>
-            Connect another Supabase project. Each project is fully isolated
-            — contacts, agents, tasks, and settings don&apos;t mix.
+      <DialogContent className="sm:max-w-md p-0 gap-0">
+        <DialogHeader className="px-5 pt-5 pb-3 border-b border-border/50">
+          <DialogTitle className="text-heading">Add a Supabase project</DialogTitle>
+          <DialogDescription className="text-caption text-muted-foreground">
+            Each project is fully isolated — contacts, agents, tasks, and settings don&apos;t mix.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div className="grid grid-cols-[72px_1fr] gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="add-emoji">Icon</Label>
-              <Input
-                id="add-emoji"
-                name="emoji"
-                defaultValue="🏠"
-                maxLength={8}
-                className="text-center text-xl"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-label">Name</Label>
-              <Input
-                id="add-label"
-                name="label"
-                placeholder="Secondary workspace"
-                maxLength={80}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="add-url">Supabase URL</Label>
-            <Input
-              id="add-url"
-              name="url"
-              type="url"
-              placeholder="https://xxxxxxxx.supabase.co"
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="add-anon">Anon key</Label>
-            <Input
-              id="add-anon"
-              name="anonKey"
-              type="text"
-              spellCheck={false}
-              autoComplete="off"
-              placeholder="eyJ..."
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="add-service">Service role key</Label>
-            <Input
-              id="add-service"
-              name="serviceRoleKey"
-              type="password"
-              spellCheck={false}
-              autoComplete="off"
-              placeholder="eyJ..."
-              required
-            />
-            <p className="text-xs text-muted-foreground">
-              Stored only on this machine in <code>/config/secrets.json</code>.
-            </p>
-          </div>
-
-          {result && !result.ok && (
-            <div className="flex gap-3 p-3 rounded-md bg-destructive/10 border border-destructive/30 text-sm">
-              <AlertCircle className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
-              <div className="space-y-1">
-                <div className="text-destructive font-medium">{result.error}</div>
-                {result.hint && (
-                  <div className="text-muted-foreground text-xs">{result.hint}</div>
-                )}
+        <form onSubmit={onSubmit} className="flex flex-col">
+          <div className="px-5 py-4 space-y-4">
+            <div className="grid grid-cols-[56px_1fr] gap-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="add-emoji" className="text-[12px]">
+                  Icon
+                </Label>
+                <Input
+                  id="add-emoji"
+                  name="emoji"
+                  defaultValue="🏠"
+                  maxLength={8}
+                  className="text-center text-base"
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="add-label" className="text-[12px]">
+                  Name
+                </Label>
+                <Input
+                  id="add-label"
+                  name="label"
+                  placeholder="Secondary workspace"
+                  maxLength={80}
+                  required
+                  autoFocus
+                />
               </div>
             </div>
-          )}
 
-          <DialogFooter className="pt-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="add-url" className="text-[12px]">
+                Supabase URL
+              </Label>
+              <Input
+                id="add-url"
+                name="url"
+                type="url"
+                placeholder="https://xxxxxxxx.supabase.co"
+                className="font-mono"
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="add-anon" className="text-[12px]">
+                Anon key
+              </Label>
+              <Input
+                id="add-anon"
+                name="anonKey"
+                type="text"
+                spellCheck={false}
+                autoComplete="off"
+                placeholder="eyJhbGciOi…"
+                className="font-mono text-[12px]"
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="add-service" className="text-[12px]">
+                Service role key
+              </Label>
+              <Input
+                id="add-service"
+                name="serviceRoleKey"
+                type="password"
+                spellCheck={false}
+                autoComplete="off"
+                placeholder="eyJhbGciOi…"
+                className="font-mono text-[12px]"
+                required
+              />
+              <p className="text-[11px] text-muted-foreground/70">
+                Stored on this machine in{" "}
+                <span className="font-mono text-foreground/80">/config/secrets.json</span>.
+              </p>
+            </div>
+
+            {result && !result.ok && (
+              <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-[12px]">
+                <AlertCircle className="h-3.5 w-3.5 mt-0.5 text-destructive shrink-0" />
+                <div className="min-w-0 space-y-0.5">
+                  <div className="text-destructive">{result.error}</div>
+                  {result.hint && (
+                    <div className="text-muted-foreground text-[11px]">
+                      {result.hint}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="px-5 py-3 border-t border-border/50 gap-2">
             <Button
               type="button"
               variant="ghost"
               onClick={() => onOpenChange(false)}
               disabled={pending}
+              size="sm"
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={pending}>
+            <Button type="submit" disabled={pending} size="sm">
               {pending ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
                   Validating…
                 </>
               ) : (

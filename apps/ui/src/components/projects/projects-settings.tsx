@@ -4,11 +4,12 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   FolderKanban,
-  Check,
+  MoreHorizontal,
   Plus,
   Pencil,
   Trash2,
   KeyRound,
+  Star,
   Loader2,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
@@ -23,6 +24,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { AddProjectDialog } from "./add-project-dialog";
 import { cn } from "@/lib/utils";
@@ -56,90 +64,101 @@ export function ProjectsSettings({ activeProjectId, projects }: Props) {
         description="Connect, edit, and switch between Supabase projects. Each project is fully isolated."
         primaryAction={
           <Button size="sm" onClick={() => setAddOpen(true)}>
-            <Plus className="h-4 w-4 mr-1.5" />
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
             Add project
           </Button>
         }
       />
 
       <div className="flex-1 overflow-auto">
-        <div className="mx-auto w-full max-w-3xl p-5 space-y-2">
+        <div className="mx-auto w-full max-w-2xl px-5 py-5">
           {projects.length === 0 ? (
-            <div className="text-center py-12 text-sm text-muted-foreground">
-              No projects yet. Click &quot;Add project&quot; to connect one.
+            <div className="rounded-md border border-dashed border-border/60 px-6 py-10 text-center">
+              <p className="text-body text-muted-foreground">
+                No projects yet.
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-3"
+                onClick={() => setAddOpen(true)}
+              >
+                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                Add project
+              </Button>
             </div>
           ) : (
-            projects.map((p) => {
-              const isActive = p.id === activeProjectId;
-              return (
-                <div
-                  key={p.id}
-                  className={cn(
-                    "flex items-center gap-3 rounded-md border bg-card p-4",
-                    isActive
-                      ? "border-primary/40 bg-primary/5"
-                      : "border-border/60",
-                  )}
-                >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-lg">
-                    {p.emoji}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <div className="text-[13px] font-medium text-foreground">
-                        {p.label}
+            <div className="overflow-hidden rounded-md border border-border/60 bg-card">
+              {projects.map((p, idx) => {
+                const isActive = p.id === activeProjectId;
+                return (
+                  <div
+                    key={p.id}
+                    className={cn(
+                      "group flex items-center gap-3 px-3 py-2.5",
+                      idx > 0 && "border-t border-border/50",
+                      isActive && "bg-accent/30",
+                    )}
+                  >
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-[15px]">
+                      {p.emoji}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <div className="truncate text-[13px] font-medium text-foreground">
+                          {p.label}
+                        </div>
+                        {isActive && (
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" title="Active" />
+                        )}
+                        {p.isDefault && !isActive && (
+                          <Star className="h-3 w-3 shrink-0 text-muted-foreground/60" />
+                        )}
                       </div>
-                      {isActive && (
-                        <span className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-primary">
-                          <Check className="h-3 w-3" />
-                          Active
-                        </span>
-                      )}
-                      {p.isDefault && !isActive && (
-                        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                          Default
-                        </span>
-                      )}
+                      <div className="truncate text-[11px] text-muted-foreground/70 font-mono">
+                        {p.url.replace(/^https?:\/\//, "")}
+                      </div>
                     </div>
-                    <div className="truncate text-[11px] text-muted-foreground font-mono">
-                      {p.url}
-                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
+                          aria-label="Project actions"
+                        >
+                          <MoreHorizontal className="h-3.5 w-3.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuItem onSelect={() => setEditing(p)} className="gap-2">
+                          <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setRotating(p)} className="gap-2">
+                          <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
+                          Rotate service key
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onSelect={() => setDeleting(p)}
+                          disabled={isActive}
+                          className="gap-2 text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          {isActive ? "Delete (switch first)" : "Delete"}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      onClick={() => setEditing(p)}
-                      title="Edit label + emoji"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      onClick={() => setRotating(p)}
-                      title="Rotate service role key"
-                    >
-                      <KeyRound className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      onClick={() => setDeleting(p)}
-                      disabled={isActive}
-                      title={
-                        isActive
-                          ? "Switch to another project first"
-                          : "Delete project"
-                      }
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              );
-            })
+                );
+              })}
+            </div>
           )}
+
+          <p className="mt-3 text-[11px] text-muted-foreground/60">
+            Active projects are marked with a green dot. The default project is used when no active-project cookie is set (e.g. first visit).
+          </p>
         </div>
       </div>
 
@@ -217,56 +236,61 @@ function EditProjectDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose(false)}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit project</DialogTitle>
-          <DialogDescription>
-            Update the label and emoji. URL and keys are unchanged — use Rotate
-            to replace the service role key.
+      <DialogContent className="sm:max-w-sm p-0 gap-0">
+        <DialogHeader className="px-5 pt-5 pb-3 border-b border-border/50">
+          <DialogTitle className="text-heading">Edit project</DialogTitle>
+          <DialogDescription className="text-caption text-muted-foreground">
+            Rename or change the icon. Use Rotate for the service role key.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div className="grid grid-cols-[72px_1fr] gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="edit-emoji">Icon</Label>
-              <Input
-                id="edit-emoji"
-                name="emoji"
-                defaultValue={project.emoji}
-                maxLength={8}
-                className="text-center text-xl"
-                required
-              />
+        <form onSubmit={onSubmit}>
+          <div className="px-5 py-4 space-y-4">
+            <div className="grid grid-cols-[56px_1fr] gap-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-emoji" className="text-[12px]">Icon</Label>
+                <Input
+                  id="edit-emoji"
+                  name="emoji"
+                  defaultValue={project.emoji}
+                  maxLength={8}
+                  className="text-center text-base"
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-label" className="text-[12px]">Name</Label>
+                <Input
+                  id="edit-label"
+                  name="label"
+                  defaultValue={project.label}
+                  maxLength={80}
+                  required
+                  autoFocus
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-label">Name</Label>
-              <Input
-                id="edit-label"
-                name="label"
-                defaultValue={project.label}
-                maxLength={80}
-                required
+            <label className="flex items-center gap-2 text-[12px] text-foreground">
+              <input
+                type="checkbox"
+                name="makeDefault"
+                defaultChecked={project.isDefault}
+                disabled={project.isDefault}
+                className="rounded border-border/60"
               />
-            </div>
+              <span>Make default project</span>
+            </label>
+            {error && (
+              <p className="text-[12px] text-destructive">{error}</p>
+            )}
           </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="makeDefault"
-              defaultChecked={project.isDefault}
-              disabled={project.isDefault}
-            />
-            <span>Default project</span>
-          </label>
-          {error && <p className="text-xs text-destructive">{error}</p>}
-          <DialogFooter>
-            <Button variant="ghost" type="button" onClick={() => onClose(false)}>
+          <DialogFooter className="px-5 py-3 border-t border-border/50 gap-2">
+            <Button variant="ghost" type="button" size="sm" onClick={() => onClose(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={pending}>
+            <Button type="submit" size="sm" disabled={pending}>
               {pending ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
                   Saving…
                 </>
               ) : (
@@ -297,7 +321,7 @@ function RotateKeyDialog({
     const fd = new FormData(e.currentTarget);
     const serviceRoleKey = String(fd.get("serviceRoleKey") ?? "").trim();
     if (serviceRoleKey.length < 20) {
-      setError("Key looks too short — paste the full service role JWT.");
+      setError("Key looks too short — paste the full JWT.");
       return;
     }
     setError(null);
@@ -318,37 +342,41 @@ function RotateKeyDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose(false)}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Rotate service role key</DialogTitle>
-          <DialogDescription>
-            Paste the new service role key from Supabase → Project Settings →
-            API. The old key stays valid in Supabase until you revoke it
-            separately there.
+      <DialogContent className="sm:max-w-sm p-0 gap-0">
+        <DialogHeader className="px-5 pt-5 pb-3 border-b border-border/50">
+          <DialogTitle className="text-heading">Rotate service role key</DialogTitle>
+          <DialogDescription className="text-caption text-muted-foreground">
+            Paste the new key from Supabase → Project Settings → API. Revoke the old one in Supabase separately once you&apos;ve confirmed the new one works.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="rotate-key">New service role key</Label>
+        <form onSubmit={onSubmit}>
+          <div className="px-5 py-4 space-y-2">
+            <Label htmlFor="rotate-key" className="text-[12px]">
+              New service role key
+            </Label>
             <Input
               id="rotate-key"
               name="serviceRoleKey"
               type="password"
-              placeholder="eyJ..."
+              placeholder="eyJhbGciOi…"
               autoComplete="off"
               spellCheck={false}
+              className="font-mono text-[12px]"
               required
+              autoFocus
             />
+            {error && (
+              <p className="text-[12px] text-destructive">{error}</p>
+            )}
           </div>
-          {error && <p className="text-xs text-destructive">{error}</p>}
-          <DialogFooter>
-            <Button variant="ghost" type="button" onClick={() => onClose(false)}>
+          <DialogFooter className="px-5 py-3 border-t border-border/50 gap-2">
+            <Button variant="ghost" type="button" size="sm" onClick={() => onClose(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={pending}>
+            <Button type="submit" size="sm" disabled={pending}>
               {pending ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
                   Rotating…
                 </>
               ) : (
@@ -379,7 +407,6 @@ function DeleteProjectDialog({
         method: "DELETE",
       });
       if (!res.ok) {
-        alert("Delete failed");
         return;
       }
       onClose(true);
@@ -391,7 +418,7 @@ function DeleteProjectDialog({
       open
       onCancel={() => onClose(false)}
       title={`Delete "${project.label}"?`}
-      description="Removes this project from the local registry. Your Supabase project is not touched. You can reconnect later with the same URL + keys."
+      description="Removes the project from this machine's registry. Your Supabase project is not touched — you can reconnect later with the same URL and keys."
       confirmLabel={pending ? "Deleting…" : "Delete"}
       tone="destructive"
       onConfirm={onConfirm}

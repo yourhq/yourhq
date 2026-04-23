@@ -15,27 +15,34 @@ export function OnboardingForm() {
     setResult(null);
     startTransition(async () => {
       const r = await connectProject(formData);
-      // connectProject redirects on success; we only see a return value on failure.
+      // connectProject redirects on success; we only return on failure.
       setResult(r);
     });
   };
 
   return (
-    <form action={onSubmit} className="space-y-5 bg-card border rounded-lg p-6">
-      <div className="grid grid-cols-[80px_1fr] gap-3">
-        <div className="space-y-2">
-          <Label htmlFor="emoji">Icon</Label>
+    <form
+      action={onSubmit}
+      className="rounded-md border border-border/60 bg-card p-5 shadow-sm space-y-4"
+    >
+      <div className="grid grid-cols-[64px_1fr] gap-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="emoji" className="text-[12px]">
+            Icon
+          </Label>
           <Input
             id="emoji"
             name="emoji"
             defaultValue="🏠"
             maxLength={8}
-            className="text-center text-xl"
+            className="text-center text-base"
             required
           />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="label">Workspace name</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="label" className="text-[12px]">
+            Workspace name
+          </Label>
           <Input
             id="label"
             name="label"
@@ -46,72 +53,82 @@ export function OnboardingForm() {
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="url">Supabase project URL</Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="url" className="text-[12px]">
+          Supabase project URL
+        </Label>
         <Input
           id="url"
           name="url"
           type="url"
           placeholder="https://xxxxxxxx.supabase.co"
+          className="font-mono"
           required
         />
-        <p className="text-xs text-muted-foreground">
-          From Supabase → Project Settings → API → Project URL
-        </p>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="anonKey">Anon (public) key</Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="anonKey" className="text-[12px]">
+          Anon (public) key
+        </Label>
         <Input
           id="anonKey"
           name="anonKey"
           type="text"
           spellCheck={false}
           autoComplete="off"
-          placeholder="eyJ..."
+          placeholder="eyJhbGciOi…"
+          className="font-mono text-[12px]"
           required
         />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="serviceRoleKey">Service role key</Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="serviceRoleKey" className="text-[12px]">
+          Service role key
+        </Label>
         <Input
           id="serviceRoleKey"
           name="serviceRoleKey"
           type="password"
           spellCheck={false}
           autoComplete="off"
-          placeholder="eyJ..."
+          placeholder="eyJhbGciOi…"
+          className="font-mono text-[12px]"
           required
         />
-        <p className="text-xs text-muted-foreground">
-          Stored only on this machine in <code className="text-xs">/config/secrets.json</code> (mode 0600). Never sent to the browser.
+        <p className="text-[11px] text-muted-foreground/70">
+          Stored on this machine in{" "}
+          <span className="font-mono text-foreground/80">
+            /config/secrets.json
+          </span>{" "}
+          (mode 0600). Never sent to the browser.
         </p>
       </div>
 
-      <div className="border-t pt-4 space-y-3">
-        <p className="text-xs text-muted-foreground">
-          Before clicking Connect, make sure you&apos;ve run the schema migration
-          in your Supabase SQL editor:
-        </p>
+      <div className="flex items-start gap-2 border-t border-border/50 pt-3 text-[11px] text-muted-foreground/70">
+        <span className="shrink-0">Before connecting, run</span>
         <a
           href="https://github.com/yourhq/yourhq/blob/main/db/migrations/001_schema.sql"
           target="_blank"
           rel="noreferrer"
-          className="text-xs inline-flex items-center gap-1 text-primary hover:underline"
+          className="inline-flex items-center gap-0.5 font-mono text-foreground hover:underline"
         >
-          db/migrations/001_schema.sql
+          001_schema.sql
           <ExternalLink className="h-3 w-3" />
         </a>
+        <span>in your Supabase SQL editor.</span>
       </div>
 
       {result && !result.ok && (
-        <div className="flex gap-3 p-3 rounded-md bg-destructive/10 border border-destructive/30 text-sm">
-          <AlertCircle className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
-          <div className="space-y-1">
-            <div className="text-destructive font-medium">{result.error}</div>
+        <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-[12px]">
+          <AlertCircle className="h-3.5 w-3.5 mt-0.5 text-destructive shrink-0" />
+          <div className="min-w-0 space-y-0.5">
+            <div className="text-destructive">{result.error}</div>
             {result.hint && (
-              <div className="text-muted-foreground text-xs">{result.hint}</div>
+              <div className="text-muted-foreground text-[11px]">
+                {result.hint}
+              </div>
             )}
           </div>
         </div>
@@ -120,7 +137,7 @@ export function OnboardingForm() {
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? (
           <>
-            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
             Validating…
           </>
         ) : (
