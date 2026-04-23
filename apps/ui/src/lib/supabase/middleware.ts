@@ -5,11 +5,13 @@ import { ACTIVE_PROJECT_COOKIE } from "@/lib/projects/cookie";
 
 const ONBOARDING_PATH = "/onboarding";
 const LOGIN_PATH = "/login";
-// Paths the middleware lets through regardless of auth / onboarding state.
-const PUBLIC_PATHS = [ONBOARDING_PATH, LOGIN_PATH, "/auth", "/api/config"];
+// Paths that work without a configured project.
+const NO_PROJECT_OK_PATHS = [ONBOARDING_PATH, "/api/config"];
+// Paths that work without an authenticated user (but still need a project).
+const NO_AUTH_OK_PATHS = [LOGIN_PATH, "/auth"];
 
-function isPublic(path: string): boolean {
-  return PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
+function matches(path: string, allowed: string[]): boolean {
+  return allowed.some((p) => path === p || path.startsWith(`${p}/`));
 }
 
 export async function updateSession(request: NextRequest) {
@@ -22,7 +24,9 @@ export async function updateSession(request: NextRequest) {
   const project = await getActiveProject(activeIdHint).catch(() => null);
 
   if (!project) {
-    if (isPublic(request.nextUrl.pathname)) {
+    // No project yet — redirect everything except onboarding + /api/config
+    // to /onboarding. /login, /auth, dashboard, etc. all need a project.
+    if (matches(request.nextUrl.pathname, NO_PROJECT_OK_PATHS)) {
       return supabaseResponse;
     }
     const url = request.nextUrl.clone();
@@ -54,8 +58,12 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Redirect unauthenticated users to login, except on public paths.
-  if (!user && !isPublic(request.nextUrl.pathname)) {
+  // Redirect unauthenticated users to login, except on no-auth-ok paths.
+  if (
+    !user &&
+    !matches(request.nextUrl.pathname, NO_AUTH_OK_PATHS) &&
+    !matches(request.nextUrl.pathname, NO_PROJECT_OK_PATHS)
+  ) {
     const url = request.nextUrl.clone();
     url.pathname = LOGIN_PATH;
     return NextResponse.redirect(url);
