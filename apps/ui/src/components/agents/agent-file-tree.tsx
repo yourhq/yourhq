@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { FileTreeNode } from "@/lib/github/types";
+import type { FileTreeNode } from "@/lib/agent-repo/types";
 import { cn } from "@/lib/utils";
 import {
   ChevronRight,

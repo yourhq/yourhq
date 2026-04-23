@@ -2,11 +2,8 @@
 // requests directly to the gateway's files-API process (never across the
 // public internet — the connection is inside the Docker network, or
 // across a Tailscale tailnet, depending on deployment).
-//
-// All exports mirror the shape of the old github/client.ts functions so
-// swapping between backends is a one-line change at call sites.
 
-import type { GitHubTreeEntry, GitHubFileContent } from "@/lib/github/types";
+import type { GitHubTreeEntry, GitHubFileContent } from "@/lib/agent-repo/types";
 
 function getEnv() {
   const base = process.env.GATEWAY_URL;

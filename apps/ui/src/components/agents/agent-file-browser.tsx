@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { FileTreeNode, GitHubTreeEntry } from "@/lib/github/types";
-import { buildFileTree } from "@/lib/github/types";
+import type { FileTreeNode, GitHubTreeEntry } from "@/lib/agent-repo/types";
+import { buildFileTree } from "@/lib/agent-repo/types";
 import { AgentFileTree } from "./agent-file-tree";
 import { AgentFileEditor } from "./agent-file-editor";
 import { toast } from "sonner";

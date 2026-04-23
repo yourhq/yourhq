@@ -114,6 +114,20 @@ if [ ! -d "$REPO_DIR" ]; then
 fi
 
 # Optional: attach a user-supplied git remote for backup/sync.
+#
+# Two ways to configure:
+#   1. GIT_REMOTE_URL (+ optional GIT_DEPLOY_KEY for SSH) — works for any host.
+#   2. GITHUB_TOKEN + GITHUB_REPO_OWNER + GITHUB_REPO_NAME — GitHub shorthand.
+#      We synthesize an HTTPS URL with a token-embedded user. No deploy key
+#      needed for this path (the PAT is the credential).
+if [ -z "${GIT_REMOTE_URL:-}" ] \
+    && [ -n "${GITHUB_TOKEN:-}" ] \
+    && [ -n "${GITHUB_REPO_OWNER:-}" ] \
+    && [ -n "${GITHUB_REPO_NAME:-}" ]; then
+  GIT_REMOTE_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}.git"
+  log "Synthesized GIT_REMOTE_URL from GITHUB_* env vars"
+fi
+
 if [ -n "${GIT_REMOTE_URL:-}" ]; then
   # Write deploy key if provided (SSH remotes).
   if [ -n "${GIT_DEPLOY_KEY:-}" ] && [ ! -f "$HOME/.ssh/openclaw_deploy_key" ]; then
@@ -133,8 +147,25 @@ SSHCFG
   if ! git -C "$REPO_DIR" remote | grep -q '^origin$'; then
     git -C "$REPO_DIR" remote add origin "$GIT_REMOTE_URL"
     git -C "$REPO_DIR" config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
-    log "Added git remote origin -> $GIT_REMOTE_URL"
+    log "Added git remote origin"
+  else
+    # Remote already exists from a prior boot; update URL in case the token rotated.
+    git -C "$REPO_DIR" remote set-url origin "$GIT_REMOTE_URL"
   fi
+
+  # Install a post-commit hook that async-pushes every commit to origin.
+  # Runs in the background; failures don't block the commit. If the network
+  # is down or credentials are wrong, the commit still lands locally.
+  mkdir -p "$REPO_DIR/hooks"
+  cat > "$REPO_DIR/hooks/post-commit" << 'HOOK_EOF'
+#!/bin/sh
+branch="$(git symbolic-ref --short HEAD 2>/dev/null || true)"
+[ -n "$branch" ] || exit 0
+(git push origin "$branch" > /dev/null 2>&1 &) || true
+HOOK_EOF
+  chmod +x "$REPO_DIR/hooks/post-commit"
+  log "Installed post-commit auto-push hook"
+
   git -C "$REPO_DIR" fetch origin --prune 2>/dev/null \
     && log "Fetched from origin" \
     || log "  (remote fetch failed — proceeding with local branches)"

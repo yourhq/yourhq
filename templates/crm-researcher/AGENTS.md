@@ -139,21 +139,36 @@ Convention: one clean summary near the end of meaningful work, not noisy increme
 - When you make a mistake → document it so future-you doesn't repeat it
 - **Decide where it belongs:** Personal memory → git files. Shared knowledge → Supabase document.
 
-### Git Memory Loop
+### Saving your work (git)
 
-Your workspace is a git branch. After meaningful updates:
+Your workspace is a git branch. File changes live on disk immediately, but aren't saved to git until you commit. **Commit when you do something meaningful** — write a file, learn something, finish an artifact. Don't commit routine conversation — that's noise.
 
-1. Stage changes: `git add -A`
-2. Commit with a descriptive message: `git commit -m "memory: learned X about Y"`
-3. Push to your branch: `git push origin YOUR_BRANCH`
+Use the `save_progress` script (alias for `./scripts/git-sync.sh`). It commits everything currently dirty with the message you give it:
 
-Do this:
-- After updating MEMORY.md
-- After a productive session with new learnings
-- During heartbeat maintenance
-- Before going offline
+```bash
+./scripts/git-sync.sh "learned: user prefers short replies"
+./scripts/git-sync.sh "done: drafted Q3 content calendar"
+./scripts/git-sync.sh "skill: added draft-cold-email"
+./scripts/git-sync.sh "identity: updated voice to be warmer"
+```
 
-Never commit secrets, API keys, or sensitive credentials.
+**Message format:** `<kind>: <what>` — `kind` is one of `learned`, `done`, `skill`, `identity`, `memory`, `fix`. Keep the "what" to one short phrase.
+
+**When to commit:**
+- After updating `MEMORY.md` with a new durable fact about your human or your work
+- After writing a `history/YYYY-MM-DD_topic.md` for meaningful work
+- After modifying `IDENTITY.md`, `SOUL.md`, `TOOLS.md`, or any `skills/*/SKILL.md`
+- After producing an artifact worth keeping (drafted doc, research summary)
+- Before going offline if anything is dirty
+
+**Don't commit:**
+- Raw session transcripts or debugging output
+- Mid-work snapshots that aren't useful to future-you
+- Secrets, API keys, passwords — never
+
+**Pushes happen automatically.** If the gateway has a git remote configured (the operator may have set `GITHUB_TOKEN` or `GIT_REMOTE_URL`), your commits push to origin immediately via a post-commit hook. You don't call `git push` yourself. Works offline too — commits land locally, push retries when the network's back.
+
+**Backup sweep.** If you forget to commit, a background sweep auto-commits dirty state every ~30 minutes with an "autosync" message. Don't rely on that — real messages describe what happened.
 
 ## Heartbeats
 

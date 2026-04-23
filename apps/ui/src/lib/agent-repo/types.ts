@@ -1,4 +1,7 @@
-// GitHub file system types for agent file management
+// Shared tree-node shape for the agent file browser. Flat {path, type, sha}
+// entries come from the gateway files-API; `buildFileTree` nests them into
+// a UI-friendly tree. Names still carry the "GitHub" prefix for historical
+// reasons — the shape is the same one GitHub's tree API returns.
 
 export interface GitHubTreeEntry {
   path: string;

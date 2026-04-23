@@ -43,6 +43,13 @@ except ImportError:
 import urllib.request
 import urllib.parse
 
+try:
+    from git_backup_sweep import start_backup_sweep
+except ImportError:
+    # Running standalone; sweep disabled.
+    def start_backup_sweep() -> None:  # type: ignore[misc]
+        pass
+
 # ── Config ─────────────────────────────────────────────────────────────
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
@@ -528,6 +535,10 @@ def main():
 
     # Start fallback polling
     start_poll_loop()
+
+    # Start the git backup sweep (commits dirty worktrees + ff pulls, every
+    # GIT_SYNC_INTERVAL seconds). Does nothing if no remote is configured.
+    start_backup_sweep()
 
     # Start Realtime listener (blocks)
     listener = CommandListener()

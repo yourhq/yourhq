@@ -42,9 +42,6 @@ services:
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-${SUPABASE_URL}}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
-      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
-      GITHUB_REPO_OWNER: ${GITHUB_REPO_OWNER:-}
-      GITHUB_REPO_NAME: ${GITHUB_REPO_NAME:-}
       # Gateway file-browser: UI talks directly to the gateway's files-API
       # over the Docker internal network (default) or Tailscale.
       GATEWAY_URL: ${GATEWAY_URL:-http://gateway:18790}
@@ -72,6 +69,9 @@ services:
       <<: *gateway-env
       GIT_REMOTE_URL: ${GIT_REMOTE_URL:-}
       GIT_DEPLOY_KEY: ${GIT_DEPLOY_KEY:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_REPO_OWNER: ${GITHUB_REPO_OWNER:-}
+      GITHUB_REPO_NAME: ${GITHUB_REPO_NAME:-}
       TEMPLATES_SOURCE: ${TEMPLATES_SOURCE:-}
       # Files-API (gateway-side HTTP for the UI file browser)
       GATEWAY_AUTH_TOKEN: ${GATEWAY_AUTH_TOKEN}
@@ -132,6 +132,9 @@ services:
       RUNTIME_MODE: docker
       POLL_INTERVAL: ${POLL_INTERVAL:-30}
       COMMAND_TIMEOUT: ${COMMAND_TIMEOUT:-120}
+      # Git backup sweep: commits dirty worktrees + fast-forwards branches.
+      # Set to 0 to disable (manual/event-driven commits still work).
+      GIT_SYNC_INTERVAL: ${GIT_SYNC_INTERVAL:-1800}
     volumes:
       - gateway-state:/home/openclaw/.openclaw
       # Docker socket for sibling-container restarts (restart_gateway,

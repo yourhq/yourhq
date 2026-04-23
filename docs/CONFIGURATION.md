@@ -88,25 +88,29 @@ The gateway runs an HTTP API (`files_api.py`) that the UI calls to read/write fi
 
 - **`TEMPLATES_SOURCE`** — **Optional**. Empty. When empty, the gateway seeds its bare repo from the templates bundled in `/opt/templates` inside the image. Override with `git+https://github.com/your-org/your-templates.git` to seed from your own repo instead. Only read on **first boot** when the gateway creates its bare repo — changing it later won't re-seed existing branches.
 
-### 2.6 Optional git remote (backup / collaboration)
+### 2.6 Git remote sync (optional, backup)
 
-Lets the gateway push its per-agent branches to an external git remote for backup or cross-device sync.
+Lets the gateway push per-agent branches to an external git remote so your agents' memory and skills are backed up and optionally reachable from other devices. Two configuration paths — pick one.
 
-- **`GIT_REMOTE_URL`** — **Optional**. Empty. If set, added as the `origin` remote of the gateway's bare repo. Can be SSH (`git@github.com:org/repo.git`) or HTTPS with an embedded token.
+**Path A: generic remote** (works for any git host — GitHub, Gitea, self-hosted)
 
-- **`GIT_DEPLOY_KEY`** — **Optional, secret**. Empty. SSH private key (full multiline PEM, keep the surrounding double-quotes in `.env` so newlines survive) used to authenticate against `GIT_REMOTE_URL`. Leave empty for HTTPS remotes.
+- **`GIT_REMOTE_URL`** — **Optional**. Empty. If set, added as the `origin` remote of the gateway's bare repo. Examples: `https://x-access-token:$TOKEN@github.com/org/repo.git`, `git@github.com:org/repo.git`, `https://git.example.com/agents.git`.
 
-### 2.7 GitHub (UI file browser via GitHub)
+- **`GIT_DEPLOY_KEY`** — **Optional, secret**. Empty. SSH private key (full multiline PEM, keep surrounding double-quotes in `.env` so newlines survive). Only needed for SSH remotes.
 
-An alternative to the gateway-backed files-API — the UI can browse files in a GitHub repo directly. Only needed for hosted/managed deployments; self-hosted users almost always use the files-API instead.
+**Path B: GitHub shorthand** (for GitHub only, no URL construction)
 
-- **`GITHUB_TOKEN`** — **Optional, secret**. Empty. PAT with `repo` scope for the agent workspace repo.
+If `GIT_REMOTE_URL` is empty AND all three `GITHUB_*` vars below are set, the gateway synthesizes `https://x-access-token:$GITHUB_TOKEN@github.com/$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME.git` at boot.
 
-- **`GITHUB_REPO_OWNER`** — **Optional**. Empty. GitHub org or username that owns the agent workspace repo.
+- **`GITHUB_TOKEN`** — **Optional, secret**. Empty. Fine-grained PAT with Contents: Read and write on the target repo. Classic PATs with `repo` scope also work.
 
-- **`GITHUB_REPO_NAME`** — **Optional**. Empty. Repo name.
+- **`GITHUB_REPO_OWNER`** — **Optional**. Empty. GitHub user or org that owns the repo.
 
-All three must be set together or not at all. If unset, the UI falls back to the files-API.
+- **`GITHUB_REPO_NAME`** — **Optional**. Empty. Repo name only (no owner prefix).
+
+**How sync works.** When either path is configured, the gateway installs a `post-commit` git hook on the bare repo that async-pushes every commit to origin. No scheduled sync, no batching — every commit (from `add-agent.sh`, file-browser edits, or an agent calling `save_progress`) lands on the remote within seconds. The runner also runs a `GIT_SYNC_INTERVAL`-second backup sweep that commits dirty worktrees and fast-forwards any branches that moved on the remote.
+
+Without a remote, all of this still works locally — commits just don't leave the gateway's volume.
 
 ### 2.8 Runtime tuning
 
@@ -119,6 +123,8 @@ Control loops in the dispatcher and runner daemons. Defaults are sensible; overr
 - **`RECONCILE_INTERVAL`** — **Optional**. Default `60`. Seconds between dispatcher reconciliation passes (checking for orphaned inbox items, stale leases, etc.).
 
 - **`WAKE_COOLDOWN`** — **Optional**. Default `30`. Seconds the dispatcher waits before re-waking an agent that just failed.
+
+- **`GIT_SYNC_INTERVAL`** — **Optional**. Default `1800` (30 min). Seconds between backup-sweep passes in the runner (commits dirty worktrees, fast-forwards branches that moved on the remote). Set to `0` to disable the sweep entirely — event-driven commits and the post-commit auto-push still work.
 
 ### 2.9 Image overrides
 
@@ -190,7 +196,7 @@ If one of these leaks:
 
 - **`GIT_DEPLOY_KEY`** — rotate in the git host (GitHub → repo settings → Deploy keys), put the new key in `.env`, then `docker compose up -d gateway`. The gateway recreates `~/.ssh/openclaw_deploy_key` if it's missing, but **it doesn't overwrite an existing one** — you may need to `docker compose exec gateway rm /home/openclaw/.ssh/openclaw_deploy_key` first.
 
-- **`GITHUB_TOKEN`** — rotate the PAT on GitHub, update `.env`, `docker compose up -d ui`.
+- **`GITHUB_TOKEN`** — rotate the PAT on GitHub (or revoke it), update `.env`, then `docker compose up -d gateway` so the entrypoint rebuilds the remote URL with the new token. Existing commits stay local even if the token is revoked — they push to the new remote on the next boot.
 
 - **`VNC_PASSWORD`** — rotate by changing the value in `.env`, then delete the existing hash: `docker compose exec gateway rm /home/openclaw/.vnc/passwd`, then `docker compose up -d gateway`.
 
@@ -230,7 +236,7 @@ Edit `.env`, then run the appropriate Compose command to pick up the change. The
 
 ### UI runtime variables (non-`NEXT_PUBLIC_*`)
 
-`SUPABASE_SERVICE_ROLE_KEY`, `GITHUB_TOKEN`, `GATEWAY_URL`, `GATEWAY_AUTH_TOKEN`, `ALLOWED_ORIGINS`:
+`SUPABASE_SERVICE_ROLE_KEY`, `GATEWAY_URL`, `GATEWAY_AUTH_TOKEN`, `ALLOWED_ORIGINS`:
 
 ```bash
 docker compose up -d ui
@@ -248,7 +254,7 @@ A plain `up -d` is **not** enough — the old image has the old values baked in.
 
 ### Gateway variables
 
-`TEMPLATES_SOURCE`, `GIT_REMOTE_URL`, `GIT_DEPLOY_KEY`, `GATEWAY_AUTH_TOKEN`, `FILES_API_BIND`, `FILES_API_PORT`, `NOVNC_BIND`, `VNC_PASSWORD`, `NETWORKING_MODE`, `HOST_REACHABLE_URL`:
+`TEMPLATES_SOURCE`, `GIT_REMOTE_URL`, `GIT_DEPLOY_KEY`, `GITHUB_TOKEN`, `GITHUB_REPO_OWNER`, `GITHUB_REPO_NAME`, `GATEWAY_AUTH_TOKEN`, `FILES_API_BIND`, `FILES_API_PORT`, `NOVNC_BIND`, `VNC_PASSWORD`, `NETWORKING_MODE`, `HOST_REACHABLE_URL`:
 
 ```bash
 docker compose up -d gateway

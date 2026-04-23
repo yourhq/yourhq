@@ -287,9 +287,33 @@ if [[ "$TPL_ANS" =~ ^[Nn]$ ]]; then
   TEMPLATES_SOURCE_VAL=$(ask "Custom templates source (git+<url>)" "")
 fi
 
+# ── GitHub sync ─────────────────────────────────────────────
+say ""
+say "${B}4. GitHub sync (optional)${R}"
+say "${D}Every per-agent branch can auto-push to a GitHub repo so your${R}"
+say "${D}agents' memory and skills are backed up. Leave blank to skip.${R}"
+GITHUB_TOKEN_VAL=""
+GITHUB_REPO_OWNER_VAL=""
+GITHUB_REPO_NAME_VAL=""
+GITHUB_ANS=$(ask "Set up GitHub sync? [y/N]" "N")
+if [[ "$GITHUB_ANS" =~ ^[Yy]$ ]]; then
+  say "${D}Create a fine-grained PAT at https://github.com/settings/tokens?type=beta${R}"
+  say "${D}  Repository access: the single repo you want to sync to${R}"
+  say "${D}  Permissions: Contents -> Read and write${R}"
+  GITHUB_TOKEN_VAL=$(ask "GitHub token (ghp_... or github_pat_...)" "" secret)
+  GITHUB_REPO_OWNER_VAL=$(ask "Repo owner (user or org)" "")
+  GITHUB_REPO_NAME_VAL=$(ask "Repo name" "")
+  if [ -z "$GITHUB_TOKEN_VAL" ] || [ -z "$GITHUB_REPO_OWNER_VAL" ] || [ -z "$GITHUB_REPO_NAME_VAL" ]; then
+    warn "Missing token or repo details — skipping GitHub sync."
+    GITHUB_TOKEN_VAL=""
+    GITHUB_REPO_OWNER_VAL=""
+    GITHUB_REPO_NAME_VAL=""
+  fi
+fi
+
 # ── Write .env ──────────────────────────────────────────────
 say ""
-say "${B}4. Writing .env${R}"
+say "${B}5. Writing .env${R}"
 
 cat > .env << ENV_EOF
 SUPABASE_URL=$SUPABASE_URL_VAL
@@ -313,12 +337,13 @@ VNC_PASSWORD=
 TEMPLATES_SOURCE=$TEMPLATES_SOURCE_VAL
 GIT_REMOTE_URL=
 GIT_DEPLOY_KEY=
-GITHUB_TOKEN=
-GITHUB_REPO_OWNER=
-GITHUB_REPO_NAME=
+GITHUB_TOKEN=$GITHUB_TOKEN_VAL
+GITHUB_REPO_OWNER=$GITHUB_REPO_OWNER_VAL
+GITHUB_REPO_NAME=$GITHUB_REPO_NAME_VAL
 EMBEDDING_API_KEY=
 POLL_INTERVAL=30
 COMMAND_TIMEOUT=120
+GIT_SYNC_INTERVAL=1800
 RECONCILE_INTERVAL=60
 WAKE_COOLDOWN=30
 ENV_EOF
@@ -327,7 +352,7 @@ ok "Wrote $TARGET/.env"
 
 # ── Pull and start ──────────────────────────────────────────
 say ""
-say "${B}5. Starting services${R}"
+say "${B}6. Starting services${R}"
 info "Pulling images (first run takes a few minutes) ..."
 docker compose pull || warn "Some images could not be pulled — will try to build locally."
 

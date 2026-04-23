@@ -100,6 +100,30 @@ Two paths:
 
 The second is the eventual happy path. The first is the escape hatch when you want direct control.
 
+## Sync model (git)
+
+Every agent lives on its own git branch. File changes land on disk immediately, but aren't saved to git until someone commits. HQ's sync model is **event-driven, not polled**.
+
+**Commits are triggered by meaningful events:**
+
+1. **Provisioning** — `add-agent.sh` commits the initial branch when an agent is created ("feat: initialize agent `<slug>`").
+2. **UI file-browser edits** — `files_api.py` commits on every file write ("edit via UI: `<path>`") or create/delete.
+3. **Agent-initiated saves** — the agent calls `save_progress` (alias for `./scripts/git-sync.sh`) when it does something meaningful: learned a preference, produced an artifact, updated a skill. Commit messages like `learned: <what>`, `done: <what>`, `skill: <what>`.
+
+**Pushes are automatic.** The gateway installs a `post-commit` git hook on the bare repo that async-pushes every commit to `origin` if a remote is configured. You never call `git push` manually. Works offline — commits land locally, push retries next boot or sweep.
+
+**The backup sweep** runs inside the runner every `GIT_SYNC_INTERVAL` seconds (default 30 min). It:
+
+- Commits any dirty worktrees with "autosync: uncommitted changes at `<timestamp>`"
+- Pushes all branches (belt-and-suspenders — catches missed pushes)
+- Fetches from origin and fast-forwards branches that moved on the remote (only when the local worktree is clean; we never stomp on in-progress edits)
+
+**Conflict strategy: local wins.** If both local and remote have diverged, the sweep logs a warning and skips the pull. This isn't a collaboration tool — same user, different machines, not multiple editors.
+
+**Configuring the remote:** either `GIT_REMOTE_URL` (any git host), or `GITHUB_TOKEN` + `GITHUB_REPO_OWNER` + `GITHUB_REPO_NAME` (GitHub shorthand). See [CONFIGURATION.md → Git remote sync](CONFIGURATION.md) for details.
+
+**Disabling the sweep:** set `GIT_SYNC_INTERVAL=0`. Event-driven commits and the post-commit push hook still work; only the periodic safety net turns off.
+
 ## Writing a new template
 
 1. Copy `templates/default/`:
