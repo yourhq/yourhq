@@ -1,13 +1,20 @@
 // Supabase credentials validator — used by the onboarding flow and
 // the Add Project dialog.
 //
-// Validation strategy:
-//   1. Anon key: hit /auth/v1/settings — a public endpoint that doesn't
-//      need RLS, returns 200 with any valid key, 401 with an invalid one.
-//      Simpler + more reliable than querying /rest/v1/.
-//   2. Service role: same endpoint with the service key.
-//   3. Schema check: query /rest/v1/workspace with the service role key.
-//      404 means the migration didn't run; 200/204 means it did.
+// Supports both legacy JWT keys (eyJ...) and the new sb_publishable_* /
+// sb_secret_* keys that Supabase is migrating to. The validation
+// strategy does a single PostgREST probe against the `workspace` table
+// using the service role key, which has the nice property of checking
+// three things at once:
+//
+//   - URL reachable
+//   - Service role key accepted
+//   - Migration ran (workspace table exists)
+//
+// The anon key isn't exhaustively probed — if it's clearly wrong (too
+// short / malformed) we catch that in the schema check; otherwise we
+// trust it and let login surface any real failure. This avoids
+// false-negative key rejections across the two key formats.
 
 export interface ValidateResult {
   ok: boolean;
@@ -32,49 +39,54 @@ async function probe(
   }
 }
 
+function looksLikeValidKey(key: string): boolean {
+  // Legacy JWT: "eyJ..." minimum ~100 chars
+  // New format: "sb_publishable_*" / "sb_secret_*"
+  if (key.startsWith("eyJ") && key.length > 40) return true;
+  if (key.startsWith("sb_publishable_") && key.length > 20) return true;
+  if (key.startsWith("sb_secret_") && key.length > 20) return true;
+  // Something else — give it the benefit of the doubt and let Supabase
+  // decide. Returning false would cause false negatives for Supabase
+  // variants we haven't seen yet.
+  return key.length >= 20;
+}
+
 export async function validateSupabaseCreds(input: {
   url: string;
   anonKey: string;
   serviceRoleKey: string;
 }): Promise<ValidateResult> {
   const base = input.url.replace(/\/$/, "");
-  const authEndpoint = `${base}/auth/v1/settings`;
-  const schemaEndpoint = `${base}/rest/v1/workspace?select=id&limit=1`;
 
-  // 1. Anon key
-  const anonProbe = await probe(authEndpoint, input.anonKey);
-  if (anonProbe.error) {
+  if (!looksLikeValidKey(input.anonKey)) {
     return {
       ok: false,
-      error: `Could not reach ${base}: ${anonProbe.error}`,
+      error: "Anon key looks malformed.",
+      hint: "Expected an 'sb_publishable_...' or legacy 'eyJ...' JWT.",
+    };
+  }
+  if (!looksLikeValidKey(input.serviceRoleKey)) {
+    return {
+      ok: false,
+      error: "Service role key looks malformed.",
+      hint: "Expected an 'sb_secret_...' or legacy 'eyJ...' JWT.",
+    };
+  }
+
+  // Single combined probe: reach the workspace table with the service role
+  // key. Tests URL reachability + service key validity + migration state.
+  const schemaEndpoint = `${base}/rest/v1/workspace?select=id&limit=1`;
+  const schema = await probe(schemaEndpoint, input.serviceRoleKey);
+
+  if (schema.error) {
+    return {
+      ok: false,
+      error: `Could not reach ${base}: ${schema.error}`,
       hint: "Check the URL and your network connection.",
     };
   }
-  if (anonProbe.status === 401 || anonProbe.status === 403) {
-    return {
-      ok: false,
-      error: "Anon key rejected by Supabase.",
-      hint: "Double-check the anon key in Supabase → Project Settings → API.",
-    };
-  }
-  if (anonProbe.status === 404) {
-    return {
-      ok: false,
-      error: "URL doesn't look like a Supabase project.",
-      hint: `No /auth/v1/settings endpoint at ${base}. Is the URL correct?`,
-    };
-  }
-  if (anonProbe.status < 200 || anonProbe.status >= 300) {
-    return {
-      ok: false,
-      error: `Supabase returned ${anonProbe.status} for the anon key check.`,
-      hint: "Verify the URL and that the project isn't paused.",
-    };
-  }
 
-  // 2. Service role key
-  const serviceProbe = await probe(authEndpoint, input.serviceRoleKey);
-  if (serviceProbe.status === 401 || serviceProbe.status === 403) {
+  if (schema.status === 401 || schema.status === 403) {
     return {
       ok: false,
       error: "Service role key rejected by Supabase.",
@@ -82,9 +94,7 @@ export async function validateSupabaseCreds(input: {
     };
   }
 
-  // 3. Schema check — was the migration run?
-  const schemaProbe = await probe(schemaEndpoint, input.serviceRoleKey);
-  if (schemaProbe.status === 404) {
+  if (schema.status === 404) {
     return {
       ok: false,
       error: "The workspace table doesn't exist in this project.",
@@ -93,11 +103,14 @@ export async function validateSupabaseCreds(input: {
         "before connecting.",
     };
   }
-  if (schemaProbe.status < 200 || schemaProbe.status >= 300) {
+
+  if (schema.status < 200 || schema.status >= 300) {
     return {
       ok: false,
-      error: `Schema check returned ${schemaProbe.status}.`,
-      hint: "The migration may be incomplete. Re-run db/migrations/001_schema.sql.",
+      error: `Supabase returned ${schema.status} for the schema check.`,
+      hint:
+        "Verify the URL is correct and the project isn't paused. " +
+        "If the problem persists, re-run db/migrations/001_schema.sql.",
     };
   }
 
