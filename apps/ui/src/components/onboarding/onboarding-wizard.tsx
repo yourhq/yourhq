@@ -480,29 +480,39 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
               )}
 
               {step === "workspace" && (
-                <StepWorkspace
-                  name={(data.workspaceName as string) ?? ""}
-                  slug={(data.workspaceSlug as string) ?? ""}
-                  slugTouched={Boolean(data.workspaceSlug)}
-                  description={(data.workspaceDescription as string) ?? ""}
-                  onChange={(u) => patch(u)}
-                />
-              )}
-              {step === "workspace" && (
-                <WizardFooter
-                  disabled={
-                    !(((data.workspaceName as string) ?? "").trim().length > 0)
-                  }
-                  pending={pending}
-                  onContinue={() =>
-                    submitWorkspace({
-                      name: (data.workspaceName as string) ?? "",
-                      slug: (data.workspaceSlug as string) ?? "",
-                      description:
-                        (data.workspaceDescription as string) ?? "",
-                    })
-                  }
-                />
+                <>
+                  <StepWorkspace
+                    name={(data.workspaceName as string) ?? ""}
+                    slug={(data.workspaceSlug as string) ?? ""}
+                    slugTouched={Boolean(data.workspaceSlug)}
+                    description={(data.workspaceDescription as string) ?? ""}
+                    // StepWorkspace emits { name, slug, slugTouched, description }
+                    // from the original /setup wizard. Remap into our
+                    // workspace* keys so the inputs stay controlled.
+                    onChange={(u) => {
+                      const next: Record<string, unknown> = {};
+                      if ("name" in u) next.workspaceName = u.name;
+                      if ("slug" in u) next.workspaceSlug = u.slug;
+                      if ("description" in u)
+                        next.workspaceDescription = u.description;
+                      patch(next);
+                    }}
+                  />
+                  <WizardFooter
+                    disabled={
+                      !(((data.workspaceName as string) ?? "").trim().length > 0)
+                    }
+                    pending={pending}
+                    onContinue={() =>
+                      submitWorkspace({
+                        name: (data.workspaceName as string) ?? "",
+                        slug: (data.workspaceSlug as string) ?? "",
+                        description:
+                          (data.workspaceDescription as string) ?? "",
+                      })
+                    }
+                  />
+                </>
               )}
 
               {step === "pipeline" && (
