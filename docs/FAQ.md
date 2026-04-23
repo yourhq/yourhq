@@ -1,0 +1,160 @@
+# FAQ
+
+## What is HQ?
+
+A self-hostable dashboard for running AI agents. You provide the infrastructure (a Docker host and a Supabase project); HQ gives you the UI, the agent runtime, and a library of templates.
+
+## Why would I self-host this instead of using a SaaS?
+
+- **Your data stays on your machine.** No third party has access to your CRM, documents, or agent outputs.
+- **No per-seat pricing.** Run as many agents as your hardware can handle.
+- **Open source.** Fork it, customize it, ship your version.
+- **Offline-capable.** Gateways can run on a laptop or home server and keep working without internet.
+
+SaaS trade-off: you handle updates, debugging, and ops. If that's unappealing, watch for Phase 4 (hosted offering).
+
+## Is there a hosted version?
+
+Not yet. Phase 4 on the roadmap is a hosted offering at `yourhq.ai`, shipping when there's demand. Until then, self-host.
+
+## What does "agent" mean here?
+
+An agent is a persistent workspace with:
+
+- Its own git branch (identity files, memory, skills)
+- Its own Chrome profile (persistent cookies, logged-in sessions)
+- Its own Telegram bot (for conversational input/output)
+- Its own OpenClaw session (the runtime)
+
+Agents have real memory across sessions, can browse the web, send messages, edit files, and call APIs. They're not chat bots.
+
+## What models do agents use?
+
+Whatever OpenClaw is configured with — Codex, Claude, Gemini, GPT, MiniMax, whatever. Default is OpenAI's latest. Switching is per-agent or per-gateway via `openclaw.json` configuration.
+
+You connect models through the Connections UI (Phase 3) or via `openclaw models auth login` on the command line (today).
+
+## What does it cost to run?
+
+Infrastructure:
+- Laptop: free
+- $4/month VPS (Hetzner CX22): fine for 1–2 agents
+- $20/month VPS (t3.medium on AWS): comfortable for 5+ agents
+
+Supabase free tier covers small/personal use. Upgrade to Pro ($25/mo) if you hit limits.
+
+Model API costs are on top and depend on usage — typically $10–$100/month per active agent depending on how much it works.
+
+## Does it need internet?
+
+The UI and gateway need internet for:
+- Model API calls (OpenAI, Anthropic, etc.)
+- Supabase (if your Supabase is cloud-hosted)
+- openclaw plugin updates
+
+Gateway agents need internet to browse. Beyond that, local-only is fine.
+
+## Can I run multiple gateways?
+
+Yes. Each gateway registers itself in the `gateways` table with its own `GATEWAY_ID`. Agents are bound to a specific gateway via `gateway_id` FK. The UI talks to each gateway via its reachable URL (stored in `gateways.meta.reachable_urls`).
+
+Example topology: UI on your laptop, one gateway on a Mac mini at home, one gateway on a VPS. All point at the same Supabase. Each runs its own set of agents.
+
+Phase 3 adds UI-driven "Add Gateway" (one-liner on the new host, token-based registration). Today it's manual — copy the repo, set a unique `GATEWAY_ID` in `.env`, `docker compose up -d gateway dispatcher runner`.
+
+## Can I run multiple projects / workspaces?
+
+Not yet. Phase 2 adds a project registry so one UI manages N Supabase projects. Today, one UI install = one Supabase project.
+
+You can run multiple Compose stacks on the same host by setting different `COMPOSE_PROJECT` values in `.env` — each gets its own volumes and container names.
+
+## How do agents see each other?
+
+They share a Supabase database, so tasks, contacts, documents, and comments are visible across agents. @-mentioning an agent in a comment inserts a row into `agent_inbox_items`; the dispatcher wakes the mentioned agent.
+
+For more sophisticated coordination (agent A's output triggering agent B), the pattern today is:
+- Agent A completes a task or writes a document
+- Automation rule fires on the change
+- New inbox item gets enqueued for agent B
+- Dispatcher wakes B
+
+Phase 2+ may add more direct agent-to-agent invocation.
+
+## How do I reach my HQ from my phone?
+
+- **Install Tailscale** on your phone + HQ host, reach `http://<host-tailscale-ip>:3000`
+- **Tailscale Serve** on the host for TLS: `sudo tailscale serve --bg --https=443 localhost:3000` → `https://hq.<your-tailnet>.ts.net`
+- **Tailscale Funnel** to make it reachable without Tailscale on the phone (Phase 3 will expose this in the UI)
+- **Public custom domain** via Cloudflare Tunnel or your own reverse proxy (see [docs/NETWORKING.md](NETWORKING.md))
+
+Safest path: Tailscale. Your HQ is never on the public internet.
+
+## Can I use a Raspberry Pi?
+
+Yes. Raspberry Pi 4 or 5 (arm64) runs the stack fine. Pi 4 with 4 GB is the minimum; Pi 5 with 8 GB is comfortable. Use the same installer — arm64 images are published automatically.
+
+## What about resource usage?
+
+A single gateway with 1–2 idle agents uses about 1.5 GB RAM and 5–10% CPU. Each active agent (browsing, running) adds ~500 MB and spikes CPU during work.
+
+t3.small (2 GB) is the floor. t3.medium (4 GB) is comfortable for 2–3 active agents. t3.large or m5.large for heavier use.
+
+## How do I back up my data?
+
+Three things to back up:
+
+1. **Supabase** — your contacts, tasks, agents, documents, audit log. Use Supabase's built-in backups (Pro tier) or `pg_dump` against the direct connection.
+2. **Gateway state volume** — per-agent git branches, Chrome profile, OpenClaw config. `docker run --rm -v yourhq-gateway-state:/src -v $(pwd):/dst alpine tar -czf /dst/gateway-state.tar.gz -C /src .`
+3. **`.env`** — contains secrets. Keep a copy somewhere safe (password manager, encrypted disk).
+
+Optional: set `GIT_REMOTE_URL` in `.env` so per-agent branches push to a GitHub/Gitea remote you control.
+
+## How do I update?
+
+```bash
+cd ~/yourhq
+git pull
+docker compose pull
+docker compose up -d
+```
+
+For UI changes that touch `NEXT_PUBLIC_*` env vars, also `docker compose build --no-cache ui`.
+
+Phase 3 adds a UI "Update" button. Until then, SSH in and run the above.
+
+## How do I uninstall?
+
+```bash
+cd ~/yourhq
+docker compose down -v  # stops containers, DELETES volumes — all agent state gone
+cd ..
+rm -rf yourhq
+```
+
+Supabase project: go to Supabase → Settings → General → delete project.
+
+## Can I customize the UI?
+
+Yes, fork the repo. `apps/ui/` is a standard Next.js app (App Router, Tailwind, shadcn). Changes go into your fork; pull upstream updates as desired.
+
+If your changes might benefit others, PR them.
+
+## Can I write my own agent template?
+
+Yes. Copy `templates/default/` to `templates/your-role/`, edit the identity files (`IDENTITY.md`, `SOUL.md`, `USER.md`, `MEMORY.md`), add role-specific skills under `skills/`, rebuild the templates index, open a PR (or keep in your fork).
+
+See [docs/AGENTS.md](AGENTS.md).
+
+## Who uses HQ?
+
+Currently: the maintainers, beta testers, and whoever else has discovered it. The project targets founders, solo operators, and small teams who want their agents to do real work on their own infrastructure.
+
+## Why the name "HQ"?
+
+It's the command-center metaphor — one place where you manage everything. Short, memorable, hard to misspell.
+
+## Where do I ask more questions?
+
+- [GitHub Discussions](https://github.com/yourhq/yourhq/discussions) — design questions, roadmap, workflow
+- [GitHub Issues](https://github.com/yourhq/yourhq/issues) — bugs, feature requests
+- `security@yourhq.ai` — security issues only (see [SECURITY.md](../SECURITY.md))

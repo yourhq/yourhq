@@ -54,10 +54,10 @@ services:
       GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN: ${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
     ports:
-      # Defaults to 0.0.0.0:3000 so the host's network mode (Tailscale-installed
-      # or not) decides who can reach it. Set UI_HOST_PORT=127.0.0.1:3000 to
-      # keep UI strictly local (local-only installs) if preferred.
-      - "${UI_HOST_PORT:-0.0.0.0:3000}:3000"
+      # Defaults to loopback-only so a bare `docker compose up` on a cloud VM
+      # doesn't silently expose the UI to the public internet. The installer
+      # flips this to 0.0.0.0:3000 when the user picks Tailscale or Public mode.
+      - "${UI_HOST_PORT:-127.0.0.1:3000}:3000"
     volumes:
       - ui-config:/config
 
@@ -93,16 +93,14 @@ services:
       - gateway-state:/home/openclaw/.openclaw
       - gateway-chrome-profile:/home/openclaw/.config/google-chrome
     ports:
-      # noVNC (HTML5 VNC client). Defaults to 0.0.0.0 so the host decides
-      # reachability; set NOVNC_HOST_PORT=127.0.0.1:6901 for local-only.
-      - "${NOVNC_HOST_PORT:-0.0.0.0:6901}:6901"
-      # Files-API (UI file browser). Publish to host so the UI — which
-      # might be on another machine — can reach it over the host's network
-      # (Tailscale or public HTTPS reverse proxy). For single-host installs
-      # where UI and gateway are on the same Docker network, override to
-      # 127.0.0.1 or skip — the UI still reaches it via the internal
-      # service name "gateway".
-      - "${FILES_API_HOST_PORT:-0.0.0.0:18790}:18790"
+      # Both ports default to loopback-only so a bare `docker compose up` on
+      # a cloud VM doesn't silently expose noVNC or the files-API. The
+      # installer flips these to 0.0.0.0 when the user picks Tailscale or
+      # Public mode. noVNC only has a generated VNC password as its auth
+      # gate and must never be on 0.0.0.0 without either a tight network
+      # (Tailscale) or a reverse proxy with its own auth.
+      - "${NOVNC_HOST_PORT:-127.0.0.1:6901}:6901"
+      - "${FILES_API_HOST_PORT:-127.0.0.1:18790}:18790"
 
   dispatcher:
     image: ${DISPATCHER_IMAGE:-ghcr.io/yourhq/yourhq-dispatcher:latest}

@@ -1,115 +1,160 @@
+<div align="center">
+
 # HQ
 
-Self-hostable agent operations platform. One UI manages your projects, agents, and gateway hosts; agents live in containers you control.
+### Self-hostable agent operations platform
 
-Website: [yourhq.ai](https://yourhq.ai)
+One UI, many AI agents, your infrastructure.
 
-> **Status**: Phase 1 (monorepo + Docker stack + installer). Multi-project UI and UI-driven gateway management are Phase 2 and Phase 3.
+[Website](https://yourhq.ai) · [Install](#install) · [Docs](docs/) · [Roadmap](#roadmap)
 
-## What this is
+</div>
 
-- **UI** — Next.js app (`apps/ui/`) where you manage contacts, tasks, agents, and everything the agents touch.
-- **Gateway** — a container (`gateway/`) that runs OpenClaw + Chrome + two Python daemons. Hosts your agents and executes work.
-- **Agent templates** — a library of starting points (`templates/`) for new agents (Cofounder, Designer, Analytics, etc.).
-- **Supabase** — your own Supabase project. The UI and gateways both talk to it; it's the only shared state.
+---
 
-You can run everything on one machine, or split the UI onto a laptop and gateways onto a VPS, Mac mini, Raspberry Pi — any host that runs Docker.
+HQ is a self-hosted dashboard for running AI agents that do real work on your behalf — drafting outreach, managing contacts, handling tasks, browsing the web, talking over Telegram. Your Supabase, your Docker host, your agents.
 
-## Quick start (non-technical)
+No vendor lock-in. No per-seat pricing. No data leaving your infrastructure.
 
-You need a free Supabase project first. Create one at [supabase.com](https://supabase.com), open the SQL editor, and paste the contents of [`db/migrations/001_schema.sql`](db/migrations/001_schema.sql). Copy the URL and both keys from Settings → API.
+## Why HQ
 
-Then, on any Linux/macOS host with Docker:
+- **Your data stays yours.** Supabase is the only backend, and it's your Supabase. HQ has no cloud.
+- **Run anywhere Docker runs.** Laptop, Raspberry Pi, Mac mini, VPS, EC2 — same code, same experience.
+- **One UI, many gateways.** Run the UI on your laptop, gateways anywhere. Agents provision on the host you pick.
+- **Agents are real programs**, not chat wrappers. They browse, send messages, edit files, call APIs — with real memory across sessions.
+- **Template library included.** Cofounder, designer, analyst, CMO, newsletter editor, and more — starting points you customize in-place.
+
+## Install
+
+### One-line install
+
+On any Linux/macOS host with Docker:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yourhq/yourhq/main/installer/install.sh | bash
+curl -fsSL install.yourhq.ai | bash
 ```
 
-The installer will ask for:
+The installer:
+1. Installs Docker if missing (Linux)
+2. Prompts for your Supabase credentials
+3. Picks your networking mode (local / Tailscale / public)
+4. Runs `docker compose up -d`
+5. Opens your browser to `http://localhost:3000`
 
-1. Your Supabase URL + anon key + service role key.
-2. A networking path — Tailscale (recommended), public HTTPS, or local-only.
-3. Whether to use the bundled agent templates (yes, in almost all cases).
+Takes about 5 minutes on a fresh machine.
 
-It writes a `.env`, pulls the images, runs `docker compose up -d`, and opens `http://localhost:3000` in your browser. Complete the workspace setup wizard, pick a template, and you have your first agent.
+### Prerequisites
 
-## Quick start (technical)
+- Docker (installer can install it for you on Linux)
+- A Supabase project — [create a free one](https://supabase.com), then run [`db/migrations/001_schema.sql`](db/migrations/001_schema.sql) in the SQL editor
+
+### Manual install
+
+Prefer to inspect the code first?
 
 ```bash
 git clone https://github.com/yourhq/yourhq.git
 cd yourhq
 cp .env.example .env
-# edit .env — fill in Supabase and (optionally) Tailscale, GitHub, etc.
+# edit .env with your Supabase URL + keys
 docker compose up -d
 ```
 
-For live-reload development:
+See [docs/INSTALL.md](docs/INSTALL.md) for every install path in detail.
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up
-```
+## Screenshots
 
-Edit any file under `apps/ui/` and the UI reloads automatically. Edit `gateway/entrypoint.sh` or `gateway/daemons/*` and restart the relevant service (`docker compose restart gateway dispatcher runner`).
+_Coming soon — see [yourhq.ai](https://yourhq.ai) for screenshots and demo._
 
-## Architecture at a glance
+## Architecture
 
 ```
-┌─────────────────┐
-│   UI (Next.js)  │  runs anywhere — laptop, VPS, cloud
-└────────┬────────┘
-         │         All coordination flows through Supabase.
-         │         Nothing connects directly to the gateway.
-         ▼
-┌─────────────────┐
-│    Supabase     │  your project
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  Gateway host   │  wherever you want — Mac mini, VPS, Pi...
-│   (Docker)      │
-│                 │
-│  ├ gateway      │  OpenClaw + Chrome + noVNC + Tailscale
-│  ├ dispatcher   │  wakes agents on new inbox items
-│  └ runner       │  executes lifecycle commands (add-agent, update, etc.)
-└─────────────────┘
+                     ┌────────────────────┐
+                     │  HQ UI (Next.js)   │ ← your laptop, a VPS, anywhere
+                     └──────────┬─────────┘
+                                │
+                                ▼
+                     ┌────────────────────┐
+                     │   Your Supabase    │ ← single source of truth
+                     └──────────┬─────────┘
+                                │
+                  ┌─────────────┼─────────────┐
+                  ▼             ▼             ▼
+           ┌──────────┐  ┌──────────┐  ┌──────────┐
+           │ Gateway  │  │ Gateway  │  │ Gateway  │  ← run agents here
+           │  (VPS)   │  │ (Mac mini)│ │  (Pi)    │
+           └──────────┘  └──────────┘  └──────────┘
 ```
 
-You can run multiple gateways against the same Supabase (each with its own `GATEWAY_ID`). Each gateway owns its own local git repo for per-agent workspaces; an optional `GIT_REMOTE_URL` lets you sync to GitHub/Gitea for backup.
+Each gateway is a Docker container with:
+- **OpenClaw** — the agent runtime
+- **Chrome + noVNC** — a full desktop with a browser each agent can drive
+- **Python daemons** — wake agents when there's new work; execute lifecycle commands
 
-## Repository layout
+Agents get their own git branch, their own Chrome profile, and a shared workspace. No two agents stomp on each other.
 
-```
-yourhq/
-├── apps/ui/              # The HQ UI (Next.js).
-├── gateway/              # Gateway runtime — Dockerfiles, entrypoint, daemons.
-│   ├── daemons/          # inbox_dispatcher.py, command_runner.py.
-│   ├── dispatcher/       # Dockerfile for the dispatcher service.
-│   ├── runner/           # Dockerfile for the runner service.
-│   └── scripts/          # Shell helpers (add-agent.sh, update-agent.sh, ...).
-├── templates/            # Agent template library — one directory per template.
-├── db/migrations/        # SQL migrations. Run 001_schema.sql first.
-├── installer/            # install.sh (curl | bash target).
-├── docker-compose.yml    # OSS/self-host default stack.
-├── docker-compose.dev.yml# Live-reload overlay.
-├── .env.example          # Every env var the stack reads.
-└── README.md             # You are here.
-```
+Read the full breakdown in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## Adding a second gateway
+## What agents can do
 
-Once the UI is up, go to Settings → Gateways → Add Gateway *(Phase 3 — not yet shipped)*. For now, the manual process is:
+Out of the box, agents have access to:
 
-1. On the new host: clone this repo, `cp .env.example .env`.
-2. In `.env`, set a unique `GATEWAY_ID` (e.g. `mac-mini`) and the same Supabase URL + keys.
-3. `docker compose up -d gateway dispatcher runner` (skip the `ui` service).
+- **Web browsing** — a dedicated Chrome profile they can drive autonomously
+- **Your CRM** — contacts, organizations, tasks, interactions
+- **Documents** — shared knowledge base with vector search
+- **Telegram** — each agent gets its own bot
+- **Voice** — inbound calls (Phase 3)
+- **Calendar, email, Slack, Notion** — via MCP or custom plugins
 
-The new gateway registers itself automatically in the `gateways` table and the UI sees it within ~30s.
+They have persistent memory across sessions, can delegate to each other, and write their own workflow improvements back to files (with your approval, if you want).
+
+See [docs/AGENTS.md](docs/AGENTS.md) for the agent model and how to write a custom template.
+
+## Deploying
+
+HQ scales up as your needs grow, without re-architecting anything:
+
+| Setup | How |
+|---|---|
+| **Laptop only** | `curl install.yourhq.ai \| bash`, pick local-only |
+| **Laptop + remote gateway** | Local install, then run the gateway installer on another host |
+| **Multi-gateway** | Any number of gateways, each on its own host, all point at the same Supabase |
+| **Fully cloud** | UI on one VPS, gateways on others |
+
+All of these use the same installer and the same Docker images. The only difference is where Docker is running.
+
+See [docs/NETWORKING.md](docs/NETWORKING.md) for deployment topologies.
+
+## Roadmap
+
+HQ is shipping in phases. See the [full plan](docs/ROADMAP.md) for detail.
+
+- ✅ **Phase 1** — monorepo, Docker stack, installer, multi-gateway support at the DB level
+- 🔄 **Phase 2** — multi-project UI (one install manages N Supabase projects), config-less first boot
+- ⏳ **Phase 3** — UI-driven gateway management (add gateways from the UI, Codex/API-key auth flows, updates, open-desktop modal)
+- ⏳ **Phase 4** — hosted offering for those who don't want to self-host
 
 ## Contributing
 
-See [`templates/README.md`](templates/README.md) for adding agent templates. Platform contributions welcome — clone, build with `docker compose -f docker-compose.dev.yml up`, iterate.
+Contributions welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to set up a dev environment and open a PR.
+
+Most PR-friendly areas:
+- **Agent templates** — add a new role (`templates/<name>/`) and we merge it
+- **UI pages** — Next.js + Tailwind + shadcn, familiar stack
+- **Gateway integrations** — MCP plugins, OpenClaw plugins
+
+## Community & support
+
+- **Issues**: [github.com/yourhq/yourhq/issues](https://github.com/yourhq/yourhq/issues)
+- **Discussions**: [github.com/yourhq/yourhq/discussions](https://github.com/yourhq/yourhq/discussions)
+- **Security reports**: see [SECURITY.md](SECURITY.md) (don't file public issues for security)
 
 ## License
 
-TBD — see LICENSE file.
+Apache 2.0 — see [LICENSE](LICENSE).
+
+You can run HQ for yourself, for your company, for your clients. You can modify it and ship your modifications. You just can't claim we endorsed your fork.
+
+---
+
+Built on [Next.js](https://nextjs.org), [Supabase](https://supabase.com), [OpenClaw](https://openclaw.ai), and [noVNC](https://novnc.com). Agents are real; marketing copy is not.

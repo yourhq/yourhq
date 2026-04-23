@@ -1,0 +1,582 @@
+# Networking & Deployment Topology
+
+This is the "how do I reach HQ?" reference. It covers the mental model for HQ's
+network surface, the three installer-supported modes, multi-machine topologies,
+and options for exposing HQ to the public internet with a custom domain.
+
+If you're just starting out: run the installer, pick **Local-only** or
+**Tailscale**, and come back here when you want to split services across
+machines or put HQ on a custom domain.
+
+---
+
+## 1. The mental model
+
+**Tailscale lives on the HOST. HQ containers don't know it exists.**
+
+This is the single most important idea in this doc. HQ is a plain Docker
+Compose stack that publishes TCP ports. What happens to those ports —
+whether they're reachable only from loopback, from your tailnet, or from the
+public internet — is decided by two things:
+
+1. **Host port bindings in `docker-compose.yml`** (`UI_HOST_PORT`,
+   `NOVNC_HOST_PORT`, `FILES_API_HOST_PORT`). Each one looks like
+   `127.0.0.1:3000` or `0.0.0.0:3000`. `127.0.0.1` means loopback only;
+   `0.0.0.0` means every network interface the host has.
+2. **The host's networking setup.** If you installed Tailscale on the host,
+   `0.0.0.0` now includes the Tailscale interface. If you opened firewall
+   ports, it includes the public internet.
+
+HQ never joins a tailnet itself, never provisions TLS, and never runs a
+reverse proxy. All of that is a host concern. The containers just listen on
+a port and rely on the host to decide reachability.
+
+This keeps the Docker stack portable (identical on laptop, EC2, and Hetzner),
+and lets you swap network layers (Tailscale today, Cloudflare Tunnel
+tomorrow) without changing HQ.
+
+```
+                       ┌────────────────────── host machine ──────────────────────┐
+                       │                                                            │
+ tailnet / public ────►│  Tailscale / reverse proxy / firewall (HOST-level)         │
+                       │                     │                                      │
+                       │                     ▼                                      │
+                       │        Host port bindings (0.0.0.0 or 127.0.0.1)           │
+                       │                     │                                      │
+                       │    ┌────────────────┼────────────────┐                     │
+                       │    ▼                ▼                ▼                     │
+                       │  :3000           :6901           :18790                    │
+                       │   UI             noVNC          files-API                  │
+                       │ (Next.js)      (websockify)     (Python)                   │
+                       │                                                            │
+                       └────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 2. The three networking modes
+
+The installer (`installer/install.sh`) asks which mode to use and writes the
+right `.env` values. You can switch later by editing `.env` and running
+`docker compose up -d` again.
+
+| Mode | `HOST_REACHABLE_URL` | Host port bindings | Reachable from |
+|---|---|---|---|
+| `local` (default) | `http://localhost` | `127.0.0.1:3000` / `:6901` / `:18790` | This machine only |
+| `tailscale` | `http://<host-ts-ip>` | `0.0.0.0:3000` / `:6901` / `:18790` | Any tailnet device |
+| `public` | `https://<your-domain>` | `0.0.0.0:3000` / `:6901` / `:18790` | Anywhere — you handle TLS |
+
+### Local-only (default)
+
+The simplest setup. Everything binds to `127.0.0.1` on the host, so only this
+machine can reach HQ.
+
+**Install:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/yourhq/yourhq/main/installer/install.sh | bash
+# pick "Local-only" at the networking prompt
+```
+
+**Reach it at:** `http://localhost:3000`
+
+**Tradeoffs:**
+- Zero attack surface — nothing on the network can touch HQ
+- No phone / tablet / remote laptop access
+- No way to split gateway onto another host
+- Best for: solo laptop use, first-time trial, airgapped setups
+
+### Tailscale (recommended for multi-device / multi-host)
+
+The installer installs the Tailscale client **on the host** (not in a
+container), logs into your tailnet with an auth key, and flips the host port
+bindings to `0.0.0.0`. HQ is now reachable from any device on your tailnet
+(phone, laptop, other VPSes) but not from the public internet.
+
+**Install:**
+
+```bash
+# 1. Create a free account at https://tailscale.com
+# 2. Generate a reusable auth key at
+#    https://login.tailscale.com/admin/settings/keys
+# 3. Run the installer and pick "Tailscale"
+curl -fsSL https://raw.githubusercontent.com/yourhq/yourhq/main/installer/install.sh | bash
+```
+
+What the installer does:
+
+```bash
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up --authkey=<your-key> --hostname=yourhq-$(hostname) --accept-routes
+# reads back the assigned IP and writes it into HOST_REACHABLE_URL
+```
+
+**Reach it at:**
+- `http://<host-ts-ip>:3000` — always works, even if MagicDNS is off
+- `http://yourhq-<hostname>:3000` — works if MagicDNS is on (see §5)
+
+**Tradeoffs:**
+- Access from anywhere you're logged into Tailscale
+- No public exposure — the attack surface is just your tailnet
+- Gives you exit-node support for free (see §9)
+- Devices need the Tailscale app/login
+- Best for: anyone beyond a single machine, and the default recommendation
+
+### Public HTTPS (advanced)
+
+You run a reverse proxy (Caddy, Traefik, nginx, Cloudflare Tunnel — your
+choice) on the host, in front of HQ's ports. The installer just flips the
+host port bindings to `0.0.0.0`, sets `HOST_REACHABLE_URL=https://your.domain`,
+and gets out of the way.
+
+HQ **does not bundle a reverse proxy anymore**. An earlier version shipped
+Caddy inside the gateway container; we removed it so the stack stays small
+and TLS/domain concerns live where they belong (on the host).
+
+**Install:**
+
+```bash
+# 1. Run the installer and pick "Public HTTPS"
+# 2. Enter your domain when prompted
+# 3. Install + configure a reverse proxy separately (see §7)
+```
+
+**Tradeoffs:**
+- Custom domain and full public reach
+- You own the TLS certs, DNS, and reverse proxy config
+- You also own the risk (see §8)
+- Best for: sharing HQ with users who can't run Tailscale
+
+---
+
+## 3. Port inventory
+
+| Service | Container port | Default host port | Protocol | What speaks it |
+|---|---|---|---|---|
+| UI (Next.js) | 3000 | `UI_HOST_PORT` (default `127.0.0.1:3000`) | HTTP | Your browser |
+| noVNC (websockify) | 6901 | `NOVNC_HOST_PORT` (default `127.0.0.1:6901`) | HTTP + WebSocket | Browser — opens `vnc.html` to remote-desktop into the gateway |
+| Files-API (Python) | 18790 | `FILES_API_HOST_PORT` (default `127.0.0.1:18790`) | HTTP | UI's file-browser backend (agent worktrees) |
+| Gateway dispatcher | — (no listener) | — | — | Polls Supabase only |
+| Gateway runner | — (no listener) | — | — | Polls Supabase only |
+
+**Supabase is not hosted by HQ.** You bring your own Supabase project; its URL
+and keys go into `.env`. Nothing in HQ runs on Supabase's behalf.
+
+The dispatcher and runner containers don't listen on any port. They poll
+Supabase over HTTPS for inbox items and commands. No inbound firewall holes
+required for them.
+
+---
+
+## 4. Host bindings via compose
+
+Three env vars in `.env` control the host side of the port mappings:
+
+```env
+UI_HOST_PORT=127.0.0.1:3000        # local:       127.0.0.1:3000
+NOVNC_HOST_PORT=127.0.0.1:6901     # tailscale:   0.0.0.0:6901
+FILES_API_HOST_PORT=127.0.0.1:18790  # public:     0.0.0.0:18790
+```
+
+The installer writes these for you. Change by hand if you want non-standard
+bindings (e.g. bind only to a specific LAN interface, or use a different host
+port).
+
+Examples:
+
+```env
+# UI on port 8080 instead of 3000, still loopback-only
+UI_HOST_PORT=127.0.0.1:8080
+
+# UI on a specific LAN IP (your home server's 192.168.x.y)
+UI_HOST_PORT=192.168.1.50:3000
+
+# Gateway noVNC off (e.g. headless CI host)
+NOVNC_HOST_PORT=127.0.0.1:6901
+NOVNC_BIND=off   # also stops websockify inside the container
+```
+
+After editing, `docker compose up -d` reapplies the mapping.
+
+### `NOVNC_BIND` inside the container
+
+Separate from host port bindings, `NOVNC_BIND` controls what websockify does
+**inside** the container:
+
+- `local` (default) — websockify binds `0.0.0.0:6901` inside the container.
+  Docker's port mapping then enforces loopback-vs-public at the host.
+- `off` — websockify doesn't start. Use on headless hosts where you never
+  want the noVNC console.
+
+---
+
+## 5. MagicDNS
+
+Tailscale ships a built-in DNS server (MagicDNS). When enabled in your
+tailnet's admin console, every device gets a hostname of its own — and the
+host the installer ran on gets `yourhq-<hostname>` (set via the `--hostname`
+flag passed to `tailscale up`).
+
+With MagicDNS on, from any tailnet device you can visit:
+
+```
+http://yourhq-myserver:3000     # UI
+http://yourhq-myserver:6901/vnc.html?autoconnect=1&resize=remote  # noVNC
+```
+
+Why the installer writes the **IP** (`http://100.x.y.z`) into
+`HOST_REACHABLE_URL` instead of the hostname: MagicDNS can be disabled at the
+tailnet level, devices may have stale DNS caches, and the IP always resolves.
+The hostname is nicer for humans; the IP is a safer default for programmatic
+use (the UI reads `HOST_REACHABLE_URL` from the `gateways` table to build
+links to the files-API and noVNC console).
+
+If MagicDNS is on and you prefer hostnames, edit `.env`:
+
+```env
+HOST_REACHABLE_URL=http://yourhq-myserver
+```
+
+and restart: `docker compose up -d gateway`. The gateway will re-register
+with the hostname-based URL on its next boot.
+
+---
+
+## 6. Multi-machine topologies
+
+The UI, gateway, dispatcher, and runner can all run on different hosts.
+Coordination is **only** through Supabase — nothing opens a socket to anything
+else in HQ. This is what makes splitting across machines painless.
+
+Shared rules:
+
+- Every host that runs anything needs Tailscale (or some other way for the UI
+  to reach the gateway's files-API and noVNC).
+- Every gateway host needs a **unique `GATEWAY_ID`** in its `.env`.
+- Every host uses the same `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
+- The `gateways` table in Supabase stores each gateway's `HOST_REACHABLE_URL`
+  (written by the gateway's entrypoint on boot); the UI reads it at runtime to
+  build file-browser and noVNC links.
+
+### Topology A: single machine (default)
+
+```
+┌───────────────────── host: laptop ────────────────────┐
+│                                                         │
+│  Docker compose:  ui + gateway + dispatcher + runner    │
+│                                                         │
+│  UI ──► http://localhost:3000                           │
+│  UI ──► gateway (Docker DNS: http://gateway:18790)      │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+One `docker compose up -d`. The UI reaches the gateway over Docker's internal
+network via the `gateway:18790` DNS name — no host port needed.
+
+### Topology B: UI on laptop, gateway on a VPS
+
+```
+┌── host: laptop ──────┐            ┌── host: EC2 / Hetzner ──────┐
+│                        │            │                               │
+│  Docker: ui only       │            │  Docker: gateway+dispatcher   │
+│                        │            │          +runner              │
+│  UI @ localhost:3000   │  Tailscale │                               │
+│                        │◄──────────►│  files-API @ 100.x.y.z:18790  │
+│                        │            │  noVNC     @ 100.x.y.z:6901   │
+└────────────────────────┘            └───────────────────────────────┘
+          │                                          │
+          └────────── Supabase (shared) ─────────────┘
+```
+
+On the laptop:
+
+```bash
+git clone https://github.com/yourhq/yourhq.git && cd yourhq
+cp .env.example .env
+# fill in Supabase, then:
+# GATEWAY_URL points at the VPS over Tailscale
+sed -i '' 's|GATEWAY_URL=.*|GATEWAY_URL=http://100.x.y.z:18790|' .env
+docker compose up -d ui
+```
+
+On the VPS:
+
+```bash
+# Install the HQ host-level networking — Tailscale joined to your tailnet
+curl -fsSL https://raw.githubusercontent.com/yourhq/yourhq/main/installer/install.sh | bash
+# Pick Tailscale, provide auth key, then when it starts services:
+# edit .env to set GATEWAY_ID=vps-gateway and run without ui
+docker compose up -d gateway dispatcher runner
+```
+
+### Topology C: one UI, multiple gateways
+
+```
+              ┌── UI host ──┐
+              │  ui service │
+              └──────┬──────┘
+                     │  Tailscale
+     ┌───────────────┼────────────────────┐
+     │               │                    │
+┌────▼─────┐   ┌─────▼─────┐        ┌─────▼─────┐
+│ gateway  │   │  gateway  │        │  gateway  │
+│ laptop   │   │  mac-mini │  ...   │  vps-eu   │
+│ GATEWAY_ │   │ GATEWAY_  │        │ GATEWAY_  │
+│ ID=home  │   │ ID=studio │        │ ID=eu     │
+└──────────┘   └───────────┘        └───────────┘
+     │               │                    │
+     └───── Supabase (shared state) ──────┘
+```
+
+Repeat the VPS instructions per gateway host, just with different
+`GATEWAY_ID` and `GATEWAY_LABEL` values. Each gateway self-registers in the
+`gateways` table; the UI shows them all.
+
+Use cases:
+- `home` gateway for local dev agents with a residential IP
+- `vps-eu` gateway for agents that need to run 24/7
+- `mac-mini` gateway for agents that need macOS-specific tooling
+
+---
+
+## 7. Custom domains and public access
+
+HQ doesn't bundle anything here — you pick the tool. Listed best-first for
+typical use cases.
+
+> A Phase 3 UI flow to set these up from Settings → Gateways is planned; for
+> now it's all manual. The options below all work today.
+
+### Option A: Tailscale Serve — `https://hq.<tailnet>.ts.net`
+
+**Best for:** remote access without public exposure. Tailnet-only users.
+
+One command on the host gives you HTTPS on a stable `.ts.net` hostname.
+Tailscale provisions and renews the cert. No ports opened to the public
+internet.
+
+```bash
+sudo tailscale serve --bg --https=443 localhost:3000
+# UI now at https://hq.<tailnet>.ts.net
+```
+
+**Tradeoffs:**
+- No custom domain — you get `<machine-name>.<tailnet>.ts.net`
+- Requires the Tailscale app/login on every device that accesses it
+- Free, no quota limits
+- One command, no config files
+
+### Option B: Tailscale Funnel — public `.ts.net` hostname
+
+**Best for:** sharing HQ with a few non-Tailscale users over a public URL,
+without running your own domain or proxy.
+
+Same as Serve but makes the hostname public (reachable from the open internet
+with no Tailscale required on the client).
+
+```bash
+# Enable Funnel in the Tailscale admin console first (ACL feature toggle)
+sudo tailscale funnel --bg --https=443 localhost:3000
+```
+
+**Tradeoffs:**
+- Still no custom domain (you get `<name>.<tailnet>.ts.net`)
+- Tight quotas on the free plan (check current limits)
+- Public internet reach with TLS handled for you
+
+### Option C: Cloudflare Tunnel — custom domain, zero open ports
+
+**Best for:** custom domain + max security. The host opens no inbound ports;
+`cloudflared` makes an outbound connection to Cloudflare and Cloudflare
+routes HTTPS to your host.
+
+High-level setup:
+
+```bash
+# Install cloudflared (see https://github.com/cloudflare/cloudflared/releases)
+cloudflared tunnel login                     # opens a browser to auth
+cloudflared tunnel create hq                 # writes a tunnel credentials file
+cloudflared tunnel route dns hq hq.example.com
+# Config file at ~/.cloudflared/config.yml:
+#   tunnel: <tunnel-id>
+#   credentials-file: ~/.cloudflared/<tunnel-id>.json
+#   ingress:
+#     - hostname: hq.example.com
+#       service: http://localhost:3000
+#     - service: http_status:404
+cloudflared tunnel run hq                    # or install as a service
+```
+
+**Tradeoffs:**
+- Zero inbound ports on the host (huge security win)
+- Requires a Cloudflare account + DNS on Cloudflare
+- Free tier is generous
+- Adds Cloudflare as a dependency in your request path
+
+### Option D: Caddy / Traefik / nginx — classic reverse proxy
+
+**Best for:** custom domain + full control of the TLS stack.
+
+Point DNS at the host, open ports 80 and 443, let the proxy handle ACME.
+Example `Caddyfile` for `hq.example.com`:
+
+```caddy
+hq.example.com {
+    reverse_proxy localhost:3000
+}
+```
+
+Caddy auto-issues a Let's Encrypt cert, listens on 80/443, and forwards to
+HQ. Traefik and nginx equivalents are straightforward.
+
+**Tradeoffs:**
+- Ports 80/443 open to the public internet
+- UI directly reachable by anyone on the internet, behind Supabase auth only
+- Full control, classic ops workflow
+- See §8 before going live
+
+---
+
+## 8. Security considerations for public access
+
+When you put HQ on the public internet (option C or D above), the threat
+model changes. A few things to know:
+
+- **Supabase auth is the only gate.** The UI's access control is "are you
+  signed into the Supabase project?" Turn on MFA for your Supabase account.
+- **RLS is "authenticated full access."** Every policy in HQ's schema grants
+  authenticated users full CRUD on every table. That's fine for a single-user
+  workspace, dangerous for multi-user. Make your Supabase signup **invite-only**
+  (Supabase dashboard → Authentication → Sign up: disabled, then invite by
+  email). Otherwise anyone who can create a Supabase account in your project
+  gets the whole workspace.
+- **Add a second auth layer if you can.** Cloudflare Access (free for up to 50
+  users) puts an email-gated login in front of everything. Configure it on
+  your Cloudflare Tunnel or in front of Caddy. That way an unauthenticated
+  attacker can't even reach the Next.js app.
+- **Don't expose noVNC or files-API publicly.** These are internal surfaces
+  with weaker auth. Keep them on Tailscale or loopback. If you use a reverse
+  proxy, only proxy port 3000 (the UI); leave `NOVNC_HOST_PORT` and
+  `FILES_API_HOST_PORT` on `127.0.0.1` or `100.x.y.z` (tailnet).
+- **Gateway auth token.** The files-API on port 18790 checks
+  `GATEWAY_AUTH_TOKEN`. Generate a long one (`openssl rand -hex 32`) and
+  don't commit it. If it leaks, anyone who can reach port 18790 can read and
+  write your agent worktrees.
+
+---
+
+## 9. Exit nodes (Tailscale)
+
+Some sites block or throttle datacenter IPs (LinkedIn, Google anti-abuse,
+some geo-restricted content). Tailscale exit nodes let you route outbound
+traffic from a host through another tailnet device — typically one in your
+home with a residential IP.
+
+The installer prompts for this when you pick Tailscale mode:
+
+```
+Route outbound traffic through a residential-IP exit node? [y/N]
+Exit node Tailscale IP (e.g. 100.64.0.5):
+```
+
+What it runs under the hood:
+
+```bash
+sudo tailscale set --exit-node=100.64.0.5 --exit-node-allow-lan-access
+```
+
+This affects the **host**, which means it affects everything running on the
+host, including HQ's gateway. When your agent opens Chrome inside the
+gateway container and fetches a URL, that traffic egresses through the exit
+node's ISP.
+
+Exit-node setup (one-time, on the residential machine you want to route
+through):
+
+```bash
+# On the home box
+sudo tailscale up --advertise-exit-node
+# Then in the Tailscale admin console → Machines → that machine:
+#   "Edit route settings" → approve "Exit node"
+```
+
+It doesn't change how HQ itself is reached (that's still `HOST_REACHABLE_URL`
+on the gateway host). Only outbound traffic is affected.
+
+---
+
+## 10. Troubleshooting connectivity
+
+### "I can't reach the UI from my phone"
+
+Check the network path:
+1. Is the phone on the same tailnet? Open the Tailscale app, verify it's
+   connected and the HQ host appears.
+2. `ping` the host's tailnet IP from the phone (Tailscale app → "Ping").
+3. Check `UI_HOST_PORT` in `.env` on the host — must be `0.0.0.0:3000`, not
+   `127.0.0.1:3000`. Restart with `docker compose up -d ui` after editing.
+4. Check host firewall — some VPS providers (Hetzner Cloud, AWS) block
+   inbound 3000 by default, but Tailscale traffic goes through the WireGuard
+   tunnel on UDP 41641 regardless. If Tailscale can reach the host at all,
+   port 3000 should work. If only some devices can reach it, check the
+   tailnet ACL.
+
+### "noVNC shows 'Cannot assign requested address' in logs"
+
+`NOVNC_BIND` mismatch. Inside the container it should be `local` (binds
+`0.0.0.0:6901` inside, relying on the Docker port map to gate exposure).
+Set `NOVNC_BIND=local` in `.env` and restart `docker compose up -d gateway`.
+
+### "UI hangs on login / redirects forever"
+
+Almost always a Supabase URL / key mismatch. Check:
+
+```bash
+docker compose exec ui env | grep SUPABASE
+```
+
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` must be set.
+Remember the `NEXT_PUBLIC_*` values are **baked into the UI image at build
+time** (see `docker-compose.yml` build args). If you `docker compose pull`
+and the old values are baked in, the UI still uses them. `docker compose
+build ui --no-cache` forces a rebuild with current `.env` values.
+
+### "Gateway doesn't appear in the UI"
+
+Check registration:
+
+```bash
+docker compose logs gateway | grep -i register
+```
+
+You should see `registered (reachable at http://...)` near the top of the
+log. If you see `registration failed (Supabase unreachable or gateways table
+missing)`, either:
+
+- Supabase is unreachable from the gateway host (check
+  `curl $SUPABASE_URL/rest/v1/` from the host)
+- The `gateways` table doesn't exist — run the migration at
+  `db/migrations/001_schema.sql` in the Supabase SQL editor.
+
+If it registered fine but the UI still doesn't list it: the UI polls the
+`gateways` table every ~30s; give it a refresh.
+
+### "Files browser shows 'gateway unreachable'"
+
+The UI reaches the gateway's files-API via `GATEWAY_URL` in `.env`.
+
+- Same-host install: should be `http://gateway:18790` (Docker DNS).
+- Remote gateway: should be the gateway host's tailnet IP, e.g.
+  `http://100.x.y.z:18790`. Not `localhost`, not the Docker internal DNS.
+
+Also confirm `GATEWAY_AUTH_TOKEN` matches between the UI and gateway `.env`
+files (both sides need the same value).
+
+### "My agent can't reach a site from the gateway's Chrome"
+
+Two independent things:
+
+1. DNS from the gateway container: `docker compose exec gateway getent hosts
+   example.com`. If that fails, the host's DNS is wrong.
+2. Outbound IP: if the site blocks datacenter IPs, use an exit node (§9).
