@@ -44,10 +44,16 @@ except ImportError:
 import urllib.request
 import urllib.parse
 
-# ── Config ─────────────────────────────────────────────────────────────
+try:
+    from registry_config import resolve as resolve_hq_config
+except ImportError:
+    resolve_hq_config = None  # type: ignore[assignment]
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+# ── Config ─────────────────────────────────────────────────────────────
+# Populated at main() startup from env OR the project registry fallback.
+
+SUPABASE_URL = ""
+SUPABASE_KEY = ""
 RECONCILE_INTERVAL = int(os.environ.get("RECONCILE_INTERVAL", "120"))
 WAKE_COOLDOWN = int(os.environ.get("WAKE_COOLDOWN", "30"))
 
@@ -441,10 +447,47 @@ class InboxDispatcher:
 # ── Main ───────────────────────────────────────────────────────────────
 
 
-def main():
-    if not SUPABASE_URL or not SUPABASE_KEY:
-        print("Missing: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY", file=sys.stderr)
+def wait_for_supabase_config():
+    """Populate SUPABASE_URL + SUPABASE_KEY globals, blocking until resolved.
+
+    Same model as command_runner.py — env vars first, registry fallback
+    with polling. Lets the dispatcher start before the user has done
+    browser onboarding.
+    """
+    global SUPABASE_URL, SUPABASE_KEY
+
+    env_url = os.environ.get("SUPABASE_URL", "").strip()
+    env_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    if env_url and env_key:
+        SUPABASE_URL = env_url
+        SUPABASE_KEY = env_key
+        return
+
+    if resolve_hq_config is None:
+        print(
+            "Missing: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and registry_config.py "
+            "helper is not available",
+            file=sys.stderr,
+        )
         sys.exit(1)
+
+    log("Supabase env not set; waiting for project registry at /config ...")
+    waited = 0
+    while True:
+        cfg = resolve_hq_config()
+        if cfg is not None:
+            SUPABASE_URL = cfg.url
+            SUPABASE_KEY = cfg.service_role_key
+            log(f"  resolved from {cfg.source}")
+            return
+        if waited > 0 and waited % 30 == 0:
+            log(f"  still waiting for onboarding ({waited}s) — complete it in the UI")
+        time.sleep(5)
+        waited += 5
+
+
+def main():
+    wait_for_supabase_config()
 
     log(f"Starting inbox dispatcher for gateway={GATEWAY_ID}")
 

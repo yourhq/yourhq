@@ -37,11 +37,10 @@ curl -fsSL install.yourhq.ai | bash
 The installer:
 1. Installs Docker if missing (Linux)
 2. Picks your networking mode (local / Tailscale / public)
-3. Optionally takes Supabase creds for the default gateway (skip to set up in the browser)
-4. Runs `docker compose up -d`
-5. Opens your browser to `http://localhost:3000`
+3. Runs `docker compose up -d`
+4. Opens your browser to `http://localhost:3000`
 
-Then in the browser: paste your Supabase URL + keys in the onboarding screen, sign in, done. Takes about 5 minutes on a fresh machine.
+Then in the browser: paste your Supabase URL + keys in the onboarding screen, sign in, done. The gateway auto-picks up your creds in the background — no second terminal step. Takes about 5 minutes on a fresh machine.
 
 ### Prerequisites
 

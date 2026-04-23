@@ -28,17 +28,24 @@ The installer always runs `docker compose pull` (and falls back to `build` if th
 
 Each variable below lists: **Name / Required / Default / What it does / When to override**.
 
-### 2.1 Supabase (required — for the gateway; UI manages its own)
+### 2.1 Supabase (managed by the UI, not `.env`)
 
-The gateway, dispatcher, and runner connect to a Supabase project read from `.env`. The UI manages its own list of Supabase projects at runtime via the project registry (see `/config/projects.json` + `/config/secrets.json` below) — UI Supabase creds are set in the browser during onboarding, not in `.env`.
+The gateway, dispatcher, and runner each read Supabase credentials from **two sources** in this order:
 
-- **`SUPABASE_URL`** — **Required for the gateway.** No default. The `https://xxxxxxxx.supabase.co` URL of the Supabase project this gateway serves. If empty at install time, the installer starts only the UI (user completes Supabase setup in the browser, then edits `.env` and runs `docker compose up -d` to bring up the gateway).
+1. **Environment variables** (`SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`) if set.
+2. **Project registry** at `/config/projects.json` + `/config/secrets.json` (written by the UI's onboarding screen and mounted read-only into the gateway services).
 
-- **`SUPABASE_SERVICE_ROLE_KEY`** — **Required for the gateway, secret**. No default. The service-role JWT from Supabase Project Settings → API. Bypasses RLS, used by the gateway/dispatcher/runner for privileged writes. **Never commit this.** Rotate it in the Supabase dashboard if leaked, then update `.env` and `docker compose up -d`.
+The normal path is (2) — you never touch `.env` for Supabase. The onboarding screen writes the creds to the shared `ui-config` volume, the gateway polls `/config` on boot and picks them up automatically.
+
+Use (1) only as an override — e.g. a remote gateway that must always point at a specific project regardless of what the UI's active project is.
+
+- **`SUPABASE_URL`** — **Optional override**. No default. If set, takes precedence over the registry.
+
+- **`SUPABASE_SERVICE_ROLE_KEY`** — **Optional override, secret**. No default. If set, takes precedence over the registry.
 
 - **`EMBEDDING_API_KEY`** — **Optional**. Empty. OpenAI API key used by the gateway to embed documents when the knowledge-base vector search is enabled. Override to enable embeddings; leave empty to disable.
 
-**UI Supabase config** lives in the project registry files (`/config/projects.json` for URL + anon key, `/config/secrets.json` for service role key, mode 0600). Don't edit these by hand — use the onboarding screen on first boot, or Settings → Projects afterward.
+**Where the real creds live**: the project registry files (`/config/projects.json` for URL + anon key, `/config/secrets.json` for service role key, mode 0600). Don't edit these by hand — use the onboarding screen on first boot, or Settings → Projects afterward.
 
 ### 2.2 Gateway identity
 

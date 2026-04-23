@@ -88,6 +88,11 @@ services:
     volumes:
       - gateway-state:/home/openclaw/.openclaw
       - gateway-chrome-profile:/home/openclaw/.config/google-chrome
+      # Read-only view of the UI's project registry. If SUPABASE_URL isn't
+      # set in .env, the entrypoint reads active-project creds from here.
+      # Lets the gateway come up without .env edits after the user onboards
+      # in the browser.
+      - ui-config:/config:ro
     ports:
       # Both ports default to loopback-only so a bare `docker compose up` on
       # a cloud VM doesn't silently expose noVNC or the files-API. The
@@ -113,6 +118,9 @@ services:
       WAKE_COOLDOWN: ${WAKE_COOLDOWN:-30}
     volumes:
       - gateway-state:/home/openclaw/.openclaw:ro
+      # Read-only view of the UI's project registry for the same reason as
+      # the gateway: registry-as-fallback when .env SUPABASE_* is empty.
+      - ui-config:/config:ro
 
   runner:
     image: ${RUNNER_IMAGE:-ghcr.io/yourhq/yourhq-runner:latest}
@@ -133,6 +141,9 @@ services:
       GIT_SYNC_INTERVAL: ${GIT_SYNC_INTERVAL:-1800}
     volumes:
       - gateway-state:/home/openclaw/.openclaw
+      # Read-only view of the UI's project registry — same pattern as
+      # gateway + dispatcher.
+      - ui-config:/config:ro
       # Docker socket for sibling-container restarts (restart_gateway,
       # restart_dispatcher, update_self actions).
       - /var/run/docker.sock:/var/run/docker.sock

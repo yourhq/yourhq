@@ -30,6 +30,7 @@ RUN userdel -r ubuntu 2>/dev/null || true \
     && useradd -m -u 1000 -g 1000 -s /bin/bash openclaw
 
 COPY --chown=openclaw:openclaw gateway/daemons/inbox_dispatcher.py /app/inbox_dispatcher.py
+COPY --chown=openclaw:openclaw gateway/daemons/registry_config.py /app/registry_config.py
 
 USER openclaw
 WORKDIR /home/openclaw

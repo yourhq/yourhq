@@ -50,16 +50,16 @@ curl -fsSL install.yourhq.ai | bash
 The installer:
 
 1. Checks that Docker is present; prompts to install it if not (Linux only).
-2. Optionally prompts for Supabase URL + keys for the default gateway. **You can skip this** — if blank, only the UI comes up, and you connect Supabase in the browser via onboarding.
-3. Asks which networking mode you want:
+2. Asks which networking mode you want:
    - **Local-only** (default) — HQ is reachable only on this machine.
    - **Tailscale** — installs Tailscale on the host; reachable from any device on your tailnet.
    - **Public HTTPS** — advanced; requires you to set up a reverse proxy (Caddy, nginx, etc.) yourself. HQ does not bundle one.
-4. If you pick Tailscale, asks for your auth key and optionally an exit node.
-5. Writes `.env`, pulls images from GHCR, runs `docker compose up -d`.
+3. If you pick Tailscale, asks for your auth key and optionally an exit node.
+4. Optionally asks for GitHub sync creds (skip to run without git remote).
+5. Writes `.env`, pulls images from GHCR, runs `docker compose up -d` (full stack: UI + gateway + dispatcher + runner).
 6. Opens your browser to `http://localhost:3000`.
 
-When you first load the UI, you'll see the **Connect Supabase** onboarding screen. Paste your URL + anon key + service role key there. On success, sign in with the Supabase auth user you created, and you're in.
+When you first load the UI, you'll see the **Connect Supabase** onboarding screen. Paste your URL + anon key + service role key there. On success, sign in with the Supabase auth user you created, and you're in. The gateway services are already running and waiting — they auto-pick up your Supabase creds from the shared registry the moment you finish onboarding. No second install step.
 
 On a fresh machine: about 5 minutes. Most of that is image pulls.
 

@@ -46,6 +46,43 @@ log() { echo "[entrypoint] $*"; }
 mkdir -p "$OPENCLAW_HOME" "$HOME/.ssh"
 
 # ─────────────────────────────────────────────────────────────
+# 0. Resolve Supabase credentials.
+#
+# If SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY aren't set in the
+# environment, read them from the UI's project registry mounted at
+# /config (via the ui-config volume). Lets the gateway come up
+# without .env edits once the user completes browser onboarding.
+#
+# We poll with a long timeout so users running `docker compose up -d`
+# before onboarding don't hit a crash loop — the gateway just waits
+# until the UI writes projects.json + secrets.json.
+# ─────────────────────────────────────────────────────────────
+
+REGISTRY_HELPER="/opt/yourhq/registry_config.py"
+[ -f "$REGISTRY_HELPER" ] || REGISTRY_HELPER="/app/registry_config.py"
+
+if [ ! -f "$REGISTRY_HELPER" ]; then
+  log "WARNING: registry_config.py not found — registry fallback disabled."
+elif [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
+  log "Supabase env not set; waiting for project registry at /config ..."
+  wait_start=$(date +%s)
+  while true; do
+    # shellcheck disable=SC1090
+    eval "$(python3 "$REGISTRY_HELPER" export 2>/dev/null || true)"
+    if [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
+      log "  resolved from ${HQ_CONFIG_SOURCE:-registry}"
+      break
+    fi
+    elapsed=$(($(date +%s) - wait_start))
+    # Log a status line every 30s so users see we're alive
+    if [ $((elapsed % 30)) -eq 0 ]; then
+      log "  still waiting for onboarding (${elapsed}s) — complete it in the UI"
+    fi
+    sleep 5
+  done
+fi
+
+# ─────────────────────────────────────────────────────────────
 # 1 & 2. Git repo + templates + optional remote
 # ─────────────────────────────────────────────────────────────
 

@@ -163,38 +163,21 @@ if [ ! -f "docker-compose.yml" ]; then
   ok "Downloaded"
 fi
 
-# ── Supabase ────────────────────────────────────────────────
-# The UI no longer needs Supabase creds at install time — onboarding
-# collects them in the browser. But the gateway daemons (dispatcher +
-# runner + files-API) need Supabase at boot. Collect the default
-# project's creds here so they can start.
-#
-# If you only want to bring up the UI first (e.g. to demo), skip these —
-# the gateway won't start without them, but you can `docker compose up ui`
-# alone and complete Supabase setup in the browser first.
-say ""
-say "${B}1. Supabase (for the default gateway)${R}"
-say "${D}Create a free project at https://supabase.com and run${R}"
-say "${D}db/migrations/001_schema.sql in the SQL editor. Then paste the keys${R}"
-say "${D}from Project Settings → API.${R}"
-say ""
+# Gateway auth token — shared secret between UI and gateway files-API.
+# Generated automatically. Also serves as the secret the user never has
+# to touch.
+GATEWAY_AUTH_TOKEN_VAL=$(openssl rand -hex 32)
 
-SUPABASE_URL_VAL=$(ask "Supabase project URL (leave blank to skip gateway)" "")
-NEXT_PUBLIC_SUPABASE_ANON_KEY_VAL=""
+# Supabase creds are no longer collected here. The UI onboards the user
+# in the browser and writes them to a shared volume; the gateway reads
+# from there on first boot. This keeps install to one command.
+SUPABASE_URL_VAL=""
 SUPABASE_SERVICE_ROLE_KEY_VAL=""
 WORKSPACE_SLUG_VAL=""
-if [ -n "$SUPABASE_URL_VAL" ]; then
-  NEXT_PUBLIC_SUPABASE_ANON_KEY_VAL=$(ask "Supabase anon key" "" secret)
-  SUPABASE_SERVICE_ROLE_KEY_VAL=$(ask "Supabase service role key" "" secret)
-  WORKSPACE_SLUG_VAL=$(ask "Workspace slug (short, no spaces)" "my-workspace")
-fi
-
-# Gateway auth token — shared secret between UI and gateway files-API.
-GATEWAY_AUTH_TOKEN_VAL=$(openssl rand -hex 32)
 
 # ── Networking ──────────────────────────────────────────────
 say ""
-say "${B}2. Networking${R}"
+say "${B}1. Networking${R}"
 say "${D}HQ can run local-only (just this machine), or over Tailscale so you${R}"
 say "${D}can reach it from other devices and later add remote gateways.${R}"
 say ""
@@ -291,7 +274,7 @@ esac
 
 # ── Templates ───────────────────────────────────────────────
 say ""
-say "${B}3. Templates${R}"
+say "${B}2. Templates${R}"
 say "${D}The gateway ships with a library of agent templates (cofounder, designer, etc.).${R}"
 TEMPLATES_SOURCE_VAL=""
 TPL_ANS=$(ask "Use the bundled templates? [Y/n]" "Y")
@@ -301,7 +284,7 @@ fi
 
 # ── GitHub sync ─────────────────────────────────────────────
 say ""
-say "${B}4. GitHub sync (optional)${R}"
+say "${B}3. GitHub sync (optional)${R}"
 say "${D}Every per-agent branch can auto-push to a GitHub repo so your${R}"
 say "${D}agents' memory and skills are backed up. Leave blank to skip.${R}"
 GITHUB_TOKEN_VAL=""
@@ -325,7 +308,7 @@ fi
 
 # ── Write .env ──────────────────────────────────────────────
 say ""
-say "${B}5. Writing .env${R}"
+say "${B}4. Writing .env${R}"
 
 cat > .env << ENV_EOF
 SUPABASE_URL=$SUPABASE_URL_VAL
@@ -363,20 +346,16 @@ ok "Wrote $TARGET/.env"
 
 # ── Pull and start ──────────────────────────────────────────
 say ""
-say "${B}6. Starting services${R}"
+say "${B}5. Starting services${R}"
 info "Pulling images (first run takes a few minutes) ..."
 docker compose pull || warn "Some images could not be pulled — will try to build locally."
 
-# If we didn't collect Supabase creds, only bring up the UI. The gateway
-# daemons can't boot without Supabase and would just restart-loop.
-if [ -n "$SUPABASE_URL_VAL" ]; then
-  info "Starting full stack (UI + gateway + dispatcher + runner) ..."
-  docker compose up -d
-else
-  info "Starting UI only — add a Supabase project in the browser, then"
-  info "  edit .env and run 'docker compose up -d' to start the gateway."
-  docker compose up -d ui
-fi
+info "Starting full stack (UI + gateway + dispatcher + runner) ..."
+# The gateway services wait for you to complete Supabase onboarding in
+# the UI; they'll log "waiting for onboarding" until you do, then
+# auto-pick up the creds from the shared ui-config volume. No .env
+# edit, no second docker compose up.
+docker compose up -d
 
 # ── Health wait ─────────────────────────────────────────────
 info "Waiting for UI to become reachable on localhost:3000 ..."
