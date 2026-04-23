@@ -15,6 +15,10 @@ import type { GatewayBootstrap } from "@/app/onboarding/actions";
 export interface StepGatewayProps {
   placement: "local" | "remote";
   bootstrap: GatewayBootstrap | null;
+  // When the UI can't start the compose profile itself (Docker socket
+  // not mounted, perms issue, Codespaces etc.), we switch to a "run
+  // this in your terminal" fallback. Non-null `localError` means fallback mode.
+  localError: string | null;
   onContinue: () => void;
   onRegenerateToken: () => void;
   pending: boolean;
@@ -33,6 +37,7 @@ export interface StepGatewayProps {
 export function StepGateway({
   placement,
   bootstrap,
+  localError,
   onContinue,
   onRegenerateToken,
   pending,
@@ -72,7 +77,9 @@ export function StepGateway({
         </p>
       </div>
 
-      {placement === "local" && <LocalView online={online} />}
+      {placement === "local" && (
+        <LocalView online={online} localError={localError} onCopy={copy} copied={copied} />
+      )}
 
       {placement === "remote" && (
         <RemoteView
@@ -94,25 +101,95 @@ export function StepGateway({
   );
 }
 
-function LocalView({ online }: { online: boolean }) {
+function LocalView({
+  online,
+  localError,
+  onCopy,
+  copied,
+}: {
+  online: boolean;
+  localError: string | null;
+  onCopy: (s: string) => void;
+  copied: boolean;
+}) {
+  if (online) {
+    return (
+      <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-4">
+        <div className="flex items-start gap-2.5">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+          <div className="space-y-1">
+            <div className="text-[13px] font-medium">
+              Gateway is running on this machine
+            </div>
+            <p className="text-[12px] text-muted-foreground">
+              Agents can now be created and run.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (localError) {
+    const cmd = "docker compose --profile gateway up -d";
+    return (
+      <div className="space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4">
+        <div className="space-y-1">
+          <div className="text-[13px] font-medium">
+            We couldn&apos;t start the gateway automatically
+          </div>
+          <p className="text-[12px] text-muted-foreground">
+            This usually means the UI container can&apos;t reach the Docker
+            socket (common in Codespaces). Run this in your terminal on the
+            machine where HQ lives — it&apos;s the same command we would
+            have run for you:
+          </p>
+        </div>
+
+        <pre className="overflow-auto rounded-md border border-border/60 bg-background p-3 font-mono text-[11px] leading-relaxed text-foreground">
+          {cmd}
+        </pre>
+
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => onCopy(cmd)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background px-2 py-1 text-[11px] hover:bg-accent/60"
+          >
+            {copied ? (
+              <>
+                <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                Copied
+              </>
+            ) : (
+              <>
+                <Copy className="h-3 w-3" />
+                Copy command
+              </>
+            )}
+          </button>
+          <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Waiting for gateway…
+          </span>
+        </div>
+
+        <p className="text-[11px] text-muted-foreground/70">
+          Details: {localError}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3 rounded-lg border border-border/60 bg-card/60 p-4">
       <div className="flex items-start gap-2.5">
-        {online ? (
-          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-        ) : (
-          <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-foreground/70" />
-        )}
+        <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-foreground/70" />
         <div className="space-y-1">
-          <div className="text-[13px] font-medium">
-            {online
-              ? "Gateway is running on this machine"
-              : "Starting gateway containers…"}
-          </div>
+          <div className="text-[13px] font-medium">Starting gateway containers…</div>
           <p className="text-[12px] text-muted-foreground">
-            {online
-              ? "Agents can now be created and run."
-              : "Downloading images (gateway, dispatcher, runner). This only happens once."}
+            Downloading images (gateway, dispatcher, runner). This only
+            happens once.
           </p>
         </div>
       </div>

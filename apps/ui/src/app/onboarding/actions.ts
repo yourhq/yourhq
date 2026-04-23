@@ -313,6 +313,28 @@ export interface GatewayPollResult {
 }
 
 export async function pollLocalGateway(): Promise<GatewayPollResult> {
+  // Primary signal: is there a gateway row in Supabase with a recent
+  // heartbeat? That's the same thing a remote-gateway flow watches for.
+  // Works whether the UI launched the compose profile itself OR the
+  // user ran `docker compose --profile gateway up -d` manually.
+  try {
+    const supabase = await createAdminClient();
+    const { data } = await supabase
+      .from("gateways")
+      .select("id, status, last_seen_at")
+      .neq("status", "offline")
+      .order("last_seen_at", { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+    if (data?.id) {
+      return { status: "online", gatewayId: data.id as string };
+    }
+  } catch {
+    // no supabase yet, or RPC error — fall through to compose check
+  }
+
+  // Secondary signal: our own compose ps (only useful when the UI
+  // container CAN reach the Docker socket).
   const status = await localGatewayStatus();
   return {
     status: status.running ? "online" : "pending",

@@ -84,6 +84,9 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
   const [sqlFallback, setSqlFallback] = useState<string | null>(null);
   const [netStatus, setNetStatus] = useState<NetworkingStatus | null>(null);
   const [gateway, setGateway] = useState<GatewayBootstrap | null>(null);
+  // When local-gateway auto-start fails (Docker socket unreachable etc.)
+  // we fall through to the manual-command fallback instead of blocking.
+  const [localStartError, setLocalStartError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const placement = (data.placement as "local" | "remote" | undefined) ?? null;
@@ -179,15 +182,27 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
   };
 
   // ─── Gateway ───
-  // Local: start compose profile, then poll every 3s.
+  // Local: start compose profile, then poll every 3s. If auto-start fails
+  // (Codespaces, no Docker socket, perms), switch to a manual-command
+  // fallback but keep polling — the gateway will register itself as soon
+  // as the user runs the command in their terminal.
   // Remote: mint token, show one-liner, poll token consumption every 3s.
   useEffect(() => {
     if (step !== "gateway") return;
     if (placement === "local") {
       startTransition(async () => {
         const started = await startLocalGatewayAction();
-        if (started.ok && started.data) setGateway(started.data);
-        else setError(started.error ?? "Couldn't start the local gateway");
+        if (started.ok && started.data) {
+          setGateway(started.data);
+          setLocalStartError(null);
+        } else {
+          // Don't block. Leave gateway=null so the footer's "Waiting for
+          // gateway…" CTA stays disabled, show the manual-command
+          // fallback, and start the polling path so the UI flips to
+          // "connected" when the user runs the command.
+          setGateway({ placement: "local", dockerAvailable: false });
+          setLocalStartError(started.error ?? "Docker unreachable");
+        }
       });
     } else if (placement === "remote" && !gateway?.token) {
       startTransition(async () => {
@@ -449,6 +464,7 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
                 <StepGateway
                   placement={placement ?? "local"}
                   bootstrap={gateway}
+                  localError={localStartError}
                   onContinue={advanceFromGateway}
                   onRegenerateToken={() => {
                     startTransition(async () => {
