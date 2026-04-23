@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - initial
     tags:
       - "v*"
     paths-ignore:

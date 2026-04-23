@@ -210,10 +210,18 @@ class Handler(BaseHTTPRequestHandler):
             branch = urllib.parse.unquote(parts[1])
             if not BRANCH_RE.match(branch):
                 return None, None, None
+            # Defense in depth: even though safe_join re-resolves paths and
+            # the regex above restricts characters, explicitly reject any
+            # segment equal to "..". Prevents cute traversal tricks.
+            if ".." in branch.split("/"):
+                return None, None, None
             if parts[2] == "tree" and len(parts) == 3:
                 return "tree", branch, None
             if parts[2] == "files" and len(parts) >= 4:
                 filepath = "/".join(urllib.parse.unquote(p) for p in parts[3:])
+                # Same check for the filepath segments.
+                if ".." in filepath.split("/"):
+                    return None, None, None
                 return "file", branch, filepath
         return None, None, None
 

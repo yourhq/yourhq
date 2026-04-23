@@ -1,9 +1,14 @@
 # env + secrets
 .env
 .env.local
+.env.development
+.env.production
 .env.*.local
 *.pem
 *.key
+*-credentials.*
+ec2-key.*
+**/secrets/**
 openclaw_deploy_key*
 
 # Node / Next

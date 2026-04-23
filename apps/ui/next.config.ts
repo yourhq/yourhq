@@ -26,6 +26,34 @@ const nextConfig: NextConfig = {
       ],
     },
   },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          // Prevent clickjacking and embedded-iframe attacks. HQ never
+          // needs to be iframed into another origin.
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+          // Block MIME sniffing.
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          // Force HTTPS for a year once seen (only takes effect on HTTPS
+          // responses; safe on HTTP loopback installs).
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=31536000; includeSubDomains",
+          },
+          // Don't leak full referrer URLs to cross-origin requests.
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // Disable dangerous browser features we don't use.
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
