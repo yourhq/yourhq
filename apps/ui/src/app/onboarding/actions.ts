@@ -89,75 +89,146 @@ export async function savePlacement(
   return { ok: true };
 }
 
-// ─── Supabase: paste creds, auto-install schema, create auth user ───────
+// ─── Supabase: sub-step actions ─────────────────────────────────────────
+//
+// The Supabase onboarding phase is a 4-step stepper instead of one big
+// submit:
+//
+//   1. Validate   — probe the URL + keys, confirm we can reach Supabase
+//   2. Install    — run 001_schema.sql via pg-meta (idempotent)
+//   3. Create     — make the first Supabase Auth user
+//   4. Save       — write creds to the registry + mark step complete
+//
+// Each step reports independently so a failure (e.g. "user already
+// exists") doesn't roll back the ones that already succeeded. The UI
+// shows per-step status, retry buttons, and optional skip (e.g. skip
+// user creation if the user wants to reuse an existing account).
 
-const supabaseSchema = z.object({
-  workspaceLabel: z.string().min(1).max(80),
-  workspaceEmoji: z.string().min(1).max(8).default("🏠"),
+const credsSchema = z.object({
   url: z.string().url(),
   anonKey: z.string().min(20),
   serviceRoleKey: z.string().min(20),
+});
+
+export interface ValidateResult extends ActionResult {
+  schemaInstalled: boolean;
+}
+
+/** Step 1 — just checks the URL + keys are reachable. */
+export async function validateSupabaseCredsAction(
+  input: z.infer<typeof credsSchema>,
+): Promise<ValidateResult> {
+  const parsed = credsSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: "Check that URL + both keys are filled in.",
+      schemaInstalled: false,
+    };
+  }
+
+  const validation = await validateSupabaseCreds(parsed.data);
+  const schemaMissing =
+    !validation.ok && validation.error?.includes("workspace table") === true;
+
+  if (!validation.ok && !schemaMissing) {
+    return {
+      ok: false,
+      error: validation.error ?? "Validation failed",
+      hint: validation.hint,
+      schemaInstalled: false,
+    };
+  }
+
+  return { ok: true, schemaInstalled: !schemaMissing };
+}
+
+export interface InstallSchemaResultAction extends ActionResult {
+  sqlFallback?: string;
+}
+
+/** Step 2 — install the schema via pg-meta. Idempotent (CREATE IF NOT EXISTS). */
+export async function installSchemaAction(
+  input: z.infer<typeof credsSchema>,
+): Promise<InstallSchemaResultAction> {
+  const parsed = credsSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "Missing creds." };
+  }
+
+  const install = await installSchema({
+    url: parsed.data.url,
+    serviceRoleKey: parsed.data.serviceRoleKey,
+  });
+  if (!install.ok) {
+    return {
+      ok: false,
+      error: install.error,
+      hint: install.hint,
+      sqlFallback: install.sqlFallback,
+    };
+  }
+  return { ok: true };
+}
+
+const createUserInputSchema = credsSchema.extend({
   authEmail: z.string().email(),
   authPassword: z.string().min(6).max(128),
 });
 
-export interface ConnectResult extends ActionResult {
-  // On pg-meta unreachable, the UI shows a paste-in-dashboard fallback.
-  sqlFallback?: string;
-  projectId?: string;
+export interface CreateUserResult extends ActionResult {
+  /** true when the error was "user already exists" — caller can offer
+   * to skip this step rather than retry. */
+  alreadyExists?: boolean;
 }
 
-export async function connectAndProvision(
-  input: z.infer<typeof supabaseSchema>,
-): Promise<ConnectResult> {
-  const parsed = supabaseSchema.safeParse(input);
+/** Step 3 — create the Supabase Auth user. Can be skipped if it exists. */
+export async function createAuthUserAction(
+  input: z.infer<typeof createUserInputSchema>,
+): Promise<CreateUserResult> {
+  const parsed = createUserInputSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: `Invalid input — ${parsed.error.message}` };
+    return { ok: false, error: "Missing email or password." };
   }
-
-  // 1) Validate the creds can talk to Supabase at all. The validator's
-  //    single-probe check will say "workspace table missing" if the
-  //    migration hasn't run — which is the expected pre-install state,
-  //    so we don't hard-fail there.
-  const validation = await validateSupabaseCreds({
-    url: parsed.data.url,
-    anonKey: parsed.data.anonKey,
-    serviceRoleKey: parsed.data.serviceRoleKey,
-  });
-  const schemaMissing =
-    !validation.ok && validation.error?.includes("workspace table") === true;
-  if (!validation.ok && !schemaMissing) {
-    return { ok: false, error: validation.error ?? "Validation failed", hint: validation.hint };
-  }
-
-  // 2) If the schema isn't installed, install it.
-  if (schemaMissing) {
-    const install = await installSchema({
-      url: parsed.data.url,
-      serviceRoleKey: parsed.data.serviceRoleKey,
-    });
-    if (!install.ok) {
-      return {
-        ok: false,
-        error: install.error,
-        hint: install.hint,
-        sqlFallback: install.sqlFallback,
-      };
-    }
-  }
-
-  // 3) Create the initial auth user.
-  const userResult = await createAuthUser({
+  const r = await createAuthUser({
     url: parsed.data.url,
     serviceRoleKey: parsed.data.serviceRoleKey,
     email: parsed.data.authEmail,
     password: parsed.data.authPassword,
   });
-  if (!userResult.ok) {
-    return { ok: false, error: userResult.error, hint: userResult.hint };
+  if (r.ok) return { ok: true };
+
+  const alreadyExists =
+    r.error?.toLowerCase().includes("already") === true ||
+    r.hint?.toLowerCase().includes("sign in instead") === true;
+
+  return {
+    ok: false,
+    error: r.error,
+    hint: r.hint,
+    alreadyExists,
+  };
+}
+
+const saveProjectInputSchema = credsSchema.extend({
+  workspaceLabel: z.string().min(1).max(80),
+  workspaceEmoji: z.string().min(1).max(8).default("🏠"),
+  authEmail: z.string().email().optional(),
+});
+
+export interface SaveProjectResult extends ActionResult {
+  projectId?: string;
+}
+
+/** Step 4 — write the project to the split-file registry + advance. */
+export async function saveProjectAction(
+  input: z.infer<typeof saveProjectInputSchema>,
+): Promise<SaveProjectResult> {
+  const parsed = saveProjectInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "Missing workspace label or creds." };
   }
 
-  // 4) Register the project in the split-file registry.
   const project = await addProject({
     label: parsed.data.workspaceLabel.trim(),
     emoji: parsed.data.workspaceEmoji,

@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils";
 import {
   saveWelcome,
   savePlacement,
-  connectAndProvision,
   getNetworkingStatus,
   saveNetworking,
   startLocalGatewayAction,
@@ -81,7 +80,6 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [sqlFallback, setSqlFallback] = useState<string | null>(null);
   const [netStatus, setNetStatus] = useState<NetworkingStatus | null>(null);
   const [gateway, setGateway] = useState<GatewayBootstrap | null>(null);
   // When local-gateway auto-start fails (Docker socket unreachable etc.)
@@ -102,7 +100,6 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
   const go = useCallback((next: OnboardingStep, dir: "forward" | "back" = "forward") => {
     setDirection(dir);
     setError(null);
-    setSqlFallback(null);
     setStep(next);
   }, []);
 
@@ -131,31 +128,25 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
   };
 
   // ─── Supabase ───
-  const submitSupabase = (vals: {
+  // StepSupabase owns its internal sub-step state (validate, install
+  // schema, create user, save) and reports back once the whole sequence
+  // lands successfully. On completion we persist the key facts into the
+  // wizard's data blob and advance.
+  const handleSupabaseComplete = (result: {
     workspaceLabel: string;
     workspaceEmoji: string;
     url: string;
-    anonKey: string;
-    serviceRoleKey: string;
-    authEmail: string;
-    authPassword: string;
+    authEmail?: string;
+    projectId: string;
   }) => {
-    startTransition(async () => {
-      const r = await connectAndProvision(vals);
-      if (!r.ok) {
-        setError(r.error ?? "Validation failed");
-        if (r.sqlFallback) setSqlFallback(r.sqlFallback);
-        return;
-      }
-      patch({
-        workspaceLabel: vals.workspaceLabel,
-        workspaceEmoji: vals.workspaceEmoji,
-        supabaseUrl: vals.url,
-        authEmail: vals.authEmail,
-        projectId: r.projectId,
-      });
-      go("networking");
+    patch({
+      workspaceLabel: result.workspaceLabel,
+      workspaceEmoji: result.workspaceEmoji,
+      supabaseUrl: result.url,
+      authEmail: result.authEmail,
+      projectId: result.projectId,
     });
+    go("networking");
   };
 
   // ─── Networking ───
@@ -441,9 +432,7 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
                     workspaceEmoji: (data.workspaceEmoji as string) ?? "🏠",
                     authEmail: (data.authEmail as string) ?? "",
                   }}
-                  onSubmit={submitSupabase}
-                  pending={pending}
-                  sqlFallback={sqlFallback}
+                  onComplete={handleSupabaseComplete}
                 />
               )}
 
