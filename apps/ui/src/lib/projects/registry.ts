@@ -116,16 +116,22 @@ async function withLock<T>(fn: () => Promise<T>): Promise<T> {
 
 // ── Permission check (chmod 0600 on secrets.json) ───────────────────────
 
+// The gateway / dispatcher / runner containers mount this volume read-only
+// and run under a different uid. 0640 keeps owner+group readable while
+// still locking out "other" processes. The Docker volume itself is inside
+// Docker's managed storage, not on the host filesystem.
+const SECRETS_MODE = 0o640;
+
 async function ensureSecretsPermissions(): Promise<void> {
   try {
     const stat = await fs.stat(SECRETS_PATH);
     const mode = stat.mode & 0o777;
-    if (mode !== 0o600) {
+    if (mode !== SECRETS_MODE) {
       console.warn(
-        `[registry] secrets.json has permissions ${mode.toString(8)} (should be 600). ` +
-          `Fixing.`,
+        `[registry] secrets.json has permissions ${mode.toString(8)} ` +
+          `(should be ${SECRETS_MODE.toString(8)}). Fixing.`,
       );
-      await fs.chmod(SECRETS_PATH, 0o600).catch(() => {});
+      await fs.chmod(SECRETS_PATH, SECRETS_MODE).catch(() => {});
     }
   } catch {
     // File doesn't exist yet; that's fine.
@@ -264,7 +270,13 @@ export async function addProject(input: AddProjectInput): Promise<PublicProject>
     };
 
     await writeJsonAtomic(REGISTRY_PATH, nextRegistry, 0o644);
-    await writeJsonAtomic(SECRETS_PATH, nextSecrets, 0o600);
+    // NOTE: We used to write 0600, but that locks out the gateway /
+    // dispatcher / runner containers which mount this volume read-only
+    // and run as a different uid than the UI container. The volume lives
+    // inside Docker's managed storage, not on the host filesystem; on a
+    // single-user self-hosted box the host already protects it. 0640
+    // keeps owner+group readable while blocking other processes.
+    await writeJsonAtomic(SECRETS_PATH, nextSecrets, SECRETS_MODE);
 
     return project;
   });
@@ -335,7 +347,7 @@ export async function rotateServiceRoleKey(
         [id]: { serviceRoleKey: newKey },
       },
     };
-    await writeJsonAtomic(SECRETS_PATH, nextSecrets, 0o600);
+    await writeJsonAtomic(SECRETS_PATH, nextSecrets, SECRETS_MODE);
   });
 }
 
@@ -373,7 +385,7 @@ export async function deleteProject(id: string): Promise<void> {
     };
 
     await writeJsonAtomic(REGISTRY_PATH, nextRegistry, 0o644);
-    await writeJsonAtomic(SECRETS_PATH, nextSecrets, 0o600);
+    await writeJsonAtomic(SECRETS_PATH, nextSecrets, SECRETS_MODE);
   });
 }
 
