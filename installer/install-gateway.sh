@@ -88,8 +88,21 @@ ok "Docker is available"
 mkdir -p "$INSTALL_DIR"
 cd "$INSTALL_DIR"
 
+GH_AUTH_TOKEN="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
+if [ -z "$GH_AUTH_TOKEN" ] && command -v gh >/dev/null 2>&1; then
+  GH_AUTH_TOKEN="$(gh auth token 2>/dev/null || true)"
+fi
+CURL_AUTH=()
+if [ -n "$GH_AUTH_TOKEN" ]; then
+  CURL_AUTH=(-H "Authorization: Bearer $GH_AUTH_TOKEN")
+fi
+REPO_RAW="${YOURHQ_REPO_RAW:-https://raw.githubusercontent.com/yourhq/yourhq/main}"
+
 if [ ! -f "docker-compose.yml" ]; then
-  curl -fsSL "https://raw.githubusercontent.com/yourhq/yourhq/main/docker-compose.yml" -o docker-compose.yml
+  if ! curl -fsSL "${CURL_AUTH[@]}" "$REPO_RAW/docker-compose.yml" -o docker-compose.yml; then
+    err "Couldn't fetch $REPO_RAW/docker-compose.yml"
+    exit 1
+  fi
   ok "Fetched docker-compose.yml"
 fi
 

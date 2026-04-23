@@ -82,14 +82,53 @@ mkdir -p "$TARGET"
 cd "$TARGET"
 
 REPO_RAW="${YOURHQ_REPO_RAW:-https://raw.githubusercontent.com/yourhq/yourhq/main}"
-CURL_AUTH=()
-if [ -n "${GH_TOKEN:-}" ]; then
-  CURL_AUTH=(-H "Authorization: Bearer $GH_TOKEN")
+
+# Auth for private-repo raw fetches. In order of preference:
+#   1) Explicit GH_TOKEN / GITHUB_TOKEN (the user passed one in)
+#   2) `gh auth token` (logged-in gh CLI — standard in Codespaces)
+#   3) Nothing — works for public repos
+GH_AUTH_TOKEN="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
+if [ -z "$GH_AUTH_TOKEN" ] && command -v gh >/dev/null 2>&1; then
+  GH_AUTH_TOKEN="$(gh auth token 2>/dev/null || true)"
 fi
+
+CURL_AUTH=()
+if [ -n "$GH_AUTH_TOKEN" ]; then
+  CURL_AUTH=(-H "Authorization: Bearer $GH_AUTH_TOKEN")
+fi
+
+# If the user ran the installer from inside a clone of the repo, prefer
+# the local checkout over a remote fetch. This makes `bash installer/install.sh`
+# "just work" in Codespaces regardless of repo visibility.
+LOCAL_COMPOSE=""
+for candidate in \
+  "$(pwd)/docker-compose.yml" \
+  "$(dirname "$0")/../docker-compose.yml"; do
+  if [ -f "$candidate" ]; then
+    LOCAL_COMPOSE="$candidate"
+    break
+  fi
+done
+
 if [ ! -f "docker-compose.yml" ]; then
-  info "Fetching compose file…"
-  curl -fsSL "${CURL_AUTH[@]}" "$REPO_RAW/docker-compose.yml" -o docker-compose.yml
-  ok "Fetched docker-compose.yml"
+  if [ -n "$LOCAL_COMPOSE" ] && [ "$LOCAL_COMPOSE" != "$TARGET/docker-compose.yml" ]; then
+    cp "$LOCAL_COMPOSE" docker-compose.yml
+    ok "Copied local docker-compose.yml"
+  else
+    info "Fetching compose file…"
+    if ! curl -fsSL "${CURL_AUTH[@]}" "$REPO_RAW/docker-compose.yml" -o docker-compose.yml; then
+      err "Couldn't fetch $REPO_RAW/docker-compose.yml"
+      if [ -z "$GH_AUTH_TOKEN" ]; then
+        say "  The repo may be private. Try one of these:"
+        say "    ${C}export GH_TOKEN=\$(gh auth token) && bash installer/install.sh${R}"
+        say "    ${C}cp <your-checkout>/docker-compose.yml ~/.yourhq/ && bash installer/install.sh${R}"
+      else
+        say "  Auth header was sent but the fetch still failed — double-check the token has read access."
+      fi
+      exit 1
+    fi
+    ok "Fetched docker-compose.yml"
+  fi
 fi
 
 # ── Minimal .env ───────────────────────────────────────────
