@@ -14,7 +14,7 @@
 #   6. Install the hq-bootstrap plugin.
 #   7. Start Xtigervnc + XFCE desktop on :1.
 #   8. Start websockify against the VNC server, binding per $NOVNC_BIND
-#      (local | tailscale | public). Optionally front with Caddy for TLS.
+#      (local | public). Tailscale / TLS live on the HOST, not here.
 #   9. Upsert this gateway's row in the Supabase `gateways` table so the UI
 #      can see it and populate reachable URLs.
 #  10. Exec `openclaw gateway run` as the container's main process.
@@ -141,59 +141,10 @@ SSHCFG
 fi
 
 # ─────────────────────────────────────────────────────────────
-# 3. Tailscale
+# 3. Networking — Tailscale lives on the HOST, not in this container.
+# The host's NETWORKING_MODE determines which ports publish to 0.0.0.0
+# vs 127.0.0.1; that's configured in docker-compose.yml + .env, not here.
 # ─────────────────────────────────────────────────────────────
-
-TAILSCALE_IP=""
-
-if [ -n "${TAILSCALE_AUTH_KEY:-}" ]; then
-  if [ ! -e /dev/net/tun ]; then
-    log "WARNING: /dev/net/tun missing; Tailscale will fail. Compose must mount it + NET_ADMIN."
-  fi
-
-  log "Starting tailscaled ..."
-  sudo_maybe() { if command -v sudo >/dev/null; then sudo "$@"; else "$@"; fi; }
-  # tailscaled needs root; this entrypoint runs as `openclaw`, so we rely on
-  # the image being launched with cap_add: NET_ADMIN and the tailscale paths
-  # being writable by our user. We write state under ~/.tailscale instead of
-  # /var/lib/tailscale to avoid root requirements.
-  mkdir -p "$HOME/.tailscale" "$HOME/.tailscale/run"
-  /usr/local/bin/tailscaled \
-    --tun=userspace-networking \
-    --state="$HOME/.tailscale/tailscaled.state" \
-    --socket="$HOME/.tailscale/run/tailscaled.sock" \
-    > "$HOME/.tailscale/tailscaled.log" 2>&1 &
-  TAILSCALED_PID=$!
-
-  # Wait for the socket
-  for _ in $(seq 1 20); do
-    [ -S "$HOME/.tailscale/run/tailscaled.sock" ] && break
-    sleep 0.5
-  done
-
-  TS_SOCK="$HOME/.tailscale/run/tailscaled.sock"
-  /usr/local/bin/tailscale --socket="$TS_SOCK" up \
-    --authkey="$TAILSCALE_AUTH_KEY" \
-    --hostname="yourhq-${GATEWAY_ID}" \
-    --accept-routes \
-    --reset \
-    || log "  tailscale up failed (token may be consumed or invalid)"
-
-  if [ -n "${TAILSCALE_EXIT_NODE:-}" ]; then
-    log "Setting Tailscale exit node to $TAILSCALE_EXIT_NODE ..."
-    /usr/local/bin/tailscale --socket="$TS_SOCK" set \
-      --exit-node="$TAILSCALE_EXIT_NODE" \
-      --exit-node-allow-lan-access \
-      || log "  exit-node set failed (check that the node is approved)"
-  fi
-
-  # Read back the assigned Tailscale IP
-  TAILSCALE_IP="$(/usr/local/bin/tailscale --socket="$TS_SOCK" ip -4 2>/dev/null | head -1 || true)"
-  [ -n "$TAILSCALE_IP" ] && log "Tailscale IP: $TAILSCALE_IP"
-
-  # Re-export for consume by the openclaw process if needed
-  export TAILSCALE_SOCKET="$TS_SOCK"
-fi
 
 # ─────────────────────────────────────────────────────────────
 # 4. Onboard (first boot)
@@ -402,34 +353,14 @@ fi
 # 8. websockify (noVNC) + optional Caddy
 # ─────────────────────────────────────────────────────────────
 
-# Resolve binding per NOVNC_BIND:
-#   auto      -> tailscale if Tailscale IP known, else local
-#   tailscale -> bind to the Tailscale IP only
-#   public    -> bind 0.0.0.0 (compose must expose the port); Caddy fronts TLS
-#   local     -> bind 127.0.0.1 only
-#   off       -> don't start noVNC at all
-if [ "$NOVNC_BIND" = "auto" ]; then
-  if [ -n "$TAILSCALE_IP" ]; then
-    NOVNC_BIND="tailscale"
-  else
-    NOVNC_BIND="local"
-  fi
-fi
-
+# Inside the container, websockify always listens on 0.0.0.0. The HOST's
+# port mapping in docker-compose.yml decides whether 6901 is reachable
+# only on 127.0.0.1 (local mode) or on 0.0.0.0 including the host's
+# tailnet/public interface (tailscale/public mode). See NOVNC_HOST_PORT.
 NOVNC_LISTEN_ADDR=""
 case "$NOVNC_BIND" in
-  tailscale)
-    if [ -n "$TAILSCALE_IP" ]; then
-      NOVNC_LISTEN_ADDR="${TAILSCALE_IP}:6901"
-    else
-      log "NOVNC_BIND=tailscale but no Tailscale IP; falling back to local"
-      NOVNC_LISTEN_ADDR="127.0.0.1:6901"
-    fi
-    ;;
-  public) NOVNC_LISTEN_ADDR="0.0.0.0:6901" ;;
-  local)  NOVNC_LISTEN_ADDR="127.0.0.1:6901" ;;
-  off)    NOVNC_LISTEN_ADDR="" ;;
-  *)      log "Unknown NOVNC_BIND=$NOVNC_BIND; defaulting to local"; NOVNC_LISTEN_ADDR="127.0.0.1:6901" ;;
+  off) NOVNC_LISTEN_ADDR="" ;;
+  *)   NOVNC_LISTEN_ADDR="0.0.0.0:6901" ;;
 esac
 
 if [ -n "$NOVNC_LISTEN_ADDR" ]; then
@@ -438,62 +369,34 @@ if [ -n "$NOVNC_LISTEN_ADDR" ]; then
     > "$HOME/.vnc/websockify.log" 2>&1 &
 fi
 
-# Warn when the gateway's desktop is reachable on 0.0.0.0 without TLS
-# in front. This is fine for auth-gated proxies (Codespaces) and
-# private networks, but dangerous on a VPS with a public IP. Caddy
-# only fronts TLS when NOVNC_DOMAIN is set; without it, websockify
-# is serving HTTP directly.
-if [ "$NOVNC_BIND" = "public" ] && [ -z "${NOVNC_DOMAIN:-}" ]; then
-  log "⚠ WARNING: noVNC bound to 0.0.0.0 without TLS."
-  log "  This is only safe on networks you trust — Codespaces (auth-gated),"
-  log "  local dev, or private networks. Do NOT use this on a VPS with a"
-  log "  public IP. For production set NOVNC_DOMAIN (enables Caddy + Let's"
-  log "  Encrypt) or use NOVNC_BIND=tailscale instead."
-fi
-
-if [ "$NOVNC_BIND" = "public" ] && [ -n "${NOVNC_DOMAIN:-}" ]; then
-  log "Starting Caddy TLS front-end for $NOVNC_DOMAIN ..."
-  cat > "$HOME/Caddyfile" << CADDYCFG
-{
-  admin off
-  auto_https disable_redirects
-}
-${NOVNC_DOMAIN}:443 {
-  reverse_proxy localhost:6901
-  tls ${CADDY_EMAIL:-admin@${NOVNC_DOMAIN}}
-}
-CADDYCFG
-  caddy run --config "$HOME/Caddyfile" > "$HOME/caddy.log" 2>&1 &
-fi
-
 # ─────────────────────────────────────────────────────────────
 # 9. Register this gateway in Supabase
 # ─────────────────────────────────────────────────────────────
 
 if [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
   log "Registering gateway $GATEWAY_ID in Supabase ..."
+  # HOST_REACHABLE_URL is set by the installer based on NETWORKING_MODE:
+  #   local     -> http://localhost
+  #   tailscale -> http://<host-tailscale-ip>
+  #   public    -> https://<user-domain>
+  # The gateway/UI use this to build files-API and noVNC URLs.
   REACHABLE_JSON=$(python3 - << PYEOF
 import json, os
-urls = {}
-ts = os.environ.get("TS_IP", "")
-if ts:
-    urls["tailscale"] = f"http://{ts}:6901/vnc.html?autoconnect=1&resize=remote"
-if os.environ.get("NOVNC_BIND_EFFECTIVE") == "public":
-    dom = os.environ.get("NOVNC_DOMAIN", "")
-    if dom:
-        urls["public"] = f"https://{dom}/vnc.html?autoconnect=1&resize=remote"
-urls["local"] = "http://localhost:6901/vnc.html?autoconnect=1&resize=remote"
+base = os.environ.get("HOST_REACHABLE_URL", "http://localhost").rstrip("/")
+files_port = os.environ.get("FILES_API_PORT", "18790")
+novnc_port = "6901"
 meta = {
-    "reachable_urls": urls,
-    "novnc_bind": os.environ.get("NOVNC_BIND_EFFECTIVE", "local"),
+    "reachable_urls": {
+        "base": base,
+        "files_api": f"{base}:{files_port}",
+        "novnc": f"{base}:{novnc_port}/vnc.html?autoconnect=1&resize=remote",
+    },
+    "networking_mode": os.environ.get("NETWORKING_MODE", "local"),
     "version": os.environ.get("OPENCLAW_VERSION", ""),
-    "tailscale_ip": ts or None,
-    "exit_node": os.environ.get("TAILSCALE_EXIT_NODE", "") or None,
 }
 print(json.dumps(meta))
 PYEOF
   )
-  export TS_IP="$TAILSCALE_IP" NOVNC_BIND_EFFECTIVE="$NOVNC_BIND"
   # Upsert by slug; create if missing.
   curl -fsS -X POST \
     "$SUPABASE_URL/rest/v1/gateways?on_conflict=slug" \
@@ -503,7 +406,7 @@ PYEOF
     -H "Prefer: resolution=merge-duplicates,return=minimal" \
     -d "$(python3 -c "import json,os,sys; print(json.dumps({'slug': os.environ['GATEWAY_ID'], 'label': os.environ['GATEWAY_LABEL'], 'status': 'online', 'last_seen_at': __import__('datetime').datetime.utcnow().isoformat()+'Z', 'meta': json.loads(sys.stdin.read())}))" <<< "$REACHABLE_JSON")" \
     > /dev/null \
-    && log "  registered" \
+    && log "  registered (reachable at $(echo "$REACHABLE_JSON" | python3 -c "import json,sys; print(json.loads(sys.stdin.read())['reachable_urls']['base'])"))" \
     || log "  registration failed (Supabase unreachable or gateways table missing — will retry from daemon)"
 else
   log "SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set; skipping gateway registration."
@@ -520,7 +423,6 @@ if [ -n "${GATEWAY_AUTH_TOKEN:-}" ] && [ "${FILES_API_BIND:-docker}" != "off" ];
   FILES_API_BIND="${FILES_API_BIND:-docker}" \
   FILES_API_PORT="${FILES_API_PORT:-18790}" \
   GATEWAY_AUTH_TOKEN="$GATEWAY_AUTH_TOKEN" \
-  TAILSCALE_SOCKET="${TAILSCALE_SOCKET:-}" \
   python3 /usr/local/bin/files_api.py > "$HOME/files-api.log" 2>&1 &
 else
   log "files-API disabled (GATEWAY_AUTH_TOKEN empty or FILES_API_BIND=off)."

@@ -183,62 +183,97 @@ fi
 # ── Networking ──────────────────────────────────────────────
 say ""
 say "${B}2. Networking${R}"
-say "${D}How do you want to reach the gateway's browser desktop from your laptop?${R}"
+say "${D}HQ can run local-only (just this machine), or over Tailscale so you${R}"
+say "${D}can reach it from other devices and later add remote gateways.${R}"
 say ""
 
-NET_CHOICE=$(choose "Choose networking path:" 1 \
-  "Tailscale  — private mesh network (recommended)" \
-  "Public HTTPS — expose the gateway on a public domain" \
-  "Local-only — no remote access (I'll tunnel myself)")
+NET_CHOICE=$(choose "How do you want to access HQ?" 1 \
+  "Local-only — http://localhost:3000 on this machine (default, simplest)" \
+  "Tailscale  — reachable from any device on your tailnet (install Tailscale now)" \
+  "Public HTTPS — expose this host on a public domain (advanced)")
 
-TAILSCALE_AUTH_KEY_VAL=""
-TAILSCALE_EXIT_NODE_VAL=""
-NOVNC_BIND_VAL="local"
-NOVNC_DOMAIN_VAL=""
+NETWORKING_MODE_VAL="local"
+HOST_REACHABLE_URL_VAL="http://localhost"
+UI_HOST_PORT_VAL="127.0.0.1:3000"
 NOVNC_HOST_PORT_VAL="127.0.0.1:6901"
+FILES_API_HOST_PORT_VAL="127.0.0.1:18790"
 
 case "$NET_CHOICE" in
-  1)
+  2)
+    NETWORKING_MODE_VAL="tailscale"
     say ""
     info "Tailscale selected."
-    say "${D}  1. Create a free account at https://tailscale.com (if you haven't).${R}"
-    say "${D}  2. Generate a reusable auth key:${R}"
+    say "${D}  1. Create a free account at https://tailscale.com if you haven't.${R}"
+    say "${D}  2. Generate a reusable auth key (toggle 'Reusable' on):${R}"
     say "${D}     https://login.tailscale.com/admin/settings/keys${R}"
-    say "${D}     Toggle 'Reusable' on. Copy the tskey-auth-… string.${R}"
-    say "${D}  3. Paste it below.${R}"
+    say "${D}  3. Paste the tskey-auth-… string below.${R}"
     say ""
-    TAILSCALE_AUTH_KEY_VAL=$(ask "Tailscale auth key" "" secret)
-    if [ -z "$TAILSCALE_AUTH_KEY_VAL" ]; then
+    TS_KEY=$(ask "Tailscale auth key" "" secret)
+    if [ -z "$TS_KEY" ]; then
       warn "No auth key provided — falling back to local-only."
-      NOVNC_BIND_VAL="local"
+      NETWORKING_MODE_VAL="local"
     else
-      NOVNC_BIND_VAL="tailscale"
-      say ""
-      EXIT_ANS=$(ask "Route outbound traffic through a residential-IP exit node? [y/N]" "N")
-      if [[ "$EXIT_ANS" =~ ^[Yy]$ ]]; then
-        say "${D}  See https://tailscale.com/kb/1103/exit-nodes for setting up an exit node.${R}"
-        say "${D}  Once it's approved in the admin console, paste its Tailscale IP here.${R}"
-        TAILSCALE_EXIT_NODE_VAL=$(ask "Exit node Tailscale IP (e.g. 100.64.0.5)" "")
+      # Install Tailscale on the HOST (not in any container).
+      if ! command -v tailscale >/dev/null 2>&1; then
+        info "Installing Tailscale on this host ..."
+        curl -fsSL https://tailscale.com/install.sh | sh
+      else
+        ok "Tailscale already installed."
+      fi
+      info "Bringing up Tailscale ..."
+      if command -v sudo >/dev/null 2>&1; then
+        sudo tailscale up --authkey="$TS_KEY" --hostname="yourhq-$(hostname)" --accept-routes
+      else
+        tailscale up --authkey="$TS_KEY" --hostname="yourhq-$(hostname)" --accept-routes
+      fi
+      # Read back the host's Tailscale IP.
+      HOST_TS_IP="$(tailscale ip -4 2>/dev/null | head -1 || true)"
+      if [ -z "$HOST_TS_IP" ]; then
+        warn "Couldn't read Tailscale IP after 'tailscale up' — did it succeed? Falling back to local."
+        NETWORKING_MODE_VAL="local"
+      else
+        ok "Host Tailscale IP: $HOST_TS_IP"
+        HOST_REACHABLE_URL_VAL="http://$HOST_TS_IP"
+        UI_HOST_PORT_VAL="0.0.0.0:3000"
+        NOVNC_HOST_PORT_VAL="0.0.0.0:6901"
+        FILES_API_HOST_PORT_VAL="0.0.0.0:18790"
+        say ""
+        EXIT_ANS=$(ask "Route outbound traffic through a residential-IP exit node? [y/N]" "N")
+        if [[ "$EXIT_ANS" =~ ^[Yy]$ ]]; then
+          say "${D}  See https://tailscale.com/kb/1103/exit-nodes for setting up an exit node.${R}"
+          TS_EXIT=$(ask "Exit node Tailscale IP (e.g. 100.64.0.5)" "")
+          if [ -n "$TS_EXIT" ]; then
+            if command -v sudo >/dev/null 2>&1; then
+              sudo tailscale set --exit-node="$TS_EXIT" --exit-node-allow-lan-access || warn "exit-node set failed (node must be approved + advertised as exit node)"
+            else
+              tailscale set --exit-node="$TS_EXIT" --exit-node-allow-lan-access || warn "exit-node set failed"
+            fi
+          fi
+        fi
       fi
     fi
     ;;
-  2)
+  3)
+    NETWORKING_MODE_VAL="public"
     say ""
     info "Public HTTPS selected."
-    NOVNC_DOMAIN_VAL=$(ask "Public domain for the gateway (e.g. gw.example.com)" "")
-    if [ -z "$NOVNC_DOMAIN_VAL" ]; then
+    warn "Public mode requires a host-level reverse proxy (Caddy, Traefik, nginx)"
+    warn "with TLS in front of ports 3000 (UI), 6901 (noVNC), and 18790 (files-API)."
+    warn "HQ no longer runs Caddy inside the gateway container — configure your"
+    warn "reverse proxy separately. See docs/PUBLIC_DEPLOY.md (TODO)."
+    PUB_DOMAIN=$(ask "Your domain (e.g. hq.example.com)" "")
+    if [ -z "$PUB_DOMAIN" ]; then
       warn "No domain provided — falling back to local-only."
-      NOVNC_BIND_VAL="local"
+      NETWORKING_MODE_VAL="local"
     else
-      NOVNC_BIND_VAL="public"
+      HOST_REACHABLE_URL_VAL="https://$PUB_DOMAIN"
+      UI_HOST_PORT_VAL="0.0.0.0:3000"
       NOVNC_HOST_PORT_VAL="0.0.0.0:6901"
-      warn "Point the domain's DNS A/AAAA record at this host before starting."
-      warn "Make sure ports 80 and 443 are open (Caddy uses them for Let's Encrypt)."
+      FILES_API_HOST_PORT_VAL="0.0.0.0:18790"
     fi
     ;;
-  3 | *)
-    info "Local-only selected. noVNC will bind to 127.0.0.1:6901."
-    NOVNC_BIND_VAL="local"
+  1 | *)
+    info "Local-only selected — HQ reachable at http://localhost:3000."
     ;;
 esac
 
@@ -265,13 +300,15 @@ WORKSPACE_SLUG=$WORKSPACE_SLUG_VAL
 GATEWAY_ID=default
 GATEWAY_LABEL=Primary gateway
 COMPOSE_PROJECT=yourhq
-UI_PORT=3000
-TAILSCALE_AUTH_KEY=$TAILSCALE_AUTH_KEY_VAL
-TAILSCALE_EXIT_NODE=$TAILSCALE_EXIT_NODE_VAL
-NOVNC_BIND=$NOVNC_BIND_VAL
-NOVNC_DOMAIN=$NOVNC_DOMAIN_VAL
-CADDY_EMAIL=
+
+# Networking — controlled by the host, not the containers.
+NETWORKING_MODE=$NETWORKING_MODE_VAL
+HOST_REACHABLE_URL=$HOST_REACHABLE_URL_VAL
+UI_HOST_PORT=$UI_HOST_PORT_VAL
 NOVNC_HOST_PORT=$NOVNC_HOST_PORT_VAL
+FILES_API_HOST_PORT=$FILES_API_HOST_PORT_VAL
+
+NOVNC_BIND=local
 VNC_PASSWORD=
 TEMPLATES_SOURCE=$TEMPLATES_SOURCE_VAL
 GIT_REMOTE_URL=

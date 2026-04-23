@@ -54,7 +54,10 @@ services:
       GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN: ${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
     ports:
-      - "${UI_PORT:-3000}:3000"
+      # Defaults to 0.0.0.0:3000 so the host's network mode (Tailscale-installed
+      # or not) decides who can reach it. Set UI_HOST_PORT=127.0.0.1:3000 to
+      # keep UI strictly local (local-only installs) if preferred.
+      - "${UI_HOST_PORT:-0.0.0.0:3000}:3000"
     volumes:
       - ui-config:/config
 
@@ -74,19 +77,14 @@ services:
       GATEWAY_AUTH_TOKEN: ${GATEWAY_AUTH_TOKEN}
       FILES_API_BIND: ${FILES_API_BIND:-docker}
       FILES_API_PORT: ${FILES_API_PORT:-18790}
-      # Networking + remote desktop
-      TAILSCALE_AUTH_KEY: ${TAILSCALE_AUTH_KEY:-}
-      TAILSCALE_EXIT_NODE: ${TAILSCALE_EXIT_NODE:-}
-      NOVNC_BIND: ${NOVNC_BIND:-auto}
-      NOVNC_DOMAIN: ${NOVNC_DOMAIN:-}
-      CADDY_EMAIL: ${CADDY_EMAIL:-}
+      # noVNC
+      NOVNC_BIND: ${NOVNC_BIND:-local}
       VNC_PASSWORD: ${VNC_PASSWORD:-}
-    # NET_ADMIN is required by Tailscale for userspace networking inside the
-    # container; harmless when Tailscale isn't used.
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
+      # Networking mode + reachable URL — set by the installer from the
+      # HOST's networking mode. Used when registering this gateway in
+      # Supabase so the UI knows how to reach it.
+      NETWORKING_MODE: ${NETWORKING_MODE:-local}
+      HOST_REACHABLE_URL: ${HOST_REACHABLE_URL:-http://localhost}
     # Chrome crashes on small /dev/shm in container mode. openclaw's managed
     # browser launcher does not pass --disable-dev-shm-usage, so we give it
     # enough shm to operate normally.
@@ -95,9 +93,16 @@ services:
       - gateway-state:/home/openclaw/.openclaw
       - gateway-chrome-profile:/home/openclaw/.config/google-chrome
     ports:
-      # noVNC: only mapped to the host when NOVNC_BIND=public. For tailscale
-      # or local binds, the port stays inside the container namespace.
-      - "${NOVNC_HOST_PORT:-127.0.0.1:6901}:6901"
+      # noVNC (HTML5 VNC client). Defaults to 0.0.0.0 so the host decides
+      # reachability; set NOVNC_HOST_PORT=127.0.0.1:6901 for local-only.
+      - "${NOVNC_HOST_PORT:-0.0.0.0:6901}:6901"
+      # Files-API (UI file browser). Publish to host so the UI — which
+      # might be on another machine — can reach it over the host's network
+      # (Tailscale or public HTTPS reverse proxy). For single-host installs
+      # where UI and gateway are on the same Docker network, override to
+      # 127.0.0.1 or skip — the UI still reaches it via the internal
+      # service name "gateway".
+      - "${FILES_API_HOST_PORT:-0.0.0.0:18790}:18790"
 
   dispatcher:
     image: ${DISPATCHER_IMAGE:-ghcr.io/yourhq/yourhq-dispatcher:latest}

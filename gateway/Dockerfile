@@ -1,11 +1,14 @@
 # =============================================================================
-# Gateway image — OpenClaw + Chrome + Xtigervnc + Tailscale + noVNC + Caddy.
+# Gateway image — OpenClaw + Chrome + Xtigervnc + noVNC.
 #
 # One container runs: Xtigervnc (X + VNC in one process), XFCE (full desktop),
-# Chrome (via CDP),
-# noVNC/websockify (browser-based VNC), optional Tailscale (network join),
-# optional Caddy (TLS front-end for public-mode noVNC), and the OpenClaw
+# Chrome (via CDP), noVNC/websockify (browser-based VNC), and the OpenClaw
 # gateway itself (PID 1 via tini).
+#
+# Tailscale + TLS reverse-proxy live on the HOST, not in this container.
+# Docker publishes ports to 127.0.0.1 or 0.0.0.0 per NOVNC_HOST_PORT /
+# FILES_API_HOST_PORT in docker-compose.yml — the host's network mode
+# (Tailscale installed vs not) decides who can reach them.
 #
 # Templates live at /opt/templates inside the image; the entrypoint seeds them
 # into the gateway-repo volume on first boot.
@@ -83,21 +86,6 @@ RUN if [ "$TARGETARCH" = "amd64" ]; then \
     fi \
     && rm -rf /var/lib/apt/lists/*
 
-# ── Tailscale (static binary, bundled even if unused) ────────
-# Joins the user's tailnet on boot when TAILSCALE_AUTH_KEY is set. The binary
-# stays harmless when unused.
-RUN set -eux; \
-    TS_ARCH=$([ "$TARGETARCH" = "amd64" ] && echo "amd64" || echo "arm64"); \
-    TS_VERSION=$(curl -fsSL https://pkgs.tailscale.com/stable/ | grep -oE 'tailscale_[0-9]+\.[0-9]+\.[0-9]+_'"$TS_ARCH"'\.tgz' | head -1); \
-    [ -n "$TS_VERSION" ] || { echo "Could not resolve Tailscale version"; exit 1; }; \
-    curl -fsSL "https://pkgs.tailscale.com/stable/$TS_VERSION" -o /tmp/tailscale.tgz; \
-    tar -xzf /tmp/tailscale.tgz -C /tmp; \
-    cp /tmp/tailscale_*/tailscale /usr/local/bin/tailscale; \
-    cp /tmp/tailscale_*/tailscaled /usr/local/bin/tailscaled; \
-    chmod +x /usr/local/bin/tailscale /usr/local/bin/tailscaled; \
-    rm -rf /tmp/tailscale.tgz /tmp/tailscale_*; \
-    mkdir -p /var/lib/tailscale /var/run/tailscale
-
 # ── noVNC + websockify ───────────────────────────────────────
 # We use TigerVNC's Xtigervnc — a combined X server + VNC server in one
 # process. It's what tigervncserver / vncserver wrap under the hood, and
@@ -125,15 +113,6 @@ RUN mkdir -p /usr/share/novnc \
     && curl -fsSL "https://github.com/novnc/noVNC/archive/v${NOVNC_VERSION}.tar.gz" \
          | tar -xz --strip-components=1 -C /usr/share/novnc \
     && ln -sf /usr/share/novnc/vnc.html /usr/share/novnc/index.html
-
-# ── Caddy (optional, for NOVNC_BIND=public TLS) ──────────────
-RUN set -eux; \
-    CADDY_ARCH=$([ "$TARGETARCH" = "amd64" ] && echo "amd64" || echo "arm64"); \
-    CADDY_VERSION="2.8.4"; \
-    curl -fsSL "https://github.com/caddyserver/caddy/releases/download/v${CADDY_VERSION}/caddy_${CADDY_VERSION}_linux_${CADDY_ARCH}.tar.gz" -o /tmp/caddy.tgz; \
-    tar -xzf /tmp/caddy.tgz -C /usr/local/bin caddy; \
-    chmod +x /usr/local/bin/caddy; \
-    rm /tmp/caddy.tgz
 
 # ── OpenClaw CLI ─────────────────────────────────────────────
 RUN npm install -g openclaw@${OPENCLAW_VERSION}
