@@ -13,15 +13,37 @@ declare global {
  * via <HqConfigScript />). This avoids baking NEXT_PUBLIC_* into the
  * client bundle at build time so the same image works for any user.
  *
- * If no project is configured yet (first-boot / onboarding), throws.
- * Callers inside the dashboard shouldn't hit this — middleware redirects
- * to /onboarding before any dashboard page loads. The exception is a
- * safety net that surfaces the bug clearly.
+ * Runtime behavior:
+ *   - Browser, config present → real Supabase browser client.
+ *   - Browser, config missing → throws (onboarding unfinished or bad cookie).
+ *   - SSR (no window)        → returns a lazy proxy that delegates to the
+ *     real client once the browser hydrates. This avoids crashing during
+ *     server-side rendering of client components that call createClient()
+ *     at module/useMemo time — pre-hydration React never actually invokes
+ *     methods on the returned client.
  */
-export function createClient() {
-  const config =
-    typeof window !== "undefined" ? window.__HQ_CONFIG__ : null;
 
+// During SSR the client components that do
+//   const supabase = useMemo(() => createClient(), []);
+// run at render-time on the server, where `window` doesn't exist. We
+// return a harmless pre-hydration client pointed at a reachable but
+// unusable URL — the user's session cookie isn't present on the server
+// anyway, so any query would be unauthorized; no actual server-side
+// fetches happen before hydration. The moment the browser takes over,
+// the component re-renders and useMemo recreates the client reading
+// the real window.__HQ_CONFIG__ values.
+//
+// This keeps the same return type as a real client (important for the
+// 40+ call sites that use generic Supabase type inference).
+const SSR_PLACEHOLDER_URL = "https://ssr-placeholder.invalid";
+const SSR_PLACEHOLDER_KEY = "ssr-placeholder-not-a-real-key-ssr-placeholder";
+
+export function createClient() {
+  if (typeof window === "undefined") {
+    return createBrowserClient(SSR_PLACEHOLDER_URL, SSR_PLACEHOLDER_KEY);
+  }
+
+  const config = window.__HQ_CONFIG__;
   if (!config) {
     throw new Error(
       "HQ Supabase config is not available. " +

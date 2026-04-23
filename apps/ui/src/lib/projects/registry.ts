@@ -177,13 +177,24 @@ export async function getActiveProject(
   const registry = await getRegistry();
   if (registry.projects.length === 0) return null;
 
-  const id =
-    activeIdHint ??
-    registry.activeProjectId ??
-    registry.projects.find((p) => p.isDefault)?.id ??
-    registry.projects[0].id;
+  // Resolution order: cookie hint → registry's activeProjectId → default
+  // → first project. Each candidate is validated against the projects
+  // list before use; stale ids (deleted project, renamed registry) fall
+  // through instead of returning null + triggering a redirect loop.
+  const candidates = [
+    activeIdHint,
+    registry.activeProjectId,
+    registry.projects.find((p) => p.isDefault)?.id,
+    registry.projects[0].id,
+  ];
 
-  return registry.projects.find((p) => p.id === id) ?? null;
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const match = registry.projects.find((p) => p.id === candidate);
+    if (match) return match;
+  }
+
+  return null;
 }
 
 // ── Secrets (server-only) ────────────────────────────────────────────────
