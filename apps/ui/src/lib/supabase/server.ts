@@ -26,7 +26,12 @@ export async function createClient() {
 
   const cookieStore = await cookies();
 
+  // Match the per-project cookie prefix used by the browser + middleware.
+  // See lib/supabase/client.ts#cookieNameFor.
+  const cookiePrefix = `hq-${project.id.slice(0, 8)}`;
+
   return createServerClient(project.url, project.anonKey, {
+    cookieOptions: { name: cookiePrefix },
     cookies: {
       getAll() {
         return cookieStore.getAll();

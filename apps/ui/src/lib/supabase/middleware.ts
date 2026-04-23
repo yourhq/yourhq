@@ -52,7 +52,14 @@ export async function updateSession(request: NextRequest) {
 
   // With a project resolved, set up the cookie-aware Supabase client and
   // run the usual auth gating.
+  //
+  // `cookieOptions.name` must match the prefix the browser client uses
+  // (see lib/supabase/client.ts#cookieNameFor). Each project gets its
+  // own cookie prefix — `hq-<first-8-of-id>` — so two projects in the
+  // same browser don't clobber each other's sessions.
+  const cookiePrefix = `hq-${project.id.slice(0, 8)}`;
   const supabase = createServerClient(project.url, project.anonKey, {
+    cookieOptions: { name: cookiePrefix },
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -74,12 +81,37 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Redirect unauthenticated users to login, except on no-auth-ok paths.
-  if (
-    !user &&
-    !matches(request.nextUrl.pathname, NO_AUTH_OK_PATHS) &&
-    !matches(request.nextUrl.pathname, NO_PROJECT_OK_PATHS)
-  ) {
+  // Auth gating for unauthenticated users.
+  //
+  // Two flavors of unauthenticated:
+  //   A) First visit, no project session exists yet → redirect to /login.
+  //   B) Session expired / user switched to a project they haven't signed
+  //      into in this browser → let the page render and have the client-
+  //      side SignInModal (in DashboardShell via useAuthWatcher) handle
+  //      auth inline instead of kicking the user away from their work.
+  //
+  // Middleware can't reliably distinguish (A) from (B) — they both look
+  // like "no session cookie." So for dashboard paths we default to (B)
+  // and let the modal take over. For onboarding we respect the wizard
+  // state. Only API routes force a hard 401 so callers can react.
+  const isApi = request.nextUrl.pathname.startsWith("/api/");
+  const isDashboard = request.nextUrl.pathname.startsWith("/dashboard");
+  const isOnboarding = matches(request.nextUrl.pathname, [ONBOARDING_PATH]);
+  const isLogin = matches(request.nextUrl.pathname, NO_AUTH_OK_PATHS);
+
+  if (!user && isApi) {
+    // API routes return a JSON 401 — caller's fetch layer decides whether
+    // to pop the modal (via the auth watcher's requireSignIn()) or fail
+    // silently. Doesn't clobber the current page.
+    return new NextResponse(
+      JSON.stringify({ error: "unauthenticated" }),
+      { status: 401, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  if (!user && !isDashboard && !isOnboarding && !isLogin) {
+    // Root / any other page with no session → /login is still the sane
+    // default (first visit, bookmarked deep link, etc).
     const url = request.nextUrl.clone();
     url.pathname = LOGIN_PATH;
     return NextResponse.redirect(url);

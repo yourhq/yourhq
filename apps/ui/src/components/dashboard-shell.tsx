@@ -41,6 +41,8 @@ import {
 } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ProjectSwitcher } from "@/components/projects/project-switcher";
+import { SignInModal } from "@/components/auth/sign-in-modal";
+import { useAuthWatcher } from "@/hooks/use-auth-watcher";
 import * as React from "react";
 
 type NavItem = {
@@ -311,10 +313,29 @@ export function DashboardShell({
     setMobileOpen(false);
   }, []);
 
+  // Auth watcher — opens the inline sign-in modal instead of letting the
+  // user get kicked out to /login. Triggers on fresh load with no session,
+  // when the browser emits SIGNED_OUT (token expired), or when a later
+  // caller invokes requireSignIn() after a 401.
+  const auth = useAuthWatcher();
+  const activeProject = React.useMemo(
+    () => projects.find((p) => p.id === activeProjectId) ?? projects[0] ?? null,
+    [projects, activeProjectId],
+  );
+
   return (
     <SidebarContext.Provider value={{ collapsed, toggle }}>
       <KeyboardShortcutsProvider>
         <TooltipProvider delayDuration={200}>
+          {activeProject && (
+            <SignInModal
+              open={auth.needsSignIn}
+              onSuccess={auth.close}
+              workspaceLabel={activeProject.label}
+              workspaceEmoji={activeProject.emoji}
+              defaultEmail={auth.email ?? user?.email ?? ""}
+            />
+          )}
           <div className="flex h-screen overflow-hidden bg-background">
             {/* Mobile sidebar drawer */}
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
