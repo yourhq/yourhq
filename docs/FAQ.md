@@ -151,7 +151,7 @@ Currently: the maintainers, beta testers, and whoever else has discovered it. Th
 
 ## Why the name "HQ"?
 
-It's the command-center metaphor — one place where you manage everything. Short, memorable, hard to misspell.
+It's the headquarters metaphor — one place where you manage everything. Short, memorable, hard to misspell.
 
 ## Where do I ask more questions?
 

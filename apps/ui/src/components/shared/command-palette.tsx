@@ -46,7 +46,7 @@ const QUICK_ACTIONS = [
   { label: "Register Agent", href: "/dashboard/agents?action=create", icon: Bot },
 ];
 
-export function CommandCenter() {
+export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
 

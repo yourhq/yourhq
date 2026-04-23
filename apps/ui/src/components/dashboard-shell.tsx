@@ -24,7 +24,7 @@ import { useUnreadNotificationCount } from "@/hooks/use-notifications";
 import { cn } from "@/lib/utils";
 import { Kbd } from "@/components/ui/kbd";
 import { HeaderBar } from "@/components/shared/header-bar";
-import { CommandCenter } from "@/components/shared/command-center";
+import { CommandPalette } from "@/components/shared/command-palette";
 import { KeyboardShortcutsProvider, useShortcuts } from "@/components/shared/keyboard-shortcuts";
 import {
   Tooltip,
@@ -365,7 +365,7 @@ export function DashboardShell({
             </div>
           </div>
 
-          <CommandCenter />
+          <CommandPalette />
         </TooltipProvider>
       </KeyboardShortcutsProvider>
     </SidebarContext.Provider>
