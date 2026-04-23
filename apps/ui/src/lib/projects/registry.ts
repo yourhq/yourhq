@@ -11,6 +11,12 @@
 //     registry physically cannot contain a service role key.
 //   - File locking: we take a simple cross-process lock file around writes
 //     to avoid interleaving when two tabs submit an "add project" at once.
+//
+// This module uses Node filesystem APIs (fs, path, crypto). It must only
+// run in the Node.js runtime — never the Edge runtime. Middleware callers
+// opt into `export const runtime = "nodejs"` for this reason.
+
+import "server-only";
 
 import { promises as fs } from "fs";
 import path from "path";

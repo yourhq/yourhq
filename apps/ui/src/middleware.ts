@@ -1,6 +1,12 @@
 import { type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
+// Run middleware on the Node.js runtime, not the Edge runtime. We need
+// to read the project registry from disk (fs/path/crypto) which Edge
+// doesn't support. The cost vs Edge is negligible for a single-user
+// self-hosted deployment.
+export const runtime = "nodejs";
+
 export async function middleware(request: NextRequest) {
   return await updateSession(request);
 }
