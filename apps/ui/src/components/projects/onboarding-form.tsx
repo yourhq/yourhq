@@ -11,7 +11,12 @@ export function OnboardingForm() {
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<OnboardingResult | null>(null);
 
-  const onSubmit = (formData: FormData) => {
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    // Plain onSubmit (not form action={…}) so fields retain their values
+    // when the server action returns a non-ok result. Next.js's form
+    // action semantics reset uncontrolled inputs on completion.
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
     setResult(null);
     startTransition(async () => {
       const r = await connectProject(formData);
@@ -22,7 +27,7 @@ export function OnboardingForm() {
 
   return (
     <form
-      action={onSubmit}
+      onSubmit={onSubmit}
       className="rounded-md border border-border/60 bg-card p-5 shadow-sm space-y-4"
     >
       <div className="grid grid-cols-[64px_1fr] gap-2">
