@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
+import { HqConfigScript } from "@/lib/projects/inject-config";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -33,13 +34,19 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Injects window.__HQ_CONFIG__ with the active project's public
+            Supabase config. Must render in <head> before any client
+            component tries to read it. Server-component — safe. */}
+        <HqConfigScript />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
