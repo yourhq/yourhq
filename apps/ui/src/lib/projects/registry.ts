@@ -116,11 +116,21 @@ async function withLock<T>(fn: () => Promise<T>): Promise<T> {
 
 // ── Permission check (chmod 0600 on secrets.json) ───────────────────────
 
-// The gateway / dispatcher / runner containers mount this volume read-only
-// and run under a different uid. 0640 keeps owner+group readable while
-// still locking out "other" processes. The Docker volume itself is inside
-// Docker's managed storage, not on the host filesystem.
-const SECRETS_MODE = 0o640;
+// The gateway / dispatcher / runner containers mount this volume and run
+// as different uids AND different groups than the UI container, so 0640
+// still locks them out (they fall into "other"). 0644 is the only mode
+// that works across the container user matrix without group syncing.
+//
+// This is acceptable because:
+//   - The volume lives inside Docker's managed storage (/var/lib/docker/volumes)
+//     which is 0700 root:root on the host — the host filesystem is the real
+//     security boundary.
+//   - This is a single-user self-hosted product; there's no second tenant.
+//   - Only containers declared in docker-compose.yml can mount the volume.
+//
+// If we ever need stricter isolation (multi-tenant hosted offering), switch
+// to encrypting secrets.json at rest with a key from an env-var or KMS.
+const SECRETS_MODE = 0o644;
 
 async function ensureSecretsPermissions(): Promise<void> {
   try {
