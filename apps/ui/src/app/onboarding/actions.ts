@@ -26,17 +26,19 @@ import {
 
 export type OnboardingStep =
   | "welcome"
+  | "context"
   | "placement"
   | "supabase"
   | "networking"
   | "gateway"
   | "workspace"
+  | "done"
+  // Kept for backward compat with older persisted state.
   | "profile"
   | "pipeline"
   | "fields"
   | "streams"
-  | "first_agent"
-  | "done";
+  | "first_agent";
 
 export interface ActionResult<T = undefined> {
   ok: boolean;
@@ -60,12 +62,35 @@ export async function saveWelcome(
   if (!parsed.success) return { ok: false, error: parsed.error.message };
 
   await patchOnboardingState({
-    step: "placement",
+    step: "context",
     data: {
       ownerName: parsed.data.ownerName.trim(),
       preferredName: (parsed.data.preferredName ?? parsed.data.ownerName).trim(),
       ownerEmoji: parsed.data.emoji,
     },
+  });
+  return { ok: true };
+}
+
+// ─── Context: what will they use HQ for? ────────────────────────────────
+//
+// Picks a preset (pipeline + fields + streams). The onboarding wizard no
+// longer asks separate picker screens for those — finalizeOnboarding
+// reads the preset key and hydrates everything at the end.
+
+const contextSchema = z.object({
+  presetKey: z.string().min(1),
+});
+
+export async function saveContext(
+  input: z.infer<typeof contextSchema>,
+): Promise<ActionResult> {
+  const parsed = contextSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+
+  await patchOnboardingState({
+    step: "placement",
+    data: { contextPresetKey: parsed.data.presetKey },
   });
   return { ok: true };
 }
@@ -434,7 +459,7 @@ export async function advanceAfterGateway(): Promise<ActionResult> {
   return { ok: true };
 }
 
-// ─── Setup wizard steps (merged from /setup) ────────────────────────────
+// ─── Workspace: short form, advances directly to finalize ───────────────
 
 const workspaceSchema = z.object({
   name: z.string().min(1).max(80),
@@ -449,60 +474,12 @@ export async function saveWorkspaceStep(
   if (!parsed.success) return { ok: false, error: parsed.error.message };
 
   await patchOnboardingState({
-    step: "pipeline",
+    step: "done",
     data: {
       workspaceName: parsed.data.name.trim(),
       workspaceSlug: parsed.data.slug?.trim() || null,
       workspaceDescription: parsed.data.description?.trim() || "",
     },
-  });
-  return { ok: true };
-}
-
-const pipelineSchema = z.object({
-  pipelineKey: z.string().min(1),
-});
-
-export async function savePipelineStep(
-  input: z.infer<typeof pipelineSchema>,
-): Promise<ActionResult> {
-  const parsed = pipelineSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: parsed.error.message };
-  await patchOnboardingState({
-    step: "fields",
-    data: { pipelineKey: parsed.data.pipelineKey },
-  });
-  return { ok: true };
-}
-
-const fieldsSchema = z.object({
-  fieldKey: z.string().min(1),
-});
-
-export async function saveFieldsStep(
-  input: z.infer<typeof fieldsSchema>,
-): Promise<ActionResult> {
-  const parsed = fieldsSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: parsed.error.message };
-  await patchOnboardingState({
-    step: "streams",
-    data: { fieldKey: parsed.data.fieldKey },
-  });
-  return { ok: true };
-}
-
-const streamsSchema = z.object({
-  streamNames: z.array(z.string().min(1)),
-});
-
-export async function saveStreamsStep(
-  input: z.infer<typeof streamsSchema>,
-): Promise<ActionResult> {
-  const parsed = streamsSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: parsed.error.message };
-  await patchOnboardingState({
-    step: "first_agent",
-    data: { streamNames: parsed.data.streamNames },
   });
   return { ok: true };
 }
@@ -514,6 +491,8 @@ import {
   PIPELINE_TEMPLATES,
   FIELD_TEMPLATES,
   DEFAULT_STREAMS,
+  CONTEXT_PRESETS,
+  DEFAULT_CONTEXT_PRESET,
 } from "@/lib/setup/templates";
 
 export async function finalizeOnboarding(): Promise<ActionResult> {
@@ -531,11 +510,15 @@ export async function finalizeOnboarding(): Promise<ActionResult> {
   const preferredName = (data.preferredName as string | undefined) ?? ownerName;
   const timezone = (data.timezone as string | undefined) ?? "";
 
-  const pipelineKey = (data.pipelineKey as string | undefined) ?? "outreach";
-  const fieldKey = (data.fieldKey as string | undefined) ?? "creator-outreach";
-  const streamNames =
-    (data.streamNames as string[] | undefined) ??
-    DEFAULT_STREAMS.map((s) => s.name);
+  // Resolve the context preset — chosen on the "what will you use HQ for?"
+  // screen. Drives pipeline, fields, and streams in one shot.
+  const presetKey = (data.contextPresetKey as string | undefined) ?? null;
+  const preset =
+    CONTEXT_PRESETS.find((p) => p.key === presetKey) ?? DEFAULT_CONTEXT_PRESET;
+
+  const pipelineKey = preset.pipelineKey;
+  const fieldKey = preset.fieldKey;
+  const streamNames = preset.streamNames;
 
   const pipelineTemplate = PIPELINE_TEMPLATES.find((t) => t.key === pipelineKey);
   const fieldTemplate = FIELD_TEMPLATES.find((t) => t.key === fieldKey);

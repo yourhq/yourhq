@@ -21,6 +21,7 @@ import {
   createAuthUserAction,
   saveProjectAction,
 } from "@/app/onboarding/actions";
+import { createBrowserClient } from "@supabase/ssr";
 
 export interface StepSupabaseProps {
   defaults: {
@@ -144,6 +145,31 @@ export function StepSupabase({ defaults, onComplete }: StepSupabaseProps) {
       setSave({ status: "error", error: r.error, hint: r.hint });
       return false;
     }
+
+    // Auto-sign-in so the user never gets kicked to /login at the end of
+    // onboarding. We use the freshly-known URL + anonKey + the per-project
+    // cookie prefix the server factory + middleware agree on. This drops
+    // the session cookies into the browser for project r.projectId.
+    //
+    // If the user is on the "skipped — account already exists" path their
+    // password is still in the form, so this still works. If they cleared
+    // it somehow, the dashboard shell's SignInModal will pop naturally.
+    if (authPassword) {
+      try {
+        const cookiePrefix = `hq-${r.projectId.slice(0, 8)}`;
+        const client = createBrowserClient(creds.url, creds.anonKey, {
+          cookieOptions: { name: cookiePrefix },
+        });
+        await client.auth.signInWithPassword({
+          email: authEmail.trim(),
+          password: authPassword,
+        });
+      } catch {
+        // Sign-in failure here is non-fatal — the SignInModal will pop
+        // after onboarding and the user can finish from there.
+      }
+    }
+
     setSave({ status: "ok" });
     onComplete({
       workspaceLabel: workspaceLabel.trim(),

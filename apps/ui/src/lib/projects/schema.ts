@@ -39,11 +39,15 @@ export const onboardingStateSchema = z.object({
   version: z.literal(1),
   step: z.enum([
     "welcome",
+    "context",
     "placement",
     "supabase",
     "networking",
     "gateway",
     "workspace",
+    // Legacy steps — kept so stored onboarding state from older builds
+    // still deserializes. These get skipped in the new flow but the enum
+    // must accept them to avoid a zod parse error.
     "profile",
     "pipeline",
     "fields",
