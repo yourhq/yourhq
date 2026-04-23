@@ -55,17 +55,38 @@ async function readJsonOrDefault<T>(
   filePath: string,
   defaultValue: T,
 ): Promise<unknown> {
+  let raw: string;
   try {
-    const raw = await fs.readFile(filePath, "utf-8");
-    return JSON.parse(raw);
+    raw = await fs.readFile(filePath, "utf-8");
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {
       return defaultValue;
     }
     throw new Error(
-      `Failed to read ${filePath}: ${(err as Error).message}. ` +
-        `If this file is hand-edited, ensure it's valid JSON.`,
+      `Failed to read ${filePath}: ${(err as Error).message}.`,
     );
+  }
+
+  // Treat empty / whitespace-only files as "fresh install" rather than
+  // throwing. This happens if a previous write crashed mid-rename, a
+  // shell command truncated the file, or a user deletes the contents
+  // by hand expecting onboarding to reset.
+  if (!raw.trim()) {
+    console.warn(`[registry] ${filePath} is empty; treating as fresh install.`);
+    return defaultValue;
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    // Malformed JSON is user-visible. Log what's there (first 200 chars)
+    // so the user can see why it's unreadable, and fall back to the
+    // default so the UI doesn't hard-fail — they can re-onboard.
+    console.error(
+      `[registry] Malformed JSON at ${filePath}: ${(err as Error).message}. ` +
+        `First 200 chars: ${raw.slice(0, 200)}`,
+    );
+    return defaultValue;
   }
 }
 
