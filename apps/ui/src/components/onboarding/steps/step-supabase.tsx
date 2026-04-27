@@ -18,7 +18,8 @@ import { cn } from "@/lib/utils";
 import {
   validateProjectUrl,
   validateSupabaseCredsAction,
-  installSchemaAction,
+  prepareSchemaInstallAction,
+  confirmSchemaInstalledAction,
   saveProjectAction,
 } from "@/app/onboarding/actions";
 
@@ -45,13 +46,20 @@ interface ResolvedUrl {
   apiKeysUrl: string | null;
 }
 
-type StepStatus = "idle" | "running" | "ok" | "error" | "skipped";
+type StepStatus = "idle" | "running" | "ok" | "error" | "skipped" | "awaiting";
 interface SubStepState {
   status: StepStatus;
   error?: string;
   hint?: string;
   sqlFallback?: string;
   collisionTables?: string[];
+  // For the install row, we store the prepared SQL + dashboard link so
+  // the user can open the SQL editor in a new tab and run the migration.
+  install?: {
+    sql: string;
+    sqlEditorUrl: string;
+    projectRef: string | null;
+  };
 }
 const INITIAL: SubStepState = { status: "idle" };
 
@@ -128,16 +136,42 @@ export function StepSupabase({ defaults, onComplete }: StepSupabaseProps) {
     return r.schemaInstalled ? "ok" : "schemaMissing";
   }, [creds]);
 
-  const runInstall = useCallback(async (): Promise<boolean> => {
+  // Two-step install: prepare loads the SQL + builds a deep-link to the
+  // user's SQL editor; awaiting tells the UI to render the "Open editor /
+  // I ran it ✓" panel; confirm re-probes the workspace table.
+  const prepareInstall = useCallback(async (): Promise<boolean> => {
     setInstall({ status: "running" });
-    const r = await installSchemaAction(creds);
-    if (!r.ok) {
+    const r = await prepareSchemaInstallAction(creds);
+    if (!r.ok || !r.sql || !r.sqlEditorUrl) {
       setInstall({
         status: "error",
+        error: r.error ?? "Couldn't prepare the migration.",
+        hint: r.hint,
+      });
+      return false;
+    }
+    setInstall({
+      status: "awaiting",
+      install: {
+        sql: r.sql,
+        sqlEditorUrl: r.sqlEditorUrl,
+        projectRef: r.projectRef ?? null,
+      },
+    });
+    return true;
+  }, [creds]);
+
+  const confirmInstall = useCallback(async (): Promise<boolean> => {
+    setInstall((prev) => ({ ...prev, status: "running" }));
+    const r = await confirmSchemaInstalledAction(creds);
+    if (!r.ok) {
+      // Keep install payload around so user can retry without re-fetching.
+      setInstall((prev) => ({
+        ...prev,
+        status: "awaiting",
         error: r.error,
         hint: r.hint,
-        sqlFallback: r.sqlFallback,
-      });
+      }));
       return false;
     }
     setInstall({ status: "ok" });
@@ -169,22 +203,30 @@ export function StepSupabase({ defaults, onComplete }: StepSupabaseProps) {
   const runAll = useCallback(async () => {
     const v = await runValidate();
     if (v === "fail") return;
-    // Always run install — the migration is idempotent
-    // (CREATE TABLE IF NOT EXISTS, ALTER TABLE … ADD COLUMN IF NOT EXISTS).
-    // This means users who onboarded against an older HQ schema get any
-    // newly-added tables (e.g. gateway_registration_tokens) without
-    // having to manually paste SQL.
-    const ok = await runInstall();
-    if (!ok) return;
-    await runSave();
-  }, [runValidate, runInstall, runSave]);
+    // Schema already installed → skip straight to save. (Re-running the
+    // idempotent migration would be safe but pointless and adds friction.)
+    if (v === "ok") {
+      setInstall({ status: "skipped" });
+      await runSave();
+      return;
+    }
+    // Schema missing → prepare the deep-link, then wait for the user
+    // to click "I ran it ✓" before continuing to save.
+    await prepareInstall();
+  }, [runValidate, prepareInstall, runSave]);
 
   const installAnyway = useCallback(async () => {
     setForceInstall(true);
     setValidate({ status: "ok" });
-    const ok = await runInstall();
+    await prepareInstall();
+  }, [prepareInstall]);
+
+  // After the user clicks "I ran it ✓" and we successfully verify, kick
+  // the save step ourselves — the user shouldn't have to click again.
+  const handleConfirmInstall = useCallback(async () => {
+    const ok = await confirmInstall();
     if (ok) await runSave();
-  }, [runInstall, runSave]);
+  }, [confirmInstall, runSave]);
 
   // Kick off the sequence once when we land on `provision` phase.
   // Deferred via setTimeout(0) so the initial setState calls inside
@@ -369,15 +411,28 @@ export function StepSupabase({ defaults, onComplete }: StepSupabaseProps) {
         />
         <SubStepRow
           label="Install schema"
-          desc="Create the tables and functions HQ needs."
+          desc="Run the migration in your Supabase SQL editor."
           state={install}
-          onRetry={runInstall}
-          fallback={
-            install.sqlFallback
+          // If we hit a hard error (not awaiting), `prepareInstall`
+          // re-fetches the SQL + deep-link. Awaiting state has its own
+          // "I ran it / Check again" button inside the panel.
+          onRetry={prepareInstall}
+          manualInstall={
+            install.install
               ? {
-                  sql: install.sqlFallback,
+                  sqlEditorUrl: install.install.sqlEditorUrl,
+                  sql: install.install.sql,
                   copied,
-                  onCopy: () => copySql(install.sqlFallback!),
+                  onCopy: () => copySql(install.install!.sql),
+                  onConfirm: handleConfirmInstall,
+                  isVerifying: install.status === "running",
+                  verifyError:
+                    install.status === "awaiting" ? install.error : undefined,
+                  verifyHint:
+                    install.status === "awaiting" ? install.hint : undefined,
+                  // Once we've tried verifying at least once, the button
+                  // becomes "Check again" rather than "I ran it".
+                  hasAttempted: Boolean(install.error),
                 }
               : undefined
           }
@@ -646,14 +701,24 @@ function SubStepRow({
   desc,
   state,
   onRetry,
-  fallback,
+  manualInstall,
   collisionAction,
 }: {
   label: string;
   desc: string;
   state: SubStepState;
   onRetry?: () => void;
-  fallback?: { sql: string; copied: boolean; onCopy: () => void };
+  manualInstall?: {
+    sqlEditorUrl: string;
+    sql: string;
+    copied: boolean;
+    onCopy: () => void;
+    onConfirm: () => void;
+    isVerifying: boolean;
+    verifyError?: string;
+    verifyHint?: string;
+    hasAttempted?: boolean;
+  };
   collisionAction?: {
     conflictTables: string[];
     onUseSeparate: () => void;
@@ -668,7 +733,7 @@ function SubStepRow({
           ? "border-emerald-500/30 bg-emerald-500/5"
           : state.status === "error"
             ? "border-destructive/40 bg-destructive/5"
-            : state.status === "running"
+            : state.status === "running" || state.status === "awaiting"
               ? "border-border bg-accent/30"
               : "border-transparent bg-transparent",
       )}
@@ -679,10 +744,14 @@ function SubStepRow({
           <div className="flex items-center gap-2">
             <span className="text-[13px] font-medium">{label}</span>
             {state.status === "skipped" && (
-              <span className="text-[10px] text-muted-foreground">skipped</span>
+              <span className="text-[10px] text-muted-foreground">already installed</span>
             )}
           </div>
           <p className="text-[11px] text-muted-foreground">{desc}</p>
+
+          {state.status === "awaiting" && manualInstall && (
+            <ManualInstallPanel {...manualInstall} />
+          )}
 
           {state.status === "error" && (
             <div className="space-y-1.5 pt-1 text-[12px]">
@@ -724,36 +793,113 @@ function SubStepRow({
                   )}
                 </div>
               )}
-
-              {fallback && (
-                <div className="mt-2 space-y-1 rounded-md border border-amber-500/40 bg-amber-500/5 p-2">
-                  <p className="text-[11px] text-muted-foreground">
-                    Copy the SQL and paste it into Supabase&apos;s SQL editor,
-                    then click Retry.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={fallback.onCopy}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background px-2 py-1 text-[11px] hover:bg-accent/60"
-                  >
-                    {fallback.copied ? (
-                      <>
-                        <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                        Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3 w-3" />
-                        Copy SQL
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
             </div>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function ManualInstallPanel({
+  sqlEditorUrl,
+  copied,
+  onCopy,
+  onConfirm,
+  isVerifying,
+  verifyError,
+  verifyHint,
+  hasAttempted,
+}: {
+  sqlEditorUrl: string;
+  sql: string;
+  copied: boolean;
+  onCopy: () => void;
+  onConfirm: () => void;
+  isVerifying: boolean;
+  verifyError?: string;
+  verifyHint?: string;
+  hasAttempted?: boolean;
+}) {
+  return (
+    <div className="mt-2 space-y-3 rounded-md border border-border/60 bg-background/40 p-3">
+      <div className="space-y-1">
+        <p className="text-[12px] leading-relaxed">
+          Open your project&apos;s SQL editor in a new tab — the migration is
+          pre-loaded. Click <span className="font-medium">Run</span> in the
+          editor, then come back here.
+        </p>
+        <p className="text-[11px] text-muted-foreground">
+          The migration is idempotent — safe to run on a new or existing project.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <a
+          href={sqlEditorUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-[12px] font-medium text-background hover:bg-foreground/90"
+        >
+          <ExternalLink className="h-3 w-3" />
+          Open SQL editor
+        </a>
+        <button
+          type="button"
+          onClick={onCopy}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-[11px] hover:bg-accent/60"
+        >
+          {copied ? (
+            <>
+              <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+              Copied SQL
+            </>
+          ) : (
+            <>
+              <Copy className="h-3 w-3" />
+              Copy SQL
+            </>
+          )}
+        </button>
+      </div>
+
+      <div className="flex items-center gap-2 border-t border-border/40 pt-2.5">
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={isVerifying}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors",
+            isVerifying
+              ? "cursor-wait bg-muted text-muted-foreground"
+              : "bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25",
+          )}
+        >
+          {isVerifying ? (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Checking…
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="h-3 w-3" />
+              {hasAttempted ? "Check again" : "I ran it"}
+            </>
+          )}
+        </button>
+        <span className="text-[11px] text-muted-foreground">
+          We&apos;ll verify the schema landed.
+        </span>
+      </div>
+
+      {verifyError && (
+        <div className="space-y-1 border-t border-destructive/30 pt-2 text-[12px]">
+          <div className="text-destructive">{verifyError}</div>
+          {verifyHint && (
+            <div className="text-[11px] text-muted-foreground">{verifyHint}</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -767,6 +913,12 @@ function StatusIcon({ status }: { status: StepStatus }) {
     );
   if (status === "error")
     return <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />;
+  if (status === "awaiting")
+    return (
+      <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-amber-500/60">
+        <span className="block h-1 w-1 rounded-full bg-amber-500" />
+      </div>
+    );
   if (status === "skipped")
     return (
       <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-border/60">

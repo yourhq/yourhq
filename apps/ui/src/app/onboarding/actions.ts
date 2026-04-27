@@ -14,7 +14,7 @@ import {
   ACTIVE_PROJECT_COOKIE_OPTIONS,
 } from "@/lib/projects/cookie";
 import { validateSupabaseCreds } from "@/lib/projects/validate";
-import { installSchema } from "@/lib/projects/install-schema";
+import { prepareSchemaInstall, verifySchemaInstalled } from "@/lib/projects/install-schema";
 import { createAuthUser } from "@/lib/projects/create-user";
 import { detectCollisions } from "@/lib/projects/detect-collisions";
 import { parseSupabaseUrl, apiKeysDashboardUrl } from "@/lib/projects/parse-url";
@@ -267,54 +267,84 @@ export async function validateSupabaseCredsAction(
   return { ok: true, schemaInstalled: !schemaMissing };
 }
 
-export interface InstallSchemaResultAction extends ActionResult {
-  sqlFallback?: string;
+export interface PrepareSchemaInstallResult extends ActionResult {
+  sql?: string;
+  sqlEditorUrl?: string;
+  projectRef?: string | null;
 }
 
-/** Step 2 — install the schema via pg-meta. Idempotent (CREATE IF NOT EXISTS). */
-export async function installSchemaAction(
+/**
+ * Step 2a — prepare the schema migration.
+ *
+ * Cloud Supabase doesn't expose any HTTP endpoint that runs arbitrary
+ * SQL with just a service_role key, so we hand back the SQL + a
+ * deep-link to the user's SQL editor. The UI opens the link in a new
+ * tab, the user clicks Run, then comes back and we re-verify via
+ * `confirmSchemaInstalledAction`.
+ */
+export async function prepareSchemaInstallAction(
   input: z.infer<typeof credsSchema>,
-): Promise<InstallSchemaResultAction> {
-  console.log("[installSchemaAction] called");
+): Promise<PrepareSchemaInstallResult> {
+  console.log("[prepareSchemaInstallAction] called");
   const parsed = credsSchema.safeParse(input);
   if (!parsed.success) {
     console.error(
-      "[installSchemaAction] zod validation failed:",
+      "[prepareSchemaInstallAction] zod validation failed:",
       JSON.stringify(parsed.error.flatten()),
     );
     return { ok: false, error: "Missing creds." };
   }
-  console.log(
-    `[installSchemaAction] running against url=${parsed.data.url} ` +
-      `(serviceRoleKey length=${parsed.data.serviceRoleKey.length})`,
-  );
 
   try {
-    const install = await installSchema({
+    const r = await prepareSchemaInstall({
       url: parsed.data.url,
       serviceRoleKey: parsed.data.serviceRoleKey,
     });
-    if (!install.ok) {
-      console.error(
-        `[installSchemaAction] install failed: ${install.error}` +
-          (install.hint ? ` (hint: ${install.hint})` : ""),
-      );
-      return {
-        ok: false,
-        error: install.error,
-        hint: install.hint,
-        sqlFallback: install.sqlFallback,
-      };
+    if (!r.ok) {
+      console.error(`[prepareSchemaInstallAction] failed: ${r.error}`);
+      return { ok: false, error: r.error, hint: r.hint };
     }
-    console.log(`[installSchemaAction] success via ${install.endpoint}`);
-    return { ok: true };
-  } catch (err) {
-    console.error("[installSchemaAction] threw:", err);
     return {
-      ok: false,
-      error: `Schema install threw: ${(err as Error).message}`,
+      ok: true,
+      sql: r.sql,
+      sqlEditorUrl: r.sqlEditorUrl,
+      projectRef: r.projectRef,
     };
+  } catch (err) {
+    console.error("[prepareSchemaInstallAction] threw:", err);
+    return { ok: false, error: (err as Error).message };
   }
+}
+
+/**
+ * Step 2b — confirm the user actually ran the SQL.
+ *
+ * Probes the `workspace` table via REST. Returns ok if the migration
+ * landed, error otherwise (so the UI can keep them on the "did you run
+ * it?" step).
+ */
+export async function confirmSchemaInstalledAction(
+  input: z.infer<typeof credsSchema>,
+): Promise<ActionResult> {
+  console.log("[confirmSchemaInstalledAction] called");
+  const parsed = credsSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Missing creds." };
+  const ok = await verifySchemaInstalled({
+    url: parsed.data.url,
+    serviceRoleKey: parsed.data.serviceRoleKey,
+  });
+  if (ok) {
+    console.log("[confirmSchemaInstalledAction] schema verified");
+    return { ok: true };
+  }
+  console.warn("[confirmSchemaInstalledAction] workspace table not found yet");
+  return {
+    ok: false,
+    error: "We don't see the workspace table yet.",
+    hint:
+      "Make sure you clicked Run in the Supabase SQL editor — there should be a green " +
+      "“Success. No rows returned.” message at the bottom.",
+  };
 }
 
 // Caller-supplied creds are optional after the project is saved — at
