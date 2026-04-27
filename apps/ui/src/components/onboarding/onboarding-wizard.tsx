@@ -52,12 +52,34 @@ const STEP_ORDER: OnboardingStep[] = [
   "done",
 ];
 
+// Map legacy step values from earlier builds to the closest current
+// step. Without this, a user who completed Supabase + Account before we
+// removed the Networking step would land on `networking` (or `placement`
+// or `pipeline` etc.), which no longer renders, and end up stuck.
+function coerceStep(stored: OnboardingStep): OnboardingStep {
+  switch (stored) {
+    // These all happen *between* Account and the Gateway step in the
+    // new flow. Resume from Gateway.
+    case "networking":
+    case "placement":
+      return "gateway";
+    // Old wizard had pipeline/fields/streams as separate screens after
+    // workspace; the new flow seeds them automatically from the Context
+    // tile. If a user landed here mid-flow, the closest current step is
+    // Gateway (everything before is captured).
+    case "pipeline":
+    case "fields":
+    case "streams":
+    case "first_agent":
+    case "profile":
+      return "gateway";
+    default:
+      return STEP_ORDER.includes(stored) ? stored : "welcome";
+  }
+}
+
 export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
-  // Coerce any legacy step values to the nearest current step so users
-  // resuming from an older persisted state don't get stuck.
-  const initialStep = STEP_ORDER.includes(initial.step)
-    ? initial.step
-    : "workspace";
+  const initialStep = coerceStep(initial.step);
 
   const [step, setStep] = useState<OnboardingStep>(initialStep);
   const [data, setData] = useState<Record<string, unknown>>(initial.data);

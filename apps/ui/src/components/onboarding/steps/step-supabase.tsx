@@ -169,12 +169,13 @@ export function StepSupabase({ defaults, onComplete }: StepSupabaseProps) {
   const runAll = useCallback(async () => {
     const v = await runValidate();
     if (v === "fail") return;
-    if (v === "schemaMissing") {
-      const ok = await runInstall();
-      if (!ok) return;
-    } else {
-      setInstall({ status: "skipped" });
-    }
+    // Always run install — the migration is idempotent
+    // (CREATE TABLE IF NOT EXISTS, ALTER TABLE … ADD COLUMN IF NOT EXISTS).
+    // This means users who onboarded against an older HQ schema get any
+    // newly-added tables (e.g. gateway_registration_tokens) without
+    // having to manually paste SQL.
+    const ok = await runInstall();
+    if (!ok) return;
     await runSave();
   }, [runValidate, runInstall, runSave]);
 
