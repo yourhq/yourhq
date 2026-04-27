@@ -395,8 +395,10 @@ export async function createAuthUserAction(
         error: "No project configured — connect Supabase first.",
       };
     }
-    url = url ?? project.url;
-    serviceRoleKey = serviceRoleKey ?? project.serviceRoleKey;
+    // `||` (not `??`): the form sends empty strings rather than undefined
+    // when StepAccount doesn't have these values; treat empty as missing.
+    url = url || project.url;
+    serviceRoleKey = serviceRoleKey || project.serviceRoleKey;
     credsSource = "registry";
   }
   console.log(
