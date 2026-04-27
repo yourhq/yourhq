@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Database,
   ExternalLink,
@@ -8,20 +8,20 @@ import {
   CheckCircle2,
   Loader2,
   AlertCircle,
-  SkipForward,
   RotateCcw,
+  ArrowRight,
+  Globe,
+  KeyRound,
+  Lock,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 import {
+  validateProjectUrl,
   validateSupabaseCredsAction,
   installSchemaAction,
-  createAuthUserAction,
   saveProjectAction,
 } from "@/app/onboarding/actions";
-import { createBrowserClient } from "@supabase/ssr";
 
 export interface StepSupabaseProps {
   defaults: {
@@ -29,50 +29,213 @@ export interface StepSupabaseProps {
     workspaceEmoji: string;
     authEmail: string;
   };
-  // Called once the full Supabase phase is done. The wizard advances to
-  // the next step. All the substep state lives locally — the wizard just
-  // needs to know "we're done here."
   onComplete: (data: {
     workspaceLabel: string;
     workspaceEmoji: string;
     url: string;
-    authEmail?: string;
+    anonKey: string;
     projectId: string;
   }) => void;
 }
 
-type StepStatus = "idle" | "running" | "ok" | "error" | "skipped";
+type Phase = "brief" | "url" | "keys" | "provision";
 
+interface ResolvedUrl {
+  url: string;
+  ref?: string;
+  apiKeysUrl: string | null;
+}
+
+type StepStatus = "idle" | "running" | "ok" | "error" | "skipped";
 interface SubStepState {
   status: StepStatus;
   error?: string;
   hint?: string;
   sqlFallback?: string;
-  alreadyExists?: boolean;
+  collisionTables?: string[];
 }
-
-const INITIAL_STATE: SubStepState = { status: "idle" };
+const INITIAL: SubStepState = { status: "idle" };
 
 export function StepSupabase({ defaults, onComplete }: StepSupabaseProps) {
-  const [phase, setPhase] = useState<"create" | "paste" | "provision">("create");
+  const [phase, setPhase] = useState<Phase>("brief");
 
-  // Form inputs
+  // Workspace identity
   const [workspaceLabel, setWorkspaceLabel] = useState(defaults.workspaceLabel);
   const [workspaceEmoji, setWorkspaceEmoji] = useState(defaults.workspaceEmoji);
-  const [url, setUrl] = useState("");
+
+  // URL phase
+  const [urlInput, setUrlInput] = useState("");
+  const [resolved, setResolved] = useState<ResolvedUrl | null>(null);
+  const [urlError, setUrlError] = useState<string | null>(null);
+  const [urlPending, setUrlPending] = useState(false);
+
+  // Keys phase
   const [anonKey, setAnonKey] = useState("");
   const [serviceRoleKey, setServiceRoleKey] = useState("");
-  const [authEmail, setAuthEmail] = useState(defaults.authEmail);
-  const [authPassword, setAuthPassword] = useState("");
+  const [keysError, setKeysError] = useState<string | null>(null);
+  const [forceInstall, setForceInstall] = useState(false);
 
-  // Per-substep state. Each step reports its own status so a failure in
-  // one doesn't undo the others.
-  const [validate, setValidate] = useState<SubStepState>(INITIAL_STATE);
-  const [install, setInstall] = useState<SubStepState>(INITIAL_STATE);
-  const [createUser, setCreateUser] = useState<SubStepState>(INITIAL_STATE);
-  const [save, setSave] = useState<SubStepState>(INITIAL_STATE);
-
+  // Provision phase
+  const [validate, setValidate] = useState<SubStepState>(INITIAL);
+  const [install, setInstall] = useState<SubStepState>(INITIAL);
+  const [save, setSave] = useState<SubStepState>(INITIAL);
   const [copied, setCopied] = useState(false);
+
+  // ── Phase: brief ────────────────────────────────────────────────────
+
+  if (phase === "brief") {
+    return (
+      <div className="space-y-10 pt-8">
+        <div className="space-y-3">
+          <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70">
+            Database
+          </div>
+          <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight">
+            Connect your Supabase project.
+          </h1>
+          <p className="max-w-[44ch] text-[14px] leading-relaxed text-muted-foreground">
+            HQ stores everything — contacts, agents, content — in your own
+            Supabase. Free for personal use, your data, your control.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr]">
+          <a
+            href="https://supabase.com/dashboard/projects"
+            target="_blank"
+            rel="noreferrer"
+            className="group relative flex flex-col gap-3 rounded-xl border border-border/60 bg-gradient-to-br from-[#3ecf8e]/[0.06] to-card/40 p-5 text-left transition-all hover:border-[#3ecf8e]/40 hover:from-[#3ecf8e]/[0.1]"
+          >
+            <div className="flex items-center justify-between">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#3ecf8e]/15 text-[#3ecf8e]">
+                <Database className="h-4 w-4" />
+              </span>
+              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/60 transition-colors group-hover:text-foreground" />
+            </div>
+            <div>
+              <div className="text-[14px] font-semibold leading-tight">
+                Create a Supabase project
+              </div>
+              <p className="mt-1.5 text-[12px] leading-relaxed text-muted-foreground">
+                Free, no credit card. Takes ~2 minutes to provision. Come
+                back here when it&apos;s ready.
+              </p>
+            </div>
+          </a>
+
+          <button
+            type="button"
+            onClick={() => setPhase("url")}
+            className="group relative flex flex-col gap-3 rounded-xl border border-border/60 bg-card/40 p-5 text-left transition-all hover:border-border hover:bg-card/70"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted/60">
+              <KeyRound className="h-4 w-4" />
+            </span>
+            <div>
+              <div className="text-[14px] font-semibold leading-tight">
+                I already have a project
+              </div>
+              <p className="mt-1.5 text-[12px] leading-relaxed text-muted-foreground">
+                Skip ahead and paste your project URL.
+              </p>
+            </div>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            type="button"
+            onClick={() => setPhase("url")}
+            className="group inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-[13px] font-medium text-background transition-all hover:bg-foreground/90"
+          >
+            I&apos;m ready
+            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Phase: url ──────────────────────────────────────────────────────
+
+  if (phase === "url") {
+    return (
+      <UrlPhase
+        defaultUrl={urlInput}
+        pending={urlPending}
+        error={urlError}
+        onBack={() => setPhase("brief")}
+        onSubmit={async (val) => {
+          setUrlPending(true);
+          setUrlError(null);
+          const r = await validateProjectUrl({ url: val });
+          setUrlPending(false);
+          if (!r.ok || !r.url) {
+            setUrlError(r.error ?? "Invalid URL.");
+            return;
+          }
+          setUrlInput(r.url);
+          setResolved({
+            url: r.url,
+            ref: r.ref,
+            apiKeysUrl: r.apiKeysUrl ?? null,
+          });
+          setPhase("keys");
+        }}
+      />
+    );
+  }
+
+  // ── Phase: keys ─────────────────────────────────────────────────────
+
+  if (phase === "keys" && resolved) {
+    return (
+      <KeysPhase
+        url={resolved.url}
+        ref={resolved.ref}
+        apiKeysUrl={resolved.apiKeysUrl}
+        anonKey={anonKey}
+        serviceRoleKey={serviceRoleKey}
+        workspaceLabel={workspaceLabel}
+        workspaceEmoji={workspaceEmoji}
+        error={keysError}
+        onBack={() => setPhase("url")}
+        onChange={(patch) => {
+          if (patch.anonKey !== undefined) setAnonKey(patch.anonKey);
+          if (patch.serviceRoleKey !== undefined)
+            setServiceRoleKey(patch.serviceRoleKey);
+          if (patch.workspaceLabel !== undefined)
+            setWorkspaceLabel(patch.workspaceLabel);
+          if (patch.workspaceEmoji !== undefined)
+            setWorkspaceEmoji(patch.workspaceEmoji);
+        }}
+        onSubmit={() => {
+          if (!anonKey.trim() || !serviceRoleKey.trim()) {
+            setKeysError("Both keys are required.");
+            return;
+          }
+          setKeysError(null);
+          setForceInstall(false);
+          // Reset substep states for a fresh provision.
+          setValidate(INITIAL);
+          setInstall(INITIAL);
+          setSave(INITIAL);
+          setPhase("provision");
+        }}
+      />
+    );
+  }
+
+  // ── Phase: provision ────────────────────────────────────────────────
+
+  const creds =
+    resolved !== null
+      ? {
+          url: resolved.url,
+          anonKey: anonKey.trim(),
+          serviceRoleKey: serviceRoleKey.trim(),
+        }
+      : { url: "", anonKey: "", serviceRoleKey: "" };
 
   const copySql = async (s: string) => {
     try {
@@ -82,14 +245,20 @@ export function StepSupabase({ defaults, onComplete }: StepSupabaseProps) {
     } catch {}
   };
 
-  const creds = { url: url.trim(), anonKey: anonKey.trim(), serviceRoleKey: serviceRoleKey.trim() };
-
-  // ─── Step runners ───────────────────────────────────────────────────
-
   const runValidate = async (): Promise<"ok" | "schemaMissing" | "fail"> => {
     setValidate({ status: "running" });
     const r = await validateSupabaseCredsAction(creds);
     if (!r.ok) {
+      // Collision case — surface conflict details so user can choose path.
+      if (r.collisionTables && r.collisionTables.length > 0) {
+        setValidate({
+          status: "error",
+          error: r.error,
+          hint: r.hint,
+          collisionTables: r.collisionTables,
+        });
+        return "fail";
+      }
       setValidate({ status: "error", error: r.error, hint: r.hint });
       return "fail";
     }
@@ -113,75 +282,27 @@ export function StepSupabase({ defaults, onComplete }: StepSupabaseProps) {
     return true;
   };
 
-  const runCreate = async (): Promise<boolean> => {
-    setCreateUser({ status: "running" });
-    const r = await createAuthUserAction({
-      ...creds,
-      authEmail: authEmail.trim(),
-      authPassword,
-    });
-    if (!r.ok) {
-      setCreateUser({
-        status: "error",
-        error: r.error,
-        hint: r.hint,
-        alreadyExists: r.alreadyExists,
-      });
-      return false;
-    }
-    setCreateUser({ status: "ok" });
-    return true;
-  };
-
   const runSave = async (): Promise<boolean> => {
     setSave({ status: "running" });
     const r = await saveProjectAction({
       ...creds,
       workspaceLabel: workspaceLabel.trim() || "My workspace",
       workspaceEmoji,
-      authEmail: authEmail.trim() || undefined,
     });
     if (!r.ok || !r.projectId) {
       setSave({ status: "error", error: r.error, hint: r.hint });
       return false;
     }
-
-    // Auto-sign-in so the user never gets kicked to /login at the end of
-    // onboarding. We use the freshly-known URL + anonKey + the per-project
-    // cookie prefix the server factory + middleware agree on. This drops
-    // the session cookies into the browser for project r.projectId.
-    //
-    // If the user is on the "skipped — account already exists" path their
-    // password is still in the form, so this still works. If they cleared
-    // it somehow, the dashboard shell's SignInModal will pop naturally.
-    if (authPassword) {
-      try {
-        const cookiePrefix = `hq-${r.projectId.slice(0, 8)}`;
-        const client = createBrowserClient(creds.url, creds.anonKey, {
-          cookieOptions: { name: cookiePrefix },
-        });
-        await client.auth.signInWithPassword({
-          email: authEmail.trim(),
-          password: authPassword,
-        });
-      } catch {
-        // Sign-in failure here is non-fatal — the SignInModal will pop
-        // after onboarding and the user can finish from there.
-      }
-    }
-
     setSave({ status: "ok" });
     onComplete({
       workspaceLabel: workspaceLabel.trim(),
       workspaceEmoji,
-      url: url.trim(),
-      authEmail: authEmail.trim() || undefined,
+      url: creds.url,
+      anonKey: creds.anonKey,
       projectId: r.projectId,
     });
     return true;
   };
-
-  // ─── Main flow (clicked after "Paste keys" form) ────────────────────
 
   const runAll = async () => {
     const v = await runValidate();
@@ -192,216 +313,63 @@ export function StepSupabase({ defaults, onComplete }: StepSupabaseProps) {
     } else {
       setInstall({ status: "skipped" });
     }
-    const created = await runCreate();
-    if (!created) return; // user can skip + save manually
     await runSave();
   };
 
-  const handleStartProvisioning = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPhase("provision");
-    // Kick off immediately once the phase switches.
-    await runAll();
+  // Kick the whole sequence on first arrival to provision phase.
+  const startedRef = useRef(false);
+  useEffect(() => {
+    if (phase !== "provision") {
+      startedRef.current = false;
+      return;
+    }
+    if (startedRef.current) return;
+    startedRef.current = true;
+    void runAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
+  // Power-user override for the conflict case
+  const installAnyway = async () => {
+    setForceInstall(true);
+    setValidate({ status: "ok" });
+    const ok = await runInstall();
+    if (ok) await runSave();
   };
-
-  // Skip user creation (already exists → user signs in later)
-  const skipCreateAndSave = async () => {
-    setCreateUser({ status: "skipped" });
-    await runSave();
-  };
-
-  // ─── UI ─────────────────────────────────────────────────────────────
-
-  if (phase === "create") {
-    return (
-      <div className="space-y-6 pt-6">
-        <Header subtitle="Create your database" />
-
-        <div className="space-y-3 rounded-lg border border-border/60 bg-card/60 p-4">
-          <GuideStep number={1} title="Open Supabase">
-            <p className="text-[12px] leading-relaxed text-muted-foreground">
-              Sign in or create a free account.
-            </p>
-            <a
-              href="https://supabase.com/dashboard/projects"
-              target="_blank"
-              rel="noreferrer"
-              className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background px-3 py-1.5 text-[12px] font-medium hover:bg-accent/60"
-            >
-              Open Supabase <ExternalLink className="h-3 w-3" />
-            </a>
-          </GuideStep>
-
-          <GuideStep number={2} title="Create a new project">
-            <p className="text-[12px] leading-relaxed text-muted-foreground">
-              Click <span className="font-semibold">New project</span>, pick any
-              name, set a strong database password, choose a region close to
-              you. Provisioning takes ~2 minutes.
-            </p>
-          </GuideStep>
-
-          <GuideStep number={3} title="Copy your keys">
-            <p className="text-[12px] leading-relaxed text-muted-foreground">
-              In <span className="font-medium">Project Settings → API</span>,
-              copy these three values:
-            </p>
-            <ul className="mt-2 space-y-1 text-[12px] text-muted-foreground">
-              <li>• Project URL</li>
-              <li>• Anon (public) key</li>
-              <li>• Service role key</li>
-            </ul>
-          </GuideStep>
-        </div>
-
-        <div className="flex items-center justify-between pt-2">
-          <div className="text-[11px] text-muted-foreground/70">
-            We&apos;ll install the schema + create your account automatically.
-          </div>
-          <Button onClick={() => setPhase("paste")}>I&apos;ve got my keys →</Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (phase === "paste") {
-    return (
-      <form onSubmit={handleStartProvisioning} className="space-y-5 pt-6">
-        <Header subtitle="Connect your Supabase project" />
-
-        <div className="space-y-4 rounded-md border border-border/60 bg-card p-4">
-          <div className="grid grid-cols-[64px_1fr] gap-2">
-            <div className="space-y-1.5">
-              <Label className="text-[12px]">Icon</Label>
-              <Input
-                value={workspaceEmoji}
-                onChange={(e) => setWorkspaceEmoji(e.target.value)}
-                maxLength={8}
-                className="text-center text-base"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[12px]">Workspace name</Label>
-              <Input
-                value={workspaceLabel}
-                onChange={(e) => setWorkspaceLabel(e.target.value)}
-                maxLength={80}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-[12px]">Supabase project URL</Label>
-            <Input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://xxxxxxxx.supabase.co"
-              type="url"
-              className="font-mono text-[12px]"
-              required
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-[12px]">Anon (public) key</Label>
-            <Input
-              value={anonKey}
-              onChange={(e) => setAnonKey(e.target.value)}
-              placeholder="sb_publishable_… or eyJ…"
-              spellCheck={false}
-              autoComplete="off"
-              className="font-mono text-[12px]"
-              required
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-[12px]">Service role key</Label>
-            <Input
-              value={serviceRoleKey}
-              onChange={(e) => setServiceRoleKey(e.target.value)}
-              placeholder="sb_secret_… or eyJ…"
-              type="password"
-              spellCheck={false}
-              autoComplete="off"
-              className="font-mono text-[12px]"
-              required
-            />
-            <p className="text-[11px] text-muted-foreground/70">
-              Stored on this machine only in /config/secrets.json.
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-4 rounded-md border border-border/60 bg-card p-4">
-          <div className="text-[12px] font-medium text-muted-foreground">
-            Create your account
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-[12px]">Email</Label>
-            <Input
-              value={authEmail}
-              onChange={(e) => setAuthEmail(e.target.value)}
-              type="email"
-              placeholder="you@example.com"
-              autoComplete="email"
-              required
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-[12px]">Password</Label>
-            <Input
-              value={authPassword}
-              onChange={(e) => setAuthPassword(e.target.value)}
-              type="password"
-              placeholder="At least 6 characters"
-              autoComplete="new-password"
-              minLength={6}
-              required
-            />
-          </div>
-          <p className="text-[11px] text-muted-foreground/70">
-            If this email is already registered in your Supabase project, you
-            can skip account creation on the next step.
-          </p>
-        </div>
-
-        <div className="flex items-center justify-between pt-2">
-          <button
-            type="button"
-            onClick={() => setPhase("create")}
-            className="text-[12px] text-muted-foreground hover:text-foreground"
-          >
-            ← Back to instructions
-          </button>
-          <Button type="submit">Connect</Button>
-        </div>
-      </form>
-    );
-  }
-
-  // ── Provision phase: stepper with per-step retry/skip ────────────
-
-  const allDone =
-    validate.status === "ok" &&
-    (install.status === "ok" || install.status === "skipped") &&
-    (createUser.status === "ok" || createUser.status === "skipped") &&
-    save.status === "ok";
 
   return (
-    <div className="space-y-5 pt-6">
-      <Header subtitle="Setting up your workspace" />
+    <div className="space-y-8 pt-8">
+      <div className="space-y-3">
+        <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70">
+          Setting up
+        </div>
+        <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight">
+          Setting up your workspace.
+        </h1>
+        <p className="text-[14px] leading-relaxed text-muted-foreground">
+          This usually takes 5–10 seconds.
+        </p>
+      </div>
 
-      <div className="space-y-2 rounded-lg border border-border/60 bg-card/60 p-2">
+      <div className="space-y-2 rounded-xl border border-border/60 bg-card/40 p-2">
         <SubStepRow
-          label="Check connection"
-          desc="Reach Supabase and verify your keys."
+          label="Connect to Supabase"
+          desc={`Verify ${resolved?.url ?? ""} and your keys.`}
           state={validate}
           onRetry={runAll}
+          collisionAction={
+            validate.collisionTables && validate.collisionTables.length > 0 && !forceInstall
+              ? {
+                  conflictTables: validate.collisionTables,
+                  onUseSeparate: () => setPhase("brief"),
+                  onInstallAnyway: installAnyway,
+                }
+              : undefined
+          }
         />
         <SubStepRow
           label="Install schema"
-          desc="Create the tables, triggers, and RPCs HQ needs."
+          desc="Create the tables and functions HQ needs."
           state={install}
           onRetry={runInstall}
           fallback={
@@ -415,99 +383,322 @@ export function StepSupabase({ defaults, onComplete }: StepSupabaseProps) {
           }
         />
         <SubStepRow
-          label="Create your account"
-          desc={`Add ${authEmail || "your email"} to this workspace's Auth users.`}
-          state={createUser}
-          onRetry={runCreate}
-          onSkip={
-            createUser.alreadyExists ? skipCreateAndSave : undefined
-          }
-        />
-        <SubStepRow
           label="Save workspace"
-          desc="Store creds locally and finish."
+          desc="Store credentials locally on this machine."
           state={save}
           onRetry={runSave}
         />
       </div>
 
-      <div className="flex items-center justify-between pt-2">
+      <div className="flex items-center justify-between pt-1">
         <button
           type="button"
-          onClick={() => setPhase("paste")}
+          onClick={() => setPhase("keys")}
           className="text-[12px] text-muted-foreground hover:text-foreground"
         >
           ← Edit credentials
         </button>
-        {allDone && (
-          <div className="text-[12px] text-muted-foreground">
-            Done — advancing…
-          </div>
+      </div>
+    </div>
+  );
+}
+
+/* -------- URL phase -------- */
+
+function UrlPhase({
+  defaultUrl,
+  pending,
+  error,
+  onBack,
+  onSubmit,
+}: {
+  defaultUrl: string;
+  pending: boolean;
+  error: string | null;
+  onBack: () => void;
+  onSubmit: (url: string) => void;
+}) {
+  const [val, setVal] = useState(defaultUrl);
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const t = setTimeout(() => ref.current?.focus(), 250);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (val.trim()) onSubmit(val.trim());
+      }}
+      className="space-y-10 pt-8"
+    >
+      <div className="space-y-3">
+        <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70">
+          Database · Step 1 of 2
+        </div>
+        <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight">
+          Paste your project URL.
+        </h1>
+        <p className="max-w-[44ch] text-[14px] leading-relaxed text-muted-foreground">
+          Find this on your Supabase project&apos;s home page, or copy it
+          straight from the address bar.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        <label className="flex items-center gap-2 text-[12px] font-medium text-muted-foreground">
+          <Globe className="h-3.5 w-3.5" />
+          Project URL
+        </label>
+        <input
+          ref={ref}
+          type="url"
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          placeholder="https://xxxxxxxx.supabase.co"
+          className="w-full border-0 border-b border-border/60 bg-transparent pb-2 font-mono text-[16px] outline-none transition-colors placeholder:text-muted-foreground/30 focus:border-foreground"
+          autoComplete="off"
+          spellCheck={false}
+          required
+        />
+        {error && (
+          <p className="text-[12px] text-destructive">{error}</p>
         )}
       </div>
-    </div>
-  );
-}
 
-// ─── Sub-components ─────────────────────────────────────────────────
-
-function Header({ subtitle }: { subtitle: string }) {
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#3ecf8e]/10 text-[#3ecf8e]">
-          <Database className="h-3.5 w-3.5" />
-        </div>
-        <span className="text-[12px] font-medium uppercase tracking-wider text-muted-foreground">
-          Supabase
-        </span>
+      <div className="flex items-center gap-3 pt-2">
+        <button
+          type="submit"
+          disabled={!val.trim() || pending}
+          className={cn(
+            "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all",
+            !val.trim() || pending
+              ? "cursor-not-allowed bg-muted text-muted-foreground/50"
+              : "bg-foreground text-background hover:bg-foreground/90",
+          )}
+        >
+          {pending ? "Checking…" : "Continue"}
+          {!pending && (
+            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-[12px] text-muted-foreground hover:text-foreground"
+        >
+          ← Back
+        </button>
       </div>
-      <h1 className="text-[22px] font-semibold tracking-tight">{subtitle}</h1>
-    </div>
+    </form>
   );
 }
 
-function GuideStep({
-  number,
-  title,
-  children,
+/* -------- Keys phase -------- */
+
+function KeysPhase({
+  url,
+  ref,
+  apiKeysUrl,
+  anonKey,
+  serviceRoleKey,
+  workspaceLabel,
+  workspaceEmoji,
+  error,
+  onBack,
+  onChange,
+  onSubmit,
 }: {
-  number: number;
-  title: string;
-  children: React.ReactNode;
+  url: string;
+  ref?: string;
+  apiKeysUrl: string | null;
+  anonKey: string;
+  serviceRoleKey: string;
+  workspaceLabel: string;
+  workspaceEmoji: string;
+  error: string | null;
+  onBack: () => void;
+  onChange: (patch: {
+    anonKey?: string;
+    serviceRoleKey?: string;
+    workspaceLabel?: string;
+    workspaceEmoji?: string;
+  }) => void;
+  onSubmit: () => void;
 }) {
   return (
-    <div className="flex gap-3">
-      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-foreground text-[10px] font-medium text-background">
-        {number}
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit();
+      }}
+      className="space-y-8 pt-8"
+    >
+      <div className="space-y-3">
+        <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70">
+          Database · Step 2 of 2
+        </div>
+        <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight">
+          Now grab your API keys.
+        </h1>
+        <p className="max-w-[48ch] text-[14px] leading-relaxed text-muted-foreground">
+          Open the API keys page in Supabase and copy both values below.
+          Both stay on this machine in <span className="font-mono">/config/secrets.json</span>.
+        </p>
       </div>
-      <div className="flex-1 space-y-1 pb-2">
-        <div className="text-[13px] font-medium">{title}</div>
-        {children}
+
+      {apiKeysUrl ? (
+        <a
+          href={apiKeysUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="group flex items-center gap-3 rounded-xl border border-border/60 bg-gradient-to-br from-[#3ecf8e]/[0.06] to-card/40 p-4 transition-all hover:border-[#3ecf8e]/40"
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#3ecf8e]/15 text-[#3ecf8e]">
+            <ExternalLink className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-semibold">
+              Open API keys for {ref}
+            </div>
+            <div className="truncate font-mono text-[11px] text-muted-foreground">
+              supabase.com/dashboard/project/{ref}/settings/api-keys
+            </div>
+          </div>
+          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/60 transition-all group-hover:translate-x-0.5 group-hover:text-foreground" />
+        </a>
+      ) : (
+        <div className="rounded-xl border border-border/60 bg-card/40 p-4 text-[12px] text-muted-foreground">
+          Self-hosted Supabase — find your keys in your instance&apos;s
+          dashboard under Settings → API.
+        </div>
+      )}
+
+      <div className="space-y-5">
+        <div className="space-y-2.5">
+          <label className="flex items-center gap-2 text-[12px] font-medium text-muted-foreground">
+            <KeyRound className="h-3.5 w-3.5" />
+            Anon (public) key
+          </label>
+          <input
+            type="text"
+            value={anonKey}
+            onChange={(e) => onChange({ anonKey: e.target.value })}
+            placeholder="sb_publishable_…"
+            spellCheck={false}
+            autoComplete="off"
+            className="w-full border-0 border-b border-border/60 bg-transparent pb-2 font-mono text-[13px] outline-none transition-colors placeholder:text-muted-foreground/30 focus:border-foreground"
+            required
+          />
+          <p className="text-[11px] text-muted-foreground/60">
+            Lets HQ talk to your database.
+          </p>
+        </div>
+
+        <div className="space-y-2.5">
+          <label className="flex items-center gap-2 text-[12px] font-medium text-muted-foreground">
+            <Lock className="h-3.5 w-3.5" />
+            Service role key
+          </label>
+          <input
+            type="password"
+            value={serviceRoleKey}
+            onChange={(e) => onChange({ serviceRoleKey: e.target.value })}
+            placeholder="sb_secret_…"
+            spellCheck={false}
+            autoComplete="off"
+            className="w-full border-0 border-b border-border/60 bg-transparent pb-2 font-mono text-[13px] outline-none transition-colors placeholder:text-muted-foreground/30 focus:border-foreground"
+            required
+          />
+          <p className="text-[11px] text-muted-foreground/60">
+            Lets HQ install the schema. Stays on this machine.
+          </p>
+        </div>
       </div>
-    </div>
+
+      <details className="rounded-xl border border-border/40 bg-card/20 p-3">
+        <summary className="cursor-pointer text-[12px] text-muted-foreground hover:text-foreground">
+          Workspace details (optional)
+        </summary>
+        <div className="mt-3 grid grid-cols-[64px_1fr] gap-2.5">
+          <div className="space-y-1.5">
+            <label className="text-[11px] text-muted-foreground">Icon</label>
+            <Input
+              value={workspaceEmoji}
+              onChange={(e) => onChange({ workspaceEmoji: e.target.value })}
+              maxLength={8}
+              className="text-center"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[11px] text-muted-foreground">
+              Workspace name
+            </label>
+            <Input
+              value={workspaceLabel}
+              onChange={(e) => onChange({ workspaceLabel: e.target.value })}
+              maxLength={80}
+            />
+          </div>
+        </div>
+      </details>
+
+      {error && (
+        <p className="text-[12px] text-destructive">{error}</p>
+      )}
+
+      <div className="flex items-center gap-3 pt-2">
+        <button
+          type="submit"
+          disabled={!anonKey.trim() || !serviceRoleKey.trim()}
+          className={cn(
+            "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all",
+            !anonKey.trim() || !serviceRoleKey.trim()
+              ? "cursor-not-allowed bg-muted text-muted-foreground/50"
+              : "bg-foreground text-background hover:bg-foreground/90",
+          )}
+        >
+          Connect
+          <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+        </button>
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-[12px] text-muted-foreground hover:text-foreground"
+        >
+          ← Back
+        </button>
+      </div>
+    </form>
   );
 }
+
+/* -------- Sub-step row -------- */
 
 function SubStepRow({
   label,
   desc,
   state,
   onRetry,
-  onSkip,
   fallback,
+  collisionAction,
 }: {
   label: string;
   desc: string;
   state: SubStepState;
   onRetry?: () => void;
-  onSkip?: () => void;
   fallback?: { sql: string; copied: boolean; onCopy: () => void };
+  collisionAction?: {
+    conflictTables: string[];
+    onUseSeparate: () => void;
+    onInstallAnyway: () => void;
+  };
 }) {
   return (
     <div
       className={cn(
-        "rounded-md border px-3 py-2.5",
+        "rounded-lg border px-3 py-2.5 transition-colors",
         state.status === "ok"
           ? "border-emerald-500/30 bg-emerald-500/5"
           : state.status === "error"
@@ -529,35 +720,46 @@ function SubStepRow({
           <p className="text-[11px] text-muted-foreground">{desc}</p>
 
           {state.status === "error" && (
-            <div className="space-y-1 pt-1 text-[12px]">
+            <div className="space-y-1.5 pt-1 text-[12px]">
               <div className="text-destructive">{state.error}</div>
               {state.hint && (
-                <div className="text-muted-foreground text-[11px]">
+                <div className="text-[11px] text-muted-foreground">
                   {state.hint}
                 </div>
               )}
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                {onRetry && (
+
+              {collisionAction ? (
+                <div className="mt-2 flex flex-col gap-2">
                   <button
                     type="button"
-                    onClick={onRetry}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background px-2 py-1 text-[11px] hover:bg-accent/60"
+                    onClick={collisionAction.onUseSeparate}
+                    className="inline-flex w-fit items-center gap-1.5 rounded-md border border-border/60 bg-background px-2.5 py-1 text-[11px] font-medium hover:bg-accent/60"
                   >
-                    <RotateCcw className="h-3 w-3" />
-                    Retry
+                    Use a separate Supabase project
                   </button>
-                )}
-                {onSkip && (
                   <button
                     type="button"
-                    onClick={onSkip}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background px-2 py-1 text-[11px] hover:bg-accent/60"
+                    onClick={collisionAction.onInstallAnyway}
+                    className="inline-flex w-fit items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] text-muted-foreground hover:text-foreground"
                   >
-                    <SkipForward className="h-3 w-3" />
-                    Skip — my account already exists
+                    I know what I&apos;m doing — install anyway
                   </button>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {onRetry && (
+                    <button
+                      type="button"
+                      onClick={onRetry}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background px-2 py-1 text-[11px] hover:bg-accent/60"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      Retry
+                    </button>
+                  )}
+                </div>
+              )}
+
               {fallback && (
                 <div className="mt-2 space-y-1 rounded-md border border-amber-500/40 bg-amber-500/5 p-2">
                   <p className="text-[11px] text-muted-foreground">
@@ -595,7 +797,9 @@ function StatusIcon({ status }: { status: StepStatus }) {
   if (status === "ok")
     return <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />;
   if (status === "running")
-    return <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-foreground/70" />;
+    return (
+      <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-foreground/70" />
+    );
   if (status === "error")
     return <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />;
   if (status === "skipped")
@@ -604,7 +808,5 @@ function StatusIcon({ status }: { status: StepStatus }) {
         <span className="block h-1 w-1 rounded-full bg-muted-foreground/40" />
       </div>
     );
-  return (
-    <div className="mt-0.5 h-4 w-4 shrink-0 rounded-full border border-border/60" />
-  );
+  return <div className="mt-0.5 h-4 w-4 shrink-0 rounded-full border border-border/60" />;
 }

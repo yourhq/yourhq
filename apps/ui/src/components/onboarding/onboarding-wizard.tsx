@@ -24,6 +24,7 @@ import { StepWelcome } from "./steps/step-welcome";
 import { StepContext } from "./steps/step-context";
 import { StepPlacement } from "./steps/step-placement";
 import { StepSupabase } from "./steps/step-supabase";
+import { StepAccount } from "./steps/step-account";
 import { StepNetworking } from "./steps/step-networking";
 import { StepGateway } from "./steps/step-gateway";
 import { StepWorkspace } from "./steps/step-workspace";
@@ -42,6 +43,7 @@ const STEP_ORDER: OnboardingStep[] = [
   "context",
   "placement",
   "supabase",
+  "account",
   "networking",
   "gateway",
   "workspace",
@@ -53,6 +55,7 @@ const STEP_LABELS: Record<OnboardingStep, string> = {
   context: "Context",
   placement: "Where agents run",
   supabase: "Supabase",
+  account: "Account",
   networking: "Networking",
   gateway: "Gateway",
   workspace: "Workspace",
@@ -136,20 +139,27 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
   };
 
   // ─── Supabase (self-contained sub-stepper) ───
+  // Advances to the Account step. We carry url + anonKey + projectId
+  // forward so StepAccount can sign in client-side without round-tripping
+  // through the server.
   const handleSupabaseComplete = (result: {
     workspaceLabel: string;
     workspaceEmoji: string;
     url: string;
-    authEmail?: string;
+    anonKey: string;
     projectId: string;
   }) => {
     patch({
       workspaceLabel: result.workspaceLabel,
       workspaceEmoji: result.workspaceEmoji,
       supabaseUrl: result.url,
-      authEmail: result.authEmail,
+      supabaseAnonKey: result.anonKey,
       projectId: result.projectId,
     });
+    go("account");
+  };
+
+  const handleAccountComplete = () => {
     go("networking");
   };
 
@@ -351,6 +361,20 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
                   authEmail: (data.authEmail as string) ?? "",
                 }}
                 onComplete={handleSupabaseComplete}
+              />
+            )}
+
+            {step === "account" && (
+              <StepAccount
+                url={(data.supabaseUrl as string) ?? ""}
+                anonKey={(data.supabaseAnonKey as string) ?? ""}
+                projectId={(data.projectId as string) ?? ""}
+                defaultEmail={(data.authEmail as string) ?? ""}
+                workspaceLabel={
+                  (data.workspaceLabel as string) ?? "Workspace"
+                }
+                workspaceEmoji={(data.workspaceEmoji as string) ?? "🏠"}
+                onComplete={handleAccountComplete}
               />
             )}
 

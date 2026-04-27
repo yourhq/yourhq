@@ -16,6 +16,8 @@ import {
 import { validateSupabaseCreds } from "@/lib/projects/validate";
 import { installSchema } from "@/lib/projects/install-schema";
 import { createAuthUser } from "@/lib/projects/create-user";
+import { detectCollisions } from "@/lib/projects/detect-collisions";
+import { parseSupabaseUrl, apiKeysDashboardUrl } from "@/lib/projects/parse-url";
 import { detectTailscale } from "@/lib/tailscale/detect";
 import { mintGatewayToken, checkTokenConsumed } from "@/lib/gateways/mint-token";
 import {
@@ -29,6 +31,7 @@ export type OnboardingStep =
   | "context"
   | "placement"
   | "supabase"
+  | "account"
   | "networking"
   | "gateway"
   | "workspace"
@@ -116,18 +119,55 @@ export async function savePlacement(
 
 // ─── Supabase: sub-step actions ─────────────────────────────────────────
 //
-// The Supabase onboarding phase is a 4-step stepper instead of one big
-// submit:
+// The Supabase onboarding phase happens in three UI sub-screens:
 //
-//   1. Validate   — probe the URL + keys, confirm we can reach Supabase
-//   2. Install    — run 001_schema.sql via pg-meta (idempotent)
-//   3. Create     — make the first Supabase Auth user
-//   4. Save       — write creds to the registry + mark step complete
+//   brief    — explainer: what Supabase is, link to create a project
+//   url      — single input: paste your project URL, we validate format
+//              and resolve the project ref so we can deep-link to keys
+//   keys     — paste anon + service role; we deep-link straight to the
+//              specific page in their Supabase project that has them
+//   provision — automated stepper:
+//                 1. Check connection
+//                 2. Detect collisions (existing app in this project?)
+//                 3. Install schema (skipped if already installed)
+//                 4. Save workspace to registry
 //
-// Each step reports independently so a failure (e.g. "user already
-// exists") doesn't roll back the ones that already succeeded. The UI
-// shows per-step status, retry buttons, and optional skip (e.g. skip
-// user creation if the user wants to reuse an existing account).
+// Account creation is a separate later screen so the user understands
+// "this is my login," not "yet another form."
+
+// ── Step: validate URL only (project ref extraction) ─────────────────
+
+const urlOnlySchema = z.object({
+  url: z.string().min(1),
+});
+
+export interface ValidateUrlResult extends ActionResult {
+  url?: string;
+  ref?: string;
+  isCloudHosted?: boolean;
+  apiKeysUrl?: string | null;
+}
+
+export async function validateProjectUrl(
+  input: z.infer<typeof urlOnlySchema>,
+): Promise<ValidateUrlResult> {
+  const parsed = urlOnlySchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "Project URL is required." };
+  }
+
+  const r = parseSupabaseUrl(parsed.data.url);
+  if (!r.ok) {
+    return { ok: false, error: r.error ?? "Invalid URL." };
+  }
+  return {
+    ok: true,
+    url: r.url,
+    ref: r.ref,
+    isCloudHosted: r.isCloudHosted,
+    apiKeysUrl: apiKeysDashboardUrl(r.ref),
+  };
+}
 
 const credsSchema = z.object({
   url: z.string().url(),
@@ -137,9 +177,13 @@ const credsSchema = z.object({
 
 export interface ValidateResult extends ActionResult {
   schemaInstalled: boolean;
+  // If we detected a non-HQ app already living in `public`, return what
+  // we found. The UI surfaces a "use a separate project" + "install
+  // anyway" path.
+  collisionTables?: string[];
 }
 
-/** Step 1 — just checks the URL + keys are reachable. */
+/** Step 1 — confirm the keys reach Supabase + detect schema state. */
 export async function validateSupabaseCredsAction(
   input: z.infer<typeof credsSchema>,
 ): Promise<ValidateResult> {
@@ -163,6 +207,27 @@ export async function validateSupabaseCredsAction(
       hint: validation.hint,
       schemaInstalled: false,
     };
+  }
+
+  // Collision check: do they have an existing app in this project that
+  // would clash with HQ's tables?
+  if (schemaMissing) {
+    const collisions = await detectCollisions({
+      url: parsed.data.url,
+      serviceRoleKey: parsed.data.serviceRoleKey,
+    });
+    if (collisions.status === "conflict") {
+      return {
+        ok: false,
+        error:
+          "This Supabase project has tables that conflict with HQ.",
+        hint:
+          `Found ${collisions.conflicts.join(", ")} with different shapes than HQ expects. ` +
+          "Installing here would either fail or break your existing app.",
+        schemaInstalled: false,
+        collisionTables: collisions.conflicts,
+      };
+    }
   }
 
   return { ok: true, schemaInstalled: !schemaMissing };
@@ -196,7 +261,12 @@ export async function installSchemaAction(
   return { ok: true };
 }
 
-const createUserInputSchema = credsSchema.extend({
+// Caller-supplied creds are optional after the project is saved — at
+// that point we can resolve url + serviceRoleKey from the registry.
+const createUserInputSchema = z.object({
+  url: z.string().url().optional(),
+  anonKey: z.string().optional(),
+  serviceRoleKey: z.string().optional(),
   authEmail: z.string().email(),
   authPassword: z.string().min(6).max(128),
 });
@@ -207,7 +277,7 @@ export interface CreateUserResult extends ActionResult {
   alreadyExists?: boolean;
 }
 
-/** Step 3 — create the Supabase Auth user. Can be skipped if it exists. */
+/** Create the Supabase Auth user. */
 export async function createAuthUserAction(
   input: z.infer<typeof createUserInputSchema>,
 ): Promise<CreateUserResult> {
@@ -215,9 +285,28 @@ export async function createAuthUserAction(
   if (!parsed.success) {
     return { ok: false, error: "Missing email or password." };
   }
+
+  // If creds weren't supplied, look them up from the registry (the
+  // common case: the project is already saved, the StepAccount component
+  // doesn't need to round-trip the service_role_key from the browser).
+  let url = parsed.data.url;
+  let serviceRoleKey = parsed.data.serviceRoleKey;
+  if (!url || !serviceRoleKey) {
+    const { getActiveProjectWithSecrets } = await import("@/lib/projects/registry");
+    const project = await getActiveProjectWithSecrets();
+    if (!project) {
+      return {
+        ok: false,
+        error: "No project configured — connect Supabase first.",
+      };
+    }
+    url = url ?? project.url;
+    serviceRoleKey = serviceRoleKey ?? project.serviceRoleKey;
+  }
+
   const r = await createAuthUser({
-    url: parsed.data.url,
-    serviceRoleKey: parsed.data.serviceRoleKey,
+    url,
+    serviceRoleKey,
     email: parsed.data.authEmail,
     password: parsed.data.authPassword,
   });
@@ -267,7 +356,7 @@ export async function saveProjectAction(
   jar.set(ACTIVE_PROJECT_COOKIE, project.id, ACTIVE_PROJECT_COOKIE_OPTIONS);
 
   await patchOnboardingState({
-    step: "networking",
+    step: "account",
     data: {
       projectId: project.id,
       supabaseUrl: parsed.data.url,
@@ -276,6 +365,34 @@ export async function saveProjectAction(
   });
 
   return { ok: true, projectId: project.id };
+}
+
+// ─── Account step ──────────────────────────────────────────────────────
+//
+// After Supabase is provisioned, the user creates (or signs in to) the
+// auth account that lets them use HQ. The action just persists "we
+// finished the account step" — the actual email + password handling
+// happens client-side via the browser Supabase client (auto-sign-in).
+
+const accountDoneSchema = z.object({
+  email: z.string().email(),
+  // Whether this was a fresh create or a sign-in to existing.
+  mode: z.enum(["created", "signed_in"]).default("created"),
+});
+
+export async function markAccountDone(
+  input: z.infer<typeof accountDoneSchema>,
+): Promise<ActionResult> {
+  const parsed = accountDoneSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+  await patchOnboardingState({
+    step: "networking",
+    data: {
+      authEmail: parsed.data.email,
+      authMode: parsed.data.mode,
+    },
+  });
+  return { ok: true };
 }
 
 // ─── Networking: detect Tailscale, advance ──────────────────────────────

@@ -42,6 +42,7 @@ export const onboardingStateSchema = z.object({
     "context",
     "placement",
     "supabase",
+    "account",
     "networking",
     "gateway",
     "workspace",
