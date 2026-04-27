@@ -6,25 +6,20 @@ import { cn } from "@/lib/utils";
 import {
   saveWelcome,
   saveContext,
-  savePlacement,
-  getNetworkingStatus,
-  saveNetworking,
   startLocalGatewayAction,
   mintGatewayTokenAction,
   pollLocalGateway,
   pollRemoteGatewayToken,
   advanceAfterGateway,
   saveWorkspaceStep,
+  saveGatewaySetup,
   type OnboardingStep,
-  type NetworkingStatus,
   type GatewayBootstrap,
 } from "@/app/onboarding/actions";
 import { StepWelcome } from "./steps/step-welcome";
 import { StepContext } from "./steps/step-context";
-import { StepPlacement } from "./steps/step-placement";
 import { StepSupabase } from "./steps/step-supabase";
 import { StepAccount } from "./steps/step-account";
-import { StepNetworking } from "./steps/step-networking";
 import { StepGateway } from "./steps/step-gateway";
 import { StepWorkspace } from "./steps/step-workspace";
 import { StepDone } from "./steps/step-done";
@@ -34,18 +29,25 @@ export interface WizardInitialState {
   data: Record<string, unknown>;
 }
 
-// Canonical ordering. Workspace identity is captured early — right
-// after Welcome — because the workspace name shows up across the
-// product (sidebar, page titles, agent branch prefixes, audit log).
-// It belongs to *the user's HQ*, not to Supabase plumbing.
+// Canonical ordering.
+//
+// Two clusters of consecutive concerns: data ("your HQ" + Supabase) and
+// infrastructure (Gateway). Networking is no longer its own step — it
+// surfaces inside the Gateway step (Tailscale auth key only when the
+// user picks "remote", since that's when Tailscale is genuinely
+// required). For local installs, the entire networking question
+// disappears; users discover it later via Settings → Networking when
+// they actually want phone/tablet access.
+//
+// Placement is also folded into the Gateway step's first phase — same
+// reasoning, networking-style: it's a property of "where does the
+// gateway run," not a standalone decision.
 const STEP_ORDER: OnboardingStep[] = [
   "welcome",
   "workspace",
   "context",
-  "placement",
   "supabase",
   "account",
-  "networking",
   "gateway",
   "done",
 ];
@@ -62,11 +64,12 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [netStatus, setNetStatus] = useState<NetworkingStatus | null>(null);
   const [gateway, setGateway] = useState<GatewayBootstrap | null>(null);
   const [localStartError, setLocalStartError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Placement lives inside data now — set when the user clicks a tile
+  // on the first phase of the Gateway step.
   const placement = (data.placement as "local" | "remote" | undefined) ?? null;
   const visibleSteps = STEP_ORDER;
   const stepIndex = visibleSteps.indexOf(step);
@@ -106,16 +109,6 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
       const r = await saveContext({ presetKey });
       if (!r.ok) return setError(r.error ?? "Something went wrong");
       patch({ contextPresetKey: presetKey });
-      go("placement");
-    });
-  };
-
-  // ─── Placement ───
-  const submitPlacement = (placement: "local" | "remote") => {
-    startTransition(async () => {
-      const r = await savePlacement({ placement });
-      if (!r.ok) return setError(r.error ?? "Something went wrong");
-      patch({ placement });
       go("supabase");
     });
   };
@@ -142,28 +135,17 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
   };
 
   const handleAccountComplete = () => {
-    go("networking");
+    go("gateway");
   };
 
-  // ─── Networking ───
-  useEffect(() => {
-    if (step !== "networking") return;
-    let alive = true;
-    (async () => {
-      const s = await getNetworkingStatus();
-      if (alive) setNetStatus(s);
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [step]);
-
-  const submitNetworking = (useTailscale: boolean) => {
+  // Placement is captured at the top of the Gateway step (the user picks
+  // local vs remote on a tile). It's a sub-phase of Gateway, not its own
+  // step. We persist it into onboarding state so refresh resumes correctly.
+  const submitPlacement = (chosen: "local" | "remote") => {
     startTransition(async () => {
-      const r = await saveNetworking({ useTailscale });
+      const r = await saveGatewaySetup({ placement: chosen });
       if (!r.ok) return setError(r.error ?? "Something went wrong");
-      patch({ useTailscale });
-      go("gateway");
+      patch({ placement: chosen });
     });
   };
 
@@ -181,17 +163,25 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
           setLocalStartError(started.error ?? "Docker unreachable");
         }
       });
-    } else if (placement === "remote" && !gateway?.token) {
+    } else if (placement === "remote") {
+      // Only mint the token after the user has either provided a
+      // Tailscale auth key or explicitly skipped (data.tailscaleAuthKey
+      // is set or empty string). When undefined we're still waiting
+      // for them to fill it in on the Tailscale sub-phase.
+      const tsKey = data.tailscaleAuthKey;
+      if (tsKey === undefined) return;
+      if (gateway?.token) return; // already minted
       startTransition(async () => {
         const minted = await mintGatewayTokenAction({
           label: (data.gatewayName as string | undefined) ?? "Gateway",
+          tailscaleAuthKey: typeof tsKey === "string" ? tsKey : "",
         });
         if (minted.ok && minted.data) setGateway(minted.data);
         else setError(minted.error ?? "Couldn't generate registration token");
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, placement]);
+  }, [step, placement, data.tailscaleAuthKey]);
 
   useEffect(() => {
     if (step !== "gateway" || !gateway) return;
@@ -339,14 +329,6 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
               />
             )}
 
-            {step === "placement" && (
-              <StepPlacement
-                ownerName={(data.ownerName as string) ?? ""}
-                onSubmit={submitPlacement}
-                pending={pending}
-              />
-            )}
-
             {step === "supabase" && (
               <StepSupabase
                 defaults={{
@@ -376,30 +358,23 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
               />
             )}
 
-            {step === "networking" && (
-              <StepNetworking
-                placement={placement ?? "local"}
-                status={netStatus}
-                onSubmit={submitNetworking}
-                onRefresh={async () => {
-                  const s = await getNetworkingStatus();
-                  setNetStatus(s);
-                }}
-                pending={pending}
-              />
-            )}
-
             {step === "gateway" && (
               <StepGateway
-                placement={placement ?? "local"}
+                placement={placement}
                 bootstrap={gateway}
                 localError={localStartError}
+                onChoosePlacement={submitPlacement}
+                onProvideTailscaleKey={(key) => {
+                  patch({ tailscaleAuthKey: key });
+                }}
                 onContinue={advanceFromGateway}
                 onRegenerateToken={() => {
                   startTransition(async () => {
                     const r = await mintGatewayTokenAction({
                       label:
                         (data.gatewayName as string | undefined) ?? "Gateway",
+                      tailscaleAuthKey:
+                        (data.tailscaleAuthKey as string | undefined) ?? "",
                     });
                     if (r.ok && r.data) setGateway(r.data);
                   });

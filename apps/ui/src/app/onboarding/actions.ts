@@ -92,13 +92,18 @@ export async function saveContext(
   if (!parsed.success) return { ok: false, error: parsed.error.message };
 
   await patchOnboardingState({
-    step: "placement",
+    step: "supabase",
     data: { contextPresetKey: parsed.data.presetKey },
   });
   return { ok: true };
 }
 
 // ─── Placement: local vs. separate machine ──────────────────────────────
+//
+// savePlacement is kept for backward compat with persisted onboarding
+// state from older builds. The new flow folds this into the Gateway step
+// (see saveGatewaySetup below) — there's no longer a standalone
+// placement screen.
 
 const placementSchema = z.object({
   placement: z.enum(["local", "remote"]),
@@ -113,6 +118,35 @@ export async function savePlacement(
   await patchOnboardingState({
     step: "supabase",
     data: { placement: parsed.data.placement },
+  });
+  return { ok: true };
+}
+
+// ─── Gateway placement (sub-phase of the Gateway step) ──────────────────
+//
+// Persists the user's placement choice (local vs. remote) without
+// advancing the step — they're still on `gateway` while the bootstrap
+// runs. The wizard reacts to the placement value to render the right
+// sub-phase.
+
+const gatewaySetupSchema = z.object({
+  placement: z.enum(["local", "remote"]),
+  tailscaleAuthKey: z.string().optional(),
+});
+
+export async function saveGatewaySetup(
+  input: z.infer<typeof gatewaySetupSchema>,
+): Promise<ActionResult> {
+  const parsed = gatewaySetupSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+
+  await patchOnboardingState({
+    data: {
+      placement: parsed.data.placement,
+      ...(parsed.data.tailscaleAuthKey
+        ? { tailscaleAuthKey: parsed.data.tailscaleAuthKey }
+        : {}),
+    },
   });
   return { ok: true };
 }
@@ -386,7 +420,7 @@ export async function markAccountDone(
   const parsed = accountDoneSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.message };
   await patchOnboardingState({
-    step: "networking",
+    step: "gateway",
     data: {
       authEmail: parsed.data.email,
       authMode: parsed.data.mode,
@@ -477,6 +511,10 @@ export async function startLocalGatewayAction(): Promise<ActionResult<GatewayBoo
 
 export async function mintGatewayTokenAction(input: {
   label?: string;
+  // Optional Tailscale auth key. When present, embedded into the
+  // remote-install one-liner so the gateway joins the user's tailnet
+  // on first boot.
+  tailscaleAuthKey?: string;
 }): Promise<ActionResult<GatewayBootstrap>> {
   const state = await getOnboardingState();
   const project = await getActiveProject(
@@ -492,11 +530,15 @@ export async function mintGatewayTokenAction(input: {
   // Build the one-liner. The remote install script fetches itself from
   // the raw GitHub URL so it works even when install.yourhq.ai hasn't
   // been set up yet — same approach as install.sh.
+  const tsLine = input.tailscaleAuthKey?.trim()
+    ? [`    TAILSCALE_AUTH_KEY=${input.tailscaleAuthKey.trim()} \\`]
+    : [];
   const oneLiner = [
     "curl -fsSL https://raw.githubusercontent.com/yourhq/yourhq/main/installer/install-gateway.sh",
     `  | GATEWAY_TOKEN=${minted.token} \\`,
     `    SUPABASE_URL=${project.url} \\`,
     `    GATEWAY_LABEL=${JSON.stringify(label)} \\`,
+    ...tsLine,
     "    bash",
   ].join(" \\\n    ");
 
