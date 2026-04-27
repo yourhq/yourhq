@@ -367,8 +367,13 @@ export interface CreateUserResult extends ActionResult {
 export async function createAuthUserAction(
   input: z.infer<typeof createUserInputSchema>,
 ): Promise<CreateUserResult> {
+  console.log("[createAuthUserAction] called");
   const parsed = createUserInputSchema.safeParse(input);
   if (!parsed.success) {
+    console.error(
+      "[createAuthUserAction] zod failed:",
+      JSON.stringify(parsed.error.flatten()),
+    );
     return { ok: false, error: "Missing email or password." };
   }
 
@@ -377,10 +382,14 @@ export async function createAuthUserAction(
   // doesn't need to round-trip the service_role_key from the browser).
   let url = parsed.data.url;
   let serviceRoleKey = parsed.data.serviceRoleKey;
+  let credsSource = "form";
   if (!url || !serviceRoleKey) {
     const { getActiveProjectWithSecrets } = await import("@/lib/projects/registry");
     const project = await getActiveProjectWithSecrets();
     if (!project) {
+      console.error(
+        "[createAuthUserAction] no active project in registry and form didn't supply creds",
+      );
       return {
         ok: false,
         error: "No project configured — connect Supabase first.",
@@ -388,7 +397,12 @@ export async function createAuthUserAction(
     }
     url = url ?? project.url;
     serviceRoleKey = serviceRoleKey ?? project.serviceRoleKey;
+    credsSource = "registry";
   }
+  console.log(
+    `[createAuthUserAction] creds from ${credsSource}: url=${url} ` +
+      `key prefix=${serviceRoleKey.slice(0, 12)}… (length=${serviceRoleKey.length})`,
+  );
 
   const r = await createAuthUser({
     url,
