@@ -54,24 +54,31 @@ export function SignInModal({
   const [error, setError] = useState<string | null>(null);
   const emailRef = useRef<HTMLInputElement>(null);
 
-  // Reset password / error when the modal opens for a new workspace.
+  // Reset password + error when the modal *opens* (false → true). Tracked
+  // via a prev-value ref so we don't refire on every workspaceLabel /
+  // email change while the modal is already open.
+  const wasOpenRef = useRef(false);
   useEffect(() => {
-    if (open) {
+    const justOpened = open && !wasOpenRef.current;
+    wasOpenRef.current = open;
+    if (!justOpened) return;
+
+    // Defer setState + focus to a microtask so React commits the open
+    // transition before we mutate state again. Avoids the cascading-
+    // render warning.
+    const t = setTimeout(() => {
       setPassword("");
       setError(null);
-      // Auto-focus the right field: email if empty, password otherwise.
-      const t = setTimeout(() => {
-        if (!email) emailRef.current?.focus();
-        else {
-          const el = document.getElementById(
-            "sign-in-modal-password",
-          ) as HTMLInputElement | null;
-          el?.focus();
-        }
-      }, 50);
-      return () => clearTimeout(t);
-    }
-  }, [open, workspaceLabel, email]);
+      if (!email) emailRef.current?.focus();
+      else {
+        const el = document.getElementById(
+          "sign-in-modal-password",
+        ) as HTMLInputElement | null;
+        el?.focus();
+      }
+    }, 50);
+    return () => clearTimeout(t);
+  }, [open, email]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

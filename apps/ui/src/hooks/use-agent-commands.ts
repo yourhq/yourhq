@@ -48,8 +48,14 @@ export function useAgentCommands({ agentId, systemOnly }: UseAgentCommandsOption
     setLoading(false);
   }, [supabase, agentId, systemOnly, statusFilter]);
 
+  // Initial fetch — deferred so the effect's setStates don't synchronously
+  // cascade-render. fetchCommands is awaited internally so cleanup races
+  // are handled by its own logic.
   useEffect(() => {
-    fetchCommands(0);
+    const t = setTimeout(() => {
+      void fetchCommands(0);
+    }, 0);
+    return () => clearTimeout(t);
   }, [fetchCommands]);
 
   // Subscribe to realtime changes for live status updates

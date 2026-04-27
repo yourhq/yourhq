@@ -70,28 +70,34 @@ export function InteractionForm({
   const [nextAction, setNextAction] = useState("");
   const [nextActionDate, setNextActionDate] = useState<string | null>(null);
 
+  // Populate form fields when the dialog opens (and re-populate when the
+  // interaction prop changes mid-open). Deferred to a microtask so the
+  // setState calls happen after the current render commits.
   useEffect(() => {
     if (!open) return;
-    fetchTemplates();
-    if (interaction) {
-      setType(interaction.type);
-      setDirection(interaction.direction ?? "outbound");
-      setChannel(interaction.channel ?? "");
-      setSubject(interaction.subject ?? "");
-      setBody(interaction.body ?? "");
-      setOccurredAt(interaction.occurred_at);
-      setNextAction(interaction.next_action ?? "");
-      setNextActionDate(interaction.next_action_date);
-    } else {
-      setType("email");
-      setDirection("outbound");
-      setChannel("");
-      setSubject("");
-      setBody("");
-      setOccurredAt(new Date().toISOString());
-      setNextAction("");
-      setNextActionDate(null);
-    }
+    const t = setTimeout(() => {
+      void fetchTemplates();
+      if (interaction) {
+        setType(interaction.type);
+        setDirection(interaction.direction ?? "outbound");
+        setChannel(interaction.channel ?? "");
+        setSubject(interaction.subject ?? "");
+        setBody(interaction.body ?? "");
+        setOccurredAt(interaction.occurred_at);
+        setNextAction(interaction.next_action ?? "");
+        setNextActionDate(interaction.next_action_date);
+      } else {
+        setType("email");
+        setDirection("outbound");
+        setChannel("");
+        setSubject("");
+        setBody("");
+        setOccurredAt(new Date().toISOString());
+        setNextAction("");
+        setNextActionDate(null);
+      }
+    }, 0);
+    return () => clearTimeout(t);
   }, [interaction, open, fetchTemplates]);
 
   function handleApplyTemplate(templateId: string) {

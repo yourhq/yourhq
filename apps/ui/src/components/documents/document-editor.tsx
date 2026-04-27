@@ -52,10 +52,10 @@ export function DocumentEditor({ document: doc, folders, agents }: DocumentEdito
   const [tags, setTags] = useState<string[]>(doc.tags || []);
   const [pinned, setPinned] = useState(doc.pinned);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const contentRef = useRef<JSONContent | undefined>(undefined);
 
-  // Parse initial content from stored JSON, converting markdown-in-paragraphs if detected
-  const initialContent = useMemo(() => {
+  // Parse initial content from stored JSON, converting markdown-in-paragraphs
+  // if detected. Done lazily so the JSON.parse only runs once per mount.
+  const initialContent = useMemo<JSONContent | undefined>(() => {
     if (!doc.content) return undefined;
     try {
       const parsed = JSON.parse(doc.content) as JSONContent;
@@ -64,6 +64,11 @@ export function DocumentEditor({ document: doc, folders, agents }: DocumentEdito
       return undefined;
     }
   }, [doc.content]);
+
+  // contentRef holds the latest editor content. Seeded from initialContent
+  // (lazy useRef initializer — doesn't re-evaluate on rerender) and then
+  // updated by debouncedSaveContent on every keystroke.
+  const contentRef = useRef<JSONContent | undefined>(initialContent);
 
   const save = useCallback(
     async (updates: Record<string, unknown>) => {
@@ -85,11 +90,6 @@ export function DocumentEditor({ document: doc, folders, agents }: DocumentEdito
     },
     [supabase, doc.id, title]
   );
-
-  // Initialize contentRef from parsed initial content
-  if (contentRef.current === undefined && initialContent) {
-    contentRef.current = initialContent;
-  }
 
   // Debounced auto-save for content (stored as Tiptap JSON)
   const debouncedSaveContent = useCallback(

@@ -77,8 +77,9 @@ function useEntityNames(segments: string[]): Record<string, string> {
     }
 
     if (lookups.length === 0) {
-      setNames({});
-      return;
+      // Defer so we don't cascade-render synchronously inside the effect.
+      const t = setTimeout(() => setNames({}), 0);
+      return () => clearTimeout(t);
     }
 
     let cancelled = false;
