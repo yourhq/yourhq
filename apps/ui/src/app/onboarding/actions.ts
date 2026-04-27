@@ -65,7 +65,7 @@ export async function saveWelcome(
   if (!parsed.success) return { ok: false, error: parsed.error.message };
 
   await patchOnboardingState({
-    step: "context",
+    step: "workspace",
     data: {
       ownerName: parsed.data.ownerName.trim(),
       preferredName: (parsed.data.preferredName ?? parsed.data.ownerName).trim(),
@@ -568,15 +568,21 @@ export async function pollRemoteGatewayToken(
   return { status: "pending" };
 }
 
-// ─── Advance past the gateway step once it's online ─────────────────────
+// ─── Advance past the gateway step → finalize → done ────────────────────
+//
+// Workspace identity was captured back at step 2; gateway is the last
+// piece of plumbing. Run finalizeOnboarding here so by the time the
+// Done screen lands, complete_setup has already populated the workspace
+// row, pipeline stages, fields, and streams.
 
 export async function advanceAfterGateway(): Promise<ActionResult> {
-  await patchOnboardingState({ step: "workspace" });
+  const fin = await finalizeOnboarding();
+  if (!fin.ok) return fin;
   revalidatePath("/onboarding");
   return { ok: true };
 }
 
-// ─── Workspace: short form, advances directly to finalize ───────────────
+// ─── Workspace step (runs early — captures name + emoji + slug) ─────────
 
 const workspaceSchema = z.object({
   name: z.string().min(1).max(80),
@@ -584,6 +590,10 @@ const workspaceSchema = z.object({
   description: z.string().max(500).optional(),
 });
 
+// Workspace identity is captured early — right after Welcome — and
+// advances to the Context tile picker. The label flows through the
+// rest of the flow (Supabase project label, Account screen header,
+// dashboard title) without being asked twice.
 export async function saveWorkspaceStep(
   input: z.infer<typeof workspaceSchema>,
 ): Promise<ActionResult> {
@@ -591,9 +601,12 @@ export async function saveWorkspaceStep(
   if (!parsed.success) return { ok: false, error: parsed.error.message };
 
   await patchOnboardingState({
-    step: "done",
+    step: "context",
     data: {
       workspaceName: parsed.data.name.trim(),
+      // The "label" that surfaces in the project switcher mirrors the
+      // workspace name; users don't think about them as different things.
+      workspaceLabel: parsed.data.name.trim(),
       workspaceSlug: parsed.data.slug?.trim() || null,
       workspaceDescription: parsed.data.description?.trim() || "",
     },

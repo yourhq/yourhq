@@ -15,7 +15,6 @@ import {
   pollRemoteGatewayToken,
   advanceAfterGateway,
   saveWorkspaceStep,
-  finalizeOnboarding,
   type OnboardingStep,
   type NetworkingStatus,
   type GatewayBootstrap,
@@ -35,38 +34,21 @@ export interface WizardInitialState {
   data: Record<string, unknown>;
 }
 
-// Canonical ordering. The side-nav / progress bar only shows these;
-// legacy enum values (pipeline/fields/streams/first_agent/profile) are
-// quietly skipped if present in old persisted state.
+// Canonical ordering. Workspace identity is captured early — right
+// after Welcome — because the workspace name shows up across the
+// product (sidebar, page titles, agent branch prefixes, audit log).
+// It belongs to *the user's HQ*, not to Supabase plumbing.
 const STEP_ORDER: OnboardingStep[] = [
   "welcome",
+  "workspace",
   "context",
   "placement",
   "supabase",
   "account",
   "networking",
   "gateway",
-  "workspace",
   "done",
 ];
-
-const STEP_LABELS: Record<OnboardingStep, string> = {
-  welcome: "Welcome",
-  context: "Context",
-  placement: "Where agents run",
-  supabase: "Supabase",
-  account: "Account",
-  networking: "Networking",
-  gateway: "Gateway",
-  workspace: "Workspace",
-  done: "Done",
-  // Legacy — not shown in the nav:
-  profile: "",
-  pipeline: "",
-  fields: "",
-  streams: "",
-  first_agent: "",
-};
 
 export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
   // Coerce any legacy step values to the nearest current step so users
@@ -233,15 +215,18 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
     return () => clearInterval(interval);
   }, [step, gateway, placement]);
 
+  // After the gateway is online, advanceAfterGateway runs the
+  // finalize step server-side (workspace was captured in step 2 already)
+  // and we land directly on "done".
   const advanceFromGateway = () => {
     startTransition(async () => {
       const r = await advanceAfterGateway();
       if (!r.ok) return setError(r.error ?? "Couldn't advance");
-      go("workspace");
+      go("done");
     });
   };
 
-  // ─── Workspace → Done (finalize in one step) ───
+  // ─── Workspace step (right after Welcome) ───
   const submitWorkspace = (vals: {
     name: string;
     slug: string;
@@ -256,15 +241,11 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
       if (!r.ok) return setError(r.error ?? "Something went wrong");
       patch({
         workspaceName: vals.name,
+        workspaceLabel: vals.name,
         workspaceSlug: vals.slug,
         workspaceDescription: vals.description,
       });
-      const fin = await finalizeOnboarding();
-      if (!fin.ok) {
-        setError(fin.error ?? "Couldn't finalize");
-        return;
-      }
-      go("done");
+      go("context");
     });
   };
 
@@ -328,6 +309,23 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
                 initialName={(data.ownerName as string) ?? ""}
                 initialEmoji={(data.ownerEmoji as string) ?? "👋"}
                 onSubmit={submitWelcome}
+                pending={pending}
+              />
+            )}
+
+            {step === "workspace" && (
+              <StepWorkspace
+                defaults={{
+                  name:
+                    (data.workspaceName as string) ??
+                    (data.workspaceLabel as string) ??
+                    (((data.preferredName as string) ?? "").trim()
+                      ? `${(data.preferredName as string).trim()}'s workspace`
+                      : "My workspace"),
+                  slug: (data.workspaceSlug as string) ?? "",
+                  description: (data.workspaceDescription as string) ?? "",
+                }}
+                onSubmit={submitWorkspace}
                 pending={pending}
               />
             )}
@@ -406,23 +404,6 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
                     if (r.ok && r.data) setGateway(r.data);
                   });
                 }}
-                pending={pending}
-              />
-            )}
-
-            {step === "workspace" && (
-              <StepWorkspace
-                defaults={{
-                  name:
-                    (data.workspaceName as string) ??
-                    (data.workspaceLabel as string) ??
-                    (((data.preferredName as string) ?? "").trim()
-                      ? `${(data.preferredName as string).trim()}'s workspace`
-                      : "My workspace"),
-                  slug: (data.workspaceSlug as string) ?? "",
-                  description: (data.workspaceDescription as string) ?? "",
-                }}
-                onSubmit={submitWorkspace}
                 pending={pending}
               />
             )}

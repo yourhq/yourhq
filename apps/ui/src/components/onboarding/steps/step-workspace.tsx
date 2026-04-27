@@ -85,7 +85,8 @@ export function StepWorkspace({
           Name your workspace.
         </h1>
         <p className="max-w-[46ch] text-[14px] leading-relaxed text-muted-foreground">
-          This is the space your agents work inside. You can rename it
+          This is the space your agents work inside — it shows up in the
+          sidebar, page titles, and audit history. You can rename it
           anytime.
         </p>
       </div>
@@ -151,7 +152,7 @@ export function StepWorkspace({
               : "bg-foreground text-background hover:bg-foreground/90",
           )}
         >
-          {pending ? "Saving…" : "Finish setup"}
+          {pending ? "Saving…" : "Continue"}
           {!pending && (
             <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
           )}

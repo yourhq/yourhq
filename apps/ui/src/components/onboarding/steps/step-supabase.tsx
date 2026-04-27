@@ -15,7 +15,6 @@ import {
   Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
 import {
   validateProjectUrl,
   validateSupabaseCredsAction,
@@ -59,9 +58,11 @@ const INITIAL: SubStepState = { status: "idle" };
 export function StepSupabase({ defaults, onComplete }: StepSupabaseProps) {
   const [phase, setPhase] = useState<Phase>("brief");
 
-  // Workspace identity
-  const [workspaceLabel, setWorkspaceLabel] = useState(defaults.workspaceLabel);
-  const [workspaceEmoji, setWorkspaceEmoji] = useState(defaults.workspaceEmoji);
+  // Workspace identity is captured earlier in the flow (StepWorkspace).
+  // We just thread the values through here so they end up in the
+  // saveProjectAction call + the onComplete payload.
+  const workspaceLabel = defaults.workspaceLabel;
+  const workspaceEmoji = defaults.workspaceEmoji;
 
   // URL phase
   const [urlInput, setUrlInput] = useState("");
@@ -221,10 +222,14 @@ export function StepSupabase({ defaults, onComplete }: StepSupabaseProps) {
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr]">
+          {/* Both tiles auto-advance to the URL phase. The "create" tile
+              also opens supabase.com in a new tab — the user comes back
+              to find us already on the next screen, ready to paste. */}
           <a
             href="https://supabase.com/dashboard/projects"
             target="_blank"
             rel="noreferrer"
+            onClick={() => setPhase("url")}
             className="group relative flex flex-col gap-3 rounded-xl border border-border/60 bg-gradient-to-br from-[#3ecf8e]/[0.06] to-card/40 p-5 text-left transition-all hover:border-[#3ecf8e]/40 hover:from-[#3ecf8e]/[0.1]"
           >
             <div className="flex items-center justify-between">
@@ -238,8 +243,8 @@ export function StepSupabase({ defaults, onComplete }: StepSupabaseProps) {
                 Create a Supabase project
               </div>
               <p className="mt-1.5 text-[12px] leading-relaxed text-muted-foreground">
-                Free, no credit card. Takes ~2 minutes to provision. Come
-                back here when it&apos;s ready.
+                Free, no credit card. Takes ~2 minutes to provision.
+                We&apos;ll be ready to receive your URL when you come back.
               </p>
             </div>
           </a>
@@ -260,17 +265,6 @@ export function StepSupabase({ defaults, onComplete }: StepSupabaseProps) {
                 Skip ahead and paste your project URL.
               </p>
             </div>
-          </button>
-        </div>
-
-        <div className="flex items-center gap-3 pt-2">
-          <button
-            type="button"
-            onClick={() => setPhase("url")}
-            className="group inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-[13px] font-medium text-background transition-all hover:bg-foreground/90"
-          >
-            I&apos;m ready
-            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
           </button>
         </div>
       </div>
@@ -316,18 +310,12 @@ export function StepSupabase({ defaults, onComplete }: StepSupabaseProps) {
         apiKeysUrl={resolved.apiKeysUrl}
         anonKey={anonKey}
         serviceRoleKey={serviceRoleKey}
-        workspaceLabel={workspaceLabel}
-        workspaceEmoji={workspaceEmoji}
         error={keysError}
         onBack={() => setPhase("url")}
         onChange={(patch) => {
           if (patch.anonKey !== undefined) setAnonKey(patch.anonKey);
           if (patch.serviceRoleKey !== undefined)
             setServiceRoleKey(patch.serviceRoleKey);
-          if (patch.workspaceLabel !== undefined)
-            setWorkspaceLabel(patch.workspaceLabel);
-          if (patch.workspaceEmoji !== undefined)
-            setWorkspaceEmoji(patch.workspaceEmoji);
         }}
         onSubmit={() => {
           if (!anonKey.trim() || !serviceRoleKey.trim()) {
@@ -513,8 +501,6 @@ function KeysPhase({
   apiKeysUrl,
   anonKey,
   serviceRoleKey,
-  workspaceLabel,
-  workspaceEmoji,
   error,
   onBack,
   onChange,
@@ -524,15 +510,11 @@ function KeysPhase({
   apiKeysUrl: string | null;
   anonKey: string;
   serviceRoleKey: string;
-  workspaceLabel: string;
-  workspaceEmoji: string;
   error: string | null;
   onBack: () => void;
   onChange: (patch: {
     anonKey?: string;
     serviceRoleKey?: string;
-    workspaceLabel?: string;
-    workspaceEmoji?: string;
   }) => void;
   onSubmit: () => void;
 }) {
@@ -625,33 +607,6 @@ function KeysPhase({
           </p>
         </div>
       </div>
-
-      <details className="rounded-xl border border-border/40 bg-card/20 p-3">
-        <summary className="cursor-pointer text-[12px] text-muted-foreground hover:text-foreground">
-          Workspace details (optional)
-        </summary>
-        <div className="mt-3 grid grid-cols-[64px_1fr] gap-2.5">
-          <div className="space-y-1.5">
-            <label className="text-[11px] text-muted-foreground">Icon</label>
-            <Input
-              value={workspaceEmoji}
-              onChange={(e) => onChange({ workspaceEmoji: e.target.value })}
-              maxLength={8}
-              className="text-center"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[11px] text-muted-foreground">
-              Workspace name
-            </label>
-            <Input
-              value={workspaceLabel}
-              onChange={(e) => onChange({ workspaceLabel: e.target.value })}
-              maxLength={80}
-            />
-          </div>
-        </div>
-      </details>
 
       {error && (
         <p className="text-[12px] text-destructive">{error}</p>
