@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Database,
   ExternalLink,
@@ -42,7 +42,7 @@ type Phase = "brief" | "url" | "keys" | "provision";
 
 interface ResolvedUrl {
   url: string;
-  ref?: string;
+  projectRef?: string;
   apiKeysUrl: string | null;
 }
 
@@ -80,6 +80,127 @@ export function StepSupabase({ defaults, onComplete }: StepSupabaseProps) {
   const [install, setInstall] = useState<SubStepState>(INITIAL);
   const [save, setSave] = useState<SubStepState>(INITIAL);
   const [copied, setCopied] = useState(false);
+
+  // ── Provisioning runners — declared up here (before any early return)
+  //    so the rules-of-hooks aren't violated. Each one runs an async
+  //    action and updates its sub-step's UI status.
+
+  const creds = useMemo(
+    () =>
+      resolved !== null
+        ? {
+            url: resolved.url,
+            anonKey: anonKey.trim(),
+            serviceRoleKey: serviceRoleKey.trim(),
+          }
+        : { url: "", anonKey: "", serviceRoleKey: "" },
+    [resolved, anonKey, serviceRoleKey],
+  );
+
+  const copySql = useCallback(async (s: string) => {
+    try {
+      await navigator.clipboard.writeText(s);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  }, []);
+
+  const runValidate = useCallback(async (): Promise<
+    "ok" | "schemaMissing" | "fail"
+  > => {
+    setValidate({ status: "running" });
+    const r = await validateSupabaseCredsAction(creds);
+    if (!r.ok) {
+      if (r.collisionTables && r.collisionTables.length > 0) {
+        setValidate({
+          status: "error",
+          error: r.error,
+          hint: r.hint,
+          collisionTables: r.collisionTables,
+        });
+        return "fail";
+      }
+      setValidate({ status: "error", error: r.error, hint: r.hint });
+      return "fail";
+    }
+    setValidate({ status: "ok" });
+    return r.schemaInstalled ? "ok" : "schemaMissing";
+  }, [creds]);
+
+  const runInstall = useCallback(async (): Promise<boolean> => {
+    setInstall({ status: "running" });
+    const r = await installSchemaAction(creds);
+    if (!r.ok) {
+      setInstall({
+        status: "error",
+        error: r.error,
+        hint: r.hint,
+        sqlFallback: r.sqlFallback,
+      });
+      return false;
+    }
+    setInstall({ status: "ok" });
+    return true;
+  }, [creds]);
+
+  const runSave = useCallback(async (): Promise<boolean> => {
+    setSave({ status: "running" });
+    const r = await saveProjectAction({
+      ...creds,
+      workspaceLabel: workspaceLabel.trim() || "My workspace",
+      workspaceEmoji,
+    });
+    if (!r.ok || !r.projectId) {
+      setSave({ status: "error", error: r.error, hint: r.hint });
+      return false;
+    }
+    setSave({ status: "ok" });
+    onComplete({
+      workspaceLabel: workspaceLabel.trim(),
+      workspaceEmoji,
+      url: creds.url,
+      anonKey: creds.anonKey,
+      projectId: r.projectId,
+    });
+    return true;
+  }, [creds, workspaceLabel, workspaceEmoji, onComplete]);
+
+  const runAll = useCallback(async () => {
+    const v = await runValidate();
+    if (v === "fail") return;
+    if (v === "schemaMissing") {
+      const ok = await runInstall();
+      if (!ok) return;
+    } else {
+      setInstall({ status: "skipped" });
+    }
+    await runSave();
+  }, [runValidate, runInstall, runSave]);
+
+  const installAnyway = useCallback(async () => {
+    setForceInstall(true);
+    setValidate({ status: "ok" });
+    const ok = await runInstall();
+    if (ok) await runSave();
+  }, [runInstall, runSave]);
+
+  // Kick off the sequence once when we land on `provision` phase.
+  // Deferred via setTimeout(0) so the initial setState calls inside
+  // runAll happen *after* this render commits, satisfying the
+  // react-hooks/set-state-in-effect rule.
+  const startedRef = useRef(false);
+  useEffect(() => {
+    if (phase !== "provision") {
+      startedRef.current = false;
+      return;
+    }
+    if (startedRef.current) return;
+    startedRef.current = true;
+    const t = setTimeout(() => {
+      void runAll();
+    }, 0);
+    return () => clearTimeout(t);
+  }, [phase, runAll]);
 
   // ── Phase: brief ────────────────────────────────────────────────────
 
@@ -177,7 +298,7 @@ export function StepSupabase({ defaults, onComplete }: StepSupabaseProps) {
           setUrlInput(r.url);
           setResolved({
             url: r.url,
-            ref: r.ref,
+            projectRef: r.ref,
             apiKeysUrl: r.apiKeysUrl ?? null,
           });
           setPhase("keys");
@@ -191,8 +312,7 @@ export function StepSupabase({ defaults, onComplete }: StepSupabaseProps) {
   if (phase === "keys" && resolved) {
     return (
       <KeysPhase
-        url={resolved.url}
-        ref={resolved.ref}
+        projectRef={resolved.projectRef}
         apiKeysUrl={resolved.apiKeysUrl}
         anonKey={anonKey}
         serviceRoleKey={serviceRoleKey}
@@ -227,115 +347,6 @@ export function StepSupabase({ defaults, onComplete }: StepSupabaseProps) {
   }
 
   // ── Phase: provision ────────────────────────────────────────────────
-
-  const creds =
-    resolved !== null
-      ? {
-          url: resolved.url,
-          anonKey: anonKey.trim(),
-          serviceRoleKey: serviceRoleKey.trim(),
-        }
-      : { url: "", anonKey: "", serviceRoleKey: "" };
-
-  const copySql = async (s: string) => {
-    try {
-      await navigator.clipboard.writeText(s);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {}
-  };
-
-  const runValidate = async (): Promise<"ok" | "schemaMissing" | "fail"> => {
-    setValidate({ status: "running" });
-    const r = await validateSupabaseCredsAction(creds);
-    if (!r.ok) {
-      // Collision case — surface conflict details so user can choose path.
-      if (r.collisionTables && r.collisionTables.length > 0) {
-        setValidate({
-          status: "error",
-          error: r.error,
-          hint: r.hint,
-          collisionTables: r.collisionTables,
-        });
-        return "fail";
-      }
-      setValidate({ status: "error", error: r.error, hint: r.hint });
-      return "fail";
-    }
-    setValidate({ status: "ok" });
-    return r.schemaInstalled ? "ok" : "schemaMissing";
-  };
-
-  const runInstall = async (): Promise<boolean> => {
-    setInstall({ status: "running" });
-    const r = await installSchemaAction(creds);
-    if (!r.ok) {
-      setInstall({
-        status: "error",
-        error: r.error,
-        hint: r.hint,
-        sqlFallback: r.sqlFallback,
-      });
-      return false;
-    }
-    setInstall({ status: "ok" });
-    return true;
-  };
-
-  const runSave = async (): Promise<boolean> => {
-    setSave({ status: "running" });
-    const r = await saveProjectAction({
-      ...creds,
-      workspaceLabel: workspaceLabel.trim() || "My workspace",
-      workspaceEmoji,
-    });
-    if (!r.ok || !r.projectId) {
-      setSave({ status: "error", error: r.error, hint: r.hint });
-      return false;
-    }
-    setSave({ status: "ok" });
-    onComplete({
-      workspaceLabel: workspaceLabel.trim(),
-      workspaceEmoji,
-      url: creds.url,
-      anonKey: creds.anonKey,
-      projectId: r.projectId,
-    });
-    return true;
-  };
-
-  const runAll = async () => {
-    const v = await runValidate();
-    if (v === "fail") return;
-    if (v === "schemaMissing") {
-      const ok = await runInstall();
-      if (!ok) return;
-    } else {
-      setInstall({ status: "skipped" });
-    }
-    await runSave();
-  };
-
-  // Kick the whole sequence on first arrival to provision phase.
-  const startedRef = useRef(false);
-  useEffect(() => {
-    if (phase !== "provision") {
-      startedRef.current = false;
-      return;
-    }
-    if (startedRef.current) return;
-    startedRef.current = true;
-    void runAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase]);
-
-  // Power-user override for the conflict case
-  const installAnyway = async () => {
-    setForceInstall(true);
-    setValidate({ status: "ok" });
-    const ok = await runInstall();
-    if (ok) await runSave();
-  };
 
   return (
     <div className="space-y-8 pt-8">
@@ -419,9 +430,9 @@ function UrlPhase({
   onSubmit: (url: string) => void;
 }) {
   const [val, setVal] = useState(defaultUrl);
-  const ref = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    const t = setTimeout(() => ref.current?.focus(), 250);
+    const t = setTimeout(() => inputRef.current?.focus(), 250);
     return () => clearTimeout(t);
   }, []);
 
@@ -452,7 +463,7 @@ function UrlPhase({
           Project URL
         </label>
         <input
-          ref={ref}
+          ref={inputRef}
           type="url"
           value={val}
           onChange={(e) => setVal(e.target.value)}
@@ -498,8 +509,7 @@ function UrlPhase({
 /* -------- Keys phase -------- */
 
 function KeysPhase({
-  url,
-  ref,
+  projectRef,
   apiKeysUrl,
   anonKey,
   serviceRoleKey,
@@ -510,8 +520,7 @@ function KeysPhase({
   onChange,
   onSubmit,
 }: {
-  url: string;
-  ref?: string;
+  projectRef?: string;
   apiKeysUrl: string | null;
   anonKey: string;
   serviceRoleKey: string;
@@ -560,10 +569,10 @@ function KeysPhase({
           </span>
           <div className="min-w-0 flex-1">
             <div className="text-[13px] font-semibold">
-              Open API keys for {ref}
+              Open API keys for {projectRef}
             </div>
             <div className="truncate font-mono text-[11px] text-muted-foreground">
-              supabase.com/dashboard/project/{ref}/settings/api-keys
+              supabase.com/dashboard/project/{projectRef}/settings/api-keys
             </div>
           </div>
           <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/60 transition-all group-hover:translate-x-0.5 group-hover:text-foreground" />
