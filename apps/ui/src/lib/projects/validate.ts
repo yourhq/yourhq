@@ -61,14 +61,14 @@ export async function validateSupabaseCreds(input: {
   if (!looksLikeValidKey(input.anonKey)) {
     return {
       ok: false,
-      error: "Anon key looks malformed.",
+      error: "Publishable key looks malformed.",
       hint: "Expected an 'sb_publishable_...' or legacy 'eyJ...' JWT.",
     };
   }
   if (!looksLikeValidKey(input.serviceRoleKey)) {
     return {
       ok: false,
-      error: "Service role key looks malformed.",
+      error: "Secret key looks malformed.",
       hint: "Expected an 'sb_secret_...' or legacy 'eyJ...' JWT.",
     };
   }
@@ -89,8 +89,8 @@ export async function validateSupabaseCreds(input: {
   if (schema.status === 401 || schema.status === 403) {
     return {
       ok: false,
-      error: "Service role key rejected by Supabase.",
-      hint: "Double-check the service_role secret in Supabase → Project Settings → API.",
+      error: "Secret key rejected by Supabase.",
+      hint: "Double-check the secret key in Supabase → Project Settings → API Keys.",
     };
   }
 

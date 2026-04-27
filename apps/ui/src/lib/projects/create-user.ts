@@ -83,8 +83,8 @@ export async function createAuthUser(
   if (res.status === 401 || res.status === 403) {
     return {
       ok: false,
-      error: "Service role key was rejected by Supabase.",
-      hint: "Check the service_role key in Project Settings → API.",
+      error: "Secret key was rejected by Supabase.",
+      hint: "Check the secret key in Project Settings → API Keys.",
     };
   }
 

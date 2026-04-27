@@ -579,7 +579,7 @@ function KeysPhase({
         <div className="space-y-2.5">
           <label className="flex items-center gap-2 text-[12px] font-medium text-muted-foreground">
             <KeyRound className="h-3.5 w-3.5" />
-            Anon (public) key
+            Publishable key
           </label>
           <input
             type="text"
@@ -592,14 +592,14 @@ function KeysPhase({
             required
           />
           <p className="text-[11px] text-muted-foreground/60">
-            Lets HQ talk to your database.
+            Starts with <span className="font-mono">sb_publishable_</span>. Lets HQ talk to your database.
           </p>
         </div>
 
         <div className="space-y-2.5">
           <label className="flex items-center gap-2 text-[12px] font-medium text-muted-foreground">
             <Lock className="h-3.5 w-3.5" />
-            Service role key
+            Secret key
           </label>
           <input
             type="password"
@@ -612,7 +612,7 @@ function KeysPhase({
             required
           />
           <p className="text-[11px] text-muted-foreground/60">
-            Lets HQ install the schema. Stays on this machine.
+            Starts with <span className="font-mono">sb_secret_</span>. Lets HQ install the schema. Never leaves this machine.
           </p>
         </div>
       </div>

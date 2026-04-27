@@ -126,14 +126,14 @@ export async function installSchema(
     };
   }
 
-  // Auth failure → service role key is wrong
+  // Auth failure → secret key is wrong
   if (r.status === 401 || r.status === 403) {
     return {
       ok: false,
-      error: "Service role key was rejected by Supabase.",
+      error: "Secret key was rejected by Supabase.",
       hint:
-        "Double-check you copied the `service_role` key (not the anon key) " +
-        "from Project Settings → API.",
+        "Double-check you copied the secret key (sb_secret_…), not the publishable key (sb_publishable_…), " +
+        "from Project Settings → API Keys.",
     };
   }
 
