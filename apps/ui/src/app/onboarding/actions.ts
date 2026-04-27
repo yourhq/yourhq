@@ -275,24 +275,46 @@ export interface InstallSchemaResultAction extends ActionResult {
 export async function installSchemaAction(
   input: z.infer<typeof credsSchema>,
 ): Promise<InstallSchemaResultAction> {
+  console.log("[installSchemaAction] called");
   const parsed = credsSchema.safeParse(input);
   if (!parsed.success) {
+    console.error(
+      "[installSchemaAction] zod validation failed:",
+      JSON.stringify(parsed.error.flatten()),
+    );
     return { ok: false, error: "Missing creds." };
   }
+  console.log(
+    `[installSchemaAction] running against url=${parsed.data.url} ` +
+      `(serviceRoleKey length=${parsed.data.serviceRoleKey.length})`,
+  );
 
-  const install = await installSchema({
-    url: parsed.data.url,
-    serviceRoleKey: parsed.data.serviceRoleKey,
-  });
-  if (!install.ok) {
+  try {
+    const install = await installSchema({
+      url: parsed.data.url,
+      serviceRoleKey: parsed.data.serviceRoleKey,
+    });
+    if (!install.ok) {
+      console.error(
+        `[installSchemaAction] install failed: ${install.error}` +
+          (install.hint ? ` (hint: ${install.hint})` : ""),
+      );
+      return {
+        ok: false,
+        error: install.error,
+        hint: install.hint,
+        sqlFallback: install.sqlFallback,
+      };
+    }
+    console.log(`[installSchemaAction] success via ${install.endpoint}`);
+    return { ok: true };
+  } catch (err) {
+    console.error("[installSchemaAction] threw:", err);
     return {
       ok: false,
-      error: install.error,
-      hint: install.hint,
-      sqlFallback: install.sqlFallback,
+      error: `Schema install threw: ${(err as Error).message}`,
     };
   }
-  return { ok: true };
 }
 
 // Caller-supplied creds are optional after the project is saved — at

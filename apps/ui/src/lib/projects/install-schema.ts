@@ -59,6 +59,7 @@ async function tryExecSql(
 ): Promise<{ ok: boolean; status: number; endpoint: string; error?: string }> {
   for (const p of PG_META_PATHS) {
     const endpoint = `${base}${p}`;
+    console.log(`[install-schema] POST ${endpoint} (sql length=${sql.length})`);
     try {
       const res = await fetch(endpoint, {
         method: "POST",
@@ -69,9 +70,13 @@ async function tryExecSql(
         },
         body: JSON.stringify({ query: sql }),
       });
+      console.log(`[install-schema] ← ${res.status} from ${endpoint}`);
       if (res.status === 404) continue;
       if (res.ok) return { ok: true, status: res.status, endpoint };
       const text = await res.text().catch(() => "");
+      console.error(
+        `[install-schema] non-OK response from ${endpoint}: status=${res.status} body=${text.slice(0, 800)}`,
+      );
       return {
         ok: false,
         status: res.status,
@@ -79,6 +84,9 @@ async function tryExecSql(
         error: text.slice(0, 500),
       };
     } catch (err) {
+      console.error(
+        `[install-schema] fetch threw against ${endpoint}: ${(err as Error).message}`,
+      );
       return {
         ok: false,
         status: 0,
@@ -87,6 +95,10 @@ async function tryExecSql(
       };
     }
   }
+  console.error(
+    `[install-schema] all pg-meta paths returned 404 for base ${base}. ` +
+      `Cloud Supabase no longer exposes pg-meta on project URLs.`,
+  );
   return {
     ok: false,
     status: 404,
@@ -99,10 +111,13 @@ export async function installSchema(
   input: InstallSchemaInput,
 ): Promise<InstallSchemaResult> {
   const base = input.url.replace(/\/$/, "");
+  console.log(`[install-schema] starting against ${base}`);
   let sql: string;
   try {
     sql = await readSchemaSql();
+    console.log(`[install-schema] loaded SQL (${sql.length} bytes) from ${SCHEMA_PATH}`);
   } catch (err) {
+    console.error(`[install-schema] ${(err as Error).message}`);
     return { ok: false, error: (err as Error).message };
   }
 
