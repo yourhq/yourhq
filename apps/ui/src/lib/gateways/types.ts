@@ -43,6 +43,21 @@ export interface Gateway {
   meta: GatewayMeta;
 }
 
+// Status presentation config. Mirrors AgentRow's AGENT_STATUS shape so
+// gateways feel like a sibling to agents in the UI. Uses the global
+// --status-* CSS variables so themes propagate (hardcoded RGB would
+// break on theme changes).
+export const GATEWAY_STATUS: Record<
+  GatewayStatus,
+  { color: string; label: string; pulse?: boolean }
+> = {
+  online: { color: "var(--status-success)", label: "Online", pulse: true },
+  provisioning: { color: "var(--status-warning)", label: "Provisioning", pulse: true },
+  offline: { color: "var(--status-neutral)", label: "Offline" },
+  error: { color: "var(--status-error)", label: "Error" },
+  paused: { color: "var(--status-warning)", label: "Paused" },
+};
+
 // Heartbeat freshness threshold. Anything older than this and the UI
 // shows the gateway as "stale" even if its DB row still says online —
 // the gateway's own daemon stopped writing.

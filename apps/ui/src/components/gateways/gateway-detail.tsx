@@ -1,53 +1,45 @@
 "use client";
 
-// Settings → Gateways → [id]. Surfaces everything the user might want
-// to know or change about a single gateway:
+// Settings → Gateways → [id]. Mirrors the property layout used on agent
+// detail pages: grid-cols-[auto_1fr] of sentence-case labels +
+// values, with section dividers via border-t.
 //
-//   - Header: emoji/icon, label (inline-editable), slug, status pill,
-//     last-seen timestamp.
-//   - Reachable URLs: base, files-API, noVNC. Override the base URL
-//     when the auto-detected one is wrong (custom reverse proxy, etc.).
-//   - Networking: networking_mode, tailscale_ip, exit_node from meta.
-//   - Version: which gateway image is running (meta.version).
-//   - Recent commands: last N agent_commands targeted at this gateway.
-//   - Danger zone: remove gateway.
+// Editable affordances:
+//   - Title (label) — click-to-edit, inherits the agent inline-edit
+//     pattern but rendered as a hover-tinted button so the affordance
+//     doesn't depend on a hover-revealed pencil.
+//   - Base URL override — click "Override" to swap the row into an
+//     editor; saves to meta.reachable_urls_override.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft,
+  AlertCircle,
+  AlertTriangle,
   ChevronDown,
   ChevronRight,
   ExternalLink,
-  Pencil,
+  MoreHorizontal,
   Server,
   Trash2,
-  AlertTriangle,
-  Check,
-  X,
-  Loader2,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageHeader, PageSection } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { StatusDot } from "@/components/ui/status-dot";
-import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
-import { EmptyState } from "@/components/shared/empty-state";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useAgentCommands } from "@/hooks/use-agent-commands";
+import { StatusDot } from "@/components/ui/status-dot";
 import {
   COMMAND_ACTION_LABELS,
   COMMAND_STATUS_COLORS,
@@ -60,6 +52,7 @@ import {
   updateReachableUrlOverrideAction,
 } from "@/app/dashboard/settings/gateways/actions";
 import {
+  GATEWAY_STATUS,
   isHeartbeatFresh,
   resolveBaseUrl,
   type Gateway,
@@ -67,28 +60,13 @@ import {
 } from "@/lib/gateways/types";
 import { cn } from "@/lib/utils";
 
-const STATUS_COLOR: Record<GatewayStatus, string> = {
-  online: "rgb(34 197 94)",
-  provisioning: "rgb(245 158 11)",
-  offline: "rgb(115 115 115)",
-  error: "rgb(239 68 68)",
-  paused: "rgb(245 158 11)",
-};
-
-const STATUS_LABEL: Record<GatewayStatus, string> = {
-  online: "Online",
-  provisioning: "Provisioning",
-  offline: "Offline",
-  error: "Error",
-  paused: "Paused",
-};
-
 export function GatewayDetail({
   initialGateway,
 }: {
   initialGateway: Gateway;
 }) {
   const [gateway, setGateway] = useState<Gateway>(initialGateway);
+  const [removing, setRemoving] = useState(false);
   const router = useRouter();
 
   const refetch = useMemo(
@@ -112,192 +90,151 @@ export function GatewayDetail({
     return () => clearInterval(i);
   }, []);
 
-  const fresh = isHeartbeatFresh(gateway.last_seen_at);
-  const stale = gateway.status === "online" && !fresh;
-  const effectiveStatus: GatewayStatus = stale ? "offline" : gateway.status;
-  const lastSeen = gateway.last_seen_at
-    ? formatDistanceToNow(new Date(gateway.last_seen_at), { addSuffix: true })
-    : "never";
-
   return (
     <div className="flex h-full flex-col">
       <PageHeader
         icon={<Server className="h-4 w-4" />}
         title={
-          <div className="flex items-center gap-2">
-            <Link
-              href="/dashboard/settings/gateways"
-              className="inline-flex items-center gap-1 text-[12px] font-normal text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="h-3 w-3" />
-              Gateways
-            </Link>
-            <span className="text-muted-foreground/50">/</span>
-            <EditableLabel
-              gatewayId={gateway.id}
-              initial={gateway.label}
-              onSaved={(label) => setGateway((g) => ({ ...g, label }))}
-            />
-          </div>
+          <EditableLabel
+            gatewayId={gateway.id}
+            initial={gateway.label}
+            onSaved={(label) => setGateway((g) => ({ ...g, label }))}
+          />
         }
         description={
-          <div className="flex items-center gap-1.5 text-[11px]">
-            <StatusDot
-              color={STATUS_COLOR[effectiveStatus]}
-              size="sm"
-              pulse={effectiveStatus === "provisioning"}
-            />
-            <span>{STATUS_LABEL[effectiveStatus]}</span>
-            <span>·</span>
-            <span className="font-mono">{gateway.slug}</span>
-            <span>·</span>
-            <span>last seen {lastSeen}</span>
-            {stale && (
-              <span className="ml-1 inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-300">
-                <AlertTriangle className="h-2.5 w-2.5" />
-                no heartbeat
-              </span>
-            )}
-          </div>
+          <Link
+            href="/dashboard/settings/gateways"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            Gateways
+          </Link>
+        }
+        secondaryActions={
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm" aria-label="Gateway actions">
+                <MoreHorizontal className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setRemoving(true);
+                }}
+                className="gap-2 text-destructive focus:text-destructive"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Remove gateway
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         }
       />
 
       <div className="flex-1 overflow-auto">
-        <div className="mx-auto w-full max-w-2xl space-y-6 p-5">
+        <div className="mx-auto w-full max-w-2xl">
+          <OverviewSection gateway={gateway} />
           <ReachableUrlsSection gateway={gateway} />
-          <NetworkingSection gateway={gateway} />
           <CommandsSection gatewayId={gateway.id} />
-          <DangerZone
-            gateway={gateway}
-            onRemoved={() => router.push("/dashboard/settings/gateways")}
-          />
         </div>
       </div>
+
+      {removing && (
+        <ConfirmDialog
+          open
+          tone="destructive"
+          title={`Remove ${gateway.label}?`}
+          description={
+            <>
+              This removes the <span className="font-mono">{gateway.slug}</span>{" "}
+              row from the registry. The container on the host keeps running
+              until you stop it manually with{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+                docker compose down
+              </code>
+              .
+            </>
+          }
+          confirmLabel="Remove"
+          onCancel={() => setRemoving(false)}
+          onConfirm={async () => {
+            const r = await removeGatewayAction(gateway.id);
+            if (!r.ok) {
+              toast.error(r.error ?? "Failed to remove gateway");
+              return;
+            }
+            toast.success("Gateway removed");
+            router.push("/dashboard/settings/gateways");
+          }}
+        />
+      )}
     </div>
   );
 }
 
-// ─── Inline-editable label ────────────────────────────────────────────
+// ─── Overview (status, slug, networking, version) ────────────────────
 
-function EditableLabel({
-  gatewayId,
-  initial,
-  onSaved,
-}: {
-  gatewayId: string;
-  initial: string;
-  onSaved: (label: string) => void;
-}) {
-  const [editing, setEditing] = useState(false);
+function OverviewSection({ gateway }: { gateway: Gateway }) {
+  const fresh = isHeartbeatFresh(gateway.last_seen_at);
+  const stale = gateway.status === "online" && !fresh;
+  const effectiveStatus: GatewayStatus = stale ? "offline" : gateway.status;
+  const status = GATEWAY_STATUS[effectiveStatus];
 
-  if (!editing) {
-    return (
-      <button
-        type="button"
-        onClick={() => setEditing(true)}
-        className="group inline-flex items-center gap-1.5 text-[14px] font-semibold text-foreground"
-      >
-        <span className="truncate">{initial}</span>
-        <Pencil className="h-3 w-3 text-muted-foreground/0 transition-colors group-hover:text-muted-foreground" />
-      </button>
-    );
-  }
+  const lastSeen = gateway.last_seen_at
+    ? formatDistanceToNow(new Date(gateway.last_seen_at), { addSuffix: true })
+    : "Never";
 
-  // Mount a separate child while editing — its `initial` becomes its
-  // initial state and we don't have to sync. Closing the editor (save
-  // or cancel) flips back to the read-only path above, which always
-  // reflects the latest `initial` straight from props.
-  return (
-    <EditableLabelInput
-      gatewayId={gatewayId}
-      initial={initial}
-      onSaved={(label) => {
-        onSaved(label);
-        setEditing(false);
-      }}
-      onCancel={() => setEditing(false)}
-    />
-  );
-}
-
-function EditableLabelInput({
-  gatewayId,
-  initial,
-  onSaved,
-  onCancel,
-}: {
-  gatewayId: string;
-  initial: string;
-  onSaved: (label: string) => void;
-  onCancel: () => void;
-}) {
-  const [value, setValue] = useState(initial);
-  const [saving, setSaving] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    inputRef.current?.focus();
-    inputRef.current?.select();
-  }, []);
-
-  const save = async () => {
-    const trimmed = value.trim();
-    if (!trimmed || trimmed === initial) {
-      onCancel();
-      return;
-    }
-    setSaving(true);
-    const r = await updateGatewayLabelAction(gatewayId, trimmed);
-    setSaving(false);
-    if (!r.ok) {
-      toast.error(r.error ?? "Failed to rename");
-      onCancel();
-      return;
-    }
-    onSaved(trimmed);
-  };
+  const m = gateway.meta;
 
   return (
-    <span className="inline-flex items-center gap-1.5">
-      <input
-        ref={inputRef}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") void save();
-          if (e.key === "Escape") onCancel();
-        }}
-        className="h-7 w-[180px] rounded-sm border border-border/60 bg-background px-2 text-[14px] font-semibold outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50"
-        maxLength={80}
-        disabled={saving}
-      />
-      <button
-        type="button"
-        onClick={() => void save()}
-        disabled={saving}
-        className="rounded p-0.5 hover:bg-accent/60"
-        aria-label="Save"
-      >
-        {saving ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        ) : (
-          <Check className="h-3.5 w-3.5 text-emerald-500" />
+    <PageSection title="Overview">
+      <PropertyGrid>
+        <PropertyRow label="Status">
+          <span className="inline-flex items-center gap-1.5">
+            <StatusDot color={status.color} size="sm" pulse={status.pulse} />
+            <span>{status.label}</span>
+            {stale && (
+              <span
+                title="No recent heartbeat"
+                className="ml-1 inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-300"
+              >
+                <AlertTriangle className="h-2.5 w-2.5" />
+                stale
+              </span>
+            )}
+          </span>
+        </PropertyRow>
+        <PropertyRow label="Slug">
+          <span className="font-mono text-foreground/80">{gateway.slug}</span>
+        </PropertyRow>
+        <PropertyRow label="Last seen">{lastSeen}</PropertyRow>
+        {m.networking_mode && (
+          <PropertyRow label="Networking">
+            <Tag>{m.networking_mode}</Tag>
+          </PropertyRow>
         )}
-      </button>
-      <button
-        type="button"
-        onClick={onCancel}
-        disabled={saving}
-        className="rounded p-0.5 hover:bg-accent/60"
-        aria-label="Cancel"
-      >
-        <X className="h-3.5 w-3.5 text-muted-foreground" />
-      </button>
-    </span>
+        {m.tailscale_ip && (
+          <PropertyRow label="Tailscale IP">
+            <span className="font-mono text-foreground/80">{m.tailscale_ip}</span>
+          </PropertyRow>
+        )}
+        {m.exit_node && (
+          <PropertyRow label="Exit node">
+            <span className="font-mono text-foreground/80">{m.exit_node}</span>
+          </PropertyRow>
+        )}
+        {m.version && (
+          <PropertyRow label="Version">
+            <Tag>{m.version}</Tag>
+          </PropertyRow>
+        )}
+      </PropertyGrid>
+    </PageSection>
   );
 }
 
-// ─── Reachable URLs (with override) ───────────────────────────────────
+// ─── Reachable URLs (with override) ──────────────────────────────────
 
 function ReachableUrlsSection({ gateway }: { gateway: Gateway }) {
   const auto = gateway.meta.reachable_urls?.base ?? null;
@@ -308,25 +245,32 @@ function ReachableUrlsSection({ gateway }: { gateway: Gateway }) {
 
   const [editing, setEditing] = useState(false);
 
+  if (!auto && !override && !filesApi && !novnc) {
+    return (
+      <PageSection
+        title="Reachable URLs"
+        description="The gateway hasn't reported any URLs yet. They're written on each boot."
+        className="border-t border-border/50"
+      >
+        <div />
+      </PageSection>
+    );
+  }
+
   return (
-    <Section title="Reachable URLs">
-      <KvRow
-        label="Base URL"
-        value={
-          editing ? (
+    <PageSection title="Reachable URLs" className="border-t border-border/50">
+      <PropertyGrid>
+        <PropertyRow label="Base URL">
+          {editing ? (
             <OverrideEditor
               gatewayId={gateway.id}
               initial={override ?? ""}
               onDone={() => setEditing(false)}
             />
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <UrlBadge url={effective} />
-              {override && (
-                <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-300">
-                  override
-                </span>
-              )}
+              {override && <Tag tone="warning">override</Tag>}
               <button
                 type="button"
                 onClick={() => setEditing(true)}
@@ -334,29 +278,26 @@ function ReachableUrlsSection({ gateway }: { gateway: Gateway }) {
               >
                 {override ? "Edit" : "Override"}
               </button>
+              {auto && override && (
+                <span className="text-[11px] text-muted-foreground/60">
+                  · auto: <span className="font-mono">{auto}</span>
+                </span>
+              )}
             </div>
-          )
-        }
-      />
-      {auto && override && (
-        <KvRow
-          label="Auto-detected"
-          value={
-            <span className="font-mono text-[11px] text-muted-foreground">
-              {auto}
-            </span>
-          }
-        />
-      )}
-      {filesApi && <KvRow label="Files API" value={<UrlBadge url={filesApi} />} />}
-      {novnc && <KvRow label="noVNC" value={<UrlBadge url={novnc} />} />}
-      {!effective && (
-        <p className="px-3 py-2 text-[11px] text-muted-foreground">
-          The gateway hasn&apos;t reported its reachable URL yet. It writes
-          this on each boot.
-        </p>
-      )}
-    </Section>
+          )}
+        </PropertyRow>
+        {filesApi && (
+          <PropertyRow label="Files API">
+            <UrlBadge url={filesApi} />
+          </PropertyRow>
+        )}
+        {novnc && (
+          <PropertyRow label="noVNC">
+            <UrlBadge url={novnc} />
+          </PropertyRow>
+        )}
+      </PropertyGrid>
+    </PageSection>
   );
 }
 
@@ -370,9 +311,11 @@ function OverrideEditor({
   onDone: () => void;
 }) {
   const [value, setValue] = useState(initial);
+  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
+    setError(null);
     setSaving(true);
     const r = await updateReachableUrlOverrideAction(
       gatewayId,
@@ -380,29 +323,35 @@ function OverrideEditor({
     );
     setSaving(false);
     if (!r.ok) {
-      toast.error(r.error ?? "Failed to save override");
+      setError(r.error ?? "Failed to save override");
       return;
     }
-    toast.success(value.trim() ? "Override saved" : "Override cleared");
     onDone();
   };
 
   return (
-    <div className="flex items-center gap-2">
-      <Input
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="https://gateway.example.com"
-        className="h-7 text-[12px]"
-        disabled={saving}
-        autoFocus
-      />
-      <Button size="sm" onClick={() => void save()} disabled={saving}>
-        {saving ? "Saving…" : "Save"}
-      </Button>
-      <Button size="sm" variant="ghost" onClick={onDone} disabled={saving}>
-        Cancel
-      </Button>
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2">
+        <Input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="https://gateway.example.com"
+          className="h-7 max-w-[320px] font-mono text-[12px]"
+          disabled={saving}
+          autoFocus
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void save();
+            if (e.key === "Escape") onDone();
+          }}
+        />
+        <Button size="sm" onClick={() => void save()} disabled={saving}>
+          {saving ? "Saving…" : "Save"}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onDone} disabled={saving}>
+          Cancel
+        </Button>
+      </div>
+      {error && <InlineAlert>{error}</InlineAlert>}
     </div>
   );
 }
@@ -414,7 +363,7 @@ function UrlBadge({ url }: { url: string | null }) {
       href={url}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex items-center gap-1 truncate font-mono text-[11px] text-foreground hover:underline"
+      className="inline-flex max-w-[300px] items-center gap-1 truncate font-mono text-[12px] text-foreground hover:underline"
     >
       <span className="truncate">{url}</span>
       <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
@@ -422,98 +371,59 @@ function UrlBadge({ url }: { url: string | null }) {
   );
 }
 
-// ─── Networking ───────────────────────────────────────────────────────
-
-function NetworkingSection({ gateway }: { gateway: Gateway }) {
-  const m = gateway.meta;
-  if (!m.networking_mode && !m.tailscale_ip && !m.exit_node && !m.version) {
-    return null;
-  }
-  return (
-    <Section title="Networking & version">
-      {m.networking_mode && (
-        <KvRow
-          label="Mode"
-          value={
-            <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">
-              {m.networking_mode}
-            </span>
-          }
-        />
-      )}
-      {m.tailscale_ip && (
-        <KvRow
-          label="Tailscale IP"
-          value={<span className="font-mono text-[11px]">{m.tailscale_ip}</span>}
-        />
-      )}
-      {m.exit_node && (
-        <KvRow
-          label="Exit node"
-          value={<span className="font-mono text-[11px]">{m.exit_node}</span>}
-        />
-      )}
-      {m.version && (
-        <KvRow
-          label="Image version"
-          value={
-            <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">
-              {m.version}
-            </span>
-          }
-        />
-      )}
-    </Section>
-  );
-}
-
-// ─── Recent commands ──────────────────────────────────────────────────
+// ─── Recent commands ─────────────────────────────────────────────────
 
 function CommandsSection({ gatewayId }: { gatewayId: string }) {
   const { commands, loading } = useAgentCommands({ gatewayId });
 
   return (
-    <Section title="Recent commands" tight>
+    <PageSection
+      title="Recent commands"
+      action={
+        commands.length > 0 ? (
+          <Link
+            href={`/dashboard/settings/system?gateway=${gatewayId}`}
+            className="text-[12px] text-muted-foreground hover:text-foreground"
+          >
+            See all →
+          </Link>
+        ) : null
+      }
+      className="border-t border-border/50"
+    >
       {loading && commands.length === 0 ? (
-        <div className="px-3 py-3">
-          <LoadingSkeleton variant="list" count={3} />
-        </div>
+        <LoadingSkeleton variant="list" count={3} />
       ) : commands.length === 0 ? (
-        <div className="px-3 py-6">
-          <EmptyState
-            icon={Server}
-            title="No commands yet"
-            description="Commands targeted at this gateway show up here."
-            compact
-          />
-        </div>
+        <p className="text-[12px] text-muted-foreground">
+          Commands targeted at this gateway will appear here.
+        </p>
       ) : (
-        <div className="divide-y divide-border/50">
-          {commands.slice(0, 20).map((cmd) => (
-            <CommandRow key={cmd.id} command={cmd} />
+        <div className="overflow-hidden rounded-md border border-border/60 bg-card">
+          {commands.slice(0, 20).map((cmd, idx) => (
+            <CommandRow key={cmd.id} command={cmd} isFirst={idx === 0} />
           ))}
         </div>
       )}
-      {commands.length > 0 && (
-        <div className="border-t border-border/50 px-3 py-1.5 text-right">
-          <Link
-            href={`/dashboard/settings/system?gateway=${gatewayId}`}
-            className="text-[11px] text-muted-foreground hover:text-foreground"
-          >
-            See all in System →
-          </Link>
-        </div>
-      )}
-    </Section>
+    </PageSection>
   );
 }
 
-function CommandRow({ command }: { command: AgentCommand }) {
+function CommandRow({
+  command,
+  isFirst,
+}: {
+  command: AgentCommand;
+  isFirst: boolean;
+}) {
   const [expanded, setExpanded] = useState(false);
   const hasOutput = command.stdout || command.stderr || command.error_message;
+
   return (
     <div
-      className={cn(command.status === "failed" && "bg-red-500/5")}
+      className={cn(
+        !isFirst && "border-t border-border/50",
+        command.status === "failed" && "bg-red-500/5",
+      )}
     >
       <button
         className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-muted/30"
@@ -574,117 +484,155 @@ function CommandRow({ command }: { command: AgentCommand }) {
   );
 }
 
-// ─── Danger zone ──────────────────────────────────────────────────────
+// ─── Inline-editable label (PageHeader title) ────────────────────────
 
-function DangerZone({
-  gateway,
-  onRemoved,
+function EditableLabel({
+  gatewayId,
+  initial,
+  onSaved,
 }: {
-  gateway: Gateway;
-  onRemoved: () => void;
+  gatewayId: string;
+  initial: string;
+  onSaved: (label: string) => void;
 }) {
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [removing, setRemoving] = useState(false);
+  const [editing, setEditing] = useState(false);
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="-mx-1 truncate rounded px-1 transition-colors hover:bg-muted/40"
+      >
+        {initial}
+      </button>
+    );
+  }
 
   return (
-    <div className="rounded-md border border-red-500/30 bg-red-500/5 p-4">
-      <div className="flex items-start gap-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-red-500/10">
-          <Trash2 className="h-4 w-4 text-red-400" />
-        </div>
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <div className="text-[13px] font-semibold">Remove gateway</div>
-          <p className="text-[12px] text-muted-foreground">
-            Removes this gateway from the registry. Agents bound to it will
-            block creation and provisioning until you remove or reassign
-            them.
-          </p>
-        </div>
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={() => setConfirmOpen(true)}
-        >
-          Remove
-        </Button>
-      </div>
+    <EditableLabelInput
+      gatewayId={gatewayId}
+      initial={initial}
+      onSaved={(label) => {
+        onSaved(label);
+        setEditing(false);
+      }}
+      onCancel={() => setEditing(false)}
+    />
+  );
+}
 
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove this gateway?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This deletes the <span className="font-mono">{gateway.slug}</span>{" "}
-              row. The container on the host machine keeps running until you
-              stop it manually with <code>docker compose down</code>.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={async () => {
-                setRemoving(true);
-                const r = await removeGatewayAction(gateway.id);
-                setRemoving(false);
-                if (!r.ok) {
-                  toast.error(r.error ?? "Failed to remove");
-                  return;
-                }
-                toast.success("Gateway removed");
-                onRemoved();
-              }}
-              disabled={removing}
-            >
-              {removing ? "Removing…" : "Remove"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+function EditableLabelInput({
+  gatewayId,
+  initial,
+  onSaved,
+  onCancel,
+}: {
+  gatewayId: string;
+  initial: string;
+  onSaved: (label: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
+  const save = async () => {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === initial) {
+      onCancel();
+      return;
+    }
+    setError(null);
+    setSaving(true);
+    const r = await updateGatewayLabelAction(gatewayId, trimmed);
+    setSaving(false);
+    if (!r.ok) {
+      setError(r.error ?? "Failed to rename");
+      return;
+    }
+    onSaved(trimmed);
+  };
+
+  return (
+    <span className="flex flex-col gap-1">
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") void save();
+          if (e.key === "Escape") onCancel();
+        }}
+        onBlur={() => {
+          if (!saving) void save();
+        }}
+        className="-mx-1 max-w-[280px] rounded border border-border/60 bg-background px-1 outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
+        maxLength={80}
+        disabled={saving}
+      />
+      {error && <InlineAlert>{error}</InlineAlert>}
+    </span>
+  );
+}
+
+// ─── Layout helpers ──────────────────────────────────────────────────
+
+function PropertyGrid({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="grid max-w-full grid-cols-[120px_1fr] gap-x-6 gap-y-1.5 text-xs">
+      {children}
     </div>
   );
 }
 
-// ─── Layout helpers ───────────────────────────────────────────────────
-
-function Section({
-  title,
-  tight,
+function PropertyRow({
+  label,
   children,
 }: {
-  title: string;
-  tight?: boolean;
+  label: string;
   children: React.ReactNode;
 }) {
   return (
-    <div>
-      <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {title}
-      </h2>
-      <div
-        className={cn(
-          "overflow-hidden rounded-md border border-border/60 bg-card",
-          !tight && "px-1 py-1",
-        )}
-      >
-        {children}
-      </div>
-    </div>
+    <>
+      <span className="py-0.5 text-muted-foreground">{label}</span>
+      <span className="min-w-0 py-0.5">{children}</span>
+    </>
   );
 }
 
-function KvRow({
-  label,
-  value,
+function Tag({
+  children,
+  tone = "default",
 }: {
-  label: string;
-  value: React.ReactNode;
+  children: React.ReactNode;
+  tone?: "default" | "warning";
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 px-2 py-2">
-      <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-        {label}
-      </span>
-      <div className="min-w-0 flex-1 text-right">{value}</div>
+    <span
+      className={cn(
+        "rounded px-1.5 py-0.5 font-mono text-[10px]",
+        tone === "warning"
+          ? "bg-amber-500/10 text-amber-300"
+          : "bg-muted text-muted-foreground",
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+function InlineAlert({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-2.5 py-1.5 text-[12px]">
+      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+      <span className="min-w-0 text-destructive">{children}</span>
     </div>
   );
 }
