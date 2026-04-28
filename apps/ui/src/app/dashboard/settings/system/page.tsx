@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import Link from "next/link";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   ChevronRight,
   Loader2,
@@ -20,6 +20,8 @@ import { useAgentCommands } from "@/hooks/use-agent-commands";
 import { enqueueAgentCommand } from "@/app/dashboard/agents/actions";
 import type { AgentCommand, CommandAction, CommandStatus } from "@/lib/agents/types";
 import { COMMAND_ACTION_LABELS, COMMAND_STATUS_COLORS } from "@/lib/agents/types";
+import type { Gateway } from "@/lib/gateways/types";
+import { listGatewaysAction } from "@/app/dashboard/settings/gateways/actions";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
@@ -181,8 +183,47 @@ const SYSTEM_ACTIONS: {
 // ── Page ─────────────────────────────────────────────────────
 
 export default function SystemSettingsPage() {
+  return (
+    <Suspense fallback={<div className="p-5"><LoadingSkeleton variant="list" count={3} /></div>}>
+      <SystemSettingsInner />
+    </Suspense>
+  );
+}
+
+function SystemSettingsInner() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const gatewayFilter = searchParams.get("gateway") ?? "";
+
+  const [gateways, setGateways] = useState<Gateway[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const r = await listGatewaysAction();
+      if (!cancelled && r.ok && r.data) setGateways(r.data);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const { commands, loading, hasMore, loadMore, statusFilter, setStatusFilter } =
-    useAgentCommands({ systemOnly: false }); // Show all commands here
+    useAgentCommands({
+      systemOnly: false,
+      ...(gatewayFilter ? { gatewayId: gatewayFilter } : {}),
+    });
+
+  const setGatewayFilter = useCallback(
+    (value: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (value) params.set("gateway", value);
+      else params.delete("gateway");
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname);
+    },
+    [router, pathname, searchParams],
+  );
 
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<typeof SYSTEM_ACTIONS[number] | null>(null);
@@ -248,21 +289,37 @@ export default function SystemSettingsPage() {
               Command History
             </h2>
 
-            <div className="flex items-center gap-0.5 mb-2">
-              {STATUS_TABS.map((tab) => (
-                <button
-                  key={tab.value}
-                  className={cn(
-                    "px-2 py-1 text-[11px] rounded-sm transition-colors",
-                    statusFilter === tab.value
-                      ? "bg-accent text-foreground font-medium"
-                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                  )}
-                  onClick={() => setStatusFilter(tab.value)}
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-0.5">
+                {STATUS_TABS.map((tab) => (
+                  <button
+                    key={tab.value}
+                    className={cn(
+                      "px-2 py-1 text-[11px] rounded-sm transition-colors",
+                      statusFilter === tab.value
+                        ? "bg-accent text-foreground font-medium"
+                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                    )}
+                    onClick={() => setStatusFilter(tab.value)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              {gateways.length > 1 && (
+                <select
+                  value={gatewayFilter}
+                  onChange={(e) => setGatewayFilter(e.target.value)}
+                  className="ml-auto h-6 rounded-sm border border-border/60 bg-background px-1.5 text-[11px] outline-none hover:bg-accent/40 focus-visible:ring-1 focus-visible:ring-ring/50"
                 >
-                  {tab.label}
-                </button>
-              ))}
+                  <option value="">All gateways</option>
+                  {gateways.map((gw) => (
+                    <option key={gw.id} value={gw.id}>
+                      {gw.label}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {loading && commands.length === 0 ? (

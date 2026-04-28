@@ -99,6 +99,7 @@ export interface AgentCommand {
   id: string;
   created_at: string;
   updated_at: string;
+  gateway_id: string | null;
   agent_id: string | null;
   agent_slug: string | null;
   action: CommandAction;

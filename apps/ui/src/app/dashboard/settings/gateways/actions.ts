@@ -44,6 +44,23 @@ export async function listGatewaysAction(): Promise<
   return { ok: true, data: (data ?? []) as Gateway[] };
 }
 
+// Fetches a single gateway by id. Used by the detail page server component;
+// the realtime subscription on the client takes over after that.
+export async function getGatewayAction(
+  id: string,
+): Promise<GatewayActionResult<Gateway>> {
+  const supabase = await createAdminClient();
+  const { data, error } = await supabase
+    .from("gateways")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Gateway not found." };
+  return { ok: true, data: data as Gateway };
+}
+
 // Mints a single-use registration token + builds the one-liner the user
 // runs on the target host. The token is shown plaintext in the dialog
 // once and is never stored — only its sha256 hash sits in the DB.
@@ -116,5 +133,83 @@ export async function removeGatewayAction(
     return { ok: false, error: error.message };
   }
   revalidatePath("/dashboard/settings/gateways");
+  return { ok: true };
+}
+
+// Renames a gateway. The slug stays put — that's how the runner finds
+// itself in `lease_command(p_gateway_slug)`. Editing slug would require
+// reconfiguring the gateway's env, which we don't want to encourage.
+export async function updateGatewayLabelAction(
+  gatewayId: string,
+  label: string,
+): Promise<GatewayActionResult> {
+  const trimmed = label.trim();
+  if (!trimmed) return { ok: false, error: "Label is required." };
+  if (trimmed.length > 80) return { ok: false, error: "Label is too long." };
+
+  const supabase = await createAdminClient();
+  const { error } = await supabase
+    .from("gateways")
+    .update({ label: trimmed })
+    .eq("id", gatewayId);
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  revalidatePath("/dashboard/settings/gateways");
+  revalidatePath(`/dashboard/settings/gateways/${gatewayId}`);
+  return { ok: true };
+}
+
+// Override the reachable_urls.base the gateway wrote at boot. Useful when
+// the auto-detected value (HOST_REACHABLE_URL) is wrong or when the user
+// fronted the gateway behind a custom reverse proxy. Pass null to clear.
+//
+// We store the override in meta.reachable_urls_override so the gateway's
+// next boot doesn't clobber it — readers should prefer override over
+// the auto-written reachable_urls.
+export async function updateReachableUrlOverrideAction(
+  gatewayId: string,
+  baseUrl: string | null,
+): Promise<GatewayActionResult> {
+  const supabase = await createAdminClient();
+  const { data: gw, error: getErr } = await supabase
+    .from("gateways")
+    .select("meta")
+    .eq("id", gatewayId)
+    .single();
+  if (getErr || !gw) {
+    return { ok: false, error: getErr?.message ?? "Gateway not found." };
+  }
+
+  const trimmed = baseUrl?.trim() || null;
+  if (trimmed) {
+    try {
+      // Validate it parses + has a protocol. We don't enforce http/https
+      // (some users tunnel via custom schemes) but parse failure means
+      // we'd render a broken link.
+      new URL(trimmed);
+    } catch {
+      return { ok: false, error: "Not a valid URL." };
+    }
+  }
+
+  const meta = (gw.meta ?? {}) as Record<string, unknown>;
+  const nextMeta = { ...meta };
+  if (trimmed) {
+    nextMeta.reachable_urls_override = { base: trimmed };
+  } else {
+    delete nextMeta.reachable_urls_override;
+  }
+
+  const { error } = await supabase
+    .from("gateways")
+    .update({ meta: nextMeta })
+    .eq("id", gatewayId);
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  revalidatePath(`/dashboard/settings/gateways/${gatewayId}`);
   return { ok: true };
 }

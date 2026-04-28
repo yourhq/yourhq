@@ -18,6 +18,11 @@ export interface GatewayReachableUrls {
 
 export interface GatewayMeta {
   reachable_urls?: GatewayReachableUrls;
+  // Manual override the user set in Settings → Gateways → detail. When
+  // present, this takes precedence over reachable_urls.* — used to
+  // front the gateway behind a custom reverse proxy or fix a bad
+  // auto-detected HOST_REACHABLE_URL.
+  reachable_urls_override?: { base: string };
   networking_mode?: string;
   version?: string;
   registered_via?: string;
@@ -47,4 +52,15 @@ export function isHeartbeatFresh(lastSeenAt: string | null): boolean {
   if (!lastSeenAt) return false;
   const age = Date.now() - new Date(lastSeenAt).getTime();
   return age < HEARTBEAT_FRESH_SECONDS * 1000;
+}
+
+// Resolve the gateway's effective base URL: the user's override beats
+// the auto-detected HOST_REACHABLE_URL the gateway wrote at boot. Used
+// to render the "Open files API", "Open desktop", etc. buttons.
+export function resolveBaseUrl(meta: GatewayMeta): string | null {
+  return (
+    meta.reachable_urls_override?.base ??
+    meta.reachable_urls?.base ??
+    null
+  );
 }

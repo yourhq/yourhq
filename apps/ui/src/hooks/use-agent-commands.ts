@@ -10,11 +10,17 @@ const PAGE_SIZE = 20;
 interface UseAgentCommandsOptions {
   /** Filter to a specific agent. Omit for system-wide commands. */
   agentId?: string;
+  /** Filter to commands targeting a specific gateway. */
+  gatewayId?: string;
   /** Only show system commands (no agent_id). */
   systemOnly?: boolean;
 }
 
-export function useAgentCommands({ agentId, systemOnly }: UseAgentCommandsOptions = {}) {
+export function useAgentCommands({
+  agentId,
+  gatewayId,
+  systemOnly,
+}: UseAgentCommandsOptions = {}) {
   const [commands, setCommands] = useState<AgentCommand[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(false);
@@ -32,6 +38,7 @@ export function useAgentCommands({ agentId, systemOnly }: UseAgentCommandsOption
       .range(offset, offset + PAGE_SIZE - 1);
 
     if (agentId) query = query.eq("agent_id", agentId);
+    if (gatewayId) query = query.eq("gateway_id", gatewayId);
     if (systemOnly) query = query.is("agent_id", null);
     if (statusFilter !== "all") query = query.eq("status", statusFilter);
 
@@ -46,7 +53,7 @@ export function useAgentCommands({ agentId, systemOnly }: UseAgentCommandsOption
       setHasMore(typed.length === PAGE_SIZE);
     }
     setLoading(false);
-  }, [supabase, agentId, systemOnly, statusFilter]);
+  }, [supabase, agentId, gatewayId, systemOnly, statusFilter]);
 
   // Initial fetch — deferred so the effect's setStates don't synchronously
   // cascade-render. fetchCommands is awaited internally so cleanup races
@@ -58,10 +65,21 @@ export function useAgentCommands({ agentId, systemOnly }: UseAgentCommandsOption
     return () => clearTimeout(t);
   }, [fetchCommands]);
 
-  // Subscribe to realtime changes for live status updates
+  // Subscribe to realtime changes for live status updates. We pick the
+  // narrowest filter that's safe — agent > gateway > none. Server-side
+  // postgres_changes only supports a single filter expression, so we
+  // can't AND multiple. The fetch query above re-applies all filters,
+  // so a slightly broader subscription is fine (we just refetch a bit
+  // more often than strictly needed).
+  const realtimeFilter = agentId
+    ? `agent_id=eq.${agentId}`
+    : gatewayId
+      ? `gateway_id=eq.${gatewayId}`
+      : undefined;
+
   useRealtime({
     table: "agent_commands",
-    ...(agentId ? { filter: `agent_id=eq.${agentId}` } : {}),
+    ...(realtimeFilter ? { filter: realtimeFilter } : {}),
     onPayload: () => {
       fetchCommands(0);
     },
@@ -70,7 +88,7 @@ export function useAgentCommands({ agentId, systemOnly }: UseAgentCommandsOption
   // For system-only mode, also subscribe without agent filter
   useRealtime({
     table: "agent_commands",
-    enabled: !!systemOnly && !agentId,
+    enabled: !!systemOnly && !agentId && !gatewayId,
     onPayload: () => {
       fetchCommands(0);
     },
