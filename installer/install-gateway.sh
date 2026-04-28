@@ -7,8 +7,14 @@
 #     | GATEWAY_TOKEN=... SUPABASE_URL=... [GATEWAY_LABEL=...] [TAILSCALE_AUTH_KEY=...] bash
 #
 # Required env:
-#   GATEWAY_TOKEN        single-use token the UI minted (15 min TTL)
-#   SUPABASE_URL         the project's URL (public)
+#   GATEWAY_TOKEN              single-use token the UI minted (15 min TTL)
+#   SUPABASE_URL               the project's URL (public)
+#   SUPABASE_ANON_KEY          public anon key — used by the gateway to
+#                              call consume_gateway_token() on boot
+#   SUPABASE_SERVICE_ROLE_KEY  embedded into .env so this gateway can
+#                              talk to the project's REST/Realtime APIs
+#                              after token exchange. Stays on the
+#                              remote host — never sent to Supabase.
 #
 # Optional env:
 #   GATEWAY_LABEL        friendly name (default: hostname)
@@ -41,6 +47,8 @@ require_env() {
 
 require_env GATEWAY_TOKEN
 require_env SUPABASE_URL
+require_env SUPABASE_ANON_KEY
+require_env SUPABASE_SERVICE_ROLE_KEY
 
 say ""
 say "${B}HQ gateway installer${R}"
@@ -115,12 +123,14 @@ GATEWAY_SLUG="${GATEWAY_SLUG:-gateway}"
 cat > .env <<ENVEOF
 COMPOSE_PROJECT=yourhq-gateway
 SUPABASE_URL=${SUPABASE_URL}
-# SERVICE_ROLE_KEY is left blank — the gateway's entrypoint exchanges
-# GATEWAY_TOKEN for its gateway_id via the consume_gateway_token RPC,
-# and the UI's registry syncs the service role key to /config later
-# only when co-located. Remote gateways rely on the registry on their
-# own host, which we write from the token response.
-SUPABASE_SERVICE_ROLE_KEY=
+# Anon key: used by entrypoint.sh to call consume_gateway_token()
+# on first boot. Public-by-design.
+SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+# Service role: read/write access to the project's REST + Realtime
+# APIs. The UI minted this one-liner with this key embedded so the
+# remote gateway has full project access after the token exchange.
+# Stays on this host's filesystem — never sent back to Supabase.
+SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
 GATEWAY_TOKEN=${GATEWAY_TOKEN}
 GATEWAY_LABEL=${GATEWAY_LABEL}
 GATEWAY_ID=${GATEWAY_SLUG}

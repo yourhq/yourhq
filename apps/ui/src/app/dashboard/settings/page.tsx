@@ -45,8 +45,14 @@ const SECTIONS = [
     description: "Tailscale + how you reach HQ from other devices.",
   },
   {
-    href: "/dashboard/settings/system",
+    href: "/dashboard/settings/gateways",
     icon: Server,
+    title: "Gateways",
+    description: "Machines your agents run on. Add new gateways here.",
+  },
+  {
+    href: "/dashboard/settings/system",
+    icon: SettingsIcon,
     title: "System",
     description: "Gateway controls and command history.",
   },

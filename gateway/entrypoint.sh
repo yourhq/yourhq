@@ -48,15 +48,73 @@ mkdir -p "$OPENCLAW_HOME" "$HOME/.ssh"
 # ─────────────────────────────────────────────────────────────
 # 0. Resolve Supabase credentials.
 #
-# If SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY aren't set in the
-# environment, read them from the UI's project registry mounted at
-# /config (via the ui-config volume). Lets the gateway come up
-# without .env edits once the user completes browser onboarding.
+# Three paths land here:
 #
-# We poll with a long timeout so users running `docker compose up -d`
-# before onboarding don't hit a crash loop — the gateway just waits
-# until the UI writes projects.json + secrets.json.
+#   A) Co-located UI + gateway (the default install). The UI writes
+#      /config/projects.json and /config/secrets.json after onboarding;
+#      registry_config.py reads them and exports SUPABASE_URL +
+#      SUPABASE_SERVICE_ROLE_KEY. We poll with a long timeout so users
+#      running `docker compose up -d` before onboarding don't crash-loop.
+#
+#   B) Remote gateway provisioned via install-gateway.sh. The .env on
+#      the remote host carries SUPABASE_URL + SUPABASE_ANON_KEY +
+#      GATEWAY_TOKEN. We exchange the token via consume_gateway_token()
+#      to claim a gateway_id + slug, then we still need the service role
+#      key for everything below — the install-gateway.sh writes it into
+#      .env from the UI-side mint flow before this script runs (the
+#      one-liner embeds it).
+#
+#   C) Service role key already in env (manual install / dev). Skip both.
 # ─────────────────────────────────────────────────────────────
+
+# Path B: token exchange. Runs before registry fallback so that a remote
+# gateway with no /config volume can still bootstrap itself.
+if [ -n "${GATEWAY_TOKEN:-}" ] && [ ! -f "$OPENCLAW_HOME/.token-consumed" ]; then
+  if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
+    log "GATEWAY_TOKEN set but SUPABASE_URL / SUPABASE_ANON_KEY missing — cannot exchange token."
+    log "  install-gateway.sh should have written all three to .env. Aborting."
+    exit 1
+  fi
+
+  log "Exchanging GATEWAY_TOKEN for a gateway_id ..."
+  TOKEN_RESPONSE=$(curl -fsS -X POST \
+    "$SUPABASE_URL/rest/v1/rpc/consume_gateway_token" \
+    -H "apikey: $SUPABASE_ANON_KEY" \
+    -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+    -H "Content-Type: application/json" \
+    -d "$(python3 -c "import json,os; print(json.dumps({'p_token': os.environ['GATEWAY_TOKEN'], 'p_label': os.environ.get('GATEWAY_LABEL') or None, 'p_slug_hint': os.environ.get('GATEWAY_ID') or None}))")" \
+    2>/dev/null) || {
+      log "  token exchange failed (network or invalid token). Will not retry — restart with a fresh token."
+      exit 1
+    }
+
+  # PostgREST returns the SETOF as a JSON array of one row.
+  CONSUMED_ID=$(echo "$TOKEN_RESPONSE" | python3 -c "import json,sys; r=json.loads(sys.stdin.read()); print((r[0] if isinstance(r,list) and r else r).get('gateway_id',''))")
+  CONSUMED_SLUG=$(echo "$TOKEN_RESPONSE" | python3 -c "import json,sys; r=json.loads(sys.stdin.read()); print((r[0] if isinstance(r,list) and r else r).get('gateway_slug',''))")
+
+  if [ -z "$CONSUMED_ID" ] || [ -z "$CONSUMED_SLUG" ]; then
+    log "  token exchange returned no gateway_id (response: $TOKEN_RESPONSE). Aborting."
+    exit 1
+  fi
+
+  log "  consumed: gateway_id=$CONSUMED_ID slug=$CONSUMED_SLUG"
+
+  # Pin the assigned slug for subsequent boots so we keep registering as
+  # the same gateway row even if the user changes GATEWAY_LABEL.
+  GATEWAY_ID="$CONSUMED_SLUG"
+  export GATEWAY_ID
+
+  # Mark consumed so we don't re-exchange on reboot (the RPC is idempotent
+  # for replays from the same gateway, but no need to call it again).
+  echo "$CONSUMED_ID" > "$OPENCLAW_HOME/.token-consumed"
+  echo "$CONSUMED_SLUG" > "$OPENCLAW_HOME/.gateway-slug"
+fi
+
+# Restore pinned slug from a prior boot if it's there.
+if [ -f "$OPENCLAW_HOME/.gateway-slug" ]; then
+  GATEWAY_ID="$(cat "$OPENCLAW_HOME/.gateway-slug")"
+  export GATEWAY_ID
+fi
 
 REGISTRY_HELPER="/opt/yourhq/registry_config.py"
 [ -f "$REGISTRY_HELPER" ] || REGISTRY_HELPER="/app/registry_config.py"

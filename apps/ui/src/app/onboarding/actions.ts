@@ -5,10 +5,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
   addProject,
-  getActiveProject,
+  getActiveProjectWithSecrets,
   patchOnboardingState,
   getOnboardingState,
 } from "@/lib/projects/registry";
+import { buildGatewayOneLiner } from "@/lib/gateways/one-liner";
 import {
   ACTIVE_PROJECT_COOKIE,
   ACTIVE_PROJECT_COOKIE_OPTIONS,
@@ -637,30 +638,21 @@ export async function mintGatewayTokenAction(input: {
   tailscaleAuthKey?: string;
 }): Promise<ActionResult<GatewayBootstrap>> {
   const state = await getOnboardingState();
-  const project = await getActiveProject(
-    (state.data.projectId as string | undefined) ?? null,
-  );
-  if (!project) {
+  const projectId = (state.data.projectId as string | undefined) ?? null;
+  const projectWithSecrets = await getActiveProjectWithSecrets(projectId);
+  if (!projectWithSecrets) {
     return { ok: false, error: "No project configured yet." };
   }
 
   const label = (input.label ?? "Gateway").trim() || "Gateway";
   const minted = await mintGatewayToken({ label });
 
-  // Build the one-liner. The remote install script fetches itself from
-  // the raw GitHub URL so it works even when install.yourhq.ai hasn't
-  // been set up yet — same approach as install.sh.
-  const tsLine = input.tailscaleAuthKey?.trim()
-    ? [`    TAILSCALE_AUTH_KEY=${input.tailscaleAuthKey.trim()} \\`]
-    : [];
-  const oneLiner = [
-    "curl -fsSL https://raw.githubusercontent.com/yourhq/yourhq/main/installer/install-gateway.sh",
-    `  | GATEWAY_TOKEN=${minted.token} \\`,
-    `    SUPABASE_URL=${project.url} \\`,
-    `    GATEWAY_LABEL=${JSON.stringify(label)} \\`,
-    ...tsLine,
-    "    bash",
-  ].join(" \\\n    ");
+  const oneLiner = buildGatewayOneLiner({
+    token: minted.token,
+    label,
+    project: projectWithSecrets,
+    tailscaleAuthKey: input.tailscaleAuthKey,
+  });
 
   await patchOnboardingState({
     data: {
