@@ -29,6 +29,12 @@ export interface StepAccountProps {
   workspaceLabel: string;
   workspaceEmoji: string;
   onComplete: () => void;
+  /**
+   * Called when the user explicitly signs out of an existing session
+   * via "Use a different account." The wizard uses this to roll the
+   * rail's completion state back so Account re-shows as in-progress.
+   */
+  onSignOut?: () => void;
 }
 
 type Mode = "create" | "signin";
@@ -41,6 +47,7 @@ export function StepAccount({
   workspaceLabel,
   workspaceEmoji,
   onComplete,
+  onSignOut,
 }: StepAccountProps) {
   const [mode, setMode] = useState<Mode>("create");
   const [email, setEmail] = useState(defaultEmail);
@@ -132,6 +139,7 @@ export function StepAccount({
     await client.auth.signOut().catch(() => {});
     setSessionState({ status: "none" });
     setMode("signin");
+    onSignOut?.();
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -199,11 +207,27 @@ export function StepAccount({
   const ModeIcon = mode === "create" ? UserPlus : LogIn;
 
   // ── Loading: probing for an existing session ────────────────────────
+  // Render a low-contrast skeleton of the form rather than a centered
+  // spinner — same vertical rhythm, fades into the real form when the
+  // probe resolves, no layout shift.
   if (sessionState.status === "checking") {
     return (
-      <div className="flex items-center gap-2 pt-12 text-[12px] text-muted-foreground">
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        Checking your session…
+      <div className="space-y-10 pt-8" aria-busy="true">
+        <div className="space-y-3">
+          <div className="h-3 w-20 rounded bg-muted/40" />
+          <div className="h-8 w-3/5 rounded bg-muted/30" />
+          <div className="h-4 w-4/5 rounded bg-muted/20" />
+        </div>
+        <div className="space-y-5">
+          <div className="space-y-2.5">
+            <div className="h-3 w-12 rounded bg-muted/30" />
+            <div className="h-7 w-full rounded bg-muted/20" />
+          </div>
+          <div className="space-y-2.5">
+            <div className="h-3 w-16 rounded bg-muted/30" />
+            <div className="h-7 w-full rounded bg-muted/20" />
+          </div>
+        </div>
       </div>
     );
   }

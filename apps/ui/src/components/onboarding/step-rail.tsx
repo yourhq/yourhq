@@ -1,8 +1,14 @@
 "use client";
 
-// Linear-style left rail for the onboarding wizard. Always-visible on
-// desktop (≥1024px); collapses to a top pill + bottom-sheet drawer on
-// smaller screens.
+// Linear-style left rail for the onboarding wizard.
+//
+// Two exports:
+//   - StepRail        always-visible 240px column (≥1024px). Hidden below.
+//   - StepRailMobile  pill + drawer (<1024px). Hidden above.
+//
+// Splitting them lets the wizard layout place each one where it fits
+// best: the desktop rail flanks the content; the mobile pill sits in
+// the top header. Both share the same items + onJump handler.
 //
 // State per step:
 //   - done       (✓, clickable, jumps to that step)
@@ -41,10 +47,7 @@ export function StepRail({
   title = "Setup",
   brand,
 }: StepRailProps) {
-  const [drawerOpen, setDrawerOpen] = useState(false);
-
-  // Desktop rail
-  const desktop = (
+  return (
     <aside className="hidden w-[240px] shrink-0 flex-col border-r border-border/40 bg-background/40 lg:flex">
       <div className="flex h-14 items-center px-5">
         {brand ?? (
@@ -56,21 +59,24 @@ export function StepRail({
           {title}
         </div>
         {items.map((item, i) => (
-          <RailItem
-            key={item.id}
-            item={item}
-            index={i + 1}
-            onJump={onJump}
-          />
+          <RailItem key={item.id} item={item} index={i + 1} onJump={onJump} />
         ))}
       </div>
     </aside>
   );
+}
 
-  // Mobile pill — sits in the top header
+export function StepRailMobile({
+  items,
+  onJump,
+  title = "Setup",
+}: StepRailProps) {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
   const current = items.find((i) => i.status === "current");
   const currentIdx = items.findIndex((i) => i.status === "current");
-  const mobile = (
+
+  return (
     <>
       <button
         type="button"
@@ -79,12 +85,15 @@ export function StepRail({
         aria-label="Open step menu"
       >
         <Menu className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="text-muted-foreground">Step {currentIdx + 1} of {items.length}</span>
+        <span className="text-muted-foreground">
+          Step {currentIdx + 1} of {items.length}
+        </span>
         <span className="hidden text-foreground sm:inline">·</span>
-        <span className="hidden text-foreground sm:inline">{current?.label}</span>
+        <span className="hidden text-foreground sm:inline">
+          {current?.label}
+        </span>
       </button>
 
-      {/* Drawer */}
       {drawerOpen && (
         <div
           className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur lg:hidden"
@@ -92,7 +101,9 @@ export function StepRail({
           aria-modal="true"
         >
           <div className="flex h-14 items-center justify-between px-5">
-            <span className="text-[13px] font-semibold tracking-tight">{title}</span>
+            <span className="text-[13px] font-semibold tracking-tight">
+              {title}
+            </span>
             <button
               type="button"
               onClick={() => setDrawerOpen(false)}
@@ -117,13 +128,6 @@ export function StepRail({
           </div>
         </div>
       )}
-    </>
-  );
-
-  return (
-    <>
-      {desktop}
-      {mobile}
     </>
   );
 }

@@ -13,6 +13,9 @@ import {
   advanceAfterGateway,
   saveWorkspaceStep,
   saveGatewaySetup,
+  saveTailscaleAuthKey,
+  resetGatewayPlacement,
+  resetSupabaseConnection,
   type OnboardingStep,
   type GatewayBootstrap,
 } from "@/app/onboarding/actions";
@@ -23,7 +26,7 @@ import { StepAccount } from "./steps/step-account";
 import { StepGateway } from "./steps/step-gateway";
 import { StepWorkspace } from "./steps/step-workspace";
 import { StepDone } from "./steps/step-done";
-import { StepRail, type StepRailItem } from "./step-rail";
+import { StepRail, StepRailMobile, type StepRailItem } from "./step-rail";
 import { useWizardNavigation } from "./use-wizard-navigation";
 
 export interface WizardInitialState {
@@ -101,6 +104,7 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
       setGateway(null);
       setLocalStartError(null);
       patch({ tailscaleAuthKey: undefined, placement: undefined });
+      void resetGatewayPlacement();
       return true;
     },
   };
@@ -110,7 +114,8 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
     initial: initialStep,
     subPhaseBack,
   });
-  const { step, direction, completed, goBack, jumpTo, go } = nav;
+  const { step, direction, completed, goBack, jumpTo, go, truncateCompleted } =
+    nav;
 
   // Placement lives inside data — set when the user clicks a tile on
   // the first phase of the Gateway step.
@@ -261,13 +266,25 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
   };
 
   // ─── Keyboard shortcut: Cmd/Ctrl+← for Back ───
+  // Skip when the user is in an input/textarea (Cmd+← is the native
+  // "jump to start of line" shortcut there). Also no-op on welcome
+  // since there's nowhere to go back to.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (step === "done") return;
-      if ((e.metaKey || e.ctrlKey) && e.key === "ArrowLeft") {
-        e.preventDefault();
-        goBack();
+      if (step === "done" || step === "welcome") return;
+      if (!((e.metaKey || e.ctrlKey) && e.key === "ArrowLeft")) return;
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        t?.isContentEditable
+      ) {
+        return;
       }
+      e.preventDefault();
+      goBack();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -341,11 +358,12 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
             )}
           </div>
 
-          <div className="lg:hidden">
-            {/* Mobile pill is rendered by StepRail itself. The rail's
-                desktop-only `aside` is hidden on mobile, but the mobile
-                pill+drawer renders inside the rail component. */}
-          </div>
+          {/* Mobile-only step pill — drawer for navigating between
+              steps when the rail is hidden. */}
+          <StepRailMobile
+            items={railItems}
+            onJump={(id) => jumpTo(id as OnboardingStep)}
+          />
 
           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <span className="font-semibold tracking-tight text-foreground lg:hidden">
@@ -444,6 +462,11 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
                       placement: undefined,
                       tailscaleAuthKey: undefined,
                     });
+                    // Roll back the rail's "completed" set so Account
+                    // and Gateway re-render as future steps until the
+                    // user redoes them.
+                    truncateCompleted("supabase");
+                    void resetSupabaseConnection();
                   }}
                   onComplete={handleSupabaseComplete}
                 />
@@ -460,6 +483,13 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
                   }
                   workspaceEmoji={(data.workspaceEmoji as string) ?? "🏠"}
                   onComplete={handleAccountComplete}
+                  onSignOut={() => {
+                    // User clicked "Use a different account." Roll the
+                    // rail back so Account + Gateway show as needing
+                    // to be redone.
+                    truncateCompleted("account");
+                    patch({ authEmail: undefined, authMode: undefined });
+                  }}
                 />
               )}
 
@@ -470,7 +500,12 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
                   localError={localStartError}
                   onChoosePlacement={submitPlacement}
                   onProvideTailscaleKey={(key) => {
+                    // Persist server-side so a refresh resumes here
+                    // with the key intact. Don't block the UI on the
+                    // network round-trip — it's safe to render the boot
+                    // phase immediately while the save flushes.
                     patch({ tailscaleAuthKey: key });
+                    void saveTailscaleAuthKey({ tailscaleAuthKey: key });
                   }}
                   onContinue={advanceFromGateway}
                   onRegenerateToken={() => {
@@ -494,6 +529,9 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
                       tailscaleAuthKey: undefined,
                       placement: undefined,
                     });
+                    // Persist the reset so a refresh doesn't bring the
+                    // user back to the boot phase against the old choice.
+                    void resetGatewayPlacement();
                   }}
                   pending={pending}
                 />

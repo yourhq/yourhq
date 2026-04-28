@@ -45,6 +45,13 @@ export interface WizardNavigation<TStep extends string> {
   go: (target: TStep, direction?: "forward" | "back") => void;
   /** Mark a step done without changing the current step. */
   markComplete: (s: TStep) => void;
+  /**
+   * Drop completion for `step` and every step after it in canonical
+   * order. Used when a reset (e.g. "connect a different Supabase
+   * project") invalidates downstream state — the rail should reflect
+   * that those steps need to be redone.
+   */
+  truncateCompleted: (step: TStep) => void;
   isReachable: (s: TStep) => boolean;
 }
 
@@ -140,6 +147,22 @@ export function useWizardNavigation<TStep extends string>(
     });
   }, []);
 
+  const truncateCompleted = useCallback(
+    (target: TStep) => {
+      const targetIdx = steps.indexOf(target);
+      if (targetIdx < 0) return;
+      setCompleted((prev) => {
+        const next = new Set<TStep>();
+        for (const s of prev) {
+          const i = steps.indexOf(s);
+          if (i < targetIdx) next.add(s);
+        }
+        return next;
+      });
+    },
+    [steps],
+  );
+
   return {
     step,
     direction,
@@ -149,6 +172,7 @@ export function useWizardNavigation<TStep extends string>(
     jumpTo,
     go,
     markComplete,
+    truncateCompleted,
     isReachable,
   };
 }

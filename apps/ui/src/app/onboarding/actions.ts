@@ -151,6 +151,58 @@ export async function saveGatewaySetup(
   return { ok: true };
 }
 
+// Persists just the Tailscale auth key for the remote placement path.
+// Empty string = "skip Tailscale" (user explicitly opted out). We
+// distinguish from undefined (= not yet provided) so the wizard knows
+// when to mint the registration token.
+const tailscaleKeySchema = z.object({
+  tailscaleAuthKey: z.string(), // empty allowed (= skipped)
+});
+
+export async function saveTailscaleAuthKey(
+  input: z.infer<typeof tailscaleKeySchema>,
+): Promise<ActionResult> {
+  const parsed = tailscaleKeySchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+  await patchOnboardingState({
+    data: { tailscaleAuthKey: parsed.data.tailscaleAuthKey },
+  });
+  return { ok: true };
+}
+
+// Resets gateway-related fields when the user clicks "Run on this/other
+// machine instead." Cleared: placement + tailscaleAuthKey. Step stays
+// on `gateway` so the placement picker re-renders.
+export async function resetGatewayPlacement(): Promise<ActionResult> {
+  await patchOnboardingState({
+    data: {
+      placement: undefined,
+      tailscaleAuthKey: undefined,
+    },
+  });
+  return { ok: true };
+}
+
+// Resets Supabase + downstream fields when the user clicks "Connect a
+// different project" on the Supabase summary. Clears the entire
+// auth-and-gateway chain so the user has to re-do them against the
+// new project.
+export async function resetSupabaseConnection(): Promise<ActionResult> {
+  await patchOnboardingState({
+    step: "supabase",
+    data: {
+      supabaseUrl: undefined,
+      supabaseAnonKey: undefined,
+      projectId: undefined,
+      authEmail: undefined,
+      authMode: undefined,
+      placement: undefined,
+      tailscaleAuthKey: undefined,
+    },
+  });
+  return { ok: true };
+}
+
 // ─── Supabase: sub-step actions ─────────────────────────────────────────
 //
 // The Supabase onboarding phase happens in three UI sub-screens:
