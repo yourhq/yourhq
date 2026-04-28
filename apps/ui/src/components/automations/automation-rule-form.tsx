@@ -20,6 +20,16 @@ import { cn } from "@/lib/utils";
 
 interface AutomationRuleFormProps {
   editingRule: AutomationRule | null;
+  /**
+   * Pre-filled values for create mode. Ignored when editingRule is set
+   * (the row's existing values win there). Used by the agent Triggers
+   * section to lock target_agent_id to the current agent.
+   */
+  initialValues?: {
+    targetAgentId?: string;
+    /** When true, the agent picker is disabled and shows the locked agent. */
+    lockTargetAgent?: boolean;
+  };
   onSave: () => void;
   onCancel: () => void;
 }
@@ -155,17 +165,25 @@ function renderSummaryPreview(template: string, sampleValue: string): string {
     .replaceAll("{new_value}", sampleValue || "qualified");
 }
 
-export function AutomationRuleForm({ editingRule, onSave, onCancel }: AutomationRuleFormProps) {
+export function AutomationRuleForm({ editingRule, initialValues, onSave, onCancel }: AutomationRuleFormProps) {
   const supabase = useMemo(() => createClient(), []);
   const [agents, setAgents] = useState<AgentOption[]>([]);
   const [saving, setSaving] = useState(false);
   const { stageOptions, stagesByKey } = usePipelineStages("contact");
 
+  // Lock the agent picker when the form is opened from a context
+  // that already knows which agent the rule belongs to (e.g. the
+  // agent's Triggers section). The lock prevents users accidentally
+  // re-targeting the rule to a different agent.
+  const lockTargetAgent = !editingRule && Boolean(initialValues?.lockTargetAgent);
+
   const [triggerId, setTriggerId] = useState<string>(
     editingRule ? findTriggerByRule(editingRule) : "created",
   );
   const [value, setValue] = useState(editingRule?.value ?? "");
-  const [targetAgentId, setTargetAgentId] = useState(editingRule?.target_agent_id ?? "");
+  const [targetAgentId, setTargetAgentId] = useState(
+    editingRule?.target_agent_id ?? initialValues?.targetAgentId ?? "",
+  );
   const [summaryTemplate, setSummaryTemplate] = useState(editingRule?.summary_template ?? "");
   const [isActive, setIsActive] = useState(editingRule?.is_active ?? true);
 
@@ -454,8 +472,18 @@ export function AutomationRuleForm({ editingRule, onSave, onCancel }: Automation
 
               <span className="text-muted-foreground">notify</span>
 
-              {/* Agent pill */}
-              <Popover open={agentOpen} onOpenChange={setAgentOpen}>
+              {/* Agent pill — locked when opened from an agent's Triggers section */}
+              {lockTargetAgent && selectedAgent ? (
+                <div title="Pre-filled from this agent's Triggers section">
+                  <Pill tone="accent">
+                    <span className="text-xs leading-none">
+                      {selectedAgent.emoji ?? "🤖"}
+                    </span>
+                    <span>{selectedAgent.name}</span>
+                  </Pill>
+                </div>
+              ) : (
+                <Popover open={agentOpen} onOpenChange={setAgentOpen}>
                 <PopoverTrigger asChild>
                   <button type="button">
                     <Pill tone={selectedAgent ? "accent" : "empty"} active={agentOpen}>
@@ -509,6 +537,7 @@ export function AutomationRuleForm({ editingRule, onSave, onCancel }: Automation
                   </div>
                 </PopoverContent>
               </Popover>
+              )}
             </div>
 
             <p className="mt-3 text-[11px] text-muted-foreground">

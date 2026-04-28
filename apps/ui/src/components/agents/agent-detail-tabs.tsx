@@ -54,6 +54,7 @@ import {
 import { InboxSection } from "@/components/automations/inbox-section";
 import { AgentProvisioning } from "@/components/agents/agent-provisioning";
 import { AgentFileBrowser } from "./agent-file-browser";
+import { TriggersSection } from "./triggers-section";
 import { OpenDesktopModal } from "@/components/gateways/open-desktop-modal";
 import { getGatewayDesktopUrlAction } from "@/app/dashboard/settings/gateways/actions";
 
@@ -194,7 +195,10 @@ export function AgentDetailTabs({
                   </p>
                 )}
                 <ContextDocsSection agent={agent} bootDocuments={bootDocuments} />
-                <div className="border-t border-border/50 pt-5">
+                <div className="border-t border-border/50 pt-6">
+                  <TriggersSection agent={agent} />
+                </div>
+                <div className="border-t border-border/50 pt-6">
                   <InboxSection agentId={agent.id} />
                 </div>
               </div>
