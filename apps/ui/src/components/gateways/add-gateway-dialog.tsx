@@ -93,8 +93,9 @@ function AddGatewayDialogInner({
       <DialogHeader className="px-5 pt-5 pb-3 border-b border-border/50">
         <DialogTitle className="text-heading">Add a gateway</DialogTitle>
         <DialogDescription className="text-caption text-muted-foreground">
-          A gateway is a machine your agents run on. Spread workload across
-          hosts or run agents closer to you.
+          A gateway is a computer where agents run. Add another one to split
+          work between machines (e.g. one at home, one in the cloud) or to
+          keep an agent running 24/7 even when your laptop is asleep.
         </DialogDescription>
       </DialogHeader>
 
@@ -210,18 +211,18 @@ function FormPhase({
       <div className="px-5 py-4 space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="gw-label" className="text-[12px]">
-            Name
+            Name this gateway
           </Label>
           <Input
             id="gw-label"
             name="label"
             autoFocus
-            placeholder="Mac mini, EU box, laptop…"
+            placeholder='e.g. "Home Mac mini" or "Cloud box"'
             defaultValue=""
             maxLength={60}
           />
           <p className="text-[11px] text-muted-foreground/70">
-            Helps you tell gateways apart in lists.
+            Anything you&apos;ll recognize. You can rename it later.
           </p>
         </div>
 
@@ -229,7 +230,7 @@ function FormPhase({
           <Label htmlFor="gw-tailscale" className="text-[12px]">
             Tailscale auth key
             <span className="ml-1 font-normal text-muted-foreground/70">
-              (optional)
+              (optional, recommended for remote machines)
             </span>
           </Label>
           <Input
@@ -242,17 +243,18 @@ function FormPhase({
             className="font-mono text-[12px]"
           />
           <p className="text-[11px] text-muted-foreground/70">
-            Embeds the key into the install command so the new gateway
-            joins your tailnet automatically.{" "}
+            Tailscale is a free private network that lets this UI reach a
+            gateway on a different machine without opening any ports.
+            Skip if the gateway is on this same computer or on your
+            local network.{" "}
             <a
               href="https://login.tailscale.com/admin/settings/keys"
               target="_blank"
               rel="noreferrer"
               className="underline underline-offset-2 hover:text-foreground"
             >
-              Create one
+              Get an auth key →
             </a>
-            .
           </p>
         </div>
 
@@ -431,8 +433,8 @@ function ConnectedPhase({ onClose }: { onClose: () => void }) {
               Gateway connected
             </div>
             <p className="text-muted-foreground">
-              The new gateway is registered and running. You can target
-              agents at it from the agent create dialog.
+              You&apos;re all set. When you create a new agent you&apos;ll
+              be able to pick this gateway as its home.
             </p>
           </div>
         </div>

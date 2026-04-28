@@ -539,10 +539,24 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────
-# 10. Start files-API (only if GATEWAY_AUTH_TOKEN is set; else skip)
+# 10. Start files-API.
 #     The files-API serves the agent worktrees to the HQ UI over
 #     the Docker internal network (or Tailscale, if enabled).
+#
+#     Auth: shared bearer token. Resolution order:
+#       1. GATEWAY_AUTH_TOKEN env (legacy .env-based installs)
+#       2. /config/gateway-auth-token (file written by the UI on
+#          first boot — the default for browser-onboarding installs)
+#     If neither is present we skip — the UI will create the file
+#     the first time someone opens an agent's Files tab, after which
+#     the next gateway restart picks it up.
 # ─────────────────────────────────────────────────────────────
+
+if [ -z "${GATEWAY_AUTH_TOKEN:-}" ] && [ -r "/config/gateway-auth-token" ]; then
+  GATEWAY_AUTH_TOKEN="$(cat /config/gateway-auth-token | tr -d '[:space:]')"
+  export GATEWAY_AUTH_TOKEN
+  log "  resolved GATEWAY_AUTH_TOKEN from /config/gateway-auth-token"
+fi
 
 if [ -n "${GATEWAY_AUTH_TOKEN:-}" ] && [ "${FILES_API_BIND:-docker}" != "off" ]; then
   log "Starting files-API (bind=${FILES_API_BIND:-docker}) ..."
@@ -551,7 +565,7 @@ if [ -n "${GATEWAY_AUTH_TOKEN:-}" ] && [ "${FILES_API_BIND:-docker}" != "off" ];
   GATEWAY_AUTH_TOKEN="$GATEWAY_AUTH_TOKEN" \
   python3 /usr/local/bin/files_api.py > "$HOME/files-api.log" 2>&1 &
 else
-  log "files-API disabled (GATEWAY_AUTH_TOKEN empty or FILES_API_BIND=off)."
+  log "files-API disabled (no token at /config/gateway-auth-token or in env, or FILES_API_BIND=off)."
 fi
 
 # ─────────────────────────────────────────────────────────────

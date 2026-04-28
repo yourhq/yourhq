@@ -452,18 +452,21 @@ function LocalView({
 }) {
   if (online) {
     return (
-      <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-4">
-        <div className="flex items-start gap-2.5">
-          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-          <div className="space-y-1">
-            <div className="text-[13px] font-medium">
-              Gateway is running on this machine
+      <div className="space-y-3">
+        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-4">
+          <div className="flex items-start gap-2.5">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+            <div className="space-y-1">
+              <div className="text-[13px] font-medium">
+                Gateway is running on this machine
+              </div>
+              <p className="text-[12px] text-muted-foreground">
+                Your agents now have a place to live and work.
+              </p>
             </div>
-            <p className="text-[12px] text-muted-foreground">
-              Agents can now be created and run.
-            </p>
           </div>
         </div>
+        <ModelProviderHint />
       </div>
     );
   }
@@ -552,17 +555,20 @@ function RemoteView({
 }) {
   if (online) {
     return (
-      <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-4">
-        <div className="flex items-start gap-2.5">
-          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-          <div className="space-y-1">
-            <div className="text-[13px] font-medium">Gateway connected</div>
-            <p className="text-[12px] text-muted-foreground">
-              Your gateway is registered and ready. You can view it in
-              Settings → Gateways after onboarding.
-            </p>
+      <div className="space-y-3">
+        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-4">
+          <div className="flex items-start gap-2.5">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+            <div className="space-y-1">
+              <div className="text-[13px] font-medium">Gateway connected</div>
+              <p className="text-[12px] text-muted-foreground">
+                Your gateway is registered and ready. You can view it
+                anytime in Settings → Gateways.
+              </p>
+            </div>
           </div>
         </div>
+        <ModelProviderHint />
       </div>
     );
   }
@@ -643,5 +649,52 @@ function RemoteView({
         </div>
       </div>
     </>
+  );
+}
+
+// ─── Model provider hint ─────────────────────────────────────────────
+//
+// Shown after the gateway comes online. Agents need an AI model to
+// run, and the proper Connections UI ships in Phase 3.4. Until then
+// users have to set this up manually via the gateway shell. We surface
+// the gap here so it doesn't show up as a confusing failure later.
+
+function ModelProviderHint() {
+  return (
+    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+      <div className="flex items-start gap-2.5">
+        <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+        <div className="space-y-2">
+          <div className="text-[13px] font-medium">
+            One more thing: connect an AI model
+          </div>
+          <p className="text-[12px] leading-relaxed text-muted-foreground">
+            Agents need access to a language model to think — Claude, GPT,
+            Gemini, etc. The in-browser setup for this is shipping shortly.
+            Until then, run this on your gateway machine after onboarding:
+          </p>
+          <pre className="overflow-auto rounded-md border border-border/60 bg-background p-2 font-mono text-[10.5px] leading-relaxed">
+{`docker compose exec gateway \\
+  openclaw models auth login --provider openai-codex --set-default`}
+          </pre>
+          <p className="text-[11px] text-muted-foreground/70">
+            Replace{" "}
+            <code className="rounded bg-muted px-1 font-mono text-[10px]">
+              openai-codex
+            </code>{" "}
+            with{" "}
+            <code className="rounded bg-muted px-1 font-mono text-[10px]">
+              anthropic
+            </code>
+            ,{" "}
+            <code className="rounded bg-muted px-1 font-mono text-[10px]">
+              gemini
+            </code>
+            , etc. for other providers. You can finish onboarding now and
+            do this after.
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }

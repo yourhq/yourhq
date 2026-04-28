@@ -77,7 +77,7 @@ export function GatewaysSettings({ initialGateways }: GatewaysSettingsProps) {
       <PageHeader
         icon={<Server className="h-4 w-4" />}
         title="Gateways"
-        description="The machines your agents run on."
+        description="A gateway is a computer where your agents live and do work — like a laptop, a Mac mini at home, or a small cloud server. You can have one or several."
         primaryAction={
           <Button size="sm" onClick={() => setAddOpen(true)}>
             <Plus className="mr-1.5 h-3.5 w-3.5" />
@@ -92,7 +92,7 @@ export function GatewaysSettings({ initialGateways }: GatewaysSettingsProps) {
             <EmptyState
               icon={Server}
               title="No gateways yet"
-              description="Add a gateway to start running agents."
+              description="Add the first computer where your agents will run. Most people start with one — the machine they're on now or a spare laptop."
               action={{
                 label: "Add gateway",
                 icon: Plus,

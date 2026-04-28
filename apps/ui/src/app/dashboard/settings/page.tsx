@@ -5,6 +5,7 @@ import {
   Sliders,
   Layers,
   LayoutGrid,
+  Plug,
   Server,
   FolderKanban,
   ChevronRight,
@@ -42,19 +43,26 @@ const SECTIONS = [
     href: "/dashboard/settings/networking",
     icon: Globe,
     title: "Networking",
-    description: "Tailscale + how you reach HQ from other devices.",
+    description: "How you reach HQ from your phone or another laptop.",
   },
   {
     href: "/dashboard/settings/gateways",
     icon: Server,
     title: "Gateways",
-    description: "Machines your agents run on. Add new gateways here.",
+    description: "The computers your agents run on.",
+  },
+  {
+    href: "/dashboard/settings/connections",
+    icon: Plug,
+    title: "Connections",
+    description:
+      "AI providers your agents use — Claude, GPT, Gemini, and more.",
   },
   {
     href: "/dashboard/settings/system",
     icon: SettingsIcon,
     title: "System",
-    description: "Gateway controls and command history.",
+    description: "Restart agent infrastructure and view recent commands.",
   },
 ];
 

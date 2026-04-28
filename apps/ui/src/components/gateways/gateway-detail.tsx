@@ -214,9 +214,9 @@ export function GatewayDetail({
           title={`Remove ${gateway.label}?`}
           description={
             <>
-              This removes the <span className="font-mono">{gateway.slug}</span>{" "}
-              row from the registry. The container on the host keeps running
-              until you stop it manually with{" "}
+              This removes the gateway from your list here. The actual
+              software keeps running on the machine itself — to fully
+              shut it down, log into that machine and run{" "}
               <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
                 docker compose down
               </code>
@@ -313,14 +313,18 @@ function GatewayRailContent({
             disabled={!hasDesktop}
             title={
               hasDesktop
-                ? "Open the gateway's container desktop"
-                : "Waiting for the gateway to report a noVNC URL"
+                ? "See what the agents are doing — Chrome, terminal, anything else they have open"
+                : "Waiting for this gateway to come online before you can view its desktop"
             }
           >
             <Terminal className="mr-1.5 h-3 w-3" />
             Open desktop
           </Button>
         </div>
+        <p className="mt-1.5 text-[11px] text-muted-foreground/70">
+          Opens a live view of this machine&apos;s screen — the same
+          Chrome window your agents are working in.
+        </p>
       </DetailSidebarSection>
     </>
   );
@@ -339,13 +343,20 @@ function ReachableUrlsSection({ gateway }: { gateway: Gateway }) {
 
   return (
     <div>
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+      <h2 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         Reachable URLs
       </h2>
+      <p className="mb-3 text-[11px] text-muted-foreground/80">
+        Where this UI talks to the gateway. The base URL is the address
+        of the machine itself; the others are the specific services
+        running on it (file browser, remote desktop). They&apos;re
+        usually right out of the box — only override if you&apos;ve put
+        the gateway behind a custom domain or proxy.
+      </p>
       {!auto && !override && !filesApi && !novnc ? (
         <p className="text-xs text-muted-foreground">
-          The gateway hasn&apos;t reported any URLs yet. They&apos;re written
-          on each boot.
+          This gateway hasn&apos;t reported its address yet. It&apos;ll
+          publish them on first boot — usually within a minute.
         </p>
       ) : (
         <div className="grid grid-cols-[120px_1fr] gap-x-6 gap-y-1.5 text-xs">

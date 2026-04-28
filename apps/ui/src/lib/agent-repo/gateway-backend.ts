@@ -4,16 +4,17 @@
 // across a Tailscale tailnet, depending on deployment).
 
 import type { GitHubTreeEntry, GitHubFileContent } from "@/lib/agent-repo/types";
+import { getOrCreateGatewayAuthToken } from "@/lib/projects/gateway-auth-token";
 
-function getEnv() {
+async function getEnv() {
   const base = process.env.GATEWAY_URL;
-  const token = process.env.GATEWAY_AUTH_TOKEN;
   if (!base) {
     throw new Error("GATEWAY_URL is not configured");
   }
-  if (!token) {
-    throw new Error("GATEWAY_AUTH_TOKEN is not configured");
-  }
+  // Token is auto-managed: pulled from /config/gateway-auth-token,
+  // generated there on first boot. Falls back to GATEWAY_AUTH_TOKEN
+  // env var for legacy installs that wrote it to .env directly.
+  const token = await getOrCreateGatewayAuthToken();
   return { base: base.replace(/\/$/, ""), token };
 }
 
@@ -22,7 +23,7 @@ async function request<T>(
   path: string,
   body?: unknown
 ): Promise<T> {
-  const { base, token } = getEnv();
+  const { base, token } = await getEnv();
   const res = await fetch(`${base}${path}`, {
     method,
     headers: {

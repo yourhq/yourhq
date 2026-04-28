@@ -882,44 +882,66 @@ function ManualInstallPanel({
 }) {
   return (
     <div className="mt-2 space-y-3 rounded-md border border-border/60 bg-background/40 p-3">
-      <div className="space-y-1">
-        <p className="text-[12px] leading-relaxed">
-          Open your project&apos;s SQL editor in a new tab — the migration is
-          pre-loaded. Click <span className="font-medium">Run</span> in the
-          editor, then come back here.
+      <div className="space-y-1.5">
+        <p className="text-[12px] font-medium text-foreground">
+          Three steps:
         </p>
-        <p className="text-[11px] text-muted-foreground">
-          The migration is idempotent — safe to run on a new or existing project.
+        <ol className="space-y-1 pl-4 text-[12px] leading-relaxed text-muted-foreground [counter-reset:steps] [&>li]:before:mr-1.5 [&>li]:before:font-medium [&>li]:before:text-foreground/70 [&>li]:before:content-[counter(steps)'.'] [&>li]:[counter-increment:steps]">
+          <li>
+            <span className="font-medium text-foreground">Copy SQL</span> —
+            puts the migration on your clipboard.
+          </li>
+          <li>
+            <span className="font-medium text-foreground">Open SQL editor</span>{" "}
+            — opens a new tab in your Supabase project. Paste, then click{" "}
+            <span className="font-medium text-foreground">Run</span>.
+          </li>
+          <li>
+            Come back here and click{" "}
+            <span className="font-medium text-foreground">I ran it</span>.
+          </li>
+        </ol>
+        <p className="text-[11px] text-muted-foreground/70">
+          The migration is safe to re-run — every statement uses{" "}
+          <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
+            IF NOT EXISTS
+          </code>
+          , so nothing breaks if some tables already exist.
         </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <a
-          href={sqlEditorUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-[12px] font-medium text-background hover:bg-foreground/90"
-        >
-          <ExternalLink className="h-3 w-3" />
-          Open SQL editor
-        </a>
         <button
           type="button"
           onClick={onCopy}
-          className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-[11px] hover:bg-accent/60"
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors",
+            copied
+              ? "bg-emerald-500/15 text-emerald-200"
+              : "bg-foreground text-background hover:bg-foreground/90",
+          )}
         >
           {copied ? (
             <>
-              <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-              Copied SQL
+              <CheckCircle2 className="h-3 w-3" />
+              Copied — now open the SQL editor
             </>
           ) : (
             <>
               <Copy className="h-3 w-3" />
-              Copy SQL
+              Copy SQL (~90 KB)
             </>
           )}
         </button>
+        <a
+          href={sqlEditorUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-[11px] hover:bg-accent/60"
+        >
+          <ExternalLink className="h-3 w-3" />
+          Open SQL editor
+        </a>
       </div>
 
       <div className="flex items-center gap-2 border-t border-border/40 pt-2.5">

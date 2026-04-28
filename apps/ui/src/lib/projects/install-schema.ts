@@ -56,12 +56,19 @@ function parseProjectRef(url: string): string | null {
   }
 }
 
-function buildSqlEditorUrl(projectRef: string | null, sql: string): string {
+function buildSqlEditorUrl(projectRef: string | null): string {
+  // Supabase's SQL editor used to accept a `?content=` query param to
+  // prefill the editor, but the migration is ~90 KB and even after URL-
+  // encoding it blows past every browser's URL length cap (Chrome
+  // ~32 KB) and most CDN/edge limits — clicking the link errored out
+  // with "URI too long".
+  //
+  // Workaround: send the user to a blank SQL editor and have them paste
+  // the SQL we already copied to their clipboard. The UI does this in
+  // two clicks: "Copy SQL" (fills clipboard) → "Open SQL editor" (new
+  // tab, paste, Run). Less magic but reliably works for any size.
   if (!projectRef) return "https://supabase.com/dashboard/projects";
-  // Supabase's SQL editor accepts a `content` query param that prefills
-  // the editor. Encode the SQL — URLs can be long but browsers handle
-  // tens of KB without issue.
-  return `https://supabase.com/dashboard/project/${projectRef}/sql/new?content=${encodeURIComponent(sql)}`;
+  return `https://supabase.com/dashboard/project/${projectRef}/sql/new`;
 }
 
 /**
@@ -88,7 +95,7 @@ export async function prepareSchemaInstall(
   return {
     ok: true,
     sql,
-    sqlEditorUrl: buildSqlEditorUrl(projectRef, sql),
+    sqlEditorUrl: buildSqlEditorUrl(projectRef),
     projectRef,
   };
 }

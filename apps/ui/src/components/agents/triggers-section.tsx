@@ -86,12 +86,13 @@ export function TriggersSection({ agent }: TriggersSectionProps) {
 
   return (
     <div>
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+      <h2 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         Triggers
       </h2>
       <p className="mb-4 text-[12px] text-muted-foreground/80">
-        Everything that wakes this agent. Add, pause, or remove triggers
-        without leaving this page.
+        What makes this agent do something. Triggers are like alarms —
+        they wake the agent up so it can read its inbox and act. Add,
+        pause, or remove them here.
       </p>
 
       <div className="space-y-4">
@@ -108,7 +109,7 @@ export function TriggersSection({ agent }: TriggersSectionProps) {
                     : ""
                 }`
           }
-          description="Wake on a cadence — daily, weekly, custom."
+          description="Wake on a schedule — every weekday at 9am, every Monday, every hour, etc."
           action={
             <Button
               asChild
@@ -130,7 +131,7 @@ export function TriggersSection({ agent }: TriggersSectionProps) {
             <LoadingSkeleton variant="list" count={2} />
           ) : series.seriesList.length === 0 ? (
             <EmptyHint
-              text="No scheduled triggers yet."
+              text="Nothing scheduled. Add a recurring task and the agent will be woken on its cadence (e.g. every weekday morning)."
               ctaText="Create a recurring task"
               ctaHref={`/dashboard/tasks?view=recurring&new=1&assignee=${agent.id}`}
             />
@@ -164,7 +165,7 @@ export function TriggersSection({ agent }: TriggersSectionProps) {
                     : ""
                 }`
           }
-          description="Wake when something changes in the workspace."
+          description="Wake when something changes — e.g. a new contact is added, or a contact moves to a new pipeline stage."
           action={
             <Button
               variant="ghost"
@@ -182,7 +183,7 @@ export function TriggersSection({ agent }: TriggersSectionProps) {
             <LoadingSkeleton variant="list" count={2} />
           ) : rules.rules.length === 0 ? (
             <EmptyHint
-              text="No automations target this agent yet."
+              text="No automations yet. Add one and this agent will wake whenever the change you pick happens (e.g. when a contact moves to Qualified)."
               ctaText="Create an automation rule"
               ctaOnClick={() => setCreatingRule(true)}
             />
@@ -207,7 +208,7 @@ export function TriggersSection({ agent }: TriggersSectionProps) {
           icon={Send}
           title="Direct"
           countLabel="always on"
-          description="Channels you can't disable here — they wake the agent automatically."
+          description="Built-in ways to wake this agent — can't be turned off (they're how the agent stays useful)."
         >
           <DirectChannelsList agent={agent} />
         </SubSection>
@@ -622,19 +623,19 @@ function DirectChannelsList({ agent }: { agent: Agent }) {
     {
       icon: CheckSquare,
       label: "Task assignments",
-      detail: "Wake when any task is assigned to this agent.",
+      detail: "Wakes up whenever you assign a task to this agent.",
     },
     {
       icon: AtSign,
       label: "Comment @-mentions",
-      detail: "Wake when @-mentioned in a task comment.",
+      detail: "Wakes up when you @-mention them in a task comment.",
     },
     {
       icon: Bot,
       label: "Telegram",
       detail: telegramHandle
-        ? `Wake on direct message or @-mention — @${telegramHandle}`
-        : "Wake on direct message or @-mention. Configure the bot per agent.",
+        ? `Wakes up on Telegram DMs or @-mentions — @${telegramHandle}`
+        : "Wakes up when you message them on Telegram. Bot handle is set per agent during creation.",
     },
   ];
 

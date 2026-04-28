@@ -99,10 +99,17 @@ export function OpenDesktopModal({
             allow="clipboard-read; clipboard-write"
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            This gateway hasn&apos;t reported a noVNC URL yet. Wait for it
-            to come online or check Settings → Gateways → the gateway →
-            Reachable URLs.
+          <div className="flex h-full items-center justify-center px-8 text-center text-sm text-muted-foreground">
+            <div className="max-w-md space-y-2">
+              <p className="text-foreground">
+                The gateway isn&apos;t ready to share its desktop yet.
+              </p>
+              <p className="text-[12px]">
+                It may still be starting up — give it a minute. If it
+                stays this way, check Settings → Gateways for the
+                gateway&apos;s status, or ask it to restart.
+              </p>
+            </div>
           </div>
         )}
       </div>

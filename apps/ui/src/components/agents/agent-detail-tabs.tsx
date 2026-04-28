@@ -362,6 +362,20 @@ function AgentRailContent({
               Restart or inspect commands for the host machine.
             </p>
           </DetailSidebarSection>
+
+          <DetailSidebarSection title="Model">
+            <Link
+              href="/dashboard/settings/connections"
+              className="flex items-center justify-between gap-2 text-[12px] text-foreground hover:underline"
+            >
+              <span className="truncate">Manage providers</span>
+              <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+            </Link>
+            <p className="mt-1 text-[11px] text-muted-foreground/70">
+              Which AI this agent uses to think (Claude, GPT, etc.).
+              Configured per-gateway and shared across agents on it.
+            </p>
+          </DetailSidebarSection>
         </>
       )}
 
@@ -393,7 +407,7 @@ function AgentRailContent({
         </DetailSidebarSection>
       )}
 
-      <DetailSidebarSection title="Activity">
+      <DetailSidebarSection title="History">
         <Link
           href="/dashboard/activity"
           className="inline-flex items-center gap-1 text-[12px] text-foreground hover:underline"
@@ -401,6 +415,9 @@ function AgentRailContent({
           <FileText className="h-3 w-3 text-muted-foreground" />
           See full activity log
         </Link>
+        <p className="mt-1 text-[11px] text-muted-foreground/70">
+          Everything this agent has done — woken, replied, edited, etc.
+        </p>
       </DetailSidebarSection>
     </>
   );
