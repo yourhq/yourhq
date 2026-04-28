@@ -61,6 +61,55 @@ export async function getGatewayAction(
   return { ok: true, data: data as Gateway };
 }
 
+// Resolves a gateway's reachable noVNC URL. Used by Open Desktop on
+// the agent page (we have agent.gateway_id but not the gateway's
+// reachable_urls without a fetch).
+//
+// Returns the override base URL if the user set one, else
+// meta.reachable_urls.novnc, else null.
+export async function getGatewayDesktopUrlAction(
+  gatewayId: string,
+): Promise<GatewayActionResult<{ novncUrl: string | null; gatewayLabel: string }>> {
+  const supabase = await createAdminClient();
+  const { data, error } = await supabase
+    .from("gateways")
+    .select("label, meta")
+    .eq("id", gatewayId)
+    .maybeSingle();
+
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Gateway not found." };
+
+  const meta = (data.meta ?? {}) as {
+    reachable_urls?: { novnc?: string };
+    reachable_urls_override?: { base: string };
+  };
+
+  // If the user set an override base URL, swap it into the noVNC URL
+  // path (preserving the query string the gateway wrote).
+  let novncUrl: string | null = meta.reachable_urls?.novnc ?? null;
+  const overrideBase = meta.reachable_urls_override?.base?.trim();
+  if (overrideBase && novncUrl) {
+    try {
+      const u = new URL(novncUrl);
+      const o = new URL(overrideBase);
+      u.protocol = o.protocol;
+      u.hostname = o.hostname;
+      // Preserve port from override unless override has none, in
+      // which case keep the noVNC port (6901).
+      if (o.port) u.port = o.port;
+      novncUrl = u.toString();
+    } catch {
+      // Override didn't parse; fall through to the auto URL.
+    }
+  }
+
+  return {
+    ok: true,
+    data: { novncUrl, gatewayLabel: data.label as string },
+  };
+}
+
 // Mints a single-use registration token + builds the one-liner the user
 // runs on the target host. The token is shown plaintext in the dialog
 // once and is never stored — only its sha256 hash sits in the DB.

@@ -12,6 +12,11 @@ export interface Agent {
   avatar_url: string | null;
   status: AgentStatus;
   last_seen_at: string | null;
+  // FK to gateways.id — every agent runs on exactly one gateway. The
+  // schema seeds a 'default' gateway so single-gateway installs Just
+  // Work, but multi-gateway deployments rely on this FK to route
+  // commands.
+  gateway_id: string | null;
   domains: string[];
   capabilities: string[] | null;
   config: Record<string, unknown>;

@@ -1,18 +1,11 @@
 "use client";
 
-// Settings → Gateways → [id]. Mirrors the property layout used on agent
-// detail pages: grid-cols-[auto_1fr] of sentence-case labels +
-// values, with section dividers via border-t.
-//
-// Editable affordances:
-//   - Title (label) — click-to-edit, inherits the agent inline-edit
-//     pattern but rendered as a hover-tinted button so the affordance
-//     doesn't depend on a hover-revealed pencil.
-//   - Base URL override — click "Override" to swap the row into an
-//     editor; saves to meta.reachable_urls_override.
+// Settings → Gateways → [id]. Mirrors the AgentDetailTabs layout:
+// sticky DetailHeader on top, tabs + rail below. Rail carries the
+// scoreboard (status, properties, reachable URLs, version), tabs carry
+// the deeper surfaces (overview + commands).
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   AlertCircle,
@@ -22,11 +15,12 @@ import {
   ExternalLink,
   MoreHorizontal,
   Server,
+  Terminal,
   Trash2,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
-import { PageHeader, PageSection } from "@/components/shared/page-header";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -37,6 +31,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
+import { EmptyState } from "@/components/shared/empty-state";
+import { DetailHeader } from "@/components/shared/detail-header";
+import { OpenDesktopModal } from "./open-desktop-modal";
+import {
+  DetailSidebar,
+  DetailSidebarMobile,
+  DetailSidebarSection,
+  DetailSidebarPropertyGrid,
+  DetailSidebarProperty,
+} from "@/components/shared/detail-sidebar";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useAgentCommands } from "@/hooks/use-agent-commands";
 import { StatusDot } from "@/components/ui/status-dot";
@@ -67,6 +71,7 @@ export function GatewayDetail({
 }) {
   const [gateway, setGateway] = useState<Gateway>(initialGateway);
   const [removing, setRemoving] = useState(false);
+  const [desktopOpen, setDesktopOpen] = useState(false);
   const router = useRouter();
 
   const refetch = useMemo(
@@ -90,26 +95,54 @@ export function GatewayDetail({
     return () => clearInterval(i);
   }, []);
 
+  const fresh = isHeartbeatFresh(gateway.last_seen_at);
+  const stale = gateway.status === "online" && !fresh;
+  const effectiveStatus: GatewayStatus = stale ? "offline" : gateway.status;
+  const status = GATEWAY_STATUS[effectiveStatus];
+
   return (
     <div className="flex h-full flex-col">
-      <PageHeader
-        icon={<Server className="h-4 w-4" />}
-        title={
+      <DetailHeader
+        back={{ href: "/dashboard/settings/gateways", label: "Gateways" }}
+        identityIcon={
+          <div className="flex h-8 w-8 items-center justify-center rounded bg-muted/40 text-muted-foreground">
+            <Server className="h-4 w-4" />
+          </div>
+        }
+        identityTitle={
           <EditableLabel
             gatewayId={gateway.id}
             initial={gateway.label}
             onSaved={(label) => setGateway((g) => ({ ...g, label }))}
           />
         }
-        description={
-          <Link
-            href="/dashboard/settings/gateways"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            Gateways
-          </Link>
+        identityMeta={
+          <>
+            <StatusDot
+              color={status.color}
+              size="sm"
+              pulse={status.pulse}
+            />
+            <span>{status.label}</span>
+            <span>·</span>
+            <span className="font-mono">{gateway.slug}</span>
+            {stale && (
+              <span className="ml-1 inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-300">
+                <AlertTriangle className="h-2.5 w-2.5" />
+                stale
+              </span>
+            )}
+          </>
         }
         secondaryActions={
+          <DetailSidebarMobile title={`${gateway.label} details`}>
+            <GatewayRailContent
+              gateway={gateway}
+              onOpenDesktop={() => setDesktopOpen(true)}
+            />
+          </DetailSidebarMobile>
+        }
+        overflow={
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon-sm" aria-label="Gateway actions">
@@ -132,13 +165,47 @@ export function GatewayDetail({
         }
       />
 
-      <div className="flex-1 overflow-auto">
-        <div className="mx-auto w-full max-w-2xl">
-          <OverviewSection gateway={gateway} />
-          <ReachableUrlsSection gateway={gateway} />
-          <CommandsSection gatewayId={gateway.id} />
-        </div>
+      <div className="flex min-h-0 flex-1">
+        <main className="flex min-w-0 flex-1 flex-col">
+          <Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col">
+            <div className="border-b border-border/60 px-5">
+              <TabsList variant="line" className="h-9">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="commands">Commands</TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent value="overview" className="min-h-0 flex-1 overflow-auto">
+              <div className="mx-auto max-w-3xl space-y-6 px-5 py-5">
+                <ReachableUrlsSection gateway={gateway} />
+              </div>
+            </TabsContent>
+
+            <TabsContent
+              value="commands"
+              className="min-h-0 flex-1 overflow-auto"
+            >
+              <div className="mx-auto max-w-3xl px-5 py-5">
+                <CommandsTabContent gatewayId={gateway.id} />
+              </div>
+            </TabsContent>
+          </Tabs>
+        </main>
+
+        <DetailSidebar>
+          <GatewayRailContent
+            gateway={gateway}
+            onOpenDesktop={() => setDesktopOpen(true)}
+          />
+        </DetailSidebar>
       </div>
+
+      <OpenDesktopModal
+        open={desktopOpen}
+        onClose={() => setDesktopOpen(false)}
+        novncUrl={resolveNovncUrl(gateway)}
+        title={`Desktop · ${gateway.label}`}
+      />
 
       {removing && (
         <ConfirmDialog
@@ -173,68 +240,93 @@ export function GatewayDetail({
   );
 }
 
-// ─── Overview (status, slug, networking, version) ────────────────────
+// ─── Right rail content (shared by desktop + mobile) ─────────────────
 
-function OverviewSection({ gateway }: { gateway: Gateway }) {
+function GatewayRailContent({
+  gateway,
+  onOpenDesktop,
+}: {
+  gateway: Gateway;
+  onOpenDesktop: () => void;
+}) {
   const fresh = isHeartbeatFresh(gateway.last_seen_at);
   const stale = gateway.status === "online" && !fresh;
   const effectiveStatus: GatewayStatus = stale ? "offline" : gateway.status;
   const status = GATEWAY_STATUS[effectiveStatus];
-
   const lastSeen = gateway.last_seen_at
     ? formatDistanceToNow(new Date(gateway.last_seen_at), { addSuffix: true })
     : "Never";
-
   const m = gateway.meta;
+  const hasDesktop = Boolean(resolveNovncUrl(gateway));
 
   return (
-    <PageSection title="Overview">
-      <PropertyGrid>
-        <PropertyRow label="Status">
-          <span className="inline-flex items-center gap-1.5">
-            <StatusDot color={status.color} size="sm" pulse={status.pulse} />
-            <span>{status.label}</span>
-            {stale && (
-              <span
-                title="No recent heartbeat"
-                className="ml-1 inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-300"
-              >
-                <AlertTriangle className="h-2.5 w-2.5" />
-                stale
+    <>
+      <DetailSidebarSection title="Status">
+        <div className="flex items-center gap-2 text-[12px]">
+          <StatusDot color={status.color} size="sm" pulse={status.pulse} />
+          <span>{status.label}</span>
+          <span className="text-muted-foreground/60">· {lastSeen}</span>
+        </div>
+      </DetailSidebarSection>
+
+      <DetailSidebarSection title="Properties">
+        <DetailSidebarPropertyGrid>
+          <DetailSidebarProperty label="Slug">
+            <span className="font-mono text-foreground/80">{gateway.slug}</span>
+          </DetailSidebarProperty>
+          {m.networking_mode && (
+            <DetailSidebarProperty label="Network">
+              <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+                {m.networking_mode}
               </span>
-            )}
-          </span>
-        </PropertyRow>
-        <PropertyRow label="Slug">
-          <span className="font-mono text-foreground/80">{gateway.slug}</span>
-        </PropertyRow>
-        <PropertyRow label="Last seen">{lastSeen}</PropertyRow>
-        {m.networking_mode && (
-          <PropertyRow label="Networking">
-            <Tag>{m.networking_mode}</Tag>
-          </PropertyRow>
-        )}
-        {m.tailscale_ip && (
-          <PropertyRow label="Tailscale IP">
-            <span className="font-mono text-foreground/80">{m.tailscale_ip}</span>
-          </PropertyRow>
-        )}
-        {m.exit_node && (
-          <PropertyRow label="Exit node">
-            <span className="font-mono text-foreground/80">{m.exit_node}</span>
-          </PropertyRow>
-        )}
-        {m.version && (
-          <PropertyRow label="Version">
-            <Tag>{m.version}</Tag>
-          </PropertyRow>
-        )}
-      </PropertyGrid>
-    </PageSection>
+            </DetailSidebarProperty>
+          )}
+          {m.tailscale_ip && (
+            <DetailSidebarProperty label="Tailscale">
+              <span className="font-mono text-foreground/80">
+                {m.tailscale_ip}
+              </span>
+            </DetailSidebarProperty>
+          )}
+          {m.exit_node && (
+            <DetailSidebarProperty label="Exit node">
+              <span className="font-mono text-foreground/80">{m.exit_node}</span>
+            </DetailSidebarProperty>
+          )}
+          {m.version && (
+            <DetailSidebarProperty label="Version">
+              <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+                {m.version}
+              </span>
+            </DetailSidebarProperty>
+          )}
+        </DetailSidebarPropertyGrid>
+      </DetailSidebarSection>
+
+      <DetailSidebarSection title="Quick actions">
+        <div className="flex flex-col gap-1.5">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 justify-start text-[12px]"
+            onClick={onOpenDesktop}
+            disabled={!hasDesktop}
+            title={
+              hasDesktop
+                ? "Open the gateway's container desktop"
+                : "Waiting for the gateway to report a noVNC URL"
+            }
+          >
+            <Terminal className="mr-1.5 h-3 w-3" />
+            Open desktop
+          </Button>
+        </div>
+      </DetailSidebarSection>
+    </>
   );
 }
 
-// ─── Reachable URLs (with override) ──────────────────────────────────
+// ─── Reachable URLs (Overview tab) ──────────────────────────────────
 
 function ReachableUrlsSection({ gateway }: { gateway: Gateway }) {
   const auto = gateway.meta.reachable_urls?.base ?? null;
@@ -245,59 +337,64 @@ function ReachableUrlsSection({ gateway }: { gateway: Gateway }) {
 
   const [editing, setEditing] = useState(false);
 
-  if (!auto && !override && !filesApi && !novnc) {
-    return (
-      <PageSection
-        title="Reachable URLs"
-        description="The gateway hasn't reported any URLs yet. They're written on each boot."
-        className="border-t border-border/50"
-      >
-        <div />
-      </PageSection>
-    );
-  }
-
   return (
-    <PageSection title="Reachable URLs" className="border-t border-border/50">
-      <PropertyGrid>
-        <PropertyRow label="Base URL">
-          {editing ? (
-            <OverrideEditor
-              gatewayId={gateway.id}
-              initial={override ?? ""}
-              onDone={() => setEditing(false)}
-            />
-          ) : (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <UrlBadge url={effective} />
-              {override && <Tag tone="warning">override</Tag>}
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className="text-[11px] text-muted-foreground hover:text-foreground"
-              >
-                {override ? "Edit" : "Override"}
-              </button>
-              {auto && override && (
-                <span className="text-[11px] text-muted-foreground/60">
-                  · auto: <span className="font-mono">{auto}</span>
-                </span>
-              )}
-            </div>
+    <div>
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Reachable URLs
+      </h2>
+      {!auto && !override && !filesApi && !novnc ? (
+        <p className="text-xs text-muted-foreground">
+          The gateway hasn&apos;t reported any URLs yet. They&apos;re written
+          on each boot.
+        </p>
+      ) : (
+        <div className="grid grid-cols-[120px_1fr] gap-x-6 gap-y-1.5 text-xs">
+          <span className="py-0.5 text-muted-foreground">Base URL</span>
+          <span className="min-w-0 py-0.5">
+            {editing ? (
+              <OverrideEditor
+                gatewayId={gateway.id}
+                initial={override ?? ""}
+                onDone={() => setEditing(false)}
+              />
+            ) : (
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <UrlBadge url={effective} />
+                {override && <Tag tone="warning">override</Tag>}
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  className="text-[11px] text-muted-foreground hover:text-foreground"
+                >
+                  {override ? "Edit" : "Override"}
+                </button>
+                {auto && override && (
+                  <span className="text-[11px] text-muted-foreground/60">
+                    · auto: <span className="font-mono">{auto}</span>
+                  </span>
+                )}
+              </span>
+            )}
+          </span>
+          {filesApi && (
+            <>
+              <span className="py-0.5 text-muted-foreground">Files API</span>
+              <span className="min-w-0 py-0.5">
+                <UrlBadge url={filesApi} />
+              </span>
+            </>
           )}
-        </PropertyRow>
-        {filesApi && (
-          <PropertyRow label="Files API">
-            <UrlBadge url={filesApi} />
-          </PropertyRow>
-        )}
-        {novnc && (
-          <PropertyRow label="noVNC">
-            <UrlBadge url={novnc} />
-          </PropertyRow>
-        )}
-      </PropertyGrid>
-    </PageSection>
+          {novnc && (
+            <>
+              <span className="py-0.5 text-muted-foreground">noVNC</span>
+              <span className="min-w-0 py-0.5">
+                <UrlBadge url={novnc} />
+              </span>
+            </>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -371,40 +468,48 @@ function UrlBadge({ url }: { url: string | null }) {
   );
 }
 
-// ─── Recent commands ─────────────────────────────────────────────────
+// ─── Commands tab content ────────────────────────────────────────────
 
-function CommandsSection({ gatewayId }: { gatewayId: string }) {
-  const { commands, loading } = useAgentCommands({ gatewayId });
+function CommandsTabContent({ gatewayId }: { gatewayId: string }) {
+  const { commands, loading, hasMore, loadMore } = useAgentCommands({
+    gatewayId,
+  });
 
   return (
-    <PageSection
-      title="Recent commands"
-      action={
-        commands.length > 0 ? (
-          <Link
-            href={`/dashboard/settings/system?gateway=${gatewayId}`}
-            className="text-[12px] text-muted-foreground hover:text-foreground"
-          >
-            See all →
-          </Link>
-        ) : null
-      }
-      className="border-t border-border/50"
-    >
+    <div>
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Recent commands
+      </h2>
       {loading && commands.length === 0 ? (
         <LoadingSkeleton variant="list" count={3} />
       ) : commands.length === 0 ? (
-        <p className="text-[12px] text-muted-foreground">
-          Commands targeted at this gateway will appear here.
-        </p>
+        <EmptyState
+          icon={Terminal}
+          title="No commands yet"
+          description="Commands targeted at this gateway will appear here."
+          compact
+        />
       ) : (
         <div className="overflow-hidden rounded-md border border-border/60 bg-card">
-          {commands.slice(0, 20).map((cmd, idx) => (
+          {commands.map((cmd, idx) => (
             <CommandRow key={cmd.id} command={cmd} isFirst={idx === 0} />
           ))}
         </div>
       )}
-    </PageSection>
+      {hasMore && (
+        <div className="mt-2 flex justify-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={loadMore}
+            disabled={loading}
+          >
+            {loading ? "Loading…" : "Load more"}
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -484,7 +589,7 @@ function CommandRow({
   );
 }
 
-// ─── Inline-editable label (PageHeader title) ────────────────────────
+// ─── Inline-editable label ───────────────────────────────────────────
 
 function EditableLabel({
   gatewayId,
@@ -582,30 +687,7 @@ function EditableLabelInput({
   );
 }
 
-// ─── Layout helpers ──────────────────────────────────────────────────
-
-function PropertyGrid({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="grid max-w-full grid-cols-[120px_1fr] gap-x-6 gap-y-1.5 text-xs">
-      {children}
-    </div>
-  );
-}
-
-function PropertyRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <>
-      <span className="py-0.5 text-muted-foreground">{label}</span>
-      <span className="min-w-0 py-0.5">{children}</span>
-    </>
-  );
-}
+// ─── Tag + InlineAlert helpers ──────────────────────────────────────
 
 function Tag({
   children,
@@ -636,3 +718,24 @@ function InlineAlert({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
+// Resolve the gateway's noVNC URL, applying the user's base-URL
+// override if set. Mirrors the server-side
+// getGatewayDesktopUrlAction so client + server agree.
+function resolveNovncUrl(gateway: Gateway): string | null {
+  const novnc = gateway.meta.reachable_urls?.novnc ?? null;
+  if (!novnc) return null;
+  const overrideBase = gateway.meta.reachable_urls_override?.base?.trim();
+  if (!overrideBase) return novnc;
+  try {
+    const u = new URL(novnc);
+    const o = new URL(overrideBase);
+    u.protocol = o.protocol;
+    u.hostname = o.hostname;
+    if (o.port) u.port = o.port;
+    return u.toString();
+  } catch {
+    return novnc;
+  }
+}
+

@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Maximize2, Minimize2 } from "lucide-react";
 import type { FileTreeNode, GitHubTreeEntry } from "@/lib/agent-repo/types";
 import { buildFileTree } from "@/lib/agent-repo/types";
 import { AgentFileTree } from "./agent-file-tree";
 import { AgentFileEditor } from "./agent-file-editor";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { cn } from "@/lib/utils";
 
 interface AgentFileBrowserProps {
   slug: string;
@@ -21,6 +23,7 @@ export function AgentFileBrowser({ slug }: AgentFileBrowserProps) {
   const [fileLoading, setFileLoading] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [pendingPath, setPendingPath] = useState<string | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
 
   // Fetch file tree on mount
   const fetchTree = useCallback(async () => {
@@ -44,6 +47,26 @@ export function AgentFileBrowser({ slug }: AgentFileBrowserProps) {
   useEffect(() => {
     fetchTree();
   }, [fetchTree]);
+
+  // Esc exits fullscreen. Don't capture when an input/textarea has
+  // focus (e.g. user is typing in the editor) — only when focus is
+  // outside an editable surface.
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      const isEditable =
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        target?.isContentEditable;
+      if (isEditable) return;
+      setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullscreen]);
 
   // Load file content when selecting a file
   async function handleSelectFile(path: string) {
@@ -108,7 +131,14 @@ export function AgentFileBrowser({ slug }: AgentFileBrowserProps) {
   }
 
   return (
-    <div className="flex h-[calc(100vh-12rem)] border border-border/50 rounded-lg overflow-hidden">
+    <div
+      className={cn(
+        "relative flex overflow-hidden border border-border/50",
+        fullscreen
+          ? "fixed inset-0 z-50 rounded-none bg-background"
+          : "h-[calc(100vh-12rem)] rounded-lg",
+      )}
+    >
       {/* File tree sidebar */}
       <div className="w-[220px] shrink-0 border-r border-border/50 bg-card/30">
         <AgentFileTree
@@ -131,6 +161,21 @@ export function AgentFileBrowser({ slug }: AgentFileBrowserProps) {
           loading={fileLoading}
         />
       </div>
+
+      {/* Fullscreen toggle */}
+      <button
+        type="button"
+        onClick={() => setFullscreen((v) => !v)}
+        className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/60 bg-background/80 text-muted-foreground backdrop-blur transition-colors hover:bg-accent hover:text-foreground"
+        aria-label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+        title={fullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
+      >
+        {fullscreen ? (
+          <Minimize2 className="h-3.5 w-3.5" />
+        ) : (
+          <Maximize2 className="h-3.5 w-3.5" />
+        )}
+      </button>
 
       <ConfirmDialog
         open={pendingPath !== null}
