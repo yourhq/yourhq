@@ -91,6 +91,11 @@ export function ProjectsSettings({ activeProjectId, projects }: Props) {
             <div className="overflow-hidden rounded-md border border-border/60 bg-card">
               {projects.map((p, idx) => {
                 const isActive = p.id === activeProjectId;
+                // We block deleting an active project unless it's the
+                // ONLY project — in that case there's no other to switch
+                // to, and the API + DeleteProjectDialog handle it by
+                // resetting to first-run state and bouncing to /onboarding.
+                const canDelete = !isActive || projects.length === 1;
                 return (
                   <div
                     key={p.id}
@@ -142,11 +147,11 @@ export function ProjectsSettings({ activeProjectId, projects }: Props) {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onSelect={() => setDeleting(p)}
-                          disabled={isActive}
+                          disabled={!canDelete}
                           className="gap-2 text-destructive focus:text-destructive"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
-                          {isActive ? "Delete (switch first)" : "Delete"}
+                          {!canDelete ? "Delete (switch first)" : "Delete"}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -191,9 +196,18 @@ export function ProjectsSettings({ activeProjectId, projects }: Props) {
       {deleting && (
         <DeleteProjectDialog
           project={deleting}
+          // When deleting the last project, the registry becomes empty
+          // and middleware would otherwise just bounce the next request
+          // to /onboarding anyway. Doing the redirect here gives the
+          // user immediate feedback instead of showing them an empty
+          // settings page for a beat first.
+          isLast={projects.length === 1}
           onClose={(refresh) => {
             setDeleting(null);
             if (refresh) router.refresh();
+          }}
+          onLastDeleted={() => {
+            window.location.href = "/onboarding";
           }}
         />
       )}
@@ -394,10 +408,14 @@ function RotateKeyDialog({
 
 function DeleteProjectDialog({
   project,
+  isLast,
   onClose,
+  onLastDeleted,
 }: {
   project: ProjectsSettingsProject;
+  isLast: boolean;
   onClose: (refresh: boolean) => void;
+  onLastDeleted: () => void;
 }) {
   const [pending, startTransition] = useTransition();
 
@@ -409,6 +427,10 @@ function DeleteProjectDialog({
       if (!res.ok) {
         return;
       }
+      if (isLast) {
+        onLastDeleted();
+        return;
+      }
       onClose(true);
     });
   };
@@ -418,7 +440,11 @@ function DeleteProjectDialog({
       open
       onCancel={() => onClose(false)}
       title={`Delete "${project.label}"?`}
-      description="Removes the project from this machine's registry. Your Supabase project is not touched — you can reconnect later with the same URL and keys."
+      description={
+        isLast
+          ? "This is your only project. Deleting it will return you to the onboarding flow. Your Supabase project itself is not touched — you can reconnect later with the same URL and keys."
+          : "Removes the project from this machine's registry. Your Supabase project is not touched — you can reconnect later with the same URL and keys."
+      }
       confirmLabel={pending ? "Deleting…" : "Delete"}
       tone="destructive"
       onConfirm={onConfirm}

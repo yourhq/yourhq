@@ -49,6 +49,38 @@ const EMPTY_SECRETS: SecretsFile = {
   projects: {},
 };
 
+// ── Logger redaction ────────────────────────────────────────────────────
+//
+// When something fails reading registry/secrets we may end up logging a
+// raw fragment of either file (e.g. malformed JSON dumps). Sanitize the
+// fragment before it hits stdout: scrub any value that looks like a
+// service role / publishable / anon key, plus anything in a property
+// whose name ends in "Key", "Token", or "Secret".
+
+const SECRET_VALUE_PATTERNS: RegExp[] = [
+  // Supabase new-format keys (sb_publishable_… / sb_secret_…).
+  /\bsb_(?:publishable|secret)_[A-Za-z0-9_-]+/g,
+  // Legacy Supabase JWT (eyJ…) — three base64url segments separated by dots.
+  /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g,
+  // Tailscale auth keys (tskey-…)
+  /\btskey-[A-Za-z0-9-]+/g,
+];
+
+const SECRET_KEY_NAMES = /"([^"]*?(?:Key|Token|Secret))"\s*:\s*"([^"]+)"/g;
+
+function redactForLog(s: string): string {
+  let out = s;
+  // Property-name-based redaction first (catches whatever's inside the
+  // JSON regardless of value shape).
+  out = out.replace(SECRET_KEY_NAMES, (_, name: string) => `"${name}":"[redacted]"`);
+  // Value-pattern fallback for anything that escaped (raw values inside
+  // an arbitrary string, etc.).
+  for (const p of SECRET_VALUE_PATTERNS) {
+    out = out.replace(p, "[redacted]");
+  }
+  return out;
+}
+
 // ── File IO primitives ──────────────────────────────────────────────────
 
 async function readJsonOrDefault<T>(
@@ -84,7 +116,7 @@ async function readJsonOrDefault<T>(
     // default so the UI doesn't hard-fail — they can re-onboard.
     console.error(
       `[registry] Malformed JSON at ${filePath}: ${(err as Error).message}. ` +
-        `First 200 chars: ${raw.slice(0, 200)}`,
+        `First 200 chars: ${redactForLog(raw.slice(0, 200))}`,
     );
     return defaultValue;
   }
@@ -399,7 +431,12 @@ export async function deleteProject(id: string): Promise<void> {
     const project = registry.projects.find((p) => p.id === id);
     if (!project) return;
 
-    if (registry.activeProjectId === id) {
+    // Active-project guard: usually we require the user to switch away
+    // first. Exception: if this is the *last* project, there's no other
+    // project to switch to — letting it through here so the UI can
+    // bounce the user to /onboarding (the new fresh-install state).
+    const isLast = registry.projects.length === 1;
+    if (registry.activeProjectId === id && !isLast) {
       throw new Error(
         "Cannot delete the active project. Switch to another project first.",
       );
@@ -424,6 +461,12 @@ export async function deleteProject(id: string): Promise<void> {
       activeProjectId:
         remaining.length > 0 ? registry.activeProjectId : null,
       projects: remaining,
+      // When the last project is deleted, also clear onboarding state
+      // so the wizard restarts from welcome rather than landing on
+      // `done` (which would render the post-setup screen against an
+      // empty registry).
+      onboarding:
+        remaining.length === 0 ? undefined : registry.onboarding,
     };
 
     await writeJsonAtomic(REGISTRY_PATH, nextRegistry, 0o644);
