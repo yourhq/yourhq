@@ -96,7 +96,17 @@ export type CommandAction =
   | "remove"
   | "restart_gateway"
   | "update_all"
-  | "restart_dispatcher";
+  | "restart_dispatcher"
+  // Phase 3.4 — Connections (provider auth from the UI). The runner
+  // translates these into `openclaw models auth …` invocations and
+  // writes structured progress into `payload.connection_state`.
+  | "auth_set_api_key"
+  | "auth_start"
+  | "auth_paste"
+  | "auth_list"
+  | "auth_remove"
+  | "auth_refresh"
+  | "auth_set_default";
 
 export type CommandStatus = "pending" | "leased" | "running" | "done" | "failed";
 
@@ -130,6 +140,11 @@ export const SYSTEM_COMMAND_ACTIONS: CommandAction[] = [
   "restart_gateway", "update_all", "restart_dispatcher",
 ];
 
+export const CONNECTION_COMMAND_ACTIONS: CommandAction[] = [
+  "auth_set_api_key", "auth_start", "auth_paste",
+  "auth_list", "auth_remove", "auth_refresh", "auth_set_default",
+];
+
 export const COMMAND_ACTION_LABELS: Record<CommandAction, string> = {
   provision: "Provision",
   approve_pairing: "Approve Pairing",
@@ -138,6 +153,13 @@ export const COMMAND_ACTION_LABELS: Record<CommandAction, string> = {
   restart_gateway: "Restart Gateway",
   update_all: "Update All Agents",
   restart_dispatcher: "Restart Dispatcher",
+  auth_set_api_key: "Set API key",
+  auth_start: "Sign in",
+  auth_paste: "Paste auth code",
+  auth_list: "Refresh connections",
+  auth_remove: "Remove connection",
+  auth_refresh: "Probe connection",
+  auth_set_default: "Set default model",
 };
 
 export const COMMAND_STATUS_COLORS: Record<CommandStatus, string> = {

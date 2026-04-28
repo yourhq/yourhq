@@ -57,6 +57,7 @@ import { AgentFileBrowser } from "./agent-file-browser";
 import { TriggersSection } from "./triggers-section";
 import { OpenDesktopModal } from "@/components/gateways/open-desktop-modal";
 import { getGatewayDesktopUrlAction } from "@/app/dashboard/settings/gateways/actions";
+import { AgentRailModelSection } from "@/components/connections/agent-rail-model-section";
 
 const agentStatusDotHex: Record<string, string> = {
   online: "var(--status-success)",
@@ -364,17 +365,7 @@ function AgentRailContent({
           </DetailSidebarSection>
 
           <DetailSidebarSection title="Model">
-            <Link
-              href="/dashboard/settings/connections"
-              className="flex items-center justify-between gap-2 text-[12px] text-foreground hover:underline"
-            >
-              <span className="truncate">Manage providers</span>
-              <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
-            </Link>
-            <p className="mt-1 text-[11px] text-muted-foreground/70">
-              Which AI this agent uses to think (Claude, GPT, etc.).
-              Configured per-gateway and shared across agents on it.
-            </p>
+            <AgentRailModelSection gatewayId={agent.gateway_id} />
           </DetailSidebarSection>
         </>
       )}

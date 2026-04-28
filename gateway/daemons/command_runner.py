@@ -176,7 +176,12 @@ def validate_pairing_code(code):
 
 
 def build_command(action, agent_slug, payload):
-    """Map an action to a shell command. Returns (args_list, description) or (None, error)."""
+    """Map an action to a shell command. Returns (args_list, description) or (None, error).
+
+    Connection actions (auth_*) are handled separately in execute_command — they don't
+    fit the "run shell command, capture stdout, exit" mold because OAuth flows need
+    interactive stdin and intermediate progress updates.
+    """
 
     if action == "provision":
         branch = resolve_branch(agent_slug)
@@ -244,6 +249,601 @@ def build_command(action, agent_slug, payload):
         return None, f"Unknown action: {action}"
 
 
+# ── Connection actions (provider auth from the UI) ────────────────────
+#
+# Background: openclaw's `models auth login` is interactive. For OAuth
+# providers it prints a URL and waits for the user to paste back a
+# redirect URL or code. For device-code flows it prints a URL + short
+# code and polls until the user authorizes. Neither shape works under
+# subprocess.run() because that expects a one-shot exit.
+#
+# Approach: spawn the CLI as a long-running Popen, watch its stdout in a
+# background thread, parse URL/code patterns, write progress into
+# agent_commands.payload.connection_state. When the UI gets a paste-back
+# from the user it inserts an auth_paste row that references the parent
+# command_id; we look up the parent's Popen and write to its stdin.
+#
+# Process registry is in-memory only. Runner restart abandons in-flight
+# auth flows — user has to retry. Acceptable; flows are <5 min and the
+# runner restarts rarely outside of explicit "restart gateway" commands.
+
+INFLIGHT_AUTH = {}  # parent_command_id -> dict(proc, started_at, provider, profile_name)
+INFLIGHT_LOCK = threading.Lock()
+AUTH_FLOW_TIMEOUT = 300  # 5 min ceiling per flow
+
+
+def patch_command_payload(cmd_id, patch):
+    """Merge `patch` into agent_commands.payload — preserving existing keys."""
+    try:
+        rows = api_get("agent_commands", {
+            "select": "payload",
+            "id": f"eq.{cmd_id}",
+            "limit": "1",
+        })
+        existing = (rows[0].get("payload") if rows else {}) or {}
+        merged = {**existing, **patch}
+        api_patch("agent_commands", cmd_id, {"payload": merged})
+    except Exception as e:
+        log(f"Failed to patch payload for {cmd_id}: {e}")
+
+
+def occupy_localhost_1455():
+    """Pre-bind 127.0.0.1:1455 so openclaw's PKCE callback fails fast.
+
+    Why: in container mode openclaw still tries the localhost callback
+    first. If it succeeds, the user's browser can't reach it and the
+    flow hangs. By holding the port we force the CLI's paste-fallback
+    path, which is the only thing that works for browser-driven UX.
+    Returned socket must be closed by caller after the flow finishes.
+    """
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind(("127.0.0.1", 1455))
+        s.listen(1)
+        return s
+    except OSError:
+        # Port already taken — that's fine, openclaw will fall through
+        # to paste mode on its own. Close the socket we never used.
+        s.close()
+        return None
+
+
+URL_PATTERNS = [
+    re.compile(r"https?://[^\s\"'<>]+"),
+]
+CODE_PATTERNS = [
+    # GitHub/Codex device-code prints things like "code: ABCD-1234" or
+    # "Enter code: XXXX". Capture short alphanumerics.
+    re.compile(r"code[: ]+([A-Z0-9-]{4,12})", re.IGNORECASE),
+    re.compile(r"verification[_ ]code[: ]+([A-Z0-9-]{4,12})", re.IGNORECASE),
+]
+
+
+def parse_auth_progress(text):
+    """Pull URL + verification code out of CLI stdout. Returns (url, code) or (None, None)."""
+    url = None
+    code = None
+    for line in text.splitlines():
+        if not url:
+            m = URL_PATTERNS[0].search(line)
+            if m:
+                url = m.group(0).rstrip(".,;:")
+        if not code:
+            for p in CODE_PATTERNS:
+                cm = p.search(line)
+                if cm:
+                    code = cm.group(1)
+                    break
+    return url, code
+
+
+def watch_auth_stdout(cmd_id, proc, on_url_ready):
+    """Background thread: scan proc.stdout for URL/code, fire callback once found."""
+    buf = []
+    found = False
+    try:
+        for line in iter(proc.stdout.readline, ""):
+            if not line:
+                break
+            buf.append(line)
+            if not found:
+                url, code = parse_auth_progress("".join(buf))
+                if url:
+                    found = True
+                    try:
+                        on_url_ready(url, code)
+                    except Exception as e:
+                        log(f"on_url_ready failed: {e}")
+            # If buffer grows huge, drop the prefix — we only need the
+            # most recent few KB to find late-arriving codes.
+            if len(buf) > 200:
+                buf = buf[-100:]
+    except Exception as e:
+        log(f"watch_auth_stdout for {cmd_id} crashed: {e}")
+    log(f"auth stdout stream closed for {cmd_id}")
+
+
+def cleanup_auth_flow(cmd_id, sock=None):
+    with INFLIGHT_LOCK:
+        entry = INFLIGHT_AUTH.pop(cmd_id, None)
+    if entry:
+        try:
+            entry["proc"].terminate()
+        except Exception:
+            pass
+    if sock:
+        try:
+            sock.close()
+        except Exception:
+            pass
+
+
+def handle_auth_set_api_key(cmd_id, payload):
+    """Single-shot path for api_key shape — no interactivity required.
+
+    payload: { provider: str, api_key: str, profile_name?: str }
+    """
+    provider = (payload.get("provider") or "").strip()
+    api_key = payload.get("api_key") or ""
+    profile_name = (payload.get("profile_name") or "default").strip() or "default"
+
+    if not provider or not api_key:
+        api_rpc("fail_command", {
+            "p_command_id": cmd_id, "p_exit_code": None,
+            "p_stdout": None, "p_stderr": None,
+            "p_error": "Missing provider or api_key",
+        })
+        return
+
+    try:
+        api_rpc("start_command", {"p_command_id": cmd_id})
+    except Exception:
+        pass
+
+    # paste-token writes the key into the auth store as <provider>:<profile_name>.
+    args = [
+        "openclaw", "models", "auth", "paste-token",
+        "--provider", provider,
+        "--profile-id", profile_name,
+    ]
+    try:
+        result = subprocess.run(
+            args, input=api_key + "\n",
+            capture_output=True, text=True,
+            timeout=30,
+            env={**os.environ, "HOME": HOME},
+        )
+        # Scrub the API key from the row immediately on completion.
+        scrubbed = {k: v for k, v in payload.items() if k != "api_key"}
+        scrubbed["api_key_scrubbed"] = True
+        try:
+            api_patch("agent_commands", cmd_id, {"payload": scrubbed})
+        except Exception:
+            pass
+        if result.returncode == 0:
+            api_rpc("complete_command", {
+                "p_command_id": cmd_id, "p_exit_code": 0,
+                "p_stdout": (result.stdout or "")[-2000:],
+                "p_stderr": (result.stderr or "")[-2000:],
+            })
+        else:
+            api_rpc("fail_command", {
+                "p_command_id": cmd_id, "p_exit_code": result.returncode,
+                "p_stdout": (result.stdout or "")[-2000:],
+                "p_stderr": (result.stderr or "")[-2000:],
+                "p_error": f"openclaw exit {result.returncode}",
+            })
+    except subprocess.TimeoutExpired:
+        api_rpc("fail_command", {
+            "p_command_id": cmd_id, "p_exit_code": None,
+            "p_stdout": None, "p_stderr": None,
+            "p_error": "openclaw paste-token timed out",
+        })
+    except Exception as e:
+        api_rpc("fail_command", {
+            "p_command_id": cmd_id, "p_exit_code": None,
+            "p_stdout": None, "p_stderr": None, "p_error": str(e),
+        })
+
+
+def handle_auth_start(cmd_id, payload):
+    """Long-running interactive auth login.
+
+    payload: { provider: str, profile_name?: str, mode?: 'oauth_paste' | 'device_code' }
+    """
+    provider = (payload.get("provider") or "").strip()
+    profile_name = (payload.get("profile_name") or "default").strip() or "default"
+    mode = payload.get("mode") or "oauth_paste"
+
+    if not provider:
+        api_rpc("fail_command", {
+            "p_command_id": cmd_id, "p_exit_code": None,
+            "p_stdout": None, "p_stderr": None, "p_error": "Missing provider",
+        })
+        return
+
+    # Mark as running first so the UI can subscribe.
+    try:
+        api_rpc("start_command", {"p_command_id": cmd_id})
+    except Exception:
+        pass
+
+    # Mark UI: starting.
+    patch_command_payload(cmd_id, {"connection_state": {"stage": "starting"}})
+
+    args = ["openclaw", "models", "auth", "login", "--provider", provider]
+    if mode == "device_code":
+        args.append("--device-code")
+    if profile_name and profile_name != "default":
+        args += ["--profile-id", profile_name]
+
+    sock = occupy_localhost_1455() if mode != "device_code" else None
+
+    try:
+        proc = subprocess.Popen(
+            args,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            env={**os.environ, "HOME": HOME},
+        )
+    except Exception as e:
+        cleanup_auth_flow(cmd_id, sock)
+        api_rpc("fail_command", {
+            "p_command_id": cmd_id, "p_exit_code": None,
+            "p_stdout": None, "p_stderr": None,
+            "p_error": f"Failed to spawn openclaw: {e}",
+        })
+        return
+
+    started_at = time.time()
+    with INFLIGHT_LOCK:
+        INFLIGHT_AUTH[cmd_id] = {
+            "proc": proc,
+            "started_at": started_at,
+            "provider": provider,
+            "profile_name": profile_name,
+            "sock": sock,
+        }
+
+    def on_url_ready(url, code):
+        stage = "polling" if mode == "device_code" else "url_ready"
+        state = {"stage": stage, "url": url}
+        if code:
+            state["verificationCode"] = code
+        patch_command_payload(cmd_id, {"connection_state": state})
+
+    threading.Thread(
+        target=watch_auth_stdout,
+        args=(cmd_id, proc, on_url_ready),
+        daemon=True,
+    ).start()
+
+    # For device_code we wait for the CLI to exit on its own (it polls
+    # until the user authorizes). For oauth_paste we wait for either
+    # exit or auth_paste callback — both are detected here by polling
+    # the process's returncode under timeout.
+    deadline = started_at + AUTH_FLOW_TIMEOUT
+    while time.time() < deadline:
+        rc = proc.poll()
+        if rc is not None:
+            break
+        time.sleep(1)
+
+    rc = proc.returncode
+    # Drain any remaining output.
+    try:
+        remaining = proc.stdout.read() if proc.stdout else ""
+    except Exception:
+        remaining = ""
+
+    cleanup_auth_flow(cmd_id, sock)
+
+    if rc is None:
+        # Timed out — kill it.
+        try:
+            proc.kill()
+        except Exception:
+            pass
+        patch_command_payload(cmd_id, {
+            "connection_state": {"stage": "failed", "error": "timed out"},
+        })
+        api_rpc("fail_command", {
+            "p_command_id": cmd_id, "p_exit_code": None,
+            "p_stdout": (remaining or "")[-2000:], "p_stderr": None,
+            "p_error": f"Auth flow timed out after {AUTH_FLOW_TIMEOUT}s",
+        })
+        return
+
+    if rc == 0:
+        profile_id = f"{provider}:{profile_name}"
+        patch_command_payload(cmd_id, {
+            "connection_state": {"stage": "completed", "profileId": profile_id},
+        })
+        api_rpc("complete_command", {
+            "p_command_id": cmd_id, "p_exit_code": 0,
+            "p_stdout": (remaining or "")[-2000:], "p_stderr": None,
+        })
+    else:
+        patch_command_payload(cmd_id, {
+            "connection_state": {"stage": "failed", "error": f"openclaw exit {rc}"},
+        })
+        api_rpc("fail_command", {
+            "p_command_id": cmd_id, "p_exit_code": rc,
+            "p_stdout": (remaining or "")[-2000:], "p_stderr": None,
+            "p_error": f"openclaw exit {rc}",
+        })
+
+
+def handle_auth_paste(cmd_id, payload):
+    """User pasted the OAuth code/redirect-URL back. Write it to the parent
+    process's stdin and complete this row.
+
+    payload: { parent_command_id: str, value: str }
+    """
+    parent_id = payload.get("parent_command_id")
+    value = payload.get("value") or ""
+
+    if not parent_id or not value:
+        api_rpc("fail_command", {
+            "p_command_id": cmd_id, "p_exit_code": None,
+            "p_stdout": None, "p_stderr": None,
+            "p_error": "Missing parent_command_id or value",
+        })
+        return
+
+    with INFLIGHT_LOCK:
+        entry = INFLIGHT_AUTH.get(parent_id)
+
+    if not entry:
+        api_rpc("fail_command", {
+            "p_command_id": cmd_id, "p_exit_code": None,
+            "p_stdout": None, "p_stderr": None,
+            "p_error": "No in-flight auth flow with that parent id (may have timed out)",
+        })
+        return
+
+    try:
+        api_rpc("start_command", {"p_command_id": cmd_id})
+    except Exception:
+        pass
+
+    proc = entry["proc"]
+    try:
+        proc.stdin.write(value + "\n")
+        proc.stdin.flush()
+        # Scrub the pasted secret immediately.
+        scrubbed = {k: v for k, v in payload.items() if k != "value"}
+        scrubbed["value_scrubbed"] = True
+        try:
+            api_patch("agent_commands", cmd_id, {"payload": scrubbed})
+        except Exception:
+            pass
+        api_rpc("complete_command", {
+            "p_command_id": cmd_id, "p_exit_code": 0,
+            "p_stdout": "Pasted to parent flow.", "p_stderr": None,
+        })
+    except Exception as e:
+        api_rpc("fail_command", {
+            "p_command_id": cmd_id, "p_exit_code": None,
+            "p_stdout": None, "p_stderr": None,
+            "p_error": f"Failed to write to parent stdin: {e}",
+        })
+
+
+def handle_auth_list(cmd_id, payload):
+    """Probe all configured profiles, return JSON for the UI to consume."""
+    try:
+        api_rpc("start_command", {"p_command_id": cmd_id})
+    except Exception:
+        pass
+
+    args = ["openclaw", "models", "status", "--json", "--probe"]
+    try:
+        result = subprocess.run(
+            args, capture_output=True, text=True,
+            timeout=60,
+            env={**os.environ, "HOME": HOME},
+        )
+        if result.returncode != 0:
+            api_rpc("fail_command", {
+                "p_command_id": cmd_id, "p_exit_code": result.returncode,
+                "p_stdout": (result.stdout or "")[-4000:],
+                "p_stderr": (result.stderr or "")[-2000:],
+                "p_error": f"openclaw exit {result.returncode}",
+            })
+            return
+        # The UI consumes stdout as the connections list.
+        api_rpc("complete_command", {
+            "p_command_id": cmd_id, "p_exit_code": 0,
+            "p_stdout": (result.stdout or "")[-32000:],
+            "p_stderr": (result.stderr or "")[-2000:],
+        })
+    except subprocess.TimeoutExpired:
+        api_rpc("fail_command", {
+            "p_command_id": cmd_id, "p_exit_code": None,
+            "p_stdout": None, "p_stderr": None,
+            "p_error": "openclaw status timed out",
+        })
+    except Exception as e:
+        api_rpc("fail_command", {
+            "p_command_id": cmd_id, "p_exit_code": None,
+            "p_stdout": None, "p_stderr": None, "p_error": str(e),
+        })
+
+
+def handle_auth_remove(cmd_id, payload):
+    """Remove a profile from the auth store.
+
+    openclaw doesn't ship a delete subcommand, so we edit auth-profiles.json
+    directly. The path is `$OPENCLAW_STATE_DIR/agents/<agentId>/agent/auth-profiles.json`
+    or `~/.openclaw/agents/<agentId>/agent/auth-profiles.json` by default.
+    profile_id is `<provider>:<name>`.
+    """
+    profile_id = (payload.get("profile_id") or "").strip()
+    if not profile_id or ":" not in profile_id:
+        api_rpc("fail_command", {
+            "p_command_id": cmd_id, "p_exit_code": None,
+            "p_stdout": None, "p_stderr": None,
+            "p_error": "Missing or malformed profile_id (expected provider:name)",
+        })
+        return
+
+    try:
+        api_rpc("start_command", {"p_command_id": cmd_id})
+    except Exception:
+        pass
+
+    state_dir = os.environ.get("OPENCLAW_STATE_DIR", os.path.join(HOME, ".openclaw"))
+    # The file lives under whichever agent is the auth-store agent. In
+    # gateway mode there's typically one shared store per gateway. We
+    # find it by globbing.
+    import glob
+    paths = glob.glob(os.path.join(state_dir, "agents", "*", "agent", "auth-profiles.json"))
+    if not paths:
+        api_rpc("fail_command", {
+            "p_command_id": cmd_id, "p_exit_code": None,
+            "p_stdout": None, "p_stderr": None,
+            "p_error": f"No auth-profiles.json found under {state_dir}/agents/*/agent/",
+        })
+        return
+
+    removed = False
+    errors = []
+    for path in paths:
+        try:
+            with open(path, "r") as f:
+                doc = json.load(f)
+            profiles = doc.get("profiles", {})
+            if profile_id in profiles:
+                del profiles[profile_id]
+                # Atomic write: tmp + rename.
+                tmp = path + ".tmp"
+                with open(tmp, "w") as f:
+                    json.dump(doc, f, indent=2)
+                os.replace(tmp, path)
+                removed = True
+                log(f"Removed profile {profile_id} from {path}")
+        except Exception as e:
+            errors.append(f"{path}: {e}")
+
+    if removed:
+        api_rpc("complete_command", {
+            "p_command_id": cmd_id, "p_exit_code": 0,
+            "p_stdout": f"Removed {profile_id}",
+            "p_stderr": "; ".join(errors) if errors else None,
+        })
+    else:
+        api_rpc("fail_command", {
+            "p_command_id": cmd_id, "p_exit_code": None,
+            "p_stdout": None, "p_stderr": None,
+            "p_error": (
+                f"Profile {profile_id} not found"
+                + (f" (errors: {'; '.join(errors)})" if errors else "")
+            ),
+        })
+
+
+def handle_auth_refresh(cmd_id, payload):
+    """Probe a single profile (or all) and return current health."""
+    profile_id = payload.get("profile_id")  # Optional.
+    try:
+        api_rpc("start_command", {"p_command_id": cmd_id})
+    except Exception:
+        pass
+
+    args = ["openclaw", "models", "status", "--json", "--probe"]
+    if profile_id and ":" in profile_id:
+        provider, name = profile_id.split(":", 1)
+        args += ["--probe-provider", provider, "--probe-profile", name]
+
+    try:
+        result = subprocess.run(
+            args, capture_output=True, text=True,
+            timeout=60, env={**os.environ, "HOME": HOME},
+        )
+        api_rpc("complete_command" if result.returncode == 0 else "fail_command", {
+            "p_command_id": cmd_id,
+            "p_exit_code": result.returncode,
+            "p_stdout": (result.stdout or "")[-32000:],
+            "p_stderr": (result.stderr or "")[-2000:],
+            **(
+                {"p_error": f"openclaw exit {result.returncode}"}
+                if result.returncode != 0 else {}
+            ),
+        })
+    except Exception as e:
+        api_rpc("fail_command", {
+            "p_command_id": cmd_id, "p_exit_code": None,
+            "p_stdout": None, "p_stderr": None, "p_error": str(e),
+        })
+
+
+def handle_auth_set_default(cmd_id, payload):
+    """Set the default model for new agents on this gateway.
+
+    payload: { model: str } — provider/model format, e.g. "anthropic/claude-sonnet-4-6".
+    """
+    model = (payload.get("model") or "").strip()
+    if not model:
+        api_rpc("fail_command", {
+            "p_command_id": cmd_id, "p_exit_code": None,
+            "p_stdout": None, "p_stderr": None, "p_error": "Missing model",
+        })
+        return
+
+    try:
+        api_rpc("start_command", {"p_command_id": cmd_id})
+    except Exception:
+        pass
+
+    args = ["openclaw", "models", "set", model]
+    try:
+        result = subprocess.run(
+            args, capture_output=True, text=True,
+            timeout=30, env={**os.environ, "HOME": HOME},
+        )
+        if result.returncode == 0:
+            api_rpc("complete_command", {
+                "p_command_id": cmd_id, "p_exit_code": 0,
+                "p_stdout": (result.stdout or "")[-2000:],
+                "p_stderr": (result.stderr or "")[-2000:],
+            })
+        else:
+            api_rpc("fail_command", {
+                "p_command_id": cmd_id, "p_exit_code": result.returncode,
+                "p_stdout": (result.stdout or "")[-2000:],
+                "p_stderr": (result.stderr or "")[-2000:],
+                "p_error": f"openclaw exit {result.returncode}",
+            })
+    except Exception as e:
+        api_rpc("fail_command", {
+            "p_command_id": cmd_id, "p_exit_code": None,
+            "p_stdout": None, "p_stderr": None, "p_error": str(e),
+        })
+
+
+CONNECTION_HANDLERS = {
+    "auth_set_api_key": handle_auth_set_api_key,
+    "auth_start": handle_auth_start,
+    "auth_paste": handle_auth_paste,
+    "auth_list": handle_auth_list,
+    "auth_remove": handle_auth_remove,
+    "auth_refresh": handle_auth_refresh,
+    "auth_set_default": handle_auth_set_default,
+}
+
+# auth_start blocks for up to 5 minutes waiting for the user to paste back.
+# If we ran it on the main lease loop, no other commands (including the
+# auth_paste that completes the flow!) would process until it returned.
+# So these specific actions run in their own daemon thread.
+ASYNC_CONNECTION_ACTIONS = {"auth_start"}
+
+
 def execute_command(command_row):
     """Execute a single command and report results back to Supabase."""
     cmd_id = command_row["id"]
@@ -252,6 +852,31 @@ def execute_command(command_row):
     payload = command_row.get("payload") or {}
 
     log(f"Processing command {cmd_id}: {action}" + (f" for {agent_slug}" if agent_slug else ""))
+
+    # Connection actions don't fit the build_command/subprocess.run shape — they
+    # need long-lived processes, intermediate state writes, and stdin pipes. Each
+    # handler manages its own start/complete/fail RPC calls.
+    handler = CONNECTION_HANDLERS.get(action)
+    if handler:
+        def run_handler():
+            try:
+                handler(cmd_id, payload)
+            except Exception as e:
+                log(f"Connection handler {action} crashed: {e}")
+                try:
+                    api_rpc("fail_command", {
+                        "p_command_id": cmd_id, "p_exit_code": None,
+                        "p_stdout": None, "p_stderr": None,
+                        "p_error": f"Handler crashed: {e}",
+                    })
+                except Exception:
+                    pass
+        if action in ASYNC_CONNECTION_ACTIONS:
+            # Detach so the main loop can process auth_paste etc.
+            threading.Thread(target=run_handler, daemon=True).start()
+        else:
+            run_handler()
+        return
 
     # Mark as running
     try:

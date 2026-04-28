@@ -1466,6 +1466,17 @@ DO $$ BEGIN
   );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+-- Phase 3.4: Connection actions for browser-driven provider auth.
+-- Each is added separately so re-running the migration on a database
+-- created from an older copy is a no-op for already-present values.
+ALTER TYPE command_action ADD VALUE IF NOT EXISTS 'auth_set_api_key';
+ALTER TYPE command_action ADD VALUE IF NOT EXISTS 'auth_start';
+ALTER TYPE command_action ADD VALUE IF NOT EXISTS 'auth_paste';
+ALTER TYPE command_action ADD VALUE IF NOT EXISTS 'auth_list';
+ALTER TYPE command_action ADD VALUE IF NOT EXISTS 'auth_remove';
+ALTER TYPE command_action ADD VALUE IF NOT EXISTS 'auth_refresh';
+ALTER TYPE command_action ADD VALUE IF NOT EXISTS 'auth_set_default';
+
 DO $$ BEGIN
   CREATE TYPE command_status AS ENUM (
     'pending', 'leased', 'running', 'done', 'failed'

@@ -12,10 +12,12 @@ import {
   ArrowRight,
   Sparkles,
   KeyRound,
+  Plug,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { GatewayBootstrap } from "@/app/onboarding/actions";
+import { AddConnectionDialog } from "@/components/connections/add-connection-dialog";
 
 export interface StepGatewayProps {
   // Selected placement, or null when the user hasn't picked yet (the
@@ -407,7 +409,13 @@ function BootPhase({
       </div>
 
       {placement === "local" && (
-        <LocalView online={online} localError={localError} onCopy={copy} copied={copied} />
+        <LocalView
+          online={online}
+          localError={localError}
+          onCopy={copy}
+          copied={copied}
+          gatewayId={bootstrap?.gatewayId ?? null}
+        />
       )}
 
       {placement === "remote" && (
@@ -444,11 +452,13 @@ function LocalView({
   localError,
   onCopy,
   copied,
+  gatewayId,
 }: {
   online: boolean;
   localError: string | null;
   onCopy: (s: string) => void;
   copied: boolean;
+  gatewayId: string | null;
 }) {
   if (online) {
     return (
@@ -466,7 +476,7 @@ function LocalView({
             </div>
           </div>
         </div>
-        <ModelProviderHint />
+        <ConnectModelHint gatewayId={gatewayId} />
       </div>
     );
   }
@@ -568,7 +578,7 @@ function RemoteView({
             </div>
           </div>
         </div>
-        <ModelProviderHint />
+        <ConnectModelHint gatewayId={bootstrap?.gatewayId ?? null} />
       </div>
     );
   }
@@ -652,49 +662,74 @@ function RemoteView({
   );
 }
 
-// ─── Model provider hint ─────────────────────────────────────────────
+// ─── Connect-a-model CTA ────────────────────────────────────────────
 //
-// Shown after the gateway comes online. Agents need an AI model to
-// run, and the proper Connections UI ships in Phase 3.4. Until then
-// users have to set this up manually via the gateway shell. We surface
-// the gap here so it doesn't show up as a confusing failure later.
+// After the gateway is online, agents still need an AI model to think.
+// We surface that here so it's part of the same flow — not buried in
+// settings. Opens the same AddConnectionDialog the Settings page uses.
 
-function ModelProviderHint() {
-  return (
-    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
-      <div className="flex items-start gap-2.5">
-        <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
-        <div className="space-y-2">
-          <div className="text-[13px] font-medium">
-            One more thing: connect an AI model
+function ConnectModelHint({ gatewayId }: { gatewayId: string | null }) {
+  const [open, setOpen] = useState(false);
+  const [connected, setConnected] = useState(false);
+
+  if (connected) {
+    return (
+      <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-4">
+        <div className="flex items-start gap-2.5">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+          <div className="space-y-1">
+            <div className="text-[13px] font-medium">Model connected</div>
+            <p className="text-[12px] text-muted-foreground">
+              You can connect more providers any time from Settings →
+              Connections.
+            </p>
           </div>
-          <p className="text-[12px] leading-relaxed text-muted-foreground">
-            Agents need access to a language model to think — Claude, GPT,
-            Gemini, etc. The in-browser setup for this is shipping shortly.
-            Until then, run this on your gateway machine after onboarding:
-          </p>
-          <pre className="overflow-auto rounded-md border border-border/60 bg-background p-2 font-mono text-[10.5px] leading-relaxed">
-{`docker compose exec gateway \\
-  openclaw models auth login --provider openai-codex --set-default`}
-          </pre>
-          <p className="text-[11px] text-muted-foreground/70">
-            Replace{" "}
-            <code className="rounded bg-muted px-1 font-mono text-[10px]">
-              openai-codex
-            </code>{" "}
-            with{" "}
-            <code className="rounded bg-muted px-1 font-mono text-[10px]">
-              anthropic
-            </code>
-            ,{" "}
-            <code className="rounded bg-muted px-1 font-mono text-[10px]">
-              gemini
-            </code>
-            , etc. for other providers. You can finish onboarding now and
-            do this after.
-          </p>
         </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-border/60 bg-card/40 p-4">
+      <div className="flex items-start gap-2.5">
+        <Plug className="mt-0.5 h-4 w-4 shrink-0 text-foreground/70" />
+        <div className="space-y-2 flex-1 min-w-0">
+          <div className="text-[13px] font-medium">
+            Last step — connect an AI model
+          </div>
+          <p className="text-[12px] leading-relaxed text-muted-foreground">
+            Agents use a language model to think. Pick one to add to this
+            gateway — Claude, GPT, or sign in with Codex. You can add more
+            later, and switch between them per agent.
+          </p>
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <Button
+              size="sm"
+              onClick={() => setOpen(true)}
+              disabled={!gatewayId}
+            >
+              <Plug className="mr-1.5 h-3.5 w-3.5" />
+              Connect a model
+            </Button>
+            <button
+              type="button"
+              onClick={() => setConnected(true)}
+              className="text-[11px] text-muted-foreground hover:text-foreground"
+            >
+              Skip — I&apos;ll do this later
+            </button>
+          </div>
+        </div>
+      </div>
+      {gatewayId && (
+        <AddConnectionDialog
+          open={open}
+          onOpenChange={setOpen}
+          gatewayId={gatewayId}
+          gatewayLabel="this gateway"
+          onAdded={() => setConnected(true)}
+        />
+      )}
     </div>
   );
 }
