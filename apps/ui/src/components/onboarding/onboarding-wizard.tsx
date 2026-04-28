@@ -417,6 +417,34 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
                     workspaceEmoji: (data.workspaceEmoji as string) ?? "🏠",
                     authEmail: (data.authEmail as string) ?? "",
                   }}
+                  existing={
+                    data.supabaseUrl && data.projectId
+                      ? {
+                          url: data.supabaseUrl as string,
+                          projectId: data.projectId as string,
+                          workspaceLabel:
+                            (data.workspaceLabel as string) ?? "Workspace",
+                          workspaceEmoji:
+                            (data.workspaceEmoji as string) ?? "🏠",
+                        }
+                      : null
+                  }
+                  onContinueExisting={() => go("account")}
+                  onResetCredentials={() => {
+                    // Clear downstream state so the user is forced to
+                    // re-Account and re-Gateway against the new project.
+                    setGateway(null);
+                    setLocalStartError(null);
+                    patch({
+                      supabaseUrl: undefined,
+                      supabaseAnonKey: undefined,
+                      projectId: undefined,
+                      authEmail: undefined,
+                      authMode: undefined,
+                      placement: undefined,
+                      tailscaleAuthKey: undefined,
+                    });
+                  }}
                   onComplete={handleSupabaseComplete}
                 />
               )}
@@ -454,6 +482,17 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
                           (data.tailscaleAuthKey as string | undefined) ?? "",
                       });
                       if (r.ok && r.data) setGateway(r.data);
+                    });
+                  }}
+                  onChangePlacement={() => {
+                    // Reset gateway sub-state so the placement picker
+                    // re-renders. Same teardown the sub-phase Back
+                    // handler does, but exposed as an explicit affordance.
+                    setGateway(null);
+                    setLocalStartError(null);
+                    patch({
+                      tailscaleAuthKey: undefined,
+                      placement: undefined,
                     });
                   }}
                   pending={pending}

@@ -1,7 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Mail, Lock, UserPlus, LogIn, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  ArrowRight,
+  Mail,
+  Lock,
+  UserPlus,
+  LogIn,
+  Loader2,
+  CheckCircle2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createBrowserClient } from "@supabase/ssr";
 import {
@@ -40,24 +48,62 @@ export function StepAccount({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // The browser client tied to this project's cookie prefix. Memoized
+  // so the session probe + signIn share the same client instance.
+  const client = useMemo(() => {
+    if (!url || !anonKey || !projectId) return null;
+    const cookiePrefix = `hq-${projectId.slice(0, 8)}`;
+    return createBrowserClient(url, anonKey, {
+      cookieOptions: { name: cookiePrefix },
+    });
+  }, [url, anonKey, projectId]);
+
+  // Session probe — when the user revisits this step after already
+  // signing in, we don't want to make them re-authenticate. We probe
+  // the browser Supabase client; if it returns a session, render a
+  // summary card instead of the form.
+  // Initial value is derived synchronously: "none" when there's no
+  // client to query, "checking" otherwise — avoids a setState-in-effect.
+  const [sessionState, setSessionState] = useState<
+    | { status: "checking" }
+    | { status: "none" }
+    | { status: "active"; email: string }
+  >(() => (client ? { status: "checking" } : { status: "none" }));
+
+  useEffect(() => {
+    if (!client) return;
+    let cancelled = false;
+    void client.auth.getSession().then((res) => {
+      if (cancelled) return;
+      const session = res.data.session;
+      if (session?.user?.email) {
+        setSessionState({ status: "active", email: session.user.email });
+      } else {
+        setSessionState({ status: "none" });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [client]);
+
   const emailRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
+    if (sessionState.status !== "none") return;
     const t = setTimeout(() => emailRef.current?.focus(), 250);
     return () => clearTimeout(t);
-  }, []);
+  }, [sessionState.status]);
 
-  // Sign in to the freshly-connected Supabase using a browser client
-  // tied to this project's per-project cookie prefix. Same scheme the
-  // SignInModal uses post-onboarding.
+  // Sign in via the memoized browser client — same per-project cookie
+  // prefix as the SignInModal uses post-onboarding.
   const signIn = async (
     inputEmail: string,
     inputPassword: string,
   ): Promise<{ ok: boolean; error?: string }> => {
+    if (!client) {
+      return { ok: false, error: "Supabase client not ready." };
+    }
     try {
-      const cookiePrefix = `hq-${projectId.slice(0, 8)}`;
-      const client = createBrowserClient(url, anonKey, {
-        cookieOptions: { name: cookiePrefix },
-      });
       const { error } = await client.auth.signInWithPassword({
         email: inputEmail,
         password: inputPassword,
@@ -79,6 +125,13 @@ export function StepAccount({
     } catch (err) {
       return { ok: false, error: (err as Error).message };
     }
+  };
+
+  const signOutCurrentSession = async () => {
+    if (!client) return;
+    await client.auth.signOut().catch(() => {});
+    setSessionState({ status: "none" });
+    setMode("signin");
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -144,6 +197,81 @@ export function StepAccount({
         : "Sign in";
 
   const ModeIcon = mode === "create" ? UserPlus : LogIn;
+
+  // ── Loading: probing for an existing session ────────────────────────
+  if (sessionState.status === "checking") {
+    return (
+      <div className="flex items-center gap-2 pt-12 text-[12px] text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        Checking your session…
+      </div>
+    );
+  }
+
+  // ── Summary: user already has an active session for this project ────
+  if (sessionState.status === "active") {
+    return (
+      <div className="space-y-10 pt-8">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted/60 text-[15px]">
+              {workspaceEmoji}
+            </div>
+            <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70">
+              {workspaceLabel}
+            </div>
+          </div>
+          <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight">
+            You&apos;re signed in.
+          </h1>
+          <p className="max-w-[44ch] text-[14px] leading-relaxed text-muted-foreground">
+            HQ has an active session for this workspace. Continue when
+            you&apos;re ready, or sign in with a different account.
+          </p>
+        </div>
+
+        <div className="space-y-3 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.03] p-5">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
+              <CheckCircle2 className="h-4 w-4" />
+            </span>
+            <div className="min-w-0 flex-1 space-y-1">
+              <div className="text-[13px] font-medium leading-tight">
+                Signed in
+              </div>
+              <div className="truncate text-[12px] text-muted-foreground">
+                {sessionState.email}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            type="button"
+            onClick={async () => {
+              await markAccountDone({
+                email: sessionState.email,
+                mode: "signed_in",
+              });
+              onComplete();
+            }}
+            className="group inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-[13px] font-medium text-background hover:bg-foreground/90"
+          >
+            Continue
+            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+          </button>
+          <button
+            type="button"
+            onClick={signOutCurrentSession}
+            className="text-[12px] text-muted-foreground hover:text-foreground"
+          >
+            Use a different account
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={onSubmit} className="space-y-10 pt-8">

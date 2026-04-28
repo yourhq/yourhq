@@ -30,6 +30,12 @@ export interface StepGatewayProps {
   onProvideTailscaleKey: (key: string) => void;
   onContinue: () => void;
   onRegenerateToken: () => void;
+  /**
+   * Resets placement + clears any in-flight gateway state. Lets the
+   * user flip between local and remote without using the global Back
+   * button (which would walk them back through Account / Supabase).
+   */
+  onChangePlacement: () => void;
   pending: boolean;
 }
 
@@ -54,6 +60,7 @@ export function StepGateway({
   onProvideTailscaleKey,
   onContinue,
   onRegenerateToken,
+  onChangePlacement,
   pending,
 }: StepGatewayProps) {
   const [tailscaleKey, setTailscaleKey] = useState("");
@@ -61,7 +68,13 @@ export function StepGateway({
 
   // Phase 1: pick placement
   if (!placement) {
-    return <PlacementPhase onChoose={onChoosePlacement} pending={pending} />;
+    return (
+      <PlacementPhase
+        initial={null}
+        onChoose={onChoosePlacement}
+        pending={pending}
+      />
+    );
   }
 
   // Phase 2: Tailscale auth key for remote (skipped if already provided)
@@ -74,6 +87,7 @@ export function StepGateway({
         onChangeKey={setTailscaleKey}
         onSubmit={() => onProvideTailscaleKey(tailscaleKey.trim())}
         onSkip={() => onProvideTailscaleKey("")}
+        onChangePlacement={onChangePlacement}
         pending={pending}
       />
     );
@@ -87,6 +101,7 @@ export function StepGateway({
     localError={localError}
     onContinue={onContinue}
     onRegenerateToken={onRegenerateToken}
+    onChangePlacement={onChangePlacement}
     pending={pending}
   />;
 }
@@ -94,13 +109,15 @@ export function StepGateway({
 // ─── Phase 1: placement ─────────────────────────────────────────────
 
 function PlacementPhase({
+  initial,
   onChoose,
   pending,
 }: {
+  initial: "local" | "remote" | null;
   onChoose: (p: "local" | "remote") => void;
   pending: boolean;
 }) {
-  const [choice, setChoice] = useState<"local" | "remote" | null>(null);
+  const [choice, setChoice] = useState<"local" | "remote" | null>(initial);
 
   return (
     <div className="space-y-10 pt-8">
@@ -228,12 +245,14 @@ function TailscalePhase({
   onChangeKey,
   onSubmit,
   onSkip,
+  onChangePlacement,
   pending,
 }: {
   tailscaleKey: string;
   onChangeKey: (k: string) => void;
   onSubmit: () => void;
   onSkip: () => void;
+  onChangePlacement: () => void;
   pending: boolean;
 }) {
   return (
@@ -298,7 +317,7 @@ function TailscalePhase({
         </p>
       </div>
 
-      <div className="flex items-center gap-3 pt-2">
+      <div className="flex flex-wrap items-center gap-3 pt-2">
         <button
           type="submit"
           disabled={!tailscaleKey.trim() || pending}
@@ -321,6 +340,13 @@ function TailscalePhase({
         >
           I&apos;ll set up Tailscale later →
         </button>
+        <button
+          type="button"
+          onClick={onChangePlacement}
+          className="ml-auto text-[12px] text-muted-foreground hover:text-foreground"
+        >
+          ← Run on this machine instead
+        </button>
       </div>
     </form>
   );
@@ -335,6 +361,7 @@ function BootPhase({
   localError,
   onContinue,
   onRegenerateToken,
+  onChangePlacement,
   pending,
 }: {
   placement: "local" | "remote";
@@ -343,6 +370,7 @@ function BootPhase({
   localError: string | null;
   onContinue: () => void;
   onRegenerateToken: () => void;
+  onChangePlacement: () => void;
   pending: boolean;
 }) {
   const [copied, setCopied] = useState(false);
@@ -393,7 +421,16 @@ function BootPhase({
         />
       )}
 
-      <div className="flex items-center justify-end pt-2">
+      <div className="flex items-center justify-between pt-2">
+        <button
+          type="button"
+          onClick={onChangePlacement}
+          className="text-[12px] text-muted-foreground hover:text-foreground"
+        >
+          ← {placement === "local"
+            ? "Run on another machine instead"
+            : "Run on this machine instead"}
+        </button>
         <Button onClick={onContinue} disabled={!online || pending}>
           {pending ? "…" : online ? "Continue" : "Waiting for gateway…"}
         </Button>

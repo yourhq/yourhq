@@ -29,6 +29,30 @@ export interface StepSupabaseProps {
     workspaceEmoji: string;
     authEmail: string;
   };
+  /**
+   * When the user revisits this step after already connecting a project,
+   * we render a summary card with an "Edit credentials" button instead
+   * of the full sub-flow. Clicking Edit invalidates downstream state
+   * (Account session, Gateway) — the wizard handles that via
+   * `onResetCredentials`.
+   */
+  existing?: {
+    url: string;
+    projectId: string;
+    workspaceLabel: string;
+    workspaceEmoji: string;
+  } | null;
+  /**
+   * Called when the user clicks "Continue" on the summary card —
+   * advances to the next step without re-running provisioning.
+   */
+  onContinueExisting?: () => void;
+  /**
+   * Called when the user confirms "Edit credentials." The wizard should
+   * clear downstream state (auth session, gateway state) before letting
+   * the user re-enter the sub-flow.
+   */
+  onResetCredentials?: () => void;
   onComplete: (data: {
     workspaceLabel: string;
     workspaceEmoji: string;
@@ -63,7 +87,22 @@ interface SubStepState {
 }
 const INITIAL: SubStepState = { status: "idle" };
 
-export function StepSupabase({ defaults, onComplete }: StepSupabaseProps) {
+export function StepSupabase({
+  defaults,
+  existing,
+  onContinueExisting,
+  onResetCredentials,
+  onComplete,
+}: StepSupabaseProps) {
+  // Summary-card mode: user has already connected this Supabase project
+  // and is revisiting this step. We render a card with their info +
+  // explicit "Edit" / "Continue" affordances rather than the full flow.
+  // `editing` lets the user opt out of summary mode within this step
+  // without immediately invalidating downstream state — they can read
+  // the warning, then either confirm and proceed or cancel.
+  const [editing, setEditing] = useState(false);
+  const inSummary = existing != null && !editing;
+
   const [phase, setPhase] = useState<Phase>("brief");
 
   // Workspace identity is captured earlier in the flow (StepWorkspace).
@@ -245,6 +284,26 @@ export function StepSupabase({ defaults, onComplete }: StepSupabaseProps) {
     }, 0);
     return () => clearTimeout(t);
   }, [phase, runAll]);
+
+  // ── Summary card (when revisiting an already-connected step) ────────
+
+  if (inSummary && existing) {
+    return (
+      <SummaryView
+        url={existing.url}
+        workspaceLabel={existing.workspaceLabel}
+        workspaceEmoji={existing.workspaceEmoji}
+        onContinue={() => onContinueExisting?.()}
+        onEdit={() => {
+          // The wizard will clear downstream state (Account session,
+          // Gateway). We only flip into edit mode after that fires so
+          // the user is committed.
+          onResetCredentials?.();
+          setEditing(true);
+        }}
+      />
+    );
+  }
 
   // ── Phase: brief ────────────────────────────────────────────────────
 
@@ -926,4 +985,115 @@ function StatusIcon({ status }: { status: StepStatus }) {
       </div>
     );
   return <div className="mt-0.5 h-4 w-4 shrink-0 rounded-full border border-border/60" />;
+}
+
+/* -------- Summary view (revisiting after already connected) -------- */
+
+function SummaryView({
+  url,
+  workspaceLabel,
+  workspaceEmoji,
+  onContinue,
+  onEdit,
+}: {
+  url: string;
+  workspaceLabel: string;
+  workspaceEmoji: string;
+  onContinue: () => void;
+  onEdit: () => void;
+}) {
+  // Parse out a short host fragment for display (xxxxx.supabase.co)
+  let host = url;
+  try {
+    host = new URL(url).host;
+  } catch {}
+
+  const [confirmingEdit, setConfirmingEdit] = useState(false);
+
+  return (
+    <div className="space-y-10 pt-8">
+      <div className="space-y-3">
+        <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70">
+          Database
+        </div>
+        <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight">
+          You&apos;re connected.
+        </h1>
+        <p className="max-w-[44ch] text-[14px] leading-relaxed text-muted-foreground">
+          HQ is talking to your Supabase project. You can keep going or
+          switch to a different project.
+        </p>
+      </div>
+
+      {/* Connection card */}
+      <div className="space-y-3 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.03] p-5">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
+            <CheckCircle2 className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[14px] font-semibold leading-tight">
+                {workspaceEmoji} {workspaceLabel}
+              </span>
+            </div>
+            <div className="truncate font-mono text-[12px] text-muted-foreground">
+              {host}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {confirmingEdit ? (
+        <div className="space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/[0.04] p-4">
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+            <div className="space-y-1">
+              <div className="text-[13px] font-medium">
+                Connecting a different project will reset later steps.
+              </div>
+              <p className="text-[12px] leading-relaxed text-muted-foreground">
+                You&apos;ll be signed out and your gateway will need to be
+                reconnected to the new project.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onEdit}
+              className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/15 px-3 py-1.5 text-[12px] font-medium text-amber-200 hover:bg-amber-500/25"
+            >
+              Yes, connect a different project
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmingEdit(false)}
+              className="text-[12px] text-muted-foreground hover:text-foreground"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onContinue}
+            className="group inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-[13px] font-medium text-background hover:bg-foreground/90"
+          >
+            Continue
+            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirmingEdit(true)}
+            className="text-[12px] text-muted-foreground hover:text-foreground"
+          >
+            Connect a different project
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
