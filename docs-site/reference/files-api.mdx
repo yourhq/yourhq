@@ -1,0 +1,17 @@
+---
+title: "Files API"
+description: "How the UI reads and edits files in agent worktrees."
+---
+
+The files API runs inside the gateway container and is authenticated by `GATEWAY_AUTH_TOKEN`.
+
+The UI uses it to:
+
+- List files in an agent branch.
+- Read file contents.
+- Create, edit, and delete files.
+- Commit UI edits to the agent's git worktree.
+
+The API resolves paths inside the agent worktree and rejects path traversal. After successful writes, the UI enqueues an update command so OpenClaw reloads the agent.
+
+Do not expose the files API directly to the public internet.

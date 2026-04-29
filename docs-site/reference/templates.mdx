@@ -1,0 +1,21 @@
+---
+title: "Agent templates"
+description: "Template files, structure, and how new agents are created from templates."
+---
+
+Templates live in [`templates/`](https://github.com/yourhq/yourhq/tree/main/templates).
+
+Each template is a starting worktree for a new agent. The gateway seeds templates into the local bare repo as `template/<name>` branches on first boot.
+
+Common files:
+
+- `agent.json` — runtime metadata.
+- `IDENTITY.md` — role, voice, and domain behavior.
+- `SOUL.md` — goals and non-negotiables.
+- `USER.md` — owner profile placeholders.
+- `MEMORY.md` — starting long-term context.
+- `TOOLS.md` — tool-use guidance.
+- `AGENTS.md` — agent-specific instructions.
+- `skills/` — reusable procedures and scripts.
+
+When an agent is provisioned, HQ creates a branch from the selected template and patches identity fields.

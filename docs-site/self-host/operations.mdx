@@ -1,0 +1,42 @@
+---
+title: "Operations"
+description: "Update, back up, and maintain a self-hosted HQ install."
+---
+
+## Update
+
+For source installs:
+
+```bash
+git pull
+docker compose pull
+docker compose up -d
+```
+
+For installer installs, run the same commands from the install directory.
+
+## Back up Supabase
+
+Use Supabase backups or `pg_dump`. Supabase stores workspace records, agents, tasks, CRM, documents, automations, notifications, command history, inbox history, usage, and budgets.
+
+## Back up gateway state
+
+The `gateway-state` volume holds OpenClaw config, the local git repo, agent worktrees, browser profiles, desktop shortcuts, plugins, shared auth, and VNC state.
+
+Back it up before destructive Docker operations.
+
+## Back up `.env`
+
+`.env` contains infrastructure secrets such as `GATEWAY_AUTH_TOKEN` and optional git credentials. Keep it in a password manager or encrypted storage.
+
+## Pin image versions
+
+For production, pin image tags instead of tracking `latest`.
+
+## Uninstall
+
+```bash
+docker compose down -v
+```
+
+This deletes Docker volumes, including gateway state. Delete the Supabase project separately if you no longer need the data.

@@ -1,0 +1,33 @@
+---
+title: "Requirements"
+description: "Infrastructure and accounts needed to run HQ."
+---
+
+HQ is self-hosted software. The minimum setup is one Docker host and one Supabase project.
+
+## Required
+
+- Docker and Docker Compose.
+- Supabase project.
+- Supabase auth user.
+- Supabase anon key and service role key.
+- A generated `GATEWAY_AUTH_TOKEN`.
+- At least one model provider connection.
+
+## Recommended
+
+- Tailscale for private remote access.
+- A dedicated Supabase project for HQ.
+- A dedicated VM or host for production gateway workloads.
+- Backups for Supabase and the `gateway-state` Docker volume.
+- Pinned image tags once you run HQ for real work.
+
+## Host sizing
+
+Small personal use can run on a laptop, Mac mini, Raspberry Pi 5, or small VPS. Active browser agents use memory and CPU, so plan capacity around active agents, not just total agents.
+
+## Security assumptions
+
+HQ is single-operator admin software. Anyone with access to your Supabase auth user, service role key, gateway state volume, or Docker host should be treated as trusted.
+
+Read [Security policy](/security/security-policy) before exposing HQ beyond localhost.

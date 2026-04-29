@@ -1,0 +1,17 @@
+---
+title: "Repo structure"
+description: "Where major parts of the HQ codebase live."
+---
+
+```text
+yourhq/
+  apps/ui/              Next.js dashboard
+  gateway/              Gateway image, files API, daemons, scripts
+  db/migrations/        Supabase SQL migrations
+  templates/            Agent template library
+  installer/            Install scripts
+  docs-site/            Mintlify documentation source
+  .github/workflows/    CI and image publishing
+```
+
+Read [Architecture](/concepts/architecture) for how these pieces interact at runtime.

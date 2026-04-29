@@ -1,0 +1,32 @@
+---
+title: "Supabase setup"
+description: "Create the Supabase project and apply HQ migrations."
+---
+
+HQ uses your Supabase project as the database, auth, realtime, and storage backbone.
+
+## Create the project
+
+1. Sign in to [supabase.com](https://supabase.com).
+2. Create a new project.
+3. Wait for provisioning to finish.
+4. Open Project Settings → API.
+5. Copy the project URL, anon key, and service role key.
+
+## Apply migrations
+
+Open SQL Editor and run every file in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) in filename order.
+
+The current migration set is split by domain. Do not only run the first file.
+
+## Create an auth user
+
+Open Authentication → Users → Add user. For self-hosted personal use, check auto-confirm so you can sign in immediately.
+
+## Disable public signup
+
+HQ grants broad access to authenticated users. Disable public email signup unless you intentionally want every signed-up user to have admin-level HQ access.
+
+## Next
+
+Continue with [Installation](/self-host/installation).

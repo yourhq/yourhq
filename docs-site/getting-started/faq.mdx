@@ -11,7 +11,7 @@ A self-hostable dashboard for running AI agents. You provide the infrastructure 
 - **Open source.** Fork it, customize it, ship your version.
 - **Offline-capable.** Gateways can run on a laptop or home server and keep working without internet.
 
-SaaS trade-off: you handle updates, debugging, and ops. If that's unappealing, watch for the hosted offering described in [ROADMAP.md](ROADMAP.md).
+SaaS trade-off: you handle updates, debugging, and ops. If that's unappealing, watch for the hosted offering described in [ROADMAP.md](/getting-started/roadmap).
 
 ## Is there a hosted version?
 
@@ -85,7 +85,7 @@ Agents can also be arranged into a manager/direct-report hierarchy. That hierarc
 - **Install Tailscale** on your phone + HQ host, reach `http://<host-tailscale-ip>:3000`
 - **Tailscale Serve** on the host for TLS: `sudo tailscale serve --bg --https=443 localhost:3000` → `https://hq.<your-tailnet>.ts.net`
 - **Tailscale Funnel** to make it reachable without Tailscale on the phone
-- **Public custom domain** via Cloudflare Tunnel or your own reverse proxy (see [docs/NETWORKING.md](NETWORKING.md))
+- **Public custom domain** via Cloudflare Tunnel or your own reverse proxy (see [Networking](/self-host/networking))
 
 Safest path: Tailscale. Your HQ is never on the public internet.
 
@@ -143,7 +143,7 @@ If your changes might benefit others, PR them.
 
 Yes. Copy `templates/default/` to `templates/your-role/`, edit the identity files (`IDENTITY.md`, `SOUL.md`, `USER.md`, `MEMORY.md`), add role-specific skills under `skills/`, rebuild the templates index, open a PR (or keep in your fork).
 
-See [docs/AGENTS.md](AGENTS.md).
+See [Agents](/concepts/agents).
 
 ## Who uses HQ?
 
@@ -157,4 +157,4 @@ It's the headquarters metaphor — one place where you manage everything. Short,
 
 - [GitHub Discussions](https://github.com/yourhq/yourhq/discussions) — design questions, roadmap, workflow
 - [GitHub Issues](https://github.com/yourhq/yourhq/issues) — bugs, feature requests
-- `security@yourhq.ai` — security issues only (see [SECURITY.md](../SECURITY.md))
+- `security@yourhq.ai` — security issues only (see [SECURITY.md](/security/security-policy))

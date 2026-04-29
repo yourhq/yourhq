@@ -28,7 +28,7 @@ You need a Supabase project before running the installer.
 
 1. Sign up at [supabase.com](https://supabase.com) (free tier is fine for personal use).
 2. Create a new project. Wait ~2 minutes for provisioning.
-3. Open SQL Editor and run every `.sql` file in [`db/migrations/`](../db/migrations/) in filename order (`001` through `017`). Each file is named descriptively. The onboarding wizard handles this automatically if you set up through the browser.
+3. Open SQL Editor and run every `.sql` file in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) in filename order (`001` through `017`). Each file is named descriptively. The onboarding wizard handles this automatically if you set up through the browser.
 4. Go to Authentication → Users → Add user (check "Auto Confirm User"). Remember the email/password.
 5. Go to Project Settings → API. Copy three values:
    - Project URL
@@ -87,7 +87,7 @@ cp .env.example .env
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 ```
 
-UI reloads on file changes under `apps/ui/`. See [docs/DEVELOPMENT.md](DEVELOPMENT.md) for full dev setup.
+UI reloads on file changes under `apps/ui/`. See [Local development](/development/local-development) for full dev setup.
 
 ## After install
 
@@ -124,7 +124,7 @@ Manual process:
 5. `docker compose up -d gateway dispatcher runner` (skip `ui`).
 6. The gateway registers itself in Supabase's `gateways` table. The UI sees it within 30 seconds.
 
-See [docs/NETWORKING.md](NETWORKING.md) for the networking model and topology diagrams.
+See [Networking](/self-host/networking) for the networking model and topology diagrams.
 
 ## Troubleshooting install
 
@@ -135,7 +135,7 @@ See [docs/NETWORKING.md](NETWORKING.md) for the networking model and topology di
 - **Setup wizard 500s on "Complete setup"**: CSRF origin mismatch. Set `ALLOWED_ORIGINS` in `.env` to match the host you're accessing from. Restart the UI.
 - **Onboarding validator says a table/function doesn't exist**: you haven't run all migrations. Run every file in `db/migrations/` in filename order and retry.
 
-See [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md) for more.
+See [Troubleshooting](/troubleshooting/common-issues) for more.
 
 ## Updating
 

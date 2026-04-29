@@ -6,7 +6,7 @@
 
 One UI, many AI agents, your infrastructure.
 
-[Website](https://yourhq.ai) · [Install](#install) · [Docs](docs/) · [Roadmap](#roadmap)
+[Website](https://yourhq.ai) · [Install](#install) · [Docs](https://docs.yourhq.ai) · [Roadmap](https://docs.yourhq.ai/getting-started/roadmap)
 
 </div>
 
@@ -59,7 +59,7 @@ cp .env.example .env  # leave Supabase empty to set up in the browser
 docker compose up -d ui
 ```
 
-See [docs/INSTALL.md](docs/INSTALL.md) for every install path in detail.
+See [the installation docs](https://docs.yourhq.ai/self-host/installation) for every install path in detail.
 
 ## Screenshots
 
@@ -93,7 +93,7 @@ Each gateway host runs:
 
 Agents get their own git branch, their own Chrome profile, and a shared workspace. No two agents stomp on each other.
 
-Read the full breakdown in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Read the full breakdown in [the architecture docs](https://docs.yourhq.ai/concepts/architecture).
 
 ## What agents can do
 
@@ -107,7 +107,7 @@ Out of the box, agents have access to:
 
 They have persistent memory across sessions, can report to and delegate to each other, can be governed by monthly usage budgets, and can write their own workflow improvements back to files.
 
-See [docs/FEATURES.md](docs/FEATURES.md) for the product tour and [docs/AGENTS.md](docs/AGENTS.md) for the agent model and custom templates.
+See [the feature tour](https://docs.yourhq.ai/concepts/features) and [agent docs](https://docs.yourhq.ai/concepts/agents) for the agent model and custom templates.
 
 ## Deploying
 
@@ -122,13 +122,13 @@ HQ scales up as your needs grow, without re-architecting anything:
 
 All of these use the same installer and the same Docker images. The only difference is where Docker is running.
 
-See [docs/NETWORKING.md](docs/NETWORKING.md) for deployment topologies.
+See [the networking docs](https://docs.yourhq.ai/self-host/networking) for deployment topologies.
 
 ## Current status
 
 HQ already includes the self-hosted stack, browser onboarding, multi-project registry, UI-driven gateway registration, provider connections, noVNC desktop access, agent templates, CRM, tasks, documents, automations, agent usage budgets, and agent reporting hierarchy.
 
-The remaining roadmap is mostly hardening, polish, hosted deployment, and deeper integrations. See [docs/ROADMAP.md](docs/ROADMAP.md).
+The remaining roadmap is mostly hardening, polish, hosted deployment, and deeper integrations. See [the roadmap](https://docs.yourhq.ai/getting-started/roadmap).
 
 ## Contributing
 
