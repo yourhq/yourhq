@@ -1,19 +1,18 @@
-// Loads the schema SQL and computes the deep-link to the user's
-// Supabase SQL editor with the migration prefilled.
+// Loads all migration SQL files from the migrations directory, concatenates
+// them in filename order, and returns the combined SQL for the user to run
+// in their Supabase SQL editor.
 //
 // Cloud Supabase doesn't expose any HTTP endpoint that can run arbitrary
-// SQL with just a service_role key (verified: pg-meta paths all 404,
-// PostgREST RPCs need pre-installed functions, the Management API needs
-// a separate Personal Access Token). Rather than ask the user for an
-// extra credential, we send them to the SQL editor with the migration
-// loaded — they click "Run", come back, and we re-validate via REST.
+// SQL with just a service_role key. Rather than ask the user for an extra
+// credential, we send them to the SQL editor with the migration on their
+// clipboard — they click "Run", come back, and we re-validate via REST.
 
 import "server-only";
 import { promises as fs } from "fs";
 import path from "path";
 
-const SCHEMA_PATH =
-  process.env.HQ_SCHEMA_PATH ?? path.resolve(process.cwd(), "../../db/migrations/001_schema.sql");
+const MIGRATIONS_PATH =
+  process.env.HQ_SCHEMA_PATH ?? path.resolve(process.cwd(), "../../db/migrations");
 
 export interface InstallSchemaInput {
   url: string;
@@ -36,12 +35,30 @@ export type InstallSchemaResult =
 
 async function readSchemaSql(): Promise<string> {
   try {
-    return await fs.readFile(SCHEMA_PATH, "utf-8");
+    const stat = await fs.stat(MIGRATIONS_PATH);
+
+    if (stat.isFile()) {
+      return await fs.readFile(MIGRATIONS_PATH, "utf-8");
+    }
+
+    const entries = await fs.readdir(MIGRATIONS_PATH);
+    const sqlFiles = entries
+      .filter((f) => f.endsWith(".sql"))
+      .sort();
+
+    if (sqlFiles.length === 0) {
+      throw new Error(`No .sql files found in ${MIGRATIONS_PATH}`);
+    }
+
+    const parts = await Promise.all(
+      sqlFiles.map((f) => fs.readFile(path.join(MIGRATIONS_PATH, f), "utf-8")),
+    );
+
+    return parts.join("\n\n");
   } catch (err) {
     throw new Error(
-      `Failed to read schema migration at ${SCHEMA_PATH}: ${(err as Error).message}. ` +
-        `This usually means the Docker image was built incorrectly — HQ_SCHEMA_PATH ` +
-        `should point at db/migrations/001_schema.sql.`,
+      `Failed to read schema migrations at ${MIGRATIONS_PATH}: ${(err as Error).message}. ` +
+        `HQ_SCHEMA_PATH should point at the db/migrations/ directory.`,
     );
   }
 }
@@ -57,16 +74,6 @@ function parseProjectRef(url: string): string | null {
 }
 
 function buildSqlEditorUrl(projectRef: string | null): string {
-  // Supabase's SQL editor used to accept a `?content=` query param to
-  // prefill the editor, but the migration is ~90 KB and even after URL-
-  // encoding it blows past every browser's URL length cap (Chrome
-  // ~32 KB) and most CDN/edge limits — clicking the link errored out
-  // with "URI too long".
-  //
-  // Workaround: send the user to a blank SQL editor and have them paste
-  // the SQL we already copied to their clipboard. The UI does this in
-  // two clicks: "Copy SQL" (fills clipboard) → "Open SQL editor" (new
-  // tab, paste, Run). Less magic but reliably works for any size.
   if (!projectRef) return "https://supabase.com/dashboard/projects";
   return `https://supabase.com/dashboard/project/${projectRef}/sql/new`;
 }
@@ -86,7 +93,7 @@ export async function prepareSchemaInstall(
   let sql: string;
   try {
     sql = await readSchemaSql();
-    console.log(`[install-schema] loaded SQL (${sql.length} bytes) from ${SCHEMA_PATH}`);
+    console.log(`[install-schema] loaded SQL (${sql.length} bytes) from ${MIGRATIONS_PATH}`);
   } catch (err) {
     console.error(`[install-schema] ${(err as Error).message}`);
     return { ok: false, error: (err as Error).message };

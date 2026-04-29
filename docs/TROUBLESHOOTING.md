@@ -455,7 +455,7 @@ In the SQL editor, the migration stops with `ERROR: relation "contacts" already 
 
 **Why it happens**
 
-You ran the migration twice, or against a project where some tables already existed. `001_schema.sql` is not idempotent — it expects a clean `public` schema.
+You ran the migration against a project where some tables already existed. The current migrations are idempotent (`IF NOT EXISTS`, `CREATE OR REPLACE`) and safe to re-run, but if you have an older copy of the schema this error can still appear.
 
 **How to fix**
 

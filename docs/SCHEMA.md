@@ -4,11 +4,29 @@ HQ stores shared state in one Supabase project per workspace. The SQL source of 
 
 ## Migrations
 
-- `001_schema.sql` — core workspace schema, RLS policies, command queues, inbox queues, CRM, tasks, documents, automations, gateways, notifications, and RPCs.
-- `002_usage_budget.sql` — LLM usage logging, budget rollups, budget notifications, and recompute RPC.
-- `003_agents_reports_to.sql` — agent manager hierarchy and `agent_reports_chain` RPC.
+| File | Contents |
+|------|----------|
+| `001_extensions.sql` | Required Postgres extensions (`vector`, `pg_cron`, `pgcrypto`) |
+| `002_enums.sql` | Shared enum types used across tables |
+| `003_shared_functions.sql` | `set_updated_at()` trigger function |
+| `004_workspace.sql` | Workspace settings, pipeline stages, field definitions, seed row |
+| `005_crm.sql` | Tags, campaigns, contacts, organizations, templates |
+| `006_gateways.sql` | Gateway hosts, registration tokens, `consume_gateway_token()` RPC |
+| `007_agents.sql` | Agent registry, org-chart hierarchy, `agent_reports_chain()` RPC |
+| `008_interactions.sql` | Contact interaction timeline and sync triggers |
+| `009_tasks_streams.sql` | Streams, tasks, recurring task series, and scheduling |
+| `010_comments_attachments.sql` | Polymorphic comments and task attachments |
+| `011_assets_documents.sql` | Assets, documents, semantic search, and draft sets |
+| `012_audit_notifications.sql` | Audit log and notification tables |
+| `013_agent_inbox.sql` | Agent inbox queue, inbox triggers, and automation rules |
+| `014_agent_commands.sql` | Command queue for agent lifecycle and system operations |
+| `015_usage_budgets.sql` | LLM usage logging, per-agent budgets, and enforcement |
+| `016_rls_realtime_storage.sql` | Row-level security, Realtime subscriptions, Storage buckets |
+| `017_setup_wizard.sql` | `complete_setup()` RPC for the first-run wizard |
 
-For a fresh Supabase project, run all migration files from the Supabase SQL Editor. For an existing project, review each migration before applying it.
+For a fresh Supabase project, run all files in filename order from the SQL Editor. The onboarding wizard handles this automatically — it concatenates all files and lets you copy/paste a single SQL blob.
+
+For an existing project, review each migration before applying. All files are idempotent (`IF NOT EXISTS`, `CREATE OR REPLACE`) and safe to re-run.
 
 ## Trust Model
 
@@ -111,16 +129,11 @@ Fresh project:
 
 1. Create a Supabase project.
 2. Open SQL Editor.
-3. Run `001_schema.sql`.
-4. Run `002_usage_budget.sql`.
-5. Run `003_agents_reports_to.sql`.
-6. Create an auth user and disable public signup unless needed.
+3. Run every `.sql` file in `db/migrations/` in filename order (`001` through `017`). Or use the onboarding wizard, which concatenates them all into a single copy-paste blob.
+4. Create an auth user and disable public signup unless needed.
 
 Existing project:
 
 1. Back up the database.
-2. Check which migrations have already been applied.
-3. Run only missing migrations.
-4. Confirm the UI onboarding validator passes.
-
-`001_schema.sql` expects a clean `public` schema. The later migrations are written to be idempotent where practical.
+2. Run all migration files — they are idempotent (`IF NOT EXISTS`, `CREATE OR REPLACE`) and safe to re-run.
+3. Confirm the UI onboarding validator passes.

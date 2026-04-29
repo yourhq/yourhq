@@ -929,7 +929,7 @@ function ManualInstallPanel({
           ) : (
             <>
               <Copy className="h-3 w-3" />
-              Copy SQL (~90 KB)
+              Copy SQL (~105 KB)
             </>
           )}
         </button>

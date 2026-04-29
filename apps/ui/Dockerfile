@@ -57,12 +57,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Onboarding bundles the schema migration with the image so the UI can
-# install it into the user's Supabase the first time they connect a
-# project. The file is read by /app/apps/ui/src/app/onboarding/actions.ts
-# via HQ_SCHEMA_PATH.
-COPY --chown=nextjs:nodejs db/migrations/001_schema.sql /app/db/001_schema.sql
-ENV HQ_SCHEMA_PATH=/app/db/001_schema.sql
+# Onboarding bundles the schema migrations with the image so the UI can
+# install them into the user's Supabase the first time they connect a
+# project. All .sql files are concatenated at runtime by install-schema.ts.
+COPY --chown=nextjs:nodejs db/migrations/ /app/db/migrations/
+ENV HQ_SCHEMA_PATH=/app/db/migrations
 
 # Projects registry volume (multi-project support, Phase 2)
 RUN mkdir -p /config && chown nextjs:nodejs /config

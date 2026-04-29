@@ -27,8 +27,8 @@ cat << 'EOF'
 
   Next steps:
     1. Edit .env and set SUPABASE_URL / *_KEY values from a throwaway project.
-       (Copy the migration at db/migrations/001_schema.sql into the SQL
-        editor of that project first, then paste keys here.)
+       (Run all .sql files in db/migrations/ in filename order in the
+        SQL editor of that project first, then paste keys here.)
 
     2. Build + start just the UI first, as a canary:
           docker compose build ui

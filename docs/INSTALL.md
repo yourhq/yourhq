@@ -28,10 +28,7 @@ You need a Supabase project before running the installer.
 
 1. Sign up at [supabase.com](https://supabase.com) (free tier is fine for personal use).
 2. Create a new project. Wait ~2 minutes for provisioning.
-3. Open SQL Editor and run every migration in [`db/migrations/`](../db/migrations/) in filename order:
-   - `001_schema.sql`
-   - `002_usage_budget.sql`
-   - `003_agents_reports_to.sql`
+3. Open SQL Editor and run every `.sql` file in [`db/migrations/`](../db/migrations/) in filename order (`001` through `017`). Each file is named descriptively. The onboarding wizard handles this automatically if you set up through the browser.
 4. Go to Authentication → Users → Add user (check "Auto Confirm User"). Remember the email/password.
 5. Go to Project Settings → API. Copy three values:
    - Project URL

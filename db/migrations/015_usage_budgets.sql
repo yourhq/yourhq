@@ -1,25 +1,18 @@
--- ════════════════════════════════════════════════════════════════
--- 002  AGENT USAGE TRACKING & BUDGETS
--- ════════════════════════════════════════════════════════════════
--- Append-only usage log (agent_usage) records every LLM call.
--- A rollup trigger keeps agent_budgets in sync; budget enforcement
--- happens in the hq-bootstrap plugin + inbox dispatcher.
---
--- Idempotent — safe to re-run.
+-- 015_usage_budgets.sql — LLM usage logging, per-agent budgets, and enforcement.
 
--- ── 1. Enum ──────────────────────────────────────────────────────
+-- ── Enum ────────────────────────────────────────────────────────
 
 DO $$ BEGIN
   CREATE TYPE budget_status AS ENUM ('ok', 'warned', 'exceeded', 'unmetered');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
--- ── 2. Workspace budget defaults ─────────────────────────────────
+-- ── Workspace budget defaults ───────────────────────────────────
 
 ALTER TABLE workspace ADD COLUMN IF NOT EXISTS default_agent_budget_usd numeric(10,2);
 ALTER TABLE workspace ADD COLUMN IF NOT EXISTS default_soft_threshold_pct integer NOT NULL DEFAULT 80;
 ALTER TABLE workspace ADD COLUMN IF NOT EXISTS default_hard_cutoff boolean NOT NULL DEFAULT true;
 
--- ── 3. agent_usage (source of truth) ─────────────────────────────
+-- ── agent_usage (source of truth) ───────────────────────────────
 
 CREATE TABLE IF NOT EXISTS agent_usage (
   id                       uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -52,7 +45,7 @@ CREATE INDEX IF NOT EXISTS idx_agent_usage_occurred
 CREATE INDEX IF NOT EXISTS idx_agent_usage_agent_model
   ON agent_usage(agent_id, model);
 
--- ── 4. agent_budgets (rollup cache + budget config) ──────────────
+-- ── agent_budgets (rollup cache + budget config) ────────────────
 
 CREATE TABLE IF NOT EXISTS agent_budgets (
   agent_id                       uuid PRIMARY KEY REFERENCES agents(id) ON DELETE CASCADE,
@@ -78,7 +71,7 @@ DROP TRIGGER IF EXISTS agent_budgets_updated_at ON agent_budgets;
 CREATE TRIGGER agent_budgets_updated_at
   BEFORE UPDATE ON agent_budgets FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- ── 5. Rollup trigger ────────────────────────────────────────────
+-- ── Rollup trigger ──────────────────────────────────────────────
 
 CREATE OR REPLACE FUNCTION update_agent_budget_on_usage()
 RETURNS TRIGGER LANGUAGE plpgsql SET search_path = '' AS $$
@@ -93,7 +86,6 @@ DECLARE
 BEGIN
   IF NEW.agent_id IS NULL THEN RETURN NEW; END IF;
 
-  -- Workspace defaults for lazy-created budget rows.
   SELECT
     default_agent_budget_usd,
     coalesce(default_soft_threshold_pct, 80),
@@ -102,7 +94,6 @@ BEGIN
   INTO v_default_lim, v_default_pct, v_default_cut, v_anchor_tz
   FROM public.workspace LIMIT 1;
 
-  -- Lazy-create budget row.
   INSERT INTO public.agent_budgets (
     agent_id, monthly_limit_usd, soft_threshold_pct, hard_cutoff,
     period_anchor_tz, current_period_start
@@ -112,7 +103,6 @@ BEGIN
     date_trunc('month', NEW.occurred_at AT TIME ZONE v_anchor_tz)::date
   ) ON CONFLICT (agent_id) DO NOTHING;
 
-  -- Snapshot pre-update status.
   SELECT status, period_anchor_tz
     INTO v_old_status, v_anchor_tz
     FROM public.agent_budgets
@@ -120,7 +110,6 @@ BEGIN
 
   v_period := date_trunc('month', NEW.occurred_at AT TIME ZONE v_anchor_tz)::date;
 
-  -- Atomic accumulation (+ period rollover if month changed).
   UPDATE public.agent_budgets b SET
     current_period_start           = CASE WHEN v_period <> b.current_period_start
                                           THEN v_period ELSE b.current_period_start END,
@@ -143,7 +132,6 @@ BEGIN
     last_usage_at                  = NEW.occurred_at
   WHERE b.agent_id = NEW.agent_id;
 
-  -- Recompute status from updated totals.
   UPDATE public.agent_budgets SET
     status =
       CASE
@@ -163,7 +151,6 @@ BEGIN
   WHERE agent_id = NEW.agent_id
   RETURNING status INTO v_new_status;
 
-  -- Notification on first status transition (deduped by partial unique index).
   IF v_old_status IS DISTINCT FROM 'warned' AND v_new_status = 'warned' THEN
     INSERT INTO public.notifications (type, title, body, entity_type, entity_id, actor_type, meta)
     SELECT 'budget.warned',
@@ -210,14 +197,14 @@ CREATE TRIGGER agent_usage_rollup
   AFTER INSERT ON agent_usage
   FOR EACH ROW EXECUTE FUNCTION update_agent_budget_on_usage();
 
--- ── 6. Notification dedup index ──────────────────────────────────
+-- ── Notification dedup index ────────────────────────────────────
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_budget_notification_per_period
   ON notifications (entity_id, type, (meta->>'period_start'))
   WHERE entity_type = 'agent_budget'
     AND type IN ('budget.warned', 'budget.exceeded');
 
--- ── 7. Reconcile RPC ─────────────────────────────────────────────
+-- ── Reconcile RPC ───────────────────────────────────────────────
 
 CREATE OR REPLACE FUNCTION recompute_agent_budget(p_agent_id uuid)
 RETURNS agent_budgets LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
@@ -273,7 +260,7 @@ BEGIN
 END;
 $$;
 
--- ── 8. RLS ───────────────────────────────────────────────────────
+-- ── RLS ─────────────────────────────────────────────────────────
 
 DO $$
 DECLARE
@@ -294,7 +281,7 @@ $$;
 GRANT SELECT, INSERT, UPDATE, DELETE ON agent_usage TO authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON agent_budgets TO authenticated, service_role;
 
--- ── 9. Realtime (agent_budgets only — agent_usage is too frequent) ─
+-- ── Realtime (agent_budgets only — agent_usage is too frequent) ─
 
 DO $$
 DECLARE
@@ -311,7 +298,7 @@ BEGIN
 END
 $$;
 
--- ── 10. Backfill existing agents ─────────────────────────────────
+-- ── Backfill existing agents ────────────────────────────────────
 
 INSERT INTO agent_budgets (agent_id)
 SELECT id FROM agents

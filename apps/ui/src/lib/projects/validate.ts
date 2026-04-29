@@ -99,8 +99,8 @@ export async function validateSupabaseCreds(input: {
       ok: false,
       error: "The workspace table doesn't exist in this project.",
       hint:
-        "Run db/migrations/001_schema.sql in your Supabase SQL editor " +
-        "before connecting.",
+        "Run the migration files in db/migrations/ (in filename order) " +
+        "in your Supabase SQL editor before connecting.",
     };
   }
 
@@ -110,7 +110,7 @@ export async function validateSupabaseCreds(input: {
       error: `Supabase returned ${schema.status} for the schema check.`,
       hint:
         "Verify the URL is correct and the project isn't paused. " +
-        "If the problem persists, re-run db/migrations/001_schema.sql.",
+        "If the problem persists, re-run the migration files in db/migrations/.",
     };
   }
 
