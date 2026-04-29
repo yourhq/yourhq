@@ -238,8 +238,9 @@ The org chart adds a convention on top of these primitives: managers and direct 
 ## Debugging an agent
 
 - **Check the agent's Chrome window** — noVNC into the gateway; you'll see Chrome with the agent's profile. Right-click → Agents → click their window.
-- **Check command history** — Settings → System → Agent Commands. Filter by agent.
-- **Check inbox history** — Settings → System → Agent Inbox Items. See what triggered each wake.
+- **Check command history** — Settings → System → Commands tab. Filter by status or gateway.
+- **Check inbox history** — Settings → System → Inbox tab. See what triggered each wake and its status.
+- **Check audit log** — Settings → System → Audit Log tab. Filter by module, action, or actor type.
 - **Tail runner logs** — `docker compose logs -f runner` while the agent works.
 - **Tail gateway logs** — `docker compose logs -f gateway | grep <agent-slug>` for openclaw-side traces.
 - **Read the agent's branch** — file browser in the UI, or `docker compose exec gateway bash` → `cd ~/.openclaw/workspace-<slug>` → inspect directly.

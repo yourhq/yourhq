@@ -120,7 +120,7 @@ docker compose up -d
 
 UI Supabase config lives in the project registry (runtime, not baked in), so no UI rebuild is ever required — just pull and restart.
 
-Gateway update actions from the UI are still on the roadmap. For now, SSH in and run the commands above.
+You can also trigger this from the UI: Settings → Gateways → hover a gateway row → Update. Or Settings → System → Update Gateway. Both show a confirmation dialog before proceeding.
 
 ## How do I uninstall?
 

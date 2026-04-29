@@ -52,13 +52,18 @@ This doc captures where HQ is now and what remains. Older phase labels are histo
 - Per-agent LLM usage tracking and monthly budgets
 - Budget warning/exceeded notifications and hard cutoff enforcement
 
+### Observability and gateway management
+
+- Gateway update from UI (pull images, restart) with confirmation dialog
+- System page with Commands, Inbox, and Audit Log tabs
+- Status, module, action, and actor filters across all log views
+- Realtime subscriptions and pagination on all log views
+
 ## Next
 
 These are the most useful near-term areas for contributors.
 
 - **Migration runner** — replace copy/paste SQL instructions with a guided migration command or UI flow.
-- **Gateway updates from UI** — per-gateway update action that can pull images and restart services safely.
-- **Gateway logs** — UI log tails for gateway, runner, dispatcher, and OpenClaw sessions.
 - **Templates source UI** — switch between bundled templates and a custom git URL per project.
 - **Public deployment guide** — reverse proxy, Cloudflare Tunnel, TLS, and auth hardening examples.
 - **Pretty tailnet URLs** — optional Tailscale Serve setup for users who want `http://hq` instead of ported URLs.
