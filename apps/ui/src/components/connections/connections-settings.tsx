@@ -276,6 +276,7 @@ export function ConnectionsSettings({
           onOpenChange={setAddOpen}
           gatewayId={gatewayId}
           gatewayLabel={activeGateway.label}
+          gatewayNetworkingMode={activeGateway.meta?.networking_mode}
           onAdded={() => void onAdded()}
         />
       )}

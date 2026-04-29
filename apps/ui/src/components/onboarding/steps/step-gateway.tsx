@@ -476,7 +476,7 @@ function LocalView({
             </div>
           </div>
         </div>
-        <ConnectModelHint gatewayId={gatewayId} />
+        <ConnectModelHint gatewayId={gatewayId} networkingMode="local" />
       </div>
     );
   }
@@ -578,7 +578,10 @@ function RemoteView({
             </div>
           </div>
         </div>
-        <ConnectModelHint gatewayId={bootstrap?.gatewayId ?? null} />
+        <ConnectModelHint
+          gatewayId={bootstrap?.gatewayId ?? null}
+          networkingMode="remote"
+        />
       </div>
     );
   }
@@ -668,7 +671,15 @@ function RemoteView({
 // We surface that here so it's part of the same flow — not buried in
 // settings. Opens the same AddConnectionDialog the Settings page uses.
 
-function ConnectModelHint({ gatewayId }: { gatewayId: string | null }) {
+function ConnectModelHint({
+  gatewayId,
+  networkingMode,
+}: {
+  gatewayId: string | null;
+  /** "local" when the gateway runs on this machine, otherwise the user's
+   * browser is somewhere else. Drives the dialog's sign-in copy. */
+  networkingMode?: "local" | "remote";
+}) {
   const [open, setOpen] = useState(false);
   const [connected, setConnected] = useState(false);
 
@@ -727,6 +738,7 @@ function ConnectModelHint({ gatewayId }: { gatewayId: string | null }) {
           onOpenChange={setOpen}
           gatewayId={gatewayId}
           gatewayLabel="this gateway"
+          gatewayNetworkingMode={networkingMode}
           onAdded={() => setConnected(true)}
         />
       )}

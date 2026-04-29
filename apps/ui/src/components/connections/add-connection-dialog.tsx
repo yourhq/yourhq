@@ -20,7 +20,6 @@ import {
   Loader2,
   Plug,
   Search,
-  Sparkles,
 } from "lucide-react";
 import {
   Dialog,
@@ -50,6 +49,15 @@ interface AddConnectionDialogProps {
   onOpenChange: (open: boolean) => void;
   gatewayId: string;
   gatewayLabel: string;
+  /**
+   * The gateway's networking mode (`gateways.meta.networking_mode`).
+   * Determines whether OAuth sign-in auto-completes (`local` — gateway
+   * runs on this same machine) or needs a paste-back step (anything
+   * else — gateway is on another machine, browser can't reach its
+   * localhost). Optional; defaults to "local" when missing so the
+   * laptop install case doesn't show scary copy unnecessarily.
+   */
+  gatewayNetworkingMode?: string;
   onAdded?: () => void;
 }
 
@@ -69,6 +77,7 @@ export function AddConnectionDialog({
   onOpenChange,
   gatewayId,
   gatewayLabel,
+  gatewayNetworkingMode,
   onAdded,
 }: AddConnectionDialogProps) {
   return (
@@ -79,6 +88,7 @@ export function AddConnectionDialog({
             onClose={() => onOpenChange(false)}
             gatewayId={gatewayId}
             gatewayLabel={gatewayLabel}
+            gatewayNetworkingMode={gatewayNetworkingMode}
             onAdded={onAdded}
           />
         )}
@@ -91,11 +101,13 @@ function AddConnectionDialogInner({
   onClose,
   gatewayId,
   gatewayLabel,
+  gatewayNetworkingMode,
   onAdded,
 }: {
   onClose: () => void;
   gatewayId: string;
   gatewayLabel: string;
+  gatewayNetworkingMode?: string;
   onAdded?: () => void;
 }) {
   const [phase, setPhase] = useState<Phase>({ kind: "pick" });
@@ -143,6 +155,7 @@ function AddConnectionDialogInner({
         <ConfigurePhase
           provider={phase.provider}
           gatewayId={gatewayId}
+          gatewayNetworkingMode={gatewayNetworkingMode}
           error={error}
           onError={setError}
           onCancel={onClose}
@@ -319,6 +332,7 @@ function AuthShapeTag({ shape }: { shape: ProviderCatalogEntry["authShape"] }) {
 function ConfigurePhase({
   provider,
   gatewayId,
+  gatewayNetworkingMode,
   error,
   onError,
   onCancel,
@@ -327,6 +341,7 @@ function ConfigurePhase({
 }: {
   provider: ProviderCatalogEntry;
   gatewayId: string;
+  gatewayNetworkingMode?: string;
   error: string | null;
   onError: (msg: string | null) => void;
   onCancel: () => void;
@@ -375,6 +390,7 @@ function ConfigurePhase({
     <SignInLauncher
       provider={provider}
       gatewayId={gatewayId}
+      gatewayNetworkingMode={gatewayNetworkingMode}
       mode={mode}
       setMode={setMode}
       error={error}
@@ -674,6 +690,7 @@ function LocalUrlForm({
 function SignInLauncher({
   provider,
   gatewayId,
+  gatewayNetworkingMode,
   mode,
   setMode,
   error,
@@ -683,6 +700,7 @@ function SignInLauncher({
 }: {
   provider: ProviderCatalogEntry;
   gatewayId: string;
+  gatewayNetworkingMode?: string;
   mode: "oauth_paste" | "device_code";
   setMode: (m: "oauth_paste" | "device_code") => void;
   error: string | null;
@@ -693,29 +711,78 @@ function SignInLauncher({
   const [submitting, setSubmitting] = useState(false);
   const supportsToggle = !!provider.alternateShape;
 
+  // "Local" = the user's browser and the gateway are on the same machine,
+  // so the sign-in callback (http://localhost:1455/...) reaches the gateway
+  // and the flow auto-completes. Anything else means the redirect can't
+  // be auto-caught and the user has to copy the URL back. Default to
+  // local — the laptop install is the most common path.
+  const isLocal = (gatewayNetworkingMode ?? "local").toLowerCase() === "local";
+
+  // What happens after the user clicks "Sign in" — tailored per shape
+  // and per mode so the user knows exactly what to expect before they
+  // commit.
+  const stepCount = mode === "device_code" ? 3 : isLocal ? 2 : 3;
+
   return (
     <div>
       <div className="px-5 py-4 space-y-4">
-        <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2.5 text-[12px] leading-relaxed">
-          <div className="flex items-start gap-2">
-            <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            <div className="space-y-1">
-              <p className="text-foreground">
-                Sign in with your {provider.displayName} account — no API key
-                to manage.
-              </p>
-              <p className="text-muted-foreground">
-                {mode === "device_code"
-                  ? "We'll show you a short code. Open the URL we give you, paste the code in, approve. Done."
-                  : "We'll show you a URL. Open it, sign in. If your browser is on the same machine as the gateway, sign-in completes automatically — otherwise paste the page you land on back here."}
-              </p>
-            </div>
+        <div className="rounded-md border border-border/60 bg-muted/20 px-3.5 py-3 text-[12px] leading-relaxed">
+          <div className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
+            What happens next ({stepCount} steps)
           </div>
+          {mode === "device_code" ? (
+            <ol className="space-y-1.5 text-muted-foreground">
+              <li>
+                <span className="mr-1.5 font-medium text-foreground">1.</span>
+                We&apos;ll show you a short code and a URL.
+              </li>
+              <li>
+                <span className="mr-1.5 font-medium text-foreground">2.</span>
+                Open the URL on any device, type the code in, approve sign-in.
+              </li>
+              <li>
+                <span className="mr-1.5 font-medium text-foreground">3.</span>
+                Come back here — we&apos;ll close this on our own.
+              </li>
+            </ol>
+          ) : isLocal ? (
+            <ol className="space-y-1.5 text-muted-foreground">
+              <li>
+                <span className="mr-1.5 font-medium text-foreground">1.</span>
+                We&apos;ll open {provider.displayName} in a new tab.
+              </li>
+              <li>
+                <span className="mr-1.5 font-medium text-foreground">2.</span>
+                Sign in. <span className="text-foreground">This dialog will close on its own — nothing else to do.</span>
+              </li>
+            </ol>
+          ) : (
+            <ol className="space-y-1.5 text-muted-foreground">
+              <li>
+                <span className="mr-1.5 font-medium text-foreground">1.</span>
+                We&apos;ll open {provider.displayName} in a new tab.
+              </li>
+              <li>
+                <span className="mr-1.5 font-medium text-foreground">2.</span>
+                Sign in. Your browser will land on a page that won&apos;t
+                load — <span className="text-foreground">that&apos;s expected.</span>
+              </li>
+              <li>
+                <span className="mr-1.5 font-medium text-foreground">3.</span>
+                Copy the URL from your browser&apos;s address bar and paste
+                it back here.
+              </li>
+            </ol>
+          )}
         </div>
 
         {supportsToggle && (
           <div className="flex items-center gap-2 text-[11px]">
-            <span className="text-muted-foreground/70">Trouble with the browser?</span>
+            <span className="text-muted-foreground/70">
+              {mode === "device_code"
+                ? "Have your browser handy?"
+                : "Browser-based sign-in not working?"}
+            </span>
             <button
               type="button"
               onClick={() =>
@@ -724,7 +791,7 @@ function SignInLauncher({
               className="underline underline-offset-2 text-foreground hover:text-primary"
             >
               {mode === "device_code"
-                ? "Use the paste-URL flow instead"
+                ? "Sign in with a browser instead"
                 : "Use a short code instead"}
             </button>
           </div>
