@@ -307,6 +307,53 @@ export default function DashboardPage() {
                 </div>
               </Card>
 
+              {/* Usage */}
+              <Card title="Usage" description="LLM spend across all agents this month.">
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-x-5 gap-y-2">
+                    <Stat
+                      label="Spend"
+                      value={`$${stats.fleetUsage.total_spend_usd.toFixed(2)}`}
+                    />
+                    <Stat
+                      label="Tokens"
+                      value={fmt(stats.fleetUsage.total_tokens)}
+                    />
+                    <Stat
+                      label="Agents"
+                      value={String(stats.fleetUsage.agent_count)}
+                    />
+                  </div>
+                  {(stats.fleetUsage.warned_count > 0 ||
+                    stats.fleetUsage.exceeded_count > 0 ||
+                    stats.fleetUsage.unmetered_count > 0) && (
+                    <div className="flex flex-wrap gap-x-4">
+                      {stats.fleetUsage.warned_count > 0 && (
+                        <TaskStat
+                          color="var(--status-warning)"
+                          label="Warned"
+                          value={stats.fleetUsage.warned_count}
+                        />
+                      )}
+                      {stats.fleetUsage.exceeded_count > 0 && (
+                        <TaskStat
+                          color="var(--status-error)"
+                          label="Exceeded"
+                          value={stats.fleetUsage.exceeded_count}
+                        />
+                      )}
+                      {stats.fleetUsage.unmetered_count > 0 && (
+                        <TaskStat
+                          color="var(--status-neutral)"
+                          label="Unmetered"
+                          value={stats.fleetUsage.unmetered_count}
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+              </Card>
+
               {/* Follow-ups Due */}
               <Card
                 title="Follow-ups due"

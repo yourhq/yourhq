@@ -6,6 +6,7 @@ import type {
   CrmStats,
   TaskStats,
   AgentStats,
+  FleetUsageStats,
   PipelineStageCount,
   FollowUpDue,
 } from "@/lib/types/dashboard";
@@ -199,6 +200,28 @@ async function fetchRecentActivity(): Promise<AuditLogEntry[]> {
   return (data as AuditLogEntry[] | null) ?? [];
 }
 
+// ── Fleet usage stats ───────────────────────────────────────────────
+
+async function fetchFleetUsageStats(): Promise<FleetUsageStats> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("agent_budgets").select("*");
+  type Row = {
+    current_period_spend_usd: number;
+    current_period_tokens: number;
+    status: string;
+  };
+  const rows = (data ?? []) as Row[];
+
+  return {
+    total_spend_usd: rows.reduce((s, r) => s + (r.current_period_spend_usd ?? 0), 0),
+    total_tokens: rows.reduce((s, r) => s + (r.current_period_tokens ?? 0), 0),
+    agent_count: rows.length,
+    warned_count: rows.filter((r) => r.status === "warned").length,
+    exceeded_count: rows.filter((r) => r.status === "exceeded").length,
+    unmetered_count: rows.filter((r) => r.status === "unmetered").length,
+  };
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────
 
 const ZERO_CRM: CrmStats = {
@@ -214,6 +237,10 @@ const ZERO_TASKS: TaskStats = {
 const ZERO_AGENTS: AgentStats = {
   total: 0, online: 0, offline: 0, error: 0, recentActions: 0,
 };
+const ZERO_FLEET_USAGE: FleetUsageStats = {
+  total_spend_usd: 0, total_tokens: 0, agent_count: 0,
+  warned_count: 0, exceeded_count: 0, unmetered_count: 0,
+};
 
 async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
   try {
@@ -228,10 +255,11 @@ async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
 // ── Main action ──────────────────────────────────────────────────────
 
 export async function fetchDashboardStats(): Promise<DashboardStats> {
-  const [crm, tasks, agents, followUps, recentActivity] = await Promise.all([
+  const [crm, tasks, agents, fleetUsage, followUps, recentActivity] = await Promise.all([
     safe(fetchCrmStats, ZERO_CRM),
     safe(fetchTaskStats, ZERO_TASKS),
     safe(fetchAgentStats, ZERO_AGENTS),
+    safe(fetchFleetUsageStats, ZERO_FLEET_USAGE),
     safe(fetchFollowUpsDue, [] as FollowUpDue[]),
     safe(fetchRecentActivity, [] as AuditLogEntry[]),
   ]);
@@ -240,6 +268,7 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
     crm,
     tasks,
     agents,
+    fleetUsage,
     followUps,
     recentActivity,
     fetchedAt: new Date().toISOString(),

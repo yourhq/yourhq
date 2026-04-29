@@ -170,6 +170,18 @@ class WakeTracker:
         except Exception:
             pass  # If we can't check, allow the wake
 
+        # Budget enforcement (Ring 2 — plugin's before_prompt_build is Ring 1)
+        try:
+            budget_rows = api_get("agent_budgets", {
+                "select": "status,hard_cutoff",
+                "agent_id": f"eq.{agent_id}",
+                "limit": "1",
+            })
+            if budget_rows and budget_rows[0].get("status") == "exceeded" and budget_rows[0].get("hard_cutoff"):
+                return False, "budget_exceeded"
+        except Exception:
+            pass  # fail open — plugin will catch it
+
         # Check if there's actually actionable work
         try:
             actionable = api_get("agent_inbox_items", {

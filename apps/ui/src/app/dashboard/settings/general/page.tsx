@@ -62,6 +62,11 @@ export default function GeneralSettingsPage() {
   const [tzQuery, setTzQuery] = useState("");
   const [showTzDropdown, setShowTzDropdown] = useState(false);
 
+  // Budget defaults
+  const [budgetLimit, setBudgetLimit] = useState("");
+  const [budgetThreshold, setBudgetThreshold] = useState(80);
+  const [budgetHardCutoff, setBudgetHardCutoff] = useState(true);
+
   useEffect(() => {
     supabase
       .from("workspace")
@@ -80,6 +85,10 @@ export default function GeneralSettingsPage() {
           setPreferredName(ws.owner_preferred_name ?? "");
           setTimezone(ws.owner_timezone ?? "");
           setTzQuery(ws.owner_timezone ?? "");
+          const d = data as Record<string, unknown>;
+          setBudgetLimit(d.default_agent_budget_usd != null ? String(d.default_agent_budget_usd) : "");
+          setBudgetThreshold(typeof d.default_soft_threshold_pct === "number" ? d.default_soft_threshold_pct : 80);
+          setBudgetHardCutoff(d.default_hard_cutoff !== false);
         }
         setLoading(false);
       });
@@ -106,6 +115,7 @@ export default function GeneralSettingsPage() {
   const handleSave = useCallback(async () => {
     setSaving(true);
 
+    const parsedLimit = budgetLimit.trim() === "" ? null : parseFloat(budgetLimit);
     const payload = {
       name: wsName.trim() || "HQ",
       slug: wsSlug.trim() || null,
@@ -113,6 +123,9 @@ export default function GeneralSettingsPage() {
       owner_name: ownerName.trim() || null,
       owner_preferred_name: preferredName.trim() || null,
       owner_timezone: timezone.trim() || null,
+      default_agent_budget_usd: parsedLimit !== null && !isNaN(parsedLimit) ? parsedLimit : null,
+      default_soft_threshold_pct: Math.max(1, Math.min(100, budgetThreshold)),
+      default_hard_cutoff: budgetHardCutoff,
     };
 
     if (workspaceId) {
@@ -159,7 +172,7 @@ export default function GeneralSettingsPage() {
 
     toast.success("Saved");
     setSaving(false);
-  }, [supabase, workspaceId, wsName, wsSlug, wsDescription, ownerName, preferredName, timezone]);
+  }, [supabase, workspaceId, wsName, wsSlug, wsDescription, ownerName, preferredName, timezone, budgetLimit, budgetThreshold, budgetHardCutoff]);
 
   return (
     <div className="flex h-full flex-col">
@@ -319,6 +332,57 @@ export default function GeneralSettingsPage() {
                       )}
                     </div>
                   </div>
+                </div>
+              </PageSection>
+
+              <PageSection
+                title="Budget defaults"
+                description="Applied to newly created agents. Existing agents keep their own settings."
+              >
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] font-medium text-muted-foreground">
+                      Default monthly budget (USD)
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={budgetLimit}
+                      onChange={(e) => setBudgetLimit(e.target.value)}
+                      placeholder="No limit"
+                      className="w-full h-9 rounded-md border border-border/60 bg-transparent px-3 text-sm tabular-nums outline-none focus-visible:ring-1 focus-visible:ring-border placeholder:text-muted-foreground/40"
+                    />
+                    <p className="text-[11px] text-muted-foreground/50">
+                      Leave empty for no limit — usage is still tracked.
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] font-medium text-muted-foreground">
+                      Soft warning threshold
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={budgetThreshold}
+                        onChange={(e) => setBudgetThreshold(Number(e.target.value))}
+                        className="w-20 h-9 rounded-md border border-border/60 bg-transparent px-3 text-sm tabular-nums outline-none focus-visible:ring-1 focus-visible:ring-border"
+                      />
+                      <span className="text-[12px] text-muted-foreground">%</span>
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={budgetHardCutoff}
+                      onChange={(e) => setBudgetHardCutoff(e.target.checked)}
+                      className="h-4 w-4 rounded border-border accent-primary"
+                    />
+                    <span className="text-[12px] text-foreground">
+                      Hard cutoff — stop agents that exceed their limit
+                    </span>
+                  </label>
                 </div>
               </PageSection>
 

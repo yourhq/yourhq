@@ -58,6 +58,8 @@ import { TriggersSection } from "./triggers-section";
 import { OpenDesktopModal } from "@/components/gateways/open-desktop-modal";
 import { getGatewayDesktopUrlAction } from "@/app/dashboard/settings/gateways/actions";
 import { AgentRailModelSection } from "@/components/connections/agent-rail-model-section";
+import { AgentUsageRail } from "./agent-usage-rail";
+import { AgentUsageTab } from "./agent-usage-tab";
 
 const agentStatusDotHex: Record<string, string> = {
   online: "var(--status-success)",
@@ -183,6 +185,7 @@ export function AgentDetailTabs({
             <div className="border-b border-border/60 px-5">
               <TabsList variant="line" className="h-9">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="usage">Usage</TabsTrigger>
                 <TabsTrigger value="files">Files</TabsTrigger>
                 <TabsTrigger value="operations">Operations</TabsTrigger>
               </TabsList>
@@ -203,6 +206,10 @@ export function AgentDetailTabs({
                   <InboxSection agentId={agent.id} />
                 </div>
               </div>
+            </TabsContent>
+
+            <TabsContent value="usage" className="min-h-0 flex-1 overflow-auto">
+              <AgentUsageTab agentId={agent.id} />
             </TabsContent>
 
             <TabsContent value="files" className="min-h-0 flex-1 overflow-auto">
@@ -289,6 +296,8 @@ function AgentRailContent({
           <span className="text-muted-foreground/60">· {lastSeen}</span>
         </div>
       </DetailSidebarSection>
+
+      <AgentUsageRail agentId={agent.id} />
 
       <DetailSidebarSection title="Properties">
         <DetailSidebarPropertyGrid>

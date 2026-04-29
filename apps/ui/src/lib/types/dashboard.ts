@@ -44,10 +44,20 @@ export interface FollowUpDue {
   interaction_id: string;
 }
 
+export interface FleetUsageStats {
+  total_spend_usd: number;
+  total_tokens: number;
+  agent_count: number;
+  warned_count: number;
+  exceeded_count: number;
+  unmetered_count: number;
+}
+
 export interface DashboardStats {
   crm: CrmStats;
   tasks: TaskStats;
   agents: AgentStats;
+  fleetUsage: FleetUsageStats;
   followUps: FollowUpDue[];
   recentActivity: AuditLogEntry[];
   fetchedAt: string;

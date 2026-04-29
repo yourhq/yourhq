@@ -534,6 +534,18 @@ PYEOF
     > /dev/null \
     && log "  registered (reachable at $(echo "$REACHABLE_JSON" | python3 -c "import json,sys; print(json.loads(sys.stdin.read())['reachable_urls']['base'])"))" \
     || log "  registration failed (Supabase unreachable or gateways table missing — will retry from daemon)"
+
+  # Resolve the gateway's UUID so the plugin can tag agent_usage rows.
+  GATEWAY_DB_ID=$(curl -fsS \
+    "$SUPABASE_URL/rest/v1/gateways?slug=eq.$GATEWAY_ID&select=id&limit=1" \
+    -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+    -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+    | python3 -c "import json,sys; rows=json.load(sys.stdin); print(rows[0]['id'] if rows else '')" 2>/dev/null \
+    || true)
+  if [ -n "$GATEWAY_DB_ID" ]; then
+    export GATEWAY_DB_ID
+    log "  resolved GATEWAY_DB_ID=$GATEWAY_DB_ID"
+  fi
 else
   log "SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set; skipping gateway registration."
 fi

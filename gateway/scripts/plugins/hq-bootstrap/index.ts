@@ -8,6 +8,121 @@ const execFileAsync = promisify(execFile);
 const MAX_RETRIES = 3;
 const STALE_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+// ── Supabase REST helpers ──────────────────────────────────────
+
+const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+const GATEWAY_DB_ID = process.env.GATEWAY_DB_ID ?? null;
+
+function supabaseHeaders(): Record<string, string> {
+  return {
+    apikey: SUPABASE_KEY,
+    Authorization: `Bearer ${SUPABASE_KEY}`,
+    "Content-Type": "application/json",
+    Prefer: "return=minimal",
+  };
+}
+
+async function supabasePost(table: string, row: Record<string, unknown>): Promise<void> {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return;
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+      method: "POST",
+      headers: supabaseHeaders(),
+      body: JSON.stringify(row),
+    });
+  } catch {
+    // fire-and-forget
+  }
+}
+
+async function supabaseGet<T = Record<string, unknown>>(
+  table: string,
+  params: Record<string, string>,
+): Promise<T[]> {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return [];
+  const qs = new URLSearchParams(params).toString();
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${qs}`, {
+    headers: { ...supabaseHeaders(), Prefer: "" },
+  });
+  if (!res.ok) return [];
+  return (await res.json()) as T[];
+}
+
+// ── Agent UUID cache (session → agent id) ──────────────────────
+
+const agentIdCache = new Map<string, string>();
+
+async function resolveAgentUuid(ctx: any): Promise<string | null> {
+  const sessionId: string | undefined = ctx.sessionId;
+  if (!sessionId) return null;
+
+  const cached = agentIdCache.get(sessionId);
+  if (cached) return cached;
+
+  const slug = ctx.agentSlug || ctx.agentId;
+  if (!slug) return null;
+
+  try {
+    const rows = await supabaseGet("agents", {
+      select: "id",
+      slug: `eq.${slug}`,
+      limit: "1",
+    });
+    if (rows.length > 0) {
+      const id = (rows[0] as any).id as string;
+      agentIdCache.set(sessionId, id);
+      return id;
+    }
+  } catch {
+    // fail open
+  }
+  return null;
+}
+
+// ── Budget cache (agent_id → status) ───────────────────────────
+
+interface BudgetCacheEntry {
+  status: string;
+  hardCutoff: boolean;
+  fetchedAt: number;
+}
+
+const budgetCache = new Map<string, BudgetCacheEntry>();
+const BUDGET_TTL_OK_MS = 30_000;
+const BUDGET_TTL_EXCEEDED_MS = 5_000;
+
+function invalidateBudgetCache(agentId: string) {
+  budgetCache.delete(agentId);
+}
+
+async function fetchBudgetCached(agentId: string): Promise<BudgetCacheEntry | null> {
+  const cached = budgetCache.get(agentId);
+  if (cached) {
+    const ttl = cached.status === "exceeded" ? BUDGET_TTL_EXCEEDED_MS : BUDGET_TTL_OK_MS;
+    if (Date.now() - cached.fetchedAt < ttl) return cached;
+  }
+
+  try {
+    const rows = await supabaseGet("agent_budgets", {
+      select: "status,hard_cutoff",
+      agent_id: `eq.${agentId}`,
+      limit: "1",
+    });
+    if (rows.length === 0) return null;
+    const row = rows[0] as any;
+    const entry: BudgetCacheEntry = {
+      status: row.status ?? "ok",
+      hardCutoff: row.hard_cutoff !== false,
+      fetchedAt: Date.now(),
+    };
+    budgetCache.set(agentId, entry);
+    return entry;
+  } catch {
+    return null;
+  }
+}
+
 function statePath(workspaceDir: string, sessionId: string) {
   return path.join(workspaceDir, "state", "session-bootstrap", `${sessionId}.json`);
 }
@@ -86,6 +201,91 @@ export default definePluginEntry({
   name: "HQ Bootstrap",
   description: "Bootstraps HQ registration and boot-doc context for new sessions",
   register(api) {
+    // ── Usage recording: log every LLM call to agent_usage ──
+    api.on("llm_output", async (event: any, ctx: any) => {
+      const agentId = await resolveAgentUuid(ctx);
+      if (!agentId) return;
+
+      const usage = event.usage ?? {};
+      const model = event.model ?? "unknown";
+      const provider = event.provider ?? "unknown";
+
+      const inputTokens = usage.input_tokens ?? usage.prompt_tokens ?? 0;
+      const outputTokens = usage.output_tokens ?? usage.completion_tokens ?? 0;
+      const cacheRead = usage.cache_read_input_tokens ?? usage.cache_read ?? 0;
+      const cacheWrite = usage.cache_creation_input_tokens ?? usage.cache_write ?? 0;
+      const totalTokens = inputTokens + outputTokens;
+
+      let costInput: number | null = null;
+      let costOutput: number | null = null;
+      let costCacheRead: number | null = null;
+      let costCacheWrite: number | null = null;
+      let costTotal: number | null = null;
+
+      try {
+        const pricing = typeof (globalThis as any).getCachedGatewayModelPricing === "function"
+          ? (globalThis as any).getCachedGatewayModelPricing(model)
+          : null;
+        if (pricing) {
+          costInput = (inputTokens / 1_000_000) * (pricing.input_cost_per_million ?? 0);
+          costOutput = (outputTokens / 1_000_000) * (pricing.output_cost_per_million ?? 0);
+          costCacheRead = (cacheRead / 1_000_000) * (pricing.cache_read_cost_per_million ?? pricing.input_cost_per_million ?? 0);
+          costCacheWrite = (cacheWrite / 1_000_000) * (pricing.cache_write_cost_per_million ?? pricing.input_cost_per_million ?? 0);
+          costTotal = costInput + costOutput + costCacheRead + costCacheWrite;
+        }
+      } catch {
+        // unmetered — cost stays null
+      }
+
+      const sessionId = ctx.sessionId ?? "";
+      const runId = event.runId ?? `${sessionId}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+
+      const agentSlug = ctx.agentSlug || ctx.agentId || null;
+
+      supabasePost("agent_usage", {
+        agent_id: agentId,
+        agent_slug_snapshot: agentSlug,
+        gateway_id: GATEWAY_DB_ID,
+        session_id: sessionId,
+        run_id: runId,
+        provider,
+        model,
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        cache_read: cacheRead,
+        cache_write: cacheWrite,
+        total_tokens: totalTokens,
+        cost_input_usd: costInput,
+        cost_output_usd: costOutput,
+        cost_cache_read_usd: costCacheRead,
+        cost_cache_write_usd: costCacheWrite,
+        cost_total_usd: costTotal,
+        meta: costTotal != null ? {} : { unmetered: true },
+      });
+
+      invalidateBudgetCache(agentId);
+    });
+
+    // ── Budget enforcement: block over-budget agents ──
+    api.on("before_agent_reply", async (_event: any, ctx: any) => {
+      const agentId = await resolveAgentUuid(ctx);
+      if (!agentId) return;
+
+      const budget = await fetchBudgetCached(agentId);
+      if (budget && budget.status === "exceeded" && budget.hardCutoff) {
+        return {
+          handled: true,
+          reply: {
+            text: [
+              "I've reached my usage budget for this billing period and can't process further requests right now.",
+              "Please contact the workspace owner or visit the HQ dashboard to adjust my budget.",
+            ].join("\n\n"),
+          },
+        };
+      }
+    });
+
+    // ── Session bootstrap (existing) ──
     api.on("before_prompt_build", async (_event: any, ctx: any) => {
       const workspaceDir = ctx.workspaceDir || process.cwd();
       const sessionId = ctx.sessionId;

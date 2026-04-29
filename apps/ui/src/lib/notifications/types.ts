@@ -5,7 +5,9 @@ export type NotificationType =
   | "stale_contact"
   | "agent_suggestion"
   | "task_reminder"
-  | "system";
+  | "system"
+  | "budget.warned"
+  | "budget.exceeded";
 
 export interface Notification {
   id: string;
@@ -29,4 +31,6 @@ export const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
   agent_suggestion: "Agent suggestion",
   task_reminder: "Task reminder",
   system: "System",
+  "budget.warned": "Budget warning",
+  "budget.exceeded": "Budget exceeded",
 };

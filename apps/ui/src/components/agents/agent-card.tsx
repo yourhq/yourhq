@@ -6,6 +6,8 @@ import { Bot, Pencil, Pause, Play, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useAgentBudget } from "@/hooks/use-agent-budget";
+import { BUDGET_STATUS_META } from "@/lib/usage/types";
 
 const STATUS_PRIORITY: Record<string, number> = {
   online: 0,
@@ -147,6 +149,9 @@ export function AgentRow({
         {agent.description ?? ""}
       </span>
 
+      {/* Usage pill */}
+      <AgentUsagePill agentId={agent.id} />
+
       {/* Last seen — hidden when actions are visible */}
       <span className="shrink-0 text-[11px] text-muted-foreground/50 transition-opacity group-hover:opacity-0">
         {agent.last_seen_at
@@ -188,6 +193,38 @@ export function AgentRow({
         )}
       </div>
     </div>
+  );
+}
+
+function AgentUsagePill({ agentId }: { agentId: string }) {
+  const { budget } = useAgentBudget(agentId);
+  if (!budget || (budget.current_period_spend_usd === 0 && budget.current_period_tokens === 0)) {
+    return null;
+  }
+
+  const spend = budget.current_period_spend_usd;
+  const hasLimit = budget.monthly_limit_usd != null;
+  const meta = BUDGET_STATUS_META[budget.status];
+
+  const label = hasLimit
+    ? `$${spend.toFixed(2)} / $${budget.monthly_limit_usd!.toFixed(0)}`
+    : spend > 0
+      ? `$${spend.toFixed(2)}`
+      : `${(budget.current_period_tokens / 1000).toFixed(0)}K tok`;
+
+  return (
+    <span
+      className="inline-flex shrink-0 items-center gap-1 text-[10px] tabular-nums text-muted-foreground/70"
+      title={meta.description}
+    >
+      {(budget.status === "warned" || budget.status === "exceeded") && (
+        <span
+          className="h-1.5 w-1.5 rounded-full"
+          style={{ backgroundColor: meta.color }}
+        />
+      )}
+      {label}
+    </span>
   );
 }
 

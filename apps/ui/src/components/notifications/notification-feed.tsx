@@ -8,6 +8,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import {
+  AlertTriangle,
+  Ban,
   Bell,
   Clock,
   UserX,
@@ -35,6 +37,8 @@ const TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   agent_suggestion: Sparkles,
   task_reminder: CheckCircle2,
   system: Info,
+  "budget.warned": AlertTriangle,
+  "budget.exceeded": Ban,
 };
 
 function entityHref(entityType: string | null, entityId: string | null): string | null {
@@ -48,6 +52,8 @@ function entityHref(entityType: string | null, entityId: string | null): string 
       return `/dashboard/tasks?task=${entityId}`;
     case "document":
       return `/dashboard/documents/${entityId}`;
+    case "agent_budget":
+      return `/dashboard/agents/${entityId}`;
     default:
       return null;
   }
