@@ -1,6 +1,18 @@
 # Installation
 
-Every install path, in detail.
+HQ can run on one machine or across multiple machines. Start simple: one Docker host, one Supabase project, one gateway.
+
+<CardGroup cols={3}>
+  <Card title="Fastest path" icon="terminal" href="#path-1-one-line-install-recommended-for-most-users">
+    Use the installer and finish setup in the browser.
+  </Card>
+  <Card title="Inspect first" icon="code" href="#path-2-clone-and-run-recommended-for-developers">
+    Clone the repo and run Docker Compose yourself.
+  </Card>
+  <Card title="Develop locally" icon="laptop-code" href="#path-3-development-mode">
+    Use the development overlay for live UI reloads.
+  </Card>
+</CardGroup>
 
 ## TL;DR
 
@@ -10,7 +22,7 @@ On any Linux or macOS host with Docker:
 curl -fsSL install.yourhq.ai | bash
 ```
 
-Answers four prompts, runs `docker compose up -d`, opens your browser. Takes about 5 minutes.
+The installer asks a few questions, runs Docker Compose, and opens your browser. Most setup happens in the UI.
 
 The rest of this doc covers prerequisites, the different install paths, and how to deploy across multiple machines.
 
