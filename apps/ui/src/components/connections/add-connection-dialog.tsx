@@ -707,7 +707,7 @@ function SignInLauncher({
               <p className="text-muted-foreground">
                 {mode === "device_code"
                   ? "We'll show you a short code. Open the URL we give you, paste the code in, approve. Done."
-                  : "We'll give you a URL. Open it, sign in, then paste the page you land on back here."}
+                  : "We'll show you a URL. Open it, sign in. If your browser is on the same machine as the gateway, sign-in completes automatically — otherwise paste the page you land on back here."}
               </p>
             </div>
           </div>
@@ -953,8 +953,24 @@ function InteractivePhase({
                 <Loader2 className="h-3 w-3 animate-spin" />
                 Waiting for you to approve in your browser…
               </div>
+            ) : state.stage === "url_ready" && state.autoCallback ? (
+              // oauth_paste in local mode: openclaw's own listener catches
+              // the redirect on the gateway machine. The user just signs
+              // in and the flow auto-completes — no paste step.
+              <div className="space-y-1.5 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Waiting for you to finish signing in…
+                </div>
+                <p className="text-[10.5px] text-muted-foreground/70">
+                  When you complete sign-in in your browser, this dialog
+                  will close automatically.
+                </p>
+              </div>
             ) : (
-              // oauth_paste: user needs to come back and paste.
+              // oauth_paste in remote mode: user's browser is on a
+              // different machine, openclaw's localhost:1455 listener
+              // can't catch their redirect, so they paste the URL back.
               <div className="space-y-1.5 pt-1">
                 <Label htmlFor="redirect" className="text-[12px]">
                   Step 2 — paste the page you landed on

@@ -334,9 +334,15 @@ export const CONNECTION_STATUS_META: Record<
 
 // Used by the runner to encode interactive command states. UI watches
 // the `payload.connection_state` field on agent_commands rows.
+//
+// `autoCallback: true` on url_ready means openclaw's native localhost:1455
+// listener will catch the redirect itself — the UI shouldn't show the
+// paste-back input, just a "waiting for sign-in" spinner that ends when
+// the parent command transitions to done. This only applies when the
+// user's browser is on the same machine as the gateway (local mode).
 export type ConnectionCommandState =
   | { stage: "starting" }
-  | { stage: "url_ready"; url: string; verificationCode?: string }
+  | { stage: "url_ready"; url: string; verificationCode?: string; autoCallback?: boolean }
   | { stage: "polling"; url: string; verificationCode?: string }
   | { stage: "completed"; profileId: string }
   | { stage: "failed"; error: string };

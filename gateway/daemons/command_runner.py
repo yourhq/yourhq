@@ -84,6 +84,13 @@ COMPOSE_PROJECT = os.environ.get("COMPOSE_PROJECT", "yourhq")
 GATEWAY_ID = os.environ.get("GATEWAY_ID", "default")
 GATEWAY_LABEL = os.environ.get("GATEWAY_LABEL", GATEWAY_ID)
 
+# Where the user's browser sits relative to this gateway. "local" = same
+# machine, so openclaw's native http://localhost:1455 callback can
+# auto-complete OAuth without a paste step. Anything else (tailscale,
+# public, codespace) means the browser is somewhere else and we have to
+# fall through to paste mode by holding port 1455 ourselves.
+NETWORKING_MODE = os.environ.get("NETWORKING_MODE", "local").strip().lower()
+
 # ── Supabase helpers ───────────────────────────────────────────────────
 
 
@@ -523,7 +530,19 @@ def handle_auth_start(cmd_id, payload):
     if profile_name and profile_name != "default":
         args += ["--profile-id", profile_name]
 
-    sock = occupy_localhost_1455() if mode != "device_code" else None
+    # Decide whether we let openclaw's localhost:1455 listener handle
+    # the callback natively, or pre-occupy 1455 to force paste mode.
+    #
+    # `auto_callback` = True means openclaw catches the redirect itself.
+    # It works only when the browser and the gateway are on the same
+    # machine — i.e. NETWORKING_MODE=local AND oauth_paste shape.
+    # Device-code flows never use 1455.
+    auto_callback = (
+        mode == "oauth_paste" and NETWORKING_MODE == "local"
+    )
+    sock = None
+    if mode == "oauth_paste" and not auto_callback:
+        sock = occupy_localhost_1455()
 
     # PTY-backed spawn. openclaw uses @clack/prompts which calls
     # process.stdin.isTTY — without a real tty it bails immediately
@@ -586,6 +605,11 @@ def handle_auth_start(cmd_id, payload):
         state = {"stage": stage, "url": url}
         if code:
             state["verificationCode"] = code
+        # In local mode openclaw's own listener catches the redirect, so
+        # the UI should show "waiting for sign-in" and not the paste-back
+        # input. Tell it.
+        if auto_callback:
+            state["autoCallback"] = True
         patch_command_payload(cmd_id, {"connection_state": state})
 
     threading.Thread(

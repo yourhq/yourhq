@@ -30,6 +30,11 @@ x-gateway-env: &gateway-env
   GATEWAY_ID: ${GATEWAY_ID:-default}
   GATEWAY_LABEL: ${GATEWAY_LABEL:-Primary gateway}
   COMPOSE_PROJECT: ${COMPOSE_PROJECT:-yourhq}
+  # Connections — when "local", the user's browser is on the same
+  # machine as the gateway, so openclaw's native localhost:1455
+  # callback works and we let the auth flow auto-complete. Otherwise
+  # we pre-occupy 1455 to force paste-mode.
+  NETWORKING_MODE: ${NETWORKING_MODE:-local}
 
 services:
 
@@ -96,10 +101,9 @@ services:
       # noVNC
       NOVNC_BIND: ${NOVNC_BIND:-local}
       VNC_PASSWORD: ${VNC_PASSWORD:-}
-      # Networking mode + reachable URL — set by the installer from the
-      # HOST's networking mode. Used when registering this gateway in
-      # Supabase so the UI knows how to reach it.
-      NETWORKING_MODE: ${NETWORKING_MODE:-local}
+      # Reachable URL — set by the installer from the HOST's networking
+      # mode. Used when registering this gateway in Supabase so the UI
+      # knows how to reach it. (NETWORKING_MODE inherits from x-gateway-env.)
       HOST_REACHABLE_URL: ${HOST_REACHABLE_URL:-http://localhost}
     # Chrome crashes on small /dev/shm in container mode. openclaw's managed
     # browser launcher does not pass --disable-dev-shm-usage, so we give it
