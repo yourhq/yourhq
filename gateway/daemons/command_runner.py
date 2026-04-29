@@ -340,6 +340,9 @@ def strip_ansi(s):
     return ANSI_RE.sub("", s)
 
 
+LOCALHOST_RE = re.compile(r"^https?://(localhost|127\.0\.0\.1)(:\d+)?(/|$)", re.IGNORECASE)
+
+
 def parse_auth_progress(text):
     """Pull URL + verification code out of CLI stdout. Returns (url, code) or (None, None)."""
     cleaned = strip_ansi(text)
@@ -349,7 +352,9 @@ def parse_auth_progress(text):
         if not url:
             m = URL_PATTERNS[0].search(line)
             if m:
-                url = m.group(0).rstrip(".,;:")
+                candidate = m.group(0).rstrip(".,;:")
+                if not LOCALHOST_RE.match(candidate):
+                    url = candidate
         if not code:
             for p in CODE_PATTERNS:
                 cm = p.search(line)
@@ -466,9 +471,36 @@ def handle_auth_set_api_key(cmd_id, payload):
             timeout=30,
             env={**os.environ, "HOME": HOME},
         )
+        # If the caller supplied a base_url (local_url providers like
+        # Ollama), write it into the auth store so openclaw connects to
+        # the right endpoint. We edit auth-profiles.json directly — same
+        # pattern handle_auth_remove uses.
+        base_url = (payload.get("base_url") or "").strip()
+        if base_url and result.returncode == 0:
+            state_dir = os.environ.get("OPENCLAW_STATE_DIR", os.path.join(HOME, ".openclaw"))
+            import glob as _glob
+            for path in _glob.glob(os.path.join(state_dir, "agents", "*", "agent", "auth-profiles.json")):
+                real = os.path.realpath(path)
+                try:
+                    with open(real, "r") as f:
+                        doc = json.load(f)
+                    pid = f"{provider}:{profile_name}"
+                    profiles = doc.get("profiles", {})
+                    if pid in profiles:
+                        profiles[pid]["baseUrl"] = base_url
+                        tmp = real + ".tmp"
+                        with open(tmp, "w") as f:
+                            json.dump(doc, f, indent=2)
+                        os.replace(tmp, real)
+                        log(f"Set baseUrl={base_url} for {pid} in {real}")
+                except Exception as e:
+                    log(f"Failed to set baseUrl in {real}: {e}")
+
         # Scrub the API key from the row immediately on completion.
-        scrubbed = {k: v for k, v in payload.items() if k != "api_key"}
+        scrubbed = {k: v for k, v in payload.items() if k not in ("api_key", "base_url")}
         scrubbed["api_key_scrubbed"] = True
+        if base_url:
+            scrubbed["base_url_applied"] = True
         try:
             api_patch("agent_commands", cmd_id, {"payload": scrubbed})
         except Exception:
@@ -817,11 +849,15 @@ def handle_auth_remove(cmd_id, payload):
         pass
 
     state_dir = os.environ.get("OPENCLAW_STATE_DIR", os.path.join(HOME, ".openclaw"))
-    # The file lives under whichever agent is the auth-store agent. In
-    # gateway mode there's typically one shared store per gateway. We
-    # find it by globbing.
     import glob
-    paths = glob.glob(os.path.join(state_dir, "agents", "*", "agent", "auth-profiles.json"))
+    raw_paths = glob.glob(os.path.join(state_dir, "agents", "*", "agent", "auth-profiles.json"))
+    seen = set()
+    paths = []
+    for p in raw_paths:
+        real = os.path.realpath(p)
+        if real not in seen:
+            seen.add(real)
+            paths.append(real)
     if not paths:
         api_rpc("fail_command", {
             "p_command_id": cmd_id, "p_exit_code": None,
@@ -902,15 +938,21 @@ def handle_auth_refresh(cmd_id, payload):
 
 
 def handle_auth_set_default(cmd_id, payload):
-    """Set the default model for new agents on this gateway.
+    """Set the default provider/model on this gateway.
 
-    payload: { model: str } — provider/model format, e.g. "anthropic/claude-sonnet-4-6".
+    payload: { provider: str, profile_name?: str }
+       or  : { model: str } — legacy provider/model format.
+
+    Tries `openclaw models set-default --provider <id>` first; if that
+    subcommand doesn't exist, falls back to `openclaw models set <provider>`.
     """
+    provider = (payload.get("provider") or "").strip()
     model = (payload.get("model") or "").strip()
-    if not model:
+    target = provider or model
+    if not target:
         api_rpc("fail_command", {
             "p_command_id": cmd_id, "p_exit_code": None,
-            "p_stdout": None, "p_stderr": None, "p_error": "Missing model",
+            "p_stdout": None, "p_stderr": None, "p_error": "Missing provider or model",
         })
         return
 
@@ -919,7 +961,17 @@ def handle_auth_set_default(cmd_id, payload):
     except Exception:
         pass
 
-    args = ["openclaw", "models", "set", model]
+    profile_name = (payload.get("profile_name") or "default").strip() or "default"
+    args = ["openclaw", "models", "set-default", "--provider", target, "--profile-id", profile_name]
+    try:
+        probe = subprocess.run(
+            args, capture_output=True, text=True, timeout=15,
+            env={**os.environ, "HOME": HOME},
+        )
+        if probe.returncode != 0:
+            args = ["openclaw", "models", "set", target]
+    except Exception:
+        args = ["openclaw", "models", "set", target]
     try:
         result = subprocess.run(
             args, capture_output=True, text=True,

@@ -17,6 +17,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -121,6 +122,30 @@ export function ConnectionsSettings({
   const onAdded = useCallback(async () => {
     if (gatewayId) await refresh();
   }, [gatewayId, refresh]);
+
+  const onSetDefault = useCallback(async (c: Connection) => {
+    const catalog = getProviderCatalog(c.provider);
+    const r = await enqueueConnectionCommand({
+      gatewayId: c.gatewayId,
+      action: "auth_set_default",
+      payload: { provider: c.provider, profile_name: c.profileName },
+    });
+    if (!r.ok || !r.data) {
+      toast.error(r.error ?? "Failed to set default");
+      return;
+    }
+    const w = await waitForCommand(r.data.commandId, 15_000);
+    if (!w.ok || !w.data) {
+      toast.error(w.error ?? "Set-default did not complete");
+      return;
+    }
+    if (w.data.status === "failed") {
+      toast.error(w.data.error_message ?? "Set default failed");
+      return;
+    }
+    toast.success(`${catalog?.displayName ?? c.provider} set as default`);
+    await refresh();
+  }, [refresh]);
 
   const onRemove = useCallback(async (c: Connection) => {
     const r = await enqueueConnectionCommand({
@@ -261,6 +286,11 @@ export function ConnectionsSettings({
                       connection={c}
                       isFirst={idx === 0}
                       onRemove={() => setRemoving(c)}
+                      onSetDefault={
+                        !c.isDefault && c.status === "ok"
+                          ? () => onSetDefault(c)
+                          : undefined
+                      }
                     />
                   ))}
                 </div>
@@ -309,10 +339,12 @@ function ConnectionRow({
   connection,
   isFirst,
   onRemove,
+  onSetDefault,
 }: {
   connection: Connection;
   isFirst: boolean;
   onRemove: () => void;
+  onSetDefault?: () => void;
 }) {
   const catalog = getProviderCatalog(connection.provider);
   const displayName = catalog?.displayName ?? connection.provider;
@@ -379,6 +411,21 @@ function ConnectionRow({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
+            {onSetDefault && (
+              <>
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    onSetDefault();
+                  }}
+                  className="gap-2"
+                >
+                  <Star className="h-3.5 w-3.5" />
+                  Set as default
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuItem
               onSelect={(e) => {
                 e.preventDefault();
