@@ -1,0 +1,16 @@
+---
+title: "Create an agent"
+description: "Provision an agent from a template and pair it with Telegram."
+---
+
+1. Go to Agents → New Agent.
+2. Pick a template.
+3. Set name, slug, emoji, description, and optional manager.
+4. Paste a Telegram bot token from BotFather.
+5. Create the agent.
+
+The UI inserts the agent row and enqueues a `provision` command. The runner leases that command, creates the branch and worktree, patches template files, updates OpenClaw config, and restarts the gateway runtime.
+
+After provisioning, message the bot on Telegram. It replies with a pairing code. Paste that code into the agent detail page.
+
+See [Agents](/concepts/agents) for the full model.

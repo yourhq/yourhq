@@ -1,0 +1,138 @@
+# Security Policy
+
+## Reporting a vulnerability
+
+**Do not open a public GitHub issue for security vulnerabilities.**
+
+Email: **security@yourhq.ai**
+
+Include:
+
+- A description of the vulnerability
+- Steps to reproduce
+- The version / commit SHA you tested against
+- Your disclosure timeline preference
+
+We'll acknowledge within 72 hours and keep you updated on our fix. We'll credit you in the release notes unless you prefer to remain anonymous.
+
+## Scope
+
+In scope:
+
+- The HQ UI (`apps/ui/`)
+- The gateway image and its daemons (`gateway/`)
+- The Supabase migration and its triggers/RPCs (`db/`)
+- The installer (`installer/`)
+- Published Docker images on GHCR
+
+Out of scope:
+
+- Supabase itself (report to [Supabase](https://supabase.com/.well-known/security.txt))
+- OpenClaw (report to [openclaw.ai](https://openclaw.ai))
+- Third-party dependencies (report to the respective maintainers; if HQ is affected we'll track + patch)
+- Social engineering of users or maintainers
+
+## Trust model and known risks
+
+HQ is self-hosted single-user admin software. If you're planning to deploy it, these are the trust boundaries you should understand.
+
+### Supabase is fully trusted
+
+The gateway uses your Supabase service-role key to write directly to the database. Anyone with that key has full read/write access to every table. Keep it in `.env` on disk; never commit it; rotate it if leaked.
+
+### The Docker socket is mounted into the runner
+
+The `runner` service mounts `/var/run/docker.sock` so it can execute `docker compose restart gateway`, `docker compose pull` (update), and similar actions triggered from the UI. **Any RCE in the runner is equivalent to root on the host.** This is by design — the alternative would be shelling out to SSH, which has its own risks. If this is unacceptable for your threat model, run HQ in a dedicated VM or don't expose the UI to untrusted users.
+
+A tighter future alternative is [docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy) with a narrowed action allowlist. Contributions welcome.
+
+### RLS is "authenticated full access"
+
+The Supabase migrations grant the `authenticated` role broad read/write access. HQ is designed as single-user admin software — if you have a Supabase account, you're an admin. **Make sure Supabase email signup is disabled or invite-only**, otherwise anyone who signs up for your Supabase project gets full HQ access. The project registry isolates workspaces by Supabase project; fine-grained per-role permissions are not implemented.
+
+### Default port bindings are loopback-only
+
+`docker compose up -d` without the installer binds all HQ services (UI, noVNC, files-API) to `127.0.0.1`. The installer's "Tailscale" or "Public" mode explicitly flips them to `0.0.0.0`. This is deliberate — if you `docker compose up` blindly on a cloud VM, nothing is publicly reachable.
+
+If you override `UI_HOST_PORT`, `NOVNC_HOST_PORT`, or `FILES_API_HOST_PORT` to `0.0.0.0:*` manually, you're exposing those services to every interface on the host. Make sure you have a firewall, reverse proxy, or Tailscale between them and the internet.
+
+### The installer runs `curl | bash`
+
+The one-line installer (`curl install.yourhq.ai | bash`) pipes untrusted input through shell. This is a standard open-source install pattern, but not risk-free. For production installs:
+
+1. Download the script first and read it:
+   ```bash
+   curl -fsSL install.yourhq.ai -o install.sh
+   less install.sh
+   bash install.sh
+   ```
+2. Pin a specific release rather than `main`:
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/yourhq/yourhq/v0.1.0/installer/install.sh | bash
+   ```
+3. Clone the repo and run `./installer/install.sh` directly.
+
+The installer itself invokes `curl | sh` from `get.docker.com` and `tailscale.com/install.sh` — we're not signing or pinning those scripts. They're canonical upstream install scripts. If you don't trust them, install Docker and Tailscale manually and skip the installer.
+
+### Agent capabilities
+
+Each agent runs in the gateway container with a full Chrome browser, Telegram bot, and the ability to call openclaw plugins. Agents can:
+
+- Browse any URL
+- Log into websites using saved cookies
+- Read/write to their git branch in the gateway's volume
+- Read/write to your Supabase via the shared service-role credentials
+- Call openclaw plugins (browser automation, voice, phone control, etc.)
+
+Agents cannot:
+
+- Escape the gateway container (unless they compromise the Docker socket via an RCE in the runner)
+- Read arbitrary files on the host
+- Install new plugins (openclaw manages the plugin list)
+
+Treat agent outputs like untrusted input. If you have an agent that writes files, commit messages, or database rows, sanitize before acting on them.
+
+### Dependencies and supply chain
+
+HQ pins specific versions of:
+
+- Next.js (UI)
+- OpenClaw (agent runtime)
+- openclaw plugins (installed from the openclaw marketplace)
+- Base Docker images (`ubuntu:24.04`, `node:24-slim`)
+
+We run `npm audit` in CI and track advisories. CVEs in the dependency tree are tracked as GitHub issues labeled `security`. We bump patches in `main` and expect users to pull updated images.
+
+For production deployments, pin image tags:
+
+```yaml
+# docker-compose.yml
+services:
+  ui:
+    image: ghcr.io/yourhq/yourhq-ui:v0.1.0  # not :latest
+```
+
+## Hardening recommendations
+
+In rough order of importance:
+
+1. **Enable MFA on your Supabase account.** Dashboard → Project Settings → Authentication → enable MFA for your admin user.
+2. **Disable Supabase email signup.** Authentication → Providers → Email → disable "Enable Email Signups" if you don't need users to register.
+3. **Use Tailscale instead of public HTTPS.** The installer's "Tailscale" mode keeps HQ unreachable from the public internet. Only use "Public HTTPS" when you actually need shared access.
+4. **Pin image versions** instead of `:latest`.
+5. **Put HQ behind an auth gate.** Cloudflare Access, Tailscale, or a reverse proxy with basic-auth — anything that requires authentication *before* a request hits HQ.
+6. **Review the installer before running.** `curl -o install.sh ...; less install.sh; bash install.sh`.
+7. **Generate strong secrets.** `openssl rand -hex 32` for `GATEWAY_AUTH_TOKEN`. Use a password manager for your Supabase credentials.
+8. **Update regularly.** Until gateway update actions are available in the UI, run `docker compose pull && docker compose up -d` manually.
+
+## Secrets and data we collect
+
+HQ collects no telemetry. The self-hosted stack never phones home. The only network calls HQ makes are:
+
+- To your Supabase project (required)
+- To Tailscale's control plane (if you enable Tailscale, managed by Tailscale not us)
+- To openclaw for plugin updates and agent-model auth (when you use Codex OAuth, etc.)
+- Installer: `get.docker.com`, `tailscale.com/install.sh`, GHCR (for image pulls)
+- Dependency updates: npm, PyPI, apt
+
+No user data, telemetry, or usage metrics flow to a YourHQ server. There isn't one.

@@ -1,0 +1,19 @@
+---
+title: "Security model"
+description: "The trust boundaries behind HQ's self-hosted architecture."
+---
+
+HQ is single-operator admin software.
+
+The important trust boundaries:
+
+- Supabase project: stores shared state.
+- Supabase service role key: full database access.
+- Docker host: trusted compute boundary.
+- Runner Docker socket: root-equivalent host capability.
+- Gateway state volume: agent code, memory, browser profiles, and auth state.
+- noVNC endpoint: remote desktop into the gateway container.
+
+Use Tailscale or another private access layer for remote use. Do not expose noVNC or the files API directly to the public internet.
+
+Read the full [security policy](/security/security-policy).

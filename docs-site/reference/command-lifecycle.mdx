@@ -1,0 +1,17 @@
+---
+title: "Command lifecycle"
+description: "How gateway commands move from UI action to runner execution."
+---
+
+Commands are rows in `agent_commands`.
+
+Typical flow:
+
+1. UI inserts a command row.
+2. Runner receives a realtime event or polling reconciliation finds it.
+3. Runner calls `lease_command(...)`.
+4. Runner marks the command in progress.
+5. Runner executes the mapped shell or OpenClaw operation.
+6. Runner writes stdout, stderr, exit code, and final status.
+
+Commands are durable history. They are not deleted after completion.

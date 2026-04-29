@@ -1,0 +1,10 @@
+---
+title: "Projects and workspaces"
+description: "How one UI can manage multiple Supabase-backed HQ workspaces."
+---
+
+An HQ project is a Supabase-backed workspace.
+
+The UI stores project metadata in `/config/projects.json` and project secrets in `/config/secrets.json` on the `ui-config` volume. The active project is selected at runtime and injected into the browser without rebuilding the UI image.
+
+Each Supabase project is an isolation boundary. HQ does not implement multi-tenant row-level isolation inside one shared database.

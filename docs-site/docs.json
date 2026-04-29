@@ -1,0 +1,114 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "HQ",
+  "colors": {
+    "primary": "#111827",
+    "light": "#F9FAFB",
+    "dark": "#0B1220"
+  },
+  "favicon": "/images/favicon.svg",
+  "logo": {
+    "light": "/images/logo-light.svg",
+    "dark": "/images/logo-dark.svg"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/yourhq/yourhq"
+      },
+      {
+        "label": "Website",
+        "href": "https://yourhq.ai"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Get started",
+      "href": "/getting-started/quickstart"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/yourhq/yourhq"
+    }
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Start here",
+        "pages": [
+          "index",
+          "getting-started/choose-your-path",
+          "getting-started/quickstart",
+          "getting-started/faq",
+          "getting-started/roadmap"
+        ]
+      },
+      {
+        "group": "Self-host",
+        "pages": [
+          "self-host/requirements",
+          "self-host/supabase",
+          "self-host/installation",
+          "self-host/networking",
+          "self-host/add-gateway",
+          "self-host/operations"
+        ]
+      },
+      {
+        "group": "Use HQ",
+        "pages": [
+          "guides/workspace-setup",
+          "guides/create-agent",
+          "guides/connect-model-provider",
+          "guides/agent-boot-docs",
+          "guides/automations",
+          "guides/usage-budgets"
+        ]
+      },
+      {
+        "group": "Concepts",
+        "pages": [
+          "concepts/features",
+          "concepts/architecture",
+          "concepts/agents",
+          "concepts/projects-and-workspaces",
+          "concepts/gateways",
+          "concepts/tasks-inbox-and-commands",
+          "concepts/security-model"
+        ]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          "reference/configuration",
+          "reference/database-schema",
+          "reference/migrations",
+          "reference/templates",
+          "reference/docker-services",
+          "reference/files-api",
+          "reference/command-lifecycle"
+        ]
+      },
+      {
+        "group": "Development",
+        "pages": [
+          "development/local-development",
+          "development/repo-structure",
+          "development/contributing",
+          "development/testing",
+          "development/docs"
+        ]
+      },
+      {
+        "group": "Security and troubleshooting",
+        "pages": [
+          "security/security-policy",
+          "troubleshooting/common-issues"
+        ]
+      }
+    ]
+  }
+}

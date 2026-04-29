@@ -1,0 +1,15 @@
+---
+title: "Gateways"
+description: "Docker hosts that run agents, desktops, files API, and daemons."
+---
+
+A gateway is the host-side runtime for agents.
+
+Each gateway stack includes:
+
+- `gateway` container with OpenClaw, Chrome/Chromium, XFCE, noVNC, and files API.
+- `dispatcher` daemon for background inbox work.
+- `runner` daemon for lifecycle and operations commands.
+- `gateway-state` volume for worktrees, browser profiles, OpenClaw config, and desktop state.
+
+Gateways register reachable URLs in Supabase so the UI can open the correct files API and noVNC endpoint for each host.

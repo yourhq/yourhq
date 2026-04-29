@@ -1,0 +1,35 @@
+---
+title: "Docs development"
+description: "How to edit and preview the Mintlify documentation site."
+---
+
+The docs source lives in `docs-site/`.
+
+## Install the CLI
+
+```bash
+npm i -g mint
+```
+
+## Preview locally
+
+```bash
+cd docs-site
+mint dev
+```
+
+## Validate
+
+```bash
+cd docs-site
+mint validate
+mint broken-links
+```
+
+## Deployment
+
+Mintlify deploys from the `/docs-site` monorepo path through the Mintlify GitHub App. Production docs should be available at `https://docs.yourhq.ai` after the custom domain is configured.
+
+## Contribution rule
+
+If a PR changes user-facing behavior, setup steps, environment variables, migrations, gateway commands, provider flows, or security assumptions, update the relevant docs page in the same PR.

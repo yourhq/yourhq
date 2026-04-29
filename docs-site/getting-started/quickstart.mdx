@@ -1,0 +1,82 @@
+---
+title: "Quickstart"
+description: "Run HQ locally, connect Supabase, and create your first agent."
+---
+
+This quickstart gets HQ running on a Docker host with your own Supabase project.
+
+<Info>
+  If you are not technical, the important idea is simple: HQ runs on your computer or server, and Supabase stores your workspace data.
+</Info>
+
+## What you need
+
+<CardGroup cols={2}>
+  <Card title="Docker" icon="docker">
+    Runs the HQ UI and gateway containers.
+  </Card>
+  <Card title="Supabase" icon="database">
+    Stores your workspace, auth, tasks, agents, and command queues.
+  </Card>
+  <Card title="Model provider" icon="plug">
+    OpenAI, Anthropic, Gemini, OpenRouter, local OpenAI-compatible servers, or another supported provider.
+  </Card>
+  <Card title="Optional: Tailscale" icon="network-wired">
+    Private remote access from your phone, laptop, or another machine.
+  </Card>
+</CardGroup>
+
+## Quickstart steps
+
+<Steps>
+  <Step title="Create a Supabase project">
+    Create a free project at [supabase.com](https://supabase.com), then run every SQL file in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) in filename order.
+  </Step>
+  <Step title="Start HQ">
+    On a Linux or macOS host with Docker:
+
+    ```bash
+    curl -fsSL install.yourhq.ai | bash
+    ```
+
+    If you prefer to inspect the code first:
+
+    ```bash
+    git clone https://github.com/yourhq/yourhq.git
+    cd yourhq
+    cp .env.example .env
+    docker compose up -d
+    ```
+  </Step>
+  <Step title="Complete onboarding">
+    Open `http://localhost:3000`.
+
+    Paste your Supabase project URL, anon key, and service role key. Then sign in or create a Supabase auth user.
+  </Step>
+  <Step title="Set up the workspace">
+    Choose workspace details, owner profile, pipeline stages, fields, and task streams. You can change these later.
+  </Step>
+  <Step title="Connect a model provider">
+    Go to Settings → Connections. API-key providers can be added directly; interactive providers show the next step in the UI.
+  </Step>
+  <Step title="Create your first agent">
+    Go to Agents → New Agent. Pick a template, name the agent, paste a Telegram bot token from [BotFather](https://t.me/botfather), then pair the bot with the code it sends you.
+  </Step>
+</Steps>
+
+## What to read next
+
+<CardGroup cols={2}>
+  <Card title="Full installation guide" icon="download" href="/self-host/installation">
+    More setup paths, updates, and install troubleshooting.
+  </Card>
+  <Card title="Understand agents" icon="robot" href="/concepts/agents">
+    How templates, memory, Telegram, boot docs, and delegation work.
+  </Card>
+  <Card title="Add another gateway" icon="server" href="/self-host/add-gateway">
+    Run agents on a second machine.
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/troubleshooting/common-issues">
+    Fix common setup, Supabase, gateway, and agent issues.
+  </Card>
+</CardGroup>

@@ -1,0 +1,61 @@
+---
+title: "Run your own AI operations HQ"
+description: "Open-source docs for self-hosting HQ, creating agents, and operating an agent-powered workspace."
+---
+
+HQ is an open-source workspace for running AI agents on infrastructure you control. It combines agents, CRM, tasks, documents, automations, provider connections, gateways, and usage budgets in one self-hosted dashboard.
+
+You can use HQ as a non-technical operator, a technical self-hoster, an agent builder, or a developer who wants to fork and extend the project.
+
+<CardGroup cols={2}>
+  <Card title="Start from zero" icon="rocket" href="/getting-started/quickstart">
+    Install HQ, connect Supabase, finish onboarding, connect a model provider, and create your first agent.
+  </Card>
+  <Card title="Pick the right path" icon="signs-post" href="/getting-started/choose-your-path">
+    Not sure where to begin? Choose a path for self-hosting, using HQ, building agents, contributing, or security review.
+  </Card>
+</CardGroup>
+
+## What you can do with HQ
+
+<CardGroup cols={3}>
+  <Card title="Run agents" icon="robot" href="/concepts/agents">
+    Create long-lived agents with their own memory, tools, browser profile, Telegram bot, and worktree.
+  </Card>
+  <Card title="Manage work" icon="list-check" href="/guides/workspace-setup">
+    Use CRM, tasks, documents, assets, automations, notifications, and activity in one workspace.
+  </Card>
+  <Card title="Self-host anywhere" icon="server" href="/self-host/requirements">
+    Run the UI and gateways on a laptop, home server, Raspberry Pi, VPS, or multiple hosts.
+  </Card>
+  <Card title="Connect models" icon="plug" href="/guides/connect-model-provider">
+    Add API-key, OAuth, device-code, CLI, local, and OpenAI-compatible model providers.
+  </Card>
+  <Card title="Control spend" icon="chart-line" href="/guides/usage-budgets">
+    Track model usage per agent and enforce monthly usage budgets with hard cutoffs.
+  </Card>
+  <Card title="Fork and extend" icon="code-branch" href="/development/local-development">
+    Customize templates, skills, UI modules, gateway commands, migrations, and integrations.
+  </Card>
+</CardGroup>
+
+## How HQ fits together
+
+```text
+HQ UI  →  your Supabase project  →  gateway hosts  →  agents
+```
+
+The UI is where you manage work. Supabase is the shared state layer you own. Gateways are Docker hosts that run agents. Agents are persistent workspaces that can browse, read context, update files, and process assigned work.
+
+<CardGroup cols={2}>
+  <Card title="Read the architecture" icon="diagram-project" href="/concepts/architecture">
+    Understand the runtime, queues, daemons, files API, and data flows.
+  </Card>
+  <Card title="Review the security model" icon="shield-halved" href="/security/security-policy">
+    Understand the real trust boundaries before exposing HQ beyond localhost.
+  </Card>
+</CardGroup>
+
+## Open source by design
+
+HQ is not a hosted-first product with a self-hosted checkbox. The repo is the product. The docs include UI paths, manual paths, operational notes, security risks, and extension points so you can run it yourself or build your own version.

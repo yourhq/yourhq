@@ -1,0 +1,49 @@
+---
+title: "Supabase setup"
+description: "Create the Supabase project and apply HQ migrations."
+---
+
+HQ uses your Supabase project as the database, auth system, realtime event stream, and storage backbone.
+
+<Info>
+  You own this Supabase project. HQ does not use a hosted YourHQ backend for your workspace data.
+</Info>
+
+## Setup steps
+
+<Steps>
+  <Step title="Create the project">
+    Sign in to [supabase.com](https://supabase.com), create a new project, and wait for provisioning to finish.
+  </Step>
+  <Step title="Run the migrations">
+    Open SQL Editor and run every file in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) in filename order.
+
+    The migration files are split by domain. Do not only run the first file.
+  </Step>
+  <Step title="Create an auth user">
+    Open Authentication → Users → Add user. For a personal install, auto-confirm the user so you can sign in immediately.
+  </Step>
+  <Step title="Copy API values">
+    Open Project Settings → API and copy:
+
+    - Project URL
+    - Anon key
+    - Service role key
+  </Step>
+  <Step title="Disable public signup">
+    HQ grants broad access to authenticated users. Disable public email signup unless you intentionally want every signed-up user to have admin-level HQ access.
+  </Step>
+</Steps>
+
+## What HQ stores in Supabase
+
+<CardGroup cols={2}>
+  <Card title="Workspace data" icon="table">
+    Contacts, organizations, tasks, documents, assets, automations, activity, and notifications.
+  </Card>
+  <Card title="Agent coordination" icon="arrows-rotate">
+    Agent commands, inbox items, gateway heartbeats, usage records, budgets, and status.
+  </Card>
+</CardGroup>
+
+Continue with [Installation](/self-host/installation).

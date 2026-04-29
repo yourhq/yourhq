@@ -1,0 +1,30 @@
+---
+title: "Migrations"
+description: "Ordered Supabase migration files and how to apply them."
+---
+
+Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations).
+
+Run them in filename order for a fresh project.
+
+The current split keeps migration files domain-oriented:
+
+- Extensions.
+- Enums.
+- Shared functions.
+- Workspace.
+- CRM.
+- Gateways.
+- Agents.
+- Interactions.
+- Tasks and streams.
+- Comments and attachments.
+- Assets and documents.
+- Audit and notifications.
+- Agent inbox.
+- Agent commands.
+- Usage budgets.
+- RLS, realtime, and storage.
+- Setup wizard.
+
+For existing projects, back up first and apply only missing migrations.

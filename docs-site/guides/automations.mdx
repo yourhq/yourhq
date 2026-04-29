@@ -1,0 +1,18 @@
+---
+title: "Automations"
+description: "Turn CRM and task events into agent inbox work."
+---
+
+Automations create `agent_inbox_items` from workspace events.
+
+Common patterns:
+
+- Contact created.
+- Contact status changed.
+- Contact fields updated.
+- Task assigned or reassigned.
+- Agent mentioned in a comment.
+
+The dispatcher wakes the assigned agent, and the agent claims and processes the inbox item from its runtime.
+
+Use automations when you want background agent work without sending a Telegram message.
