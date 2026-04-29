@@ -1,33 +1,61 @@
 ---
-title: "HQ documentation"
-description: "Open-source docs for running, operating, extending, and contributing to HQ."
+title: "Run your own AI operations HQ"
+description: "Open-source docs for self-hosting HQ, creating agents, and operating an agent-powered workspace."
 ---
 
-HQ is a self-hostable agent operations platform. It gives one operator a workspace for agents, CRM, tasks, documents, automations, provider connections, gateways, and usage budgets.
+HQ is an open-source workspace for running AI agents on infrastructure you control. It combines agents, CRM, tasks, documents, automations, provider connections, gateways, and usage budgets in one self-hosted dashboard.
 
-The project is fully open source. You can clone it, inspect it, run it on your own infrastructure, fork it, and change it for your own workflows.
+You can use HQ as a non-technical operator, a technical self-hoster, an agent builder, or a developer who wants to fork and extend the project.
 
-## Start here
+<CardGroup cols={2}>
+  <Card title="Start from zero" icon="rocket" href="/getting-started/quickstart">
+    Install HQ, connect Supabase, finish onboarding, connect a model provider, and create your first agent.
+  </Card>
+  <Card title="Pick the right path" icon="signs-post" href="/getting-started/choose-your-path">
+    Not sure where to begin? Choose a path for self-hosting, using HQ, building agents, contributing, or security review.
+  </Card>
+</CardGroup>
 
-- [Quickstart](/getting-started/quickstart) — get HQ running for the first time.
-- [Installation](/self-host/installation) — install paths and post-install setup.
-- [Architecture](/concepts/architecture) — how UI, Supabase, gateways, queues, and agents fit together.
-- [Agents](/concepts/agents) — agent workspaces, templates, memory, Telegram, and delegation.
-- [Security policy](/security/security-policy) — trust boundaries and hardening recommendations.
+## What you can do with HQ
 
-## What HQ includes
+<CardGroup cols={3}>
+  <Card title="Run agents" icon="robot" href="/concepts/agents">
+    Create long-lived agents with their own memory, tools, browser profile, Telegram bot, and worktree.
+  </Card>
+  <Card title="Manage work" icon="list-check" href="/guides/workspace-setup">
+    Use CRM, tasks, documents, assets, automations, notifications, and activity in one workspace.
+  </Card>
+  <Card title="Self-host anywhere" icon="server" href="/self-host/requirements">
+    Run the UI and gateways on a laptop, home server, Raspberry Pi, VPS, or multiple hosts.
+  </Card>
+  <Card title="Connect models" icon="plug" href="/guides/connect-model-provider">
+    Add API-key, OAuth, device-code, CLI, local, and OpenAI-compatible model providers.
+  </Card>
+  <Card title="Control spend" icon="chart-line" href="/guides/usage-budgets">
+    Track model usage per agent and enforce monthly usage budgets with hard cutoffs.
+  </Card>
+  <Card title="Fork and extend" icon="code-branch" href="/development/local-development">
+    Customize templates, skills, UI modules, gateway commands, migrations, and integrations.
+  </Card>
+</CardGroup>
 
-- A Next.js dashboard for operations.
-- Supabase as the user-owned database, auth, realtime, and storage backbone.
-- A Docker gateway runtime with OpenClaw, Chrome/Chromium, XFCE, noVNC, a files API, and daemons.
-- Agent templates and skills that live in git worktrees.
-- CRM, tasks, documents, assets, automations, activity, and notifications.
-- Provider connection flows and per-agent model defaults.
-- Agent usage tracking, monthly budgets, and hard cutoff enforcement.
-- Multi-project and multi-gateway support.
+## How HQ fits together
 
-## Open-source expectations
+```text
+HQ UI  →  your Supabase project  →  gateway hosts  →  agents
+```
 
-The docs include manual paths as well as UI paths. They also document the sharp edges: Supabase service role access, Docker socket access, noVNC exposure, gateway state backups, migration order, and what to do when a command or agent gets stuck.
+The UI is where you manage work. Supabase is the shared state layer you own. Gateways are Docker hosts that run agents. Agents are persistent workspaces that can browse, read context, update files, and process assigned work.
 
-If something is unclear, open an issue or send a docs PR. Documentation is part of the product.
+<CardGroup cols={2}>
+  <Card title="Read the architecture" icon="diagram-project" href="/concepts/architecture">
+    Understand the runtime, queues, daemons, files API, and data flows.
+  </Card>
+  <Card title="Review the security model" icon="shield-halved" href="/security/security-policy">
+    Understand the real trust boundaries before exposing HQ beyond localhost.
+  </Card>
+</CardGroup>
+
+## Open source by design
+
+HQ is not a hosted-first product with a self-hosted checkbox. The repo is the product. The docs include UI paths, manual paths, operational notes, security risks, and extension points so you can run it yourself or build your own version.

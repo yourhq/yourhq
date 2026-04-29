@@ -40,6 +40,7 @@
         "group": "Start here",
         "pages": [
           "index",
+          "getting-started/choose-your-path",
           "getting-started/quickstart",
           "getting-started/faq",
           "getting-started/roadmap"

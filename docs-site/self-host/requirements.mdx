@@ -3,28 +3,51 @@ title: "Requirements"
 description: "Infrastructure and accounts needed to run HQ."
 ---
 
-HQ is self-hosted software. The minimum setup is one Docker host and one Supabase project.
+HQ is self-hosted software. The minimum setup is one machine that can run Docker and one Supabase project.
 
-## Required
+<Tip>
+  For a first install, use a laptop or small VPS. You can add more gateways later after the workspace is working.
+</Tip>
 
-- Docker and Docker Compose.
-- Supabase project.
-- Supabase auth user.
-- Supabase anon key and service role key.
-- A generated `GATEWAY_AUTH_TOKEN`.
-- At least one model provider connection.
+## Required pieces
+
+<CardGroup cols={2}>
+  <Card title="Docker host" icon="server">
+    A laptop, Mac mini, Raspberry Pi, VPS, home server, or cloud VM that can run Docker Compose.
+  </Card>
+  <Card title="Supabase project" icon="database">
+    Stores your workspace data, auth users, realtime events, command queues, and agent state metadata.
+  </Card>
+  <Card title="Model provider" icon="plug">
+    At least one provider such as OpenAI, Anthropic, Gemini, OpenRouter, or a local OpenAI-compatible server.
+  </Card>
+  <Card title="Gateway token" icon="key">
+    A `GATEWAY_AUTH_TOKEN` shared by the UI and gateway files API. The installer can generate this for you.
+  </Card>
+</CardGroup>
 
 ## Recommended
 
-- Tailscale for private remote access.
-- A dedicated Supabase project for HQ.
-- A dedicated VM or host for production gateway workloads.
-- Backups for Supabase and the `gateway-state` Docker volume.
-- Pinned image tags once you run HQ for real work.
+<CardGroup cols={2}>
+  <Card title="Tailscale" icon="network-wired">
+    The easiest safe way to reach HQ from another device without opening public ports.
+  </Card>
+  <Card title="Dedicated Supabase project" icon="shield-halved">
+    Keeps HQ data and permissions separate from other apps.
+  </Card>
+  <Card title="Backups" icon="box-archive">
+    Back up Supabase, `.env`, and the `gateway-state` Docker volume before running real workflows.
+  </Card>
+  <Card title="Pinned images" icon="tag">
+    Pin image versions once you depend on HQ for daily work.
+  </Card>
+</CardGroup>
 
 ## Host sizing
 
-Small personal use can run on a laptop, Mac mini, Raspberry Pi 5, or small VPS. Active browser agents use memory and CPU, so plan capacity around active agents, not just total agents.
+Small personal use can run on a laptop, Mac mini, Raspberry Pi 5, or small VPS.
+
+Active browser agents use memory and CPU, so plan capacity around active agents, not just total agents.
 
 ## Security assumptions
 

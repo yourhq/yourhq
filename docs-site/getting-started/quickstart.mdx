@@ -5,67 +5,78 @@ description: "Run HQ locally, connect Supabase, and create your first agent."
 
 This quickstart gets HQ running on a Docker host with your own Supabase project.
 
-## Prerequisites
+<Info>
+  If you are not technical, the important idea is simple: HQ runs on your computer or server, and Supabase stores your workspace data.
+</Info>
 
-- Docker.
-- A Supabase project.
-- A Supabase auth user.
-- A model provider account or API key.
-- Optional: Tailscale if you want private access from another device.
+## What you need
 
-## 1. Create a Supabase project
+<CardGroup cols={2}>
+  <Card title="Docker" icon="docker">
+    Runs the HQ UI and gateway containers.
+  </Card>
+  <Card title="Supabase" icon="database">
+    Stores your workspace, auth, tasks, agents, and command queues.
+  </Card>
+  <Card title="Model provider" icon="plug">
+    OpenAI, Anthropic, Gemini, OpenRouter, local OpenAI-compatible servers, or another supported provider.
+  </Card>
+  <Card title="Optional: Tailscale" icon="network-wired">
+    Private remote access from your phone, laptop, or another machine.
+  </Card>
+</CardGroup>
 
-Create a free Supabase project at [supabase.com](https://supabase.com).
+## Quickstart steps
 
-Open SQL Editor and run every file in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) in filename order.
+<Steps>
+  <Step title="Create a Supabase project">
+    Create a free project at [supabase.com](https://supabase.com), then run every SQL file in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) in filename order.
+  </Step>
+  <Step title="Start HQ">
+    On a Linux or macOS host with Docker:
 
-## 2. Start HQ
+    ```bash
+    curl -fsSL install.yourhq.ai | bash
+    ```
 
-On a Linux or macOS host with Docker:
+    If you prefer to inspect the code first:
 
-```bash
-curl -fsSL install.yourhq.ai | bash
-```
+    ```bash
+    git clone https://github.com/yourhq/yourhq.git
+    cd yourhq
+    cp .env.example .env
+    docker compose up -d
+    ```
+  </Step>
+  <Step title="Complete onboarding">
+    Open `http://localhost:3000`.
 
-For manual setup:
+    Paste your Supabase project URL, anon key, and service role key. Then sign in or create a Supabase auth user.
+  </Step>
+  <Step title="Set up the workspace">
+    Choose workspace details, owner profile, pipeline stages, fields, and task streams. You can change these later.
+  </Step>
+  <Step title="Connect a model provider">
+    Go to Settings → Connections. API-key providers can be added directly; interactive providers show the next step in the UI.
+  </Step>
+  <Step title="Create your first agent">
+    Go to Agents → New Agent. Pick a template, name the agent, paste a Telegram bot token from [BotFather](https://t.me/botfather), then pair the bot with the code it sends you.
+  </Step>
+</Steps>
 
-```bash
-git clone https://github.com/yourhq/yourhq.git
-cd yourhq
-cp .env.example .env
-docker compose up -d
-```
+## What to read next
 
-## 3. Complete onboarding
-
-Open `http://localhost:3000`.
-
-The browser onboarding flow asks for:
-
-- Supabase project URL.
-- Supabase anon key.
-- Supabase service role key.
-- Supabase auth account.
-
-After project onboarding, complete workspace setup with your workspace name, owner profile, pipeline, fields, and streams.
-
-## 4. Connect a model provider
-
-Go to Settings → Connections and connect at least one provider.
-
-API-key providers can be added directly. Interactive providers use the command runner to show login URLs, device codes, or redirect-paste flows in the UI.
-
-## 5. Create your first agent
-
-Go to Agents → New Agent.
-
-Choose a template, set the agent identity, optionally choose a manager, paste a Telegram bot token from [BotFather](https://t.me/botfather), and create the agent.
-
-When the agent replies with a pairing code in Telegram, paste it into the pairing field on the agent detail page.
-
-## 6. Next reads
-
-- [Installation](/self-host/installation)
-- [Architecture](/concepts/architecture)
-- [Agents](/concepts/agents)
-- [Troubleshooting](/troubleshooting/common-issues)
+<CardGroup cols={2}>
+  <Card title="Full installation guide" icon="download" href="/self-host/installation">
+    More setup paths, updates, and install troubleshooting.
+  </Card>
+  <Card title="Understand agents" icon="robot" href="/concepts/agents">
+    How templates, memory, Telegram, boot docs, and delegation work.
+  </Card>
+  <Card title="Add another gateway" icon="server" href="/self-host/add-gateway">
+    Run agents on a second machine.
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/troubleshooting/common-issues">
+    Fix common setup, Supabase, gateway, and agent issues.
+  </Card>
+</CardGroup>
