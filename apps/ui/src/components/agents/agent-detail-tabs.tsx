@@ -1,24 +1,6 @@
 "use client";
 
-// Agent detail page shell.
-//
-// Layout:
-//   ┌──────────────────────────────────────────────────────────────────┐
-//   │  ← Agents     [emoji] Name @slug  ● Online       [⋯ menu]        │ sticky DetailHeader
-//   ├──────────────────────────────────┬───────────────────────────────┤
-//   │  [Overview | Files | Operations] │  STATUS                       │
-//   │                                  │  PROPERTIES                   │
-//   │  <active tab body>               │  GATEWAY                      │
-//   │                                  │  CONTEXT (3)                  │
-//   │                                  │  QUICK ACTIONS                │
-//   │                                  │  DANGER                       │
-//   └──────────────────────────────────┴───────────────────────────────┘
-//
-// Right rail is the "scoreboard" — everything you'd want to glance at
-// while doing actual work in the main column. On mobile (<lg) the rail
-// collapses to a drawer triggered from the header.
-
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Bot,
@@ -27,16 +9,23 @@ import {
   FileText,
   MoreHorizontal,
   Terminal,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import type { Agent, AgentMeta } from "@/lib/agents/types";
 import { AGENT_STATUSES, DOMAIN_LABELS } from "@/lib/agents/types";
 import { BOOT_TAG_ALL } from "@/lib/documents/boot-tags";
+import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StatusDot } from "@/components/ui/status-dot";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,6 +49,7 @@ import { getGatewayDesktopUrlAction } from "@/app/dashboard/settings/gateways/ac
 import { AgentRailModelSection } from "@/components/connections/agent-rail-model-section";
 import { AgentUsageRail } from "./agent-usage-rail";
 import { AgentUsageTab } from "./agent-usage-tab";
+import { updateAgent } from "@/app/dashboard/agents/actions";
 
 const agentStatusDotHex: Record<string, string> = {
   online: "var(--status-success)",
@@ -77,12 +67,16 @@ interface BootDocument {
 
 interface AgentDetailTabsProps {
   agent: Agent;
+  allAgents?: Agent[];
   bootDocuments?: BootDocument[];
+  onAgentUpdated?: () => void;
 }
 
 export function AgentDetailTabs({
   agent,
+  allAgents = [],
   bootDocuments = [],
+  onAgentUpdated,
 }: AgentDetailTabsProps) {
   const statusLabel =
     AGENT_STATUSES.find((s) => s.value === agent.status)?.label ?? agent.status;
@@ -147,10 +141,12 @@ export function AgentDetailTabs({
           <DetailSidebarMobile title={`${agent.name} details`}>
             <AgentRailContent
               agent={agent}
+              allAgents={allAgents}
               bootDocuments={bootDocuments}
               statusLabel={statusLabel}
               statusColor={statusColor}
               onOpenDesktop={openDesktop}
+              onAgentUpdated={onAgentUpdated}
             />
           </DetailSidebarMobile>
         }
@@ -166,9 +162,6 @@ export function AgentDetailTabs({
                 className="gap-2 text-destructive focus:text-destructive"
                 onSelect={(e) => {
                   e.preventDefault();
-                  // Removal still happens through the Operations tab's
-                  // existing flow; surfacing it here is the start of
-                  // moving it out of provisioning entirely.
                 }}
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -198,6 +191,7 @@ export function AgentDetailTabs({
                     {agent.description}
                   </p>
                 )}
+                <DirectReportsSection agent={agent} allAgents={allAgents} />
                 <ContextDocsSection agent={agent} bootDocuments={bootDocuments} />
                 <div className="border-t border-border/50 pt-6">
                   <TriggersSection agent={agent} />
@@ -232,10 +226,12 @@ export function AgentDetailTabs({
         <DetailSidebar>
           <AgentRailContent
             agent={agent}
+            allAgents={allAgents}
             bootDocuments={bootDocuments}
             statusLabel={statusLabel}
             statusColor={statusColor}
             onOpenDesktop={openDesktop}
+            onAgentUpdated={onAgentUpdated}
           />
         </DetailSidebar>
       </div>
@@ -268,20 +264,60 @@ export function AgentDetailTabs({
 
 function AgentRailContent({
   agent,
+  allAgents,
   bootDocuments,
   statusLabel,
   statusColor,
   onOpenDesktop,
+  onAgentUpdated,
 }: {
   agent: Agent;
+  allAgents: Agent[];
   bootDocuments: BootDocument[];
   statusLabel: string;
   statusColor: string;
   onOpenDesktop: () => void;
+  onAgentUpdated?: () => void;
 }) {
   const lastSeen = agent.last_seen_at
     ? formatDistanceToNow(new Date(agent.last_seen_at), { addSuffix: true })
     : "Never";
+
+  const manager = useMemo(
+    () => allAgents.find((a) => a.id === agent.reports_to_id) ?? null,
+    [allAgents, agent.reports_to_id],
+  );
+  const directReports = useMemo(
+    () => allAgents.filter((a) => a.reports_to_id === agent.id),
+    [allAgents, agent.id],
+  );
+
+  const [managerPickerOpen, setManagerPickerOpen] = useState(false);
+  const [savingManager, setSavingManager] = useState(false);
+
+  const handleManagerChange = useCallback(
+    async (newManagerId: string | null) => {
+      setSavingManager(true);
+      try {
+        await updateAgent({ agentId: agent.id, reportsToId: newManagerId });
+        onAgentUpdated?.();
+        toast.success(newManagerId ? "Manager updated" : "Manager cleared");
+      } catch (e) {
+        toast.error(
+          e instanceof Error ? e.message : "Failed to update manager",
+        );
+      } finally {
+        setSavingManager(false);
+        setManagerPickerOpen(false);
+      }
+    },
+    [agent.id, onAgentUpdated],
+  );
+
+  const managerCandidates = useMemo(
+    () => allAgents.filter((a) => a.id !== agent.id),
+    [allAgents, agent.id],
+  );
 
   return (
     <>
@@ -304,6 +340,75 @@ function AgentRailContent({
           <DetailSidebarProperty label="Slug">
             <span className="font-mono text-foreground/80">@{agent.slug}</span>
           </DetailSidebarProperty>
+          {allAgents.length > 1 && (
+            <DetailSidebarProperty label="Manager">
+              <Popover
+                open={managerPickerOpen}
+                onOpenChange={setManagerPickerOpen}
+              >
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    disabled={savingManager}
+                    className="text-left text-foreground/80 hover:text-foreground transition-colors"
+                  >
+                    {manager ? (
+                      <span>
+                        {(manager.meta as AgentMeta)?.emoji
+                          ? `${(manager.meta as AgentMeta).emoji} `
+                          : ""}
+                        {manager.name}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground/60">
+                        Operator (you)
+                      </span>
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-52 p-1" align="start">
+                  <button
+                    type="button"
+                    onClick={() => handleManagerChange(null)}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded px-2 py-1.5 text-[12px] hover:bg-accent text-left",
+                      !agent.reports_to_id && "bg-accent/60",
+                    )}
+                  >
+                    <span className="text-muted-foreground/60">
+                      Operator (you)
+                    </span>
+                  </button>
+                  {managerCandidates.map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => handleManagerChange(a.id)}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded px-2 py-1.5 text-[12px] hover:bg-accent text-left",
+                        agent.reports_to_id === a.id && "bg-accent/60",
+                      )}
+                    >
+                      {(a.meta as AgentMeta)?.emoji && (
+                        <span className="text-[13px]">
+                          {(a.meta as AgentMeta).emoji}
+                        </span>
+                      )}
+                      <span className="truncate">{a.name}</span>
+                    </button>
+                  ))}
+                </PopoverContent>
+              </Popover>
+            </DetailSidebarProperty>
+          )}
+          {directReports.length > 0 && (
+            <DetailSidebarProperty label="Reports">
+              <span className="text-foreground/80">
+                {directReports.length} direct{" "}
+                {directReports.length === 1 ? "report" : "reports"}
+              </span>
+            </DetailSidebarProperty>
+          )}
           {agent.domains.length > 0 && (
             <DetailSidebarProperty label="Domains">
               <span className="flex flex-wrap gap-1">
@@ -446,6 +551,52 @@ function AgentAvatar({ agent }: { agent: Agent }) {
   );
 }
 
+function DirectReportsSection({
+  agent,
+  allAgents,
+}: {
+  agent: Agent;
+  allAgents: Agent[];
+}) {
+  const reports = useMemo(
+    () => allAgents.filter((a) => a.reports_to_id === agent.id),
+    [allAgents, agent.id],
+  );
+
+  if (reports.length === 0) return null;
+
+  return (
+    <div>
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <Users className="mr-1.5 inline h-3 w-3" />
+        Direct Reports ({reports.length})
+      </h2>
+      <div className="space-y-0.5">
+        {reports.map((r) => {
+          const meta = (r.meta ?? {}) as AgentMeta;
+          return (
+            <Link
+              key={r.id}
+              href={`/dashboard/agents/${r.id}`}
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent/30"
+            >
+              <span className="shrink-0 text-sm">
+                {meta.emoji || (
+                  <Bot className="inline h-3.5 w-3.5 text-muted-foreground" />
+                )}
+              </span>
+              <span className="flex-1 truncate text-foreground">{r.name}</span>
+              <span className="shrink-0 font-mono text-[11px] text-muted-foreground/60">
+                @{r.slug}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function ContextDocsSection({
   agent,
   bootDocuments,
@@ -487,4 +638,3 @@ function ContextDocsSection({
     </div>
   );
 }
-

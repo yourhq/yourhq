@@ -81,8 +81,33 @@ export function getFleetCounts(agents: Agent[]) {
   return counts;
 }
 
+export interface AgentTreeNode {
+  agent: Agent;
+  depth: number;
+}
+
+export function buildAgentTree(agents: Agent[]): AgentTreeNode[] {
+  const childrenMap = new Map<string | null, Agent[]>();
+  for (const a of agents) {
+    const key = a.reports_to_id ?? null;
+    if (!childrenMap.has(key)) childrenMap.set(key, []);
+    childrenMap.get(key)!.push(a);
+  }
+  const nodes: AgentTreeNode[] = [];
+  function walk(parentId: string | null, depth: number) {
+    const children = childrenMap.get(parentId) ?? [];
+    for (const child of sortAgentsByStatus(children)) {
+      nodes.push({ agent: child, depth: Math.min(depth, 3) });
+      walk(child.id, depth + 1);
+    }
+  }
+  walk(null, 0);
+  return nodes;
+}
+
 interface AgentRowProps {
   agent: Agent;
+  depth?: number;
   onEdit?: (agent: Agent) => void;
   onTogglePause?: (id: string, status: string) => void;
   onDelete?: (id: string) => void;
@@ -90,6 +115,7 @@ interface AgentRowProps {
 
 export function AgentRow({
   agent,
+  depth = 0,
   onEdit,
   onTogglePause,
   onDelete,
@@ -99,7 +125,10 @@ export function AgentRow({
   const emoji = meta.emoji;
 
   return (
-    <div className="group relative flex h-14 items-center gap-3 rounded-md px-3 transition-colors hover:bg-muted/20">
+    <div
+      className="group relative flex h-14 items-center gap-3 rounded-md px-3 transition-colors hover:bg-muted/20"
+      style={depth > 0 ? { paddingLeft: `${12 + depth * 24}px` } : undefined}
+    >
       <Link
         href={`/dashboard/agents/${agent.id}`}
         className="absolute inset-0 rounded-md"

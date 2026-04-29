@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useMemo, useState } from "react";
-import { AgentRow, groupAgentsByTeam, getFleetCounts } from "@/components/agents/agent-card";
+import { AgentRow, groupAgentsByTeam, getFleetCounts, buildAgentTree } from "@/components/agents/agent-card";
 import { AgentForm } from "@/components/agents/agent-form";
 import { AgentCreateWizard } from "@/components/agents/agent-create-wizard";
 import { useAgents } from "@/hooks/use-agents";
@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Bot, Search, X } from "lucide-react";
+import { Plus, Bot, Search, X, List, GitBranch } from "lucide-react";
 import type { Agent, AgentMeta } from "@/lib/agents/types";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -26,6 +26,7 @@ function AgentsContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [teamFilter, setTeamFilter] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"fleet" | "hierarchy">("fleet");
   const [pendingDelete, setPendingDelete] = useState<Agent | null>(null);
 
   // Derive available teams from agent data
@@ -74,6 +75,18 @@ function AgentsContent() {
   const fleetCounts = useMemo(
     () => getFleetCounts(agents.agents),
     [agents.agents]
+  );
+
+  const hasHierarchy = useMemo(
+    () =>
+      agents.agents.length >= 4 &&
+      agents.agents.some((a) => a.reports_to_id != null),
+    [agents.agents],
+  );
+
+  const hierarchyTree = useMemo(
+    () => (viewMode === "hierarchy" ? buildAgentTree(filteredAgents) : []),
+    [viewMode, filteredAgents],
   );
 
   const hasActiveFilters =
@@ -168,6 +181,37 @@ function AgentsContent() {
 
             <div className="flex-1" />
 
+            {hasHierarchy && (
+              <div className="flex items-center gap-0.5 rounded border border-border/40 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("fleet")}
+                  className={cn(
+                    "rounded p-1 transition-colors",
+                    viewMode === "fleet"
+                      ? "bg-accent text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                  title="Fleet view"
+                >
+                  <List className="h-3 w-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("hierarchy")}
+                  className={cn(
+                    "rounded p-1 transition-colors",
+                    viewMode === "hierarchy"
+                      ? "bg-accent text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                  title="Hierarchy view"
+                >
+                  <GitBranch className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+
             <span className="text-[11px] text-muted-foreground tabular-nums">
               {isFiltered ? (
                 <>
@@ -243,32 +287,49 @@ function AgentsContent() {
               </div>
             )}
 
-            {/* Team-grouped row list */}
-            <div className="space-y-4">
-              {teamGroups.map((group) => (
-                <div key={group.team}>
-                  <div className="px-3 pb-1.5">
-                    <span className="text-[11px] uppercase tracking-wider text-muted-foreground/50">
-                      {group.team}
-                    </span>
+            {viewMode === "hierarchy" ? (
+              <div className="space-y-0.5">
+                {hierarchyTree.map((node) => (
+                  <AgentRow
+                    key={node.agent.id}
+                    agent={node.agent}
+                    depth={node.depth}
+                    onEdit={agents.form.openEditForm}
+                    onTogglePause={agents.actions.togglePause}
+                    onDelete={(id) => {
+                      const target = agents.agents.find((a) => a.id === id);
+                      if (target) setPendingDelete(target);
+                    }}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {teamGroups.map((group) => (
+                  <div key={group.team}>
+                    <div className="px-3 pb-1.5">
+                      <span className="text-[11px] uppercase tracking-wider text-muted-foreground/50">
+                        {group.team}
+                      </span>
+                    </div>
+                    <div className="space-y-0.5">
+                      {group.agents.map((agent) => (
+                        <AgentRow
+                          key={agent.id}
+                          agent={agent}
+                          onEdit={agents.form.openEditForm}
+                          onTogglePause={agents.actions.togglePause}
+                          onDelete={(id) => {
+                            const target = agents.agents.find((a) => a.id === id);
+                            if (target) setPendingDelete(target);
+                          }}
+                        />
+                      ))}
+                    </div>
                   </div>
-                  <div className="space-y-0.5">
-                    {group.agents.map((agent) => (
-                      <AgentRow
-                        key={agent.id}
-                        agent={agent}
-                        onEdit={agents.form.openEditForm}
-                        onTogglePause={agents.actions.togglePause}
-                        onDelete={(id) => {
-                          const target = agents.agents.find((a) => a.id === id);
-                          if (target) setPendingDelete(target);
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>

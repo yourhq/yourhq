@@ -17,6 +17,7 @@ export interface Agent {
   // Work, but multi-gateway deployments rely on this FK to route
   // commands.
   gateway_id: string | null;
+  reports_to_id: string | null;
   domains: string[];
   capabilities: string[] | null;
   config: Record<string, unknown>;

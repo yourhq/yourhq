@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import type { Agent } from "@/lib/agents/types";
-import { AgentDetailTabs } from "@/components/agents/agent-detail-tabs";
+import { AgentDetailClient } from "./client";
 
 export default async function AgentDetailPage({
   params,
@@ -11,25 +11,36 @@ export default async function AgentDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: agent } = await supabase
-    .from("agents")
-    .select("*")
-    .eq("id", id)
-    .single();
+  const [{ data: agent }, { data: allAgents }, { data: bootDocs }] =
+    await Promise.all([
+      supabase.from("agents").select("*").eq("id", id).single(),
+      supabase.from("agents").select("*").order("name", { ascending: true }),
+      supabase
+        .from("documents")
+        .select("id, title, icon, tags")
+        .order("title", { ascending: true }),
+    ]);
 
   if (!agent) notFound();
 
-  // Fetch documents that boot for this agent (boot:all or boot:{slug})
-  const { data: bootDocs } = await supabase
-    .from("documents")
-    .select("id, title, icon, tags")
-    .or(`tags.cs.{boot:all},tags.cs.{boot:${agent.slug}}`)
-    .order("title", { ascending: true });
+  const agentSlug = (agent as Agent).slug;
+  const filteredDocs = (bootDocs ?? []).filter(
+    (d: { tags: string[] }) =>
+      d.tags?.includes("boot:all") || d.tags?.includes(`boot:${agentSlug}`),
+  );
 
   return (
-    <AgentDetailTabs
+    <AgentDetailClient
       agent={agent as Agent}
-      bootDocuments={(bootDocs ?? []) as { id: string; title: string; icon: string | null; tags: string[] }[]}
+      allAgents={(allAgents ?? []) as Agent[]}
+      bootDocuments={
+        filteredDocs as {
+          id: string;
+          title: string;
+          icon: string | null;
+          tags: string[];
+        }[]
+      }
     />
   );
 }

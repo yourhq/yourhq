@@ -11,6 +11,7 @@ export interface CreateAgentInput {
   emoji?: string;
   description?: string;
   templateBranch: string | null;
+  reportsToId?: string | null;
   // Collected for future secure storage; intentionally not persisted yet.
   telegramToken?: string;
 }
@@ -103,6 +104,7 @@ export async function createAgentWithBranch(
       description: description || null,
       domains: templateMeta?.domains ?? [],
       capabilities: templateMeta?.capabilities ?? [],
+      reports_to_id: input.reportsToId ?? null,
       meta,
     })
     .select("id")
@@ -203,4 +205,79 @@ export async function enqueueAgentCommand(
   });
 
   return { commandId: inserted.id };
+}
+
+// ── Update Agent ────────────────────────────────────────────────
+
+export interface UpdateAgentInput {
+  agentId: string;
+  reportsToId?: string | null;
+}
+
+export async function updateAgent(input: UpdateAgentInput): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const { data: agent } = await supabase
+    .from("agents")
+    .select("id, slug, name")
+    .eq("id", input.agentId)
+    .single();
+  if (!agent) throw new Error("Agent not found");
+
+  const updates: Record<string, unknown> = {};
+
+  if (input.reportsToId !== undefined) {
+    if (input.reportsToId === input.agentId) {
+      throw new Error("An agent cannot report to itself");
+    }
+
+    if (input.reportsToId) {
+      const { data: chain } = await supabase.rpc("agent_reports_chain", {
+        p_agent_id: input.reportsToId,
+      });
+      if (
+        Array.isArray(chain) &&
+        chain.some(
+          (r: { agent_id: string }) => r.agent_id === input.agentId,
+        )
+      ) {
+        throw new Error("This would create a circular reporting chain");
+      }
+    }
+
+    updates.reports_to_id = input.reportsToId;
+  }
+
+  if (Object.keys(updates).length === 0) return;
+
+  const { error } = await supabase
+    .from("agents")
+    .update(updates)
+    .eq("id", input.agentId);
+  if (error) throw new Error(error.message);
+
+  let managerLabel = "Operator";
+  if (input.reportsToId) {
+    const { data: manager } = await supabase
+      .from("agents")
+      .select("slug")
+      .eq("id", input.reportsToId)
+      .single();
+    if (manager) managerLabel = `'${manager.slug}'`;
+  }
+
+  await supabase.from("audit_log").insert({
+    actor_type: "human",
+    module: "agents",
+    entity_type: "agent",
+    entity_id: input.agentId,
+    action: "updated",
+    summary: input.reportsToId
+      ? `Set manager of '${agent.slug}' to ${managerLabel}`
+      : `Cleared manager of '${agent.slug}'`,
+  });
 }

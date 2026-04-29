@@ -86,6 +86,10 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
   const [description, setDescription] = useState("");
   const [showDescription, setShowDescription] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [reportsToId, setReportsToId] = useState<string | null>(null);
+  const [existingAgents, setExistingAgents] = useState<
+    { id: string; name: string; slug: string; meta: Record<string, unknown> }[]
+  >([]);
 
   // Step 3
   const [token, setToken] = useState("");
@@ -130,6 +134,21 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
         if (cancelled) return;
         if (!data || !data.owner_name) setProfileMissing(true);
         if (data?.slug) setWorkspaceSlug(data.slug as string);
+      });
+    supabase
+      .from("agents")
+      .select("id, name, slug, meta")
+      .order("name", { ascending: true })
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        setExistingAgents(
+          data as {
+            id: string;
+            name: string;
+            slug: string;
+            meta: Record<string, unknown>;
+          }[],
+        );
       });
 
     return () => {
@@ -214,6 +233,7 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
         emoji,
         description: description.trim(),
         templateBranch: selectedTemplate?.branch ?? null,
+        reportsToId: reportsToId || undefined,
         telegramToken: token.trim() || undefined,
       });
       setCreatedAgentId(result.agentId);
@@ -253,7 +273,7 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
     } finally {
       setSubmitting(false);
     }
-  }, [submitting, name, slug, emoji, description, selectedTemplate, token, onCreated]);
+  }, [submitting, name, slug, emoji, description, selectedTemplate, reportsToId, token, onCreated]);
 
   // ── Post-create: command subscription + auto-advance ─────────
 
@@ -660,6 +680,25 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
                 >
                   Add description...
                 </button>
+              )}
+
+              {existingAgents.length > 0 && (
+                <div className="flex items-center gap-2 text-[11px]">
+                  <span className="text-muted-foreground/50">Reports to:</span>
+                  <select
+                    value={reportsToId ?? ""}
+                    onChange={(e) => setReportsToId(e.target.value || null)}
+                    className="h-6 rounded border border-border/40 bg-transparent px-2 text-[11px] text-muted-foreground outline-none focus-visible:ring-1 focus-visible:ring-border"
+                  >
+                    <option value="">Operator (you)</option>
+                    {existingAgents.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.meta?.emoji ? `${a.meta.emoji} ` : ""}
+                        {a.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               )}
 
               <div className="pt-2 text-[11px] text-muted-foreground/50">

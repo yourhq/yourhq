@@ -161,6 +161,88 @@ async function loadState(workspaceDir: string, sessionId: string) {
   return JSON.parse(raw);
 }
 
+interface OrgContext {
+  manager: { name: string; slug: string; description: string | null } | null;
+  reports: { name: string; slug: string; description: string | null; domains: string[] }[];
+}
+
+async function fetchOrgContext(agentId: string): Promise<OrgContext | null> {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return null;
+
+  try {
+    const agentRows = await supabaseGet("agents", {
+      select: "reports_to_id",
+      id: `eq.${agentId}`,
+      limit: "1",
+    });
+    if (agentRows.length === 0) return null;
+    const reportsToId = (agentRows[0] as any).reports_to_id as string | null;
+
+    let manager: OrgContext["manager"] = null;
+    if (reportsToId) {
+      const managerRows = await supabaseGet("agents", {
+        select: "name,slug,description",
+        id: `eq.${reportsToId}`,
+        limit: "1",
+      });
+      if (managerRows.length > 0) {
+        const m = managerRows[0] as any;
+        manager = { name: m.name, slug: m.slug, description: m.description };
+      }
+    }
+
+    const reportRows = await supabaseGet("agents", {
+      select: "name,slug,description,domains",
+      reports_to_id: `eq.${agentId}`,
+    });
+    const reports = (reportRows as any[]).map((r) => ({
+      name: r.name,
+      slug: r.slug,
+      description: r.description,
+      domains: r.domains ?? [],
+    }));
+
+    return { manager, reports };
+  } catch {
+    return null;
+  }
+}
+
+function renderOrgBlock(agentName: string, agentSlug: string, org: OrgContext): string {
+  const parts = [
+    "",
+    "## Your Position",
+    "",
+    `You are ${agentName} (@${agentSlug}).`,
+  ];
+
+  if (org.manager) {
+    parts.push(`Manager: ${org.manager.name} (@${org.manager.slug})${org.manager.description ? ` — "${org.manager.description}"` : ""}`);
+  } else {
+    parts.push("Manager: Operator (your human).");
+  }
+
+  if (org.reports.length > 0) {
+    parts.push("Direct reports:");
+    for (const r of org.reports) {
+      const domainStr = r.domains.length > 0 ? ` Domains: ${r.domains.join(", ")}.` : "";
+      parts.push(`  - ${r.name} (@${r.slug}): ${r.description || "No description."}${domainStr}`);
+    }
+  } else {
+    parts.push("Direct reports: None.");
+  }
+
+  if (org.reports.length > 0 || org.manager) {
+    parts.push("");
+    parts.push("Delegation rules:");
+    parts.push("- You may delegate work to a direct report by creating a task assigned to them.");
+    parts.push("- You may escalate to your manager by creating a task assigned to them with priority=high.");
+    parts.push("- You may not assign work to peers without explicit human approval.");
+  }
+
+  return parts.join("\n");
+}
+
 function renderBootContext(state: any) {
   const docs = Array.isArray(state.documents) ? state.documents : [];
   const parts = [
@@ -323,9 +405,27 @@ export default definePluginEntry({
       cleanupStaleState(workspaceDir);
 
       if (state.status === "done") {
-        return {
-          appendSystemContext: renderBootContext(state),
-        };
+        let context = renderBootContext(state);
+
+        const agentId = await resolveAgentUuid(ctx);
+        if (agentId) {
+          const org = await fetchOrgContext(agentId);
+          if (org && (org.manager || org.reports.length > 0)) {
+            const selfRows = await supabaseGet("agents", {
+              select: "name,slug",
+              id: `eq.${agentId}`,
+              limit: "1",
+            });
+            const self = selfRows[0] as any;
+            context += renderOrgBlock(
+              self?.name || state.agentSlug || "unknown",
+              self?.slug || state.agentSlug || "unknown",
+              org,
+            );
+          }
+        }
+
+        return { appendSystemContext: context };
       }
 
       if (state.status === "error") {
