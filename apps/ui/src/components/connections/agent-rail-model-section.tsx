@@ -1,65 +1,117 @@
 "use client";
 
-// Live "Model" section for the agent detail rail.
-//
-// Reads the cached auth_list result for the agent's gateway and renders
-// a tight summary: how many providers are connected, which is default,
-// and a link out to manage them. No probe is triggered here — that
-// happens on the Connections page itself. This is a glanceable surface,
-// not a control.
-
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, Plug } from "lucide-react";
-import { readConnectionsForGateway } from "@/app/dashboard/settings/connections/actions";
+import { Check, ExternalLink, Loader2, Plug } from "lucide-react";
+import { toast } from "sonner";
+import {
+  enqueueConnectionCommand,
+  readConnectionsForGateway,
+  waitForCommand,
+} from "@/app/dashboard/settings/connections/actions";
 import { getProviderCatalog, type Connection } from "@/lib/connections/types";
+import { ProviderIcon } from "./provider-icons";
+import { cn } from "@/lib/utils";
 
 export function AgentRailModelSection({ gatewayId }: { gatewayId: string }) {
   const [connections, setConnections] = useState<Connection[] | null>(null);
+  const [switching, setSwitching] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  const load = useCallback(() => {
     void readConnectionsForGateway(gatewayId).then((r) => {
-      if (cancelled) return;
       setConnections(r.ok && r.data ? r.data.connections : []);
     });
-    return () => {
-      cancelled = true;
-    };
   }, [gatewayId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const healthy = (connections ?? []).filter((c) => c.status === "ok");
   const defaultConn = (connections ?? []).find((c) => c.isDefault);
-  const summary = (() => {
-    if (connections === null) return null;
-    if (connections.length === 0) return "No models connected.";
-    if (defaultConn) {
-      const name =
-        getProviderCatalog(defaultConn.provider)?.displayName ?? defaultConn.provider;
-      return `${name} (default) · ${healthy.length} healthy`;
-    }
-    return `${healthy.length} of ${connections.length} healthy`;
-  })();
+
+  const onSetDefault = useCallback(
+    async (c: Connection) => {
+      setSwitching(c.id);
+      try {
+        const r = await enqueueConnectionCommand({
+          gatewayId,
+          action: "auth_set_default",
+          payload: { provider: c.provider, profile_name: c.profileName },
+        });
+        if (!r.ok || !r.data) {
+          toast.error(r.error ?? "Failed to set default");
+          return;
+        }
+        const w = await waitForCommand(r.data.commandId, 15_000);
+        if (!w.ok || !w.data || w.data.status === "failed") {
+          toast.error(
+            w.data?.error_message ?? w.error ?? "Set default failed",
+          );
+          return;
+        }
+        const catalog = getProviderCatalog(c.provider);
+        toast.success(`${catalog?.displayName ?? c.provider} set as default`);
+        load();
+      } finally {
+        setSwitching(null);
+      }
+    },
+    [gatewayId, load],
+  );
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
+      {/* Compact provider list with click-to-switch */}
+      {healthy.length > 0 ? (
+        <div className="space-y-0.5">
+          {healthy.map((c) => {
+            const catalog = getProviderCatalog(c.provider);
+            const name = catalog?.displayName ?? c.provider;
+            const isSwitching = switching === c.id;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                disabled={c.isDefault || !!switching}
+                onClick={() => onSetDefault(c)}
+                className={cn(
+                  "flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-[12px] transition-colors",
+                  c.isDefault
+                    ? "bg-primary/8 text-foreground"
+                    : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
+                )}
+              >
+                <ProviderIcon
+                  providerId={c.provider}
+                  className="h-3 w-3 shrink-0"
+                />
+                <span className="min-w-0 flex-1 truncate">{name}</span>
+                {isSwitching ? (
+                  <Loader2 className="h-3 w-3 shrink-0 animate-spin text-muted-foreground" />
+                ) : c.isDefault ? (
+                  <Check className="h-3 w-3 shrink-0 text-primary" />
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : connections !== null && connections.length === 0 ? (
+        <p className="text-[11px] text-muted-foreground/70">
+          No models connected.
+        </p>
+      ) : null}
+
       <Link
         href="/dashboard/settings/connections"
-        className="flex items-center justify-between gap-2 text-[12px] text-foreground hover:underline"
+        className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground/70 hover:text-foreground hover:underline"
       >
         <span className="inline-flex items-center gap-1.5 truncate">
-          <Plug className="h-3 w-3 text-muted-foreground" />
-          {connections === null ? "Loading…" : "Manage providers"}
+          <Plug className="h-3 w-3" />
+          Manage connections
         </span>
-        <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+        <ExternalLink className="h-3 w-3 shrink-0" />
       </Link>
-      {summary && (
-        <p className="text-[11px] text-muted-foreground/80">{summary}</p>
-      )}
-      <p className="text-[11px] text-muted-foreground/60">
-        Connected on this agent&apos;s gateway. Shared across all agents that
-        run there.
-      </p>
     </div>
   );
 }

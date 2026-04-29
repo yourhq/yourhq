@@ -31,6 +31,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useRealtime } from "@/hooks/use-realtime";
 import { AddConnectionDialog } from "./add-connection-dialog";
+import { ProviderIcon } from "./provider-icons";
 import {
   refreshConnectionsAction,
   enqueueConnectionCommand,
@@ -357,9 +358,8 @@ function ConnectionRow({
         !isFirst && "border-t border-border/50",
       )}
     >
-      {/* Provider icon — generic plug for now; we don't ship per-provider SVGs yet. */}
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-muted/40 text-muted-foreground">
-        <Plug className="h-4 w-4" />
+        <ProviderIcon providerId={connection.provider} className="h-4 w-4" />
       </div>
 
       {/* Name + status */}

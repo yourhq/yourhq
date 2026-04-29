@@ -18,7 +18,6 @@ import {
   Eye,
   EyeOff,
   Loader2,
-  Plug,
   Search,
 } from "lucide-react";
 import {
@@ -43,6 +42,7 @@ import {
   getCommandAction,
 } from "@/app/dashboard/settings/connections/actions";
 import { useRealtime } from "@/hooks/use-realtime";
+import { ProviderIcon } from "./provider-icons";
 
 interface AddConnectionDialogProps {
   open: boolean;
@@ -290,7 +290,7 @@ function ProviderGroup({
             className="group flex w-full items-center gap-3 rounded-md border border-border/60 bg-card px-3 py-2 text-left transition-colors hover:border-border-strong hover:bg-accent/40"
           >
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-muted/40 text-muted-foreground">
-              <Plug className="h-3.5 w-3.5" />
+              <ProviderIcon providerId={p.id} className="h-3.5 w-3.5" />
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
