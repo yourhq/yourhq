@@ -8,32 +8,26 @@ If your issue isn't here, jump to [Where to get help](#where-to-get-help) at the
 
 ## UI & access
 
-### "Internal Server Error" on the UI, logs mention Supabase URL/Key
+### UI keeps showing onboarding or says no active project
 
 **What you see**
 
-Open `http://localhost:3000`, browser shows a plain `Internal Server Error` page. `docker compose logs ui` contains:
-
-```
-Your project's URL and Key are required to create a Supabase client!
-```
+Open `http://localhost:3000`, and the UI sends you back to onboarding even though you already connected Supabase.
 
 **Why it happens**
 
-`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` must be **baked into the image at build time** — they end up in the Next.js client bundle. If you pulled a prebuilt image or built the UI before filling in `.env`, the bundle has empty values and every SSR render throws.
+The UI reads Supabase config from the project registry on the `ui-config` volume. The registry is empty, unreadable, or was lost when volumes were recreated.
 
 **How to fix**
 
-Fill in those two values in `.env`, then rebuild the UI image:
+Check the UI logs first:
 
 ```bash
 cd ~/.yourhq
-docker compose build --no-cache ui
-docker compose up -d ui
-docker compose logs -f ui    # wait for "Ready on http://0.0.0.0:3000"
+docker compose logs ui
 ```
 
-Runtime env vars alone won't fix this — the rebuild is required.
+Then either complete onboarding again or inspect the `ui-config` volume. If you intentionally reset volumes, this is expected. Supabase browser config is runtime-injected, so rebuilding the UI image is not required.
 
 ### Login page loads but sign-in fails silently or says "Invalid API key"
 
@@ -47,11 +41,11 @@ Either the anon key in the UI doesn't match the Supabase project you're pointing
 
 **How to fix**
 
-1. In Supabase dashboard → **Project Settings → API**, confirm `Project URL` and `anon public` match `.env`.
+1. In Supabase dashboard → **Project Settings → API**, confirm `Project URL` and `anon public` match the active project in Settings → Projects.
 2. In Supabase dashboard → **Authentication → Users → Add user → Create new user**, set an email + password.
 3. Log in with those credentials.
 
-If you fix the keys in `.env`, you **must** rebuild the UI (see the previous symptom).
+If you fix the keys, update the project from Settings → Projects or rerun onboarding. No image rebuild is required.
 
 ### Setup wizard 500s on "Complete setup"
 
@@ -307,15 +301,15 @@ Registering gateway default in Supabase ...
 
 **Why it happens**
 
-Either `SUPABASE_SERVICE_ROLE_KEY` is wrong, or the `gateways` table doesn't exist in your project because the schema migration was never run.
+Either `SUPABASE_SERVICE_ROLE_KEY` is wrong, or the `gateways` table doesn't exist in your project because migrations were never run.
 
 **How to fix**
 
-1. Copy the service role key again from Supabase → Settings → API → `service_role` (not the anon key), paste into `.env`.
-2. Run the schema migration: Supabase Dashboard → **SQL Editor → New query**, paste the contents of `db/migrations/001_schema.sql` from the repo, click Run. Should complete in a few seconds.
+1. Copy the service role key again from Supabase → Settings → API → `service_role` (not the anon key), and update the active project in the UI or the env override in `.env`.
+2. Run every migration in `db/migrations/` in filename order from Supabase Dashboard → **SQL Editor → New query**.
 3. Restart the gateway: `docker compose restart gateway`.
 
-Log should flip to `registered (reachable at http://...)`. See [docs/SCHEMA.md](SCHEMA.md).
+Log should flip to `registered (reachable at http://...)`.
 
 ### Agent stuck in "provisioning" for > 2 minutes
 
@@ -473,7 +467,7 @@ CREATE SCHEMA public;
 GRANT ALL ON SCHEMA public TO postgres, anon, authenticated, service_role;
 ```
 
-Then paste `001_schema.sql` and run again. **Warning**: this destroys all data in the `public` schema. If you have anything else in there, back it up first.
+Then run every file in `db/migrations/` in filename order again. **Warning**: this destroys all data in the `public` schema. If you have anything else in there, back it up first.
 
 If it's a real project, skip the failing statement and run subsequent ones manually — but this is fragile. Starting with a fresh Supabase project is usually faster.
 

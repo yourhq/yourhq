@@ -1,74 +1,93 @@
 # Roadmap
 
-This doc captures the phased delivery plan for HQ. The full planning doc lives internally; this is the public-facing summary.
+This doc captures where HQ is now and what remains. Older phase labels are historical context only; several items that used to be described as Phase 2 or Phase 3 are now implemented.
 
-## Phase 1 — Foundations (✅ shipped)
+## Shipped
 
-The monorepo, Docker stack, and installer.
+### Foundations
 
-- One repo (`yourhq/yourhq`) for UI, gateway, dispatcher, runner, templates, migrations
+- One repo (`yourhq/yourhq`) for UI, gateway, dispatcher, runner, templates, migrations, and installers
 - `docker-compose.yml` stack with four services
-- Interactive `installer/install.sh` — three networking modes (local / Tailscale / public)
-- Gateway runtime: OpenClaw + Chrome + Xtigervnc + XFCE + noVNC
+- Interactive `installer/install.sh` with local, Tailscale, and public networking modes
+- Gateway runtime with OpenClaw, Chrome/Chromium, Xtigervnc, XFCE, noVNC, and files API
 - Agent templates bundled into the image
-- Multi-arch GHCR builds (amd64 + arm64) via GitHub Actions
-- Multi-gateway support at the database level (`gateways` table, `gateway_id` FK on agents)
-- File browser via the gateway files-API
-- Codex OAuth flow
-- Tailscale lives on the host, not in containers
+- Multi-arch GHCR images for amd64 and arm64
+- Multi-gateway database model with `gateways` and `agents.gateway_id`
+- Gateway file browser/editor through the files API
+- Tailscale as a host-level dependency, not a container dependency
 
-## Phase 2 — Multi-project UI + config-less first boot (🔄 next)
+### Workspace and onboarding
 
-The UI image should boot with zero user config and walk the user through connecting their first Supabase project in-app, instead of requiring them to bake values into `.env` before starting.
+- First-boot onboarding in the browser
+- Project registry in `/config/projects.json` and `/config/secrets.json`
+- Runtime Supabase config injection with no `NEXT_PUBLIC_*` rebuild requirement
+- Project switcher and project settings
+- Supabase validation during onboarding
+- Account creation/sign-in flow
+- Workspace setup wizard with presets for owner profile, pipeline, fields, and streams
+- CRM, tasks, documents, assets, automations, notifications, activity, and settings pages
 
-This bundles two improvements that touch the same code:
+### Gateway and provider operations
 
-- **Project registry** — one UI manages N Supabase projects. Registry stored in `/config/projects.json` on a mounted volume. Switcher in the sidebar.
-- **Runtime Supabase config** — Supabase creds move out of `NEXT_PUBLIC_*` build-time and into runtime config served by the UI's own `/api/config` endpoint. The published UI image works for anyone without a rebuild.
-- **Onboarding screen** — empty registry is the valid first-boot state. UI shows "Connect your first Supabase project" → paste URL + anon key + service key → validate → save → reload.
-- **File browser abstraction** — selects between GitHub backend (per-project token) and gateway backend (files-API) based on project config.
-- **Per-project GitHub config** — tokens move out of env into the project registry.
+- Settings -> Gateways UI
+- Single-use gateway registration tokens
+- Generated gateway installer command
+- Gateway health, stale heartbeat status, label editing, and URL override support
+- noVNC desktop modal from the UI
+- Settings -> Connections UI
+- API-key, OAuth-paste, device-code, CLI-reuse, and local URL provider auth flows through the command runner
+- Provider list, removal, refresh, and default-model command support
 
-After Phase 2: `curl install.yourhq.ai | bash` gives you a working UI with no Supabase config needed. Everything else happens in the browser.
+### Agent operations
 
-## Phase 3 — UI-driven gateway management (⏳ planned)
+- Agent creation wizard from templates
+- Telegram token provisioning and pairing-code approval
+- Agent file browser/editor
+- Agent operations and command history
+- Agent boot-context documents through `boot:all` and `boot:<agent-slug>` tags
+- Agent triggers and inbox history
+- Inline model/provider default selection
+- Agent org chart through `reports_to_id`
+- Runtime delegation context for managers and direct reports
+- Per-agent LLM usage tracking and monthly budgets
+- Budget warning/exceeded notifications and hard cutoff enforcement
 
-Everything you'd do in a terminal becomes a UI action.
+## Next
 
-- **Connections** — generic UI for adding any openclaw provider's auth (Codex OAuth, Anthropic API key, Gemini, etc.). Uses a two-way `agent_commands` interactive pattern: runner captures the provider's URL output, writes it to the command row, UI displays it, user pastes the redirect/key back, runner completes the flow.
-- **Add Gateway from UI** — Settings → Gateways → Add. UI mints a single-use token, shows a one-liner `curl | bash` with the token embedded. User runs it on the new host. Gateway boots, registers itself, appears in UI.
-- **Update from UI** — per-gateway "Update" button runs `docker compose pull && docker compose up -d` via the runner.
-- **Project management UI** — add/edit/delete Supabase projects with validation.
+These are the most useful near-term areas for contributors.
+
+- **Migration runner** — replace copy/paste SQL instructions with a guided migration command or UI flow.
+- **Gateway updates from UI** — per-gateway update action that can pull images and restart services safely.
+- **Gateway logs** — UI log tails for gateway, runner, dispatcher, and OpenClaw sessions.
 - **Templates source UI** — switch between bundled templates and a custom git URL per project.
-- **Observability** — log tails, command history, inbox history, heartbeat history in the UI.
-- **Open Desktop modal** — noVNC iframe wrapped in the UI with signed session tokens, fullscreen toggle, clipboard sync.
-- **Pretty tailnet URLs via Tailscale Serve** — installer offers `http://hq` (port 80, no port suffix) via `tailscale serve` when you pick Tailscale mode.
-- **Public access via Cloudflare Tunnel** — optional wizard for users who want a custom domain without opening host ports. Zero open ports on the host, DDoS protection, optional Cloudflare Access.
+- **Public deployment guide** — reverse proxy, Cloudflare Tunnel, TLS, and auth hardening examples.
+- **Pretty tailnet URLs** — optional Tailscale Serve setup for users who want `http://hq` instead of ported URLs.
+- **Richer budget pricing** — broader model pricing map and clearer treatment of unmetered providers.
+- **Template docs** — per-template READMEs that explain intended role, tools, and first tasks.
+- **Docs site** — render this repository's markdown docs at `docs.yourhq.ai`.
 
-After Phase 3: a user only ever touches the terminal for the initial one-liner install.
+## Hosted Offering
 
-## Phase 4 — Hosted offering (⏳ separate track)
+`yourhq.ai` signup flow for users who do not want to self-host. This is a business-layer addition, not a product change; the self-hosted code should stay usable on its own.
 
-`yourhq.ai` signup flow for users who don't want to self-host. This is a business-layer addition, not a product change — the self-hosted code stays the same.
-
-- Account management service (landing page + signup + billing)
+- Account management service
+- Signup and billing
 - Automated Supabase project provisioning per tenant
-- Automated gateway provisioning on our hosts
-- Registry source swap: hosted UI reads project registry from account DB instead of `/config/projects.json`
+- Automated gateway provisioning on managed hosts
+- Registry source swap: hosted UI reads project registry from account infrastructure instead of `/config/projects.json`
 
-Ships when there's demand.
+## Longer-Term Ideas
 
-## Longer-term ideas (not scheduled)
-
-- Per-agent view in the Open Desktop modal (pause / takeover / resume)
-- Agent-to-agent workflows (one agent's output triggers another)
-- Native apps (macOS menu bar, iOS Shortcuts integration)
+- Per-agent view in the Open Desktop modal with pause, takeover, and resume
+- Agent-to-agent workflow builder
+- Native apps such as macOS menu bar and iOS Shortcuts integration
 - Marketplace for community templates
-- MCP-first integrations (replace direct plugins with MCP servers where possible)
+- MCP-first integrations where they can replace direct plugins cleanly
+- Stronger per-agent isolation for operators who need stricter security boundaries
 
-## How to influence the roadmap
+## How To Influence The Roadmap
 
-- Open issues labeled `feature-request` with a clear use case
-- Start discussions in `github.com/yourhq/yourhq/discussions`
-- Send PRs for things in Phase 1-3 scope — we'll triage and merge
-- For things outside the phases, propose in an issue first — we may push back, may be enthusiastic
+- Open issues labeled `feature-request` with a clear use case.
+- Start discussions in `github.com/yourhq/yourhq/discussions`.
+- Send PRs for docs, templates, UI polish, gateway hardening, or well-scoped integrations.
+- For large architecture changes, open an issue first so the design can be discussed before implementation.

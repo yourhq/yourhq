@@ -28,7 +28,10 @@ You need a Supabase project before running the installer.
 
 1. Sign up at [supabase.com](https://supabase.com) (free tier is fine for personal use).
 2. Create a new project. Wait ~2 minutes for provisioning.
-3. Open SQL Editor, paste the full contents of [`db/migrations/001_schema.sql`](../db/migrations/001_schema.sql), hit Run.
+3. Open SQL Editor and run every migration in [`db/migrations/`](../db/migrations/) in filename order:
+   - `001_schema.sql`
+   - `002_usage_budget.sql`
+   - `003_agents_reports_to.sql`
 4. Go to Authentication → Users → Add user (check "Auto Confirm User"). Remember the email/password.
 5. Go to Project Settings → API. Copy three values:
    - Project URL
@@ -94,11 +97,7 @@ UI reloads on file changes under `apps/ui/`. See [docs/DEVELOPMENT.md](DEVELOPME
 1. Open `http://localhost:3000` in your browser.
 2. Log in with the Supabase auth user you created.
 3. Complete the setup wizard (workspace name, pipeline stages, custom fields, task streams).
-4. Authenticate at least one model provider:
-   ```bash
-   docker compose exec gateway openclaw models auth login --provider openai-codex --set-default
-   ```
-   Paste the URL into a browser, sign in, paste the redirect URL back. (Phase 3 moves this into the UI.)
+4. Authenticate at least one model provider from Settings → Connections. API-key providers can be added directly. Interactive providers show the login URL or device flow in the UI and complete through the command runner.
 5. Create your first agent: Agents → New Agent → pick a template → name → Telegram bot token from [BotFather](https://t.me/botfather) → Create.
 6. Send your bot a message on Telegram. It'll reply with a pairing code; paste that into the UI's Pair Telegram field. Next message triggers the agent.
 
@@ -106,9 +105,17 @@ UI reloads on file changes under `apps/ui/`. See [docs/DEVELOPMENT.md](DEVELOPME
 
 ### Splitting UI and gateway across machines
 
-Phase 1 has manual multi-gateway support. Phase 3 adds a UI-driven "Add Gateway" flow.
+HQ includes UI-driven gateway registration. The manual process still works, but most users should use Settings → Gateways → Add Gateway.
 
-Today's process:
+Recommended process:
+
+1. On the UI host: run the installer normally.
+2. Open Settings → Gateways → Add Gateway.
+3. Enter a label and, optionally, a Tailscale auth key.
+4. Run the generated one-line installer on the gateway host.
+5. Keep the dialog open until the registration token is consumed and the gateway appears.
+
+Manual process:
 
 1. On the UI host: run the installer normally (Tailscale mode recommended).
 2. On the gateway host: clone the repo, copy `.env`, and set:
@@ -129,7 +136,7 @@ See [docs/NETWORKING.md](NETWORKING.md) for the networking model and topology di
 - **"Pull access denied" on GHCR**: only relevant if the repo is private. `docker login ghcr.io -u <your-gh-user>` with a PAT that has `read:packages` scope.
 - **`docker compose up` fails with "port already in use"**: something else is on port 3000 or 6901 on your host. Change `UI_HOST_PORT` / `NOVNC_HOST_PORT` in `.env`.
 - **Setup wizard 500s on "Complete setup"**: CSRF origin mismatch. Set `ALLOWED_ORIGINS` in `.env` to match the host you're accessing from. Restart the UI.
-- **Onboarding validator says "workspace table doesn't exist"**: you haven't run the schema migration. Paste `db/migrations/001_schema.sql` into Supabase's SQL editor and retry.
+- **Onboarding validator says a table/function doesn't exist**: you haven't run all migrations. Run every file in `db/migrations/` in filename order and retry.
 
 See [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md) for more.
 

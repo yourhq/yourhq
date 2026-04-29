@@ -5,7 +5,7 @@ This is the authoritative reference for every environment variable and configura
 Related reading:
 - `docs/NETWORKING.md` — deep dive on `NETWORKING_MODE` and host vs container networking
 - `docs/AGENTS.md` — agent-specific runtime config (not covered here; lives in `agent.json` per branch)
-- `docs/PUBLIC_DEPLOY.md` — reverse-proxy + TLS topology for `NETWORKING_MODE=public`
+- `docs/FEATURES.md` — product-level explanation of workspace features and gateway management
 
 ---
 
@@ -18,7 +18,7 @@ The installer (`installer/install.sh`) prompts for the minimum required values a
 There are two flavors of variable that behave very differently:
 
 - **Runtime variables** — read by the container process when it starts. Change the value in `.env`, run `docker compose up -d <service>`, and the new value takes effect. Most variables are runtime.
-- **Build-time variables** — baked into the container image when `docker compose build` runs. Changing the value in `.env` does nothing until the image is rebuilt. In this stack, **every `NEXT_PUBLIC_*` variable is build-time** because Next.js inlines them into the client-side JS bundle. See section 3 for the gory details.
+- **Build-time variables** — baked into the container image when `docker compose build` runs. Changing the value in `.env` does nothing until the image is rebuilt. HQ no longer uses `NEXT_PUBLIC_SUPABASE_*` for project config; Supabase browser config is injected at runtime from the project registry.
 
 The installer always runs `docker compose pull` (and falls back to `build` if the image isn't in the registry), so on a fresh install the distinction is invisible. It only matters when you edit `.env` later.
 
@@ -45,7 +45,9 @@ Use (1) only as an override — e.g. a remote gateway that must always point at 
 
 - **`EMBEDDING_API_KEY`** — **Optional**. Empty. OpenAI API key used by the gateway to embed documents when the knowledge-base vector search is enabled. Override to enable embeddings; leave empty to disable.
 
-**Where the real creds live**: the project registry files (`/config/projects.json` for URL + anon key, `/config/secrets.json` for service role key, mode 0600). Don't edit these by hand — use the onboarding screen on first boot, or Settings → Projects afterward.
+**Where the real creds live**: the project registry files (`/config/projects.json` for URL + anon key, `/config/secrets.json` for service role key). Don't edit these by hand — use the onboarding screen on first boot, or Settings → Projects afterward.
+
+`secrets.json` is mode `0644` inside the Docker-managed config volume so the UI, gateway, runner, and dispatcher containers can all read it despite running as different users. The host-level Docker volume directory is the real filesystem boundary. Treat the host and every container in the Compose stack as trusted.
 
 ### 2.2 Gateway identity
 
@@ -173,7 +175,7 @@ Every secret lives in plaintext in `.env` on disk. The installer `chmod 600` the
 
 If one of these leaks:
 
-- **`SUPABASE_SERVICE_ROLE_KEY`** — bypasses RLS and can read/write every row. **High severity.** Rotate in Supabase dashboard (Project Settings → API → "Generate new service_role key"). Update `.env`, then `docker compose up -d` to restart every service. Audit `audit_log` for suspicious activity.
+- **`SUPABASE_SERVICE_ROLE_KEY`** — bypasses RLS and can read/write every row. **High severity.** Rotate in Supabase dashboard (Project Settings → API → "Generate new service_role key"). Update the affected project in Settings → Projects, or update `.env` if you use env overrides. Restart gateway services after changing env overrides. Audit `audit_log` for suspicious activity.
 
 - **UI anon key** (stored in `/config/projects.json` per project) — subject to RLS, so damage is bounded by your policies. Rotate in the Supabase dashboard, then update it via Settings → Projects → the affected project in the UI.
 

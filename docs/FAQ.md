@@ -11,11 +11,11 @@ A self-hostable dashboard for running AI agents. You provide the infrastructure 
 - **Open source.** Fork it, customize it, ship your version.
 - **Offline-capable.** Gateways can run on a laptop or home server and keep working without internet.
 
-SaaS trade-off: you handle updates, debugging, and ops. If that's unappealing, watch for Phase 4 (hosted offering).
+SaaS trade-off: you handle updates, debugging, and ops. If that's unappealing, watch for the hosted offering described in [ROADMAP.md](ROADMAP.md).
 
 ## Is there a hosted version?
 
-Not yet. Phase 4 on the roadmap is a hosted offering at `yourhq.ai`, shipping when there's demand. Until then, self-host.
+Not yet. A hosted offering at `yourhq.ai` is on the roadmap. Until then, self-host.
 
 ## What does "agent" mean here?
 
@@ -30,9 +30,9 @@ Agents have real memory across sessions, can browse the web, send messages, edit
 
 ## What models do agents use?
 
-Whatever OpenClaw is configured with — Codex, Claude, Gemini, GPT, MiniMax, whatever. Default is OpenAI's latest. Switching is per-agent or per-gateway via `openclaw.json` configuration.
+Whatever OpenClaw is configured with: OpenAI, Anthropic, Gemini, OpenRouter, local OpenAI-compatible servers, and other supported providers. Switching is available per agent through the agent rail and through Settings → Connections.
 
-You connect models through the Connections UI (Phase 3) or via `openclaw models auth login` on the command line (today).
+You connect models through the Connections UI. API-key providers can be added directly; interactive providers complete through the runner command flow.
 
 ## What does it cost to run?
 
@@ -60,11 +60,11 @@ Yes. Each gateway registers itself in the `gateways` table with its own `GATEWAY
 
 Example topology: UI on your laptop, one gateway on a Mac mini at home, one gateway on a VPS. All point at the same Supabase. Each runs its own set of agents.
 
-Phase 3 adds UI-driven "Add Gateway" (one-liner on the new host, token-based registration). Today it's manual — copy the repo, set a unique `GATEWAY_ID` in `.env`, `docker compose up -d gateway dispatcher runner`.
+Yes. The normal path is Settings → Gateways → Add Gateway. HQ mints a single-use registration token and gives you a one-line installer command for the new host. Manual registration still works for advanced setups.
 
 ## Can I run multiple projects / workspaces?
 
-Not yet. Phase 2 adds a project registry so one UI manages N Supabase projects. Today, one UI install = one Supabase project.
+Yes. The UI has a project registry and project switcher, so one UI install can manage multiple Supabase-backed workspaces. Each project is still isolated at the Supabase-project level.
 
 You can run multiple Compose stacks on the same host by setting different `COMPOSE_PROJECT` values in `.env` — each gets its own volumes and container names.
 
@@ -78,13 +78,13 @@ For more sophisticated coordination (agent A's output triggering agent B), the p
 - New inbox item gets enqueued for agent B
 - Dispatcher wakes B
 
-Phase 2+ may add more direct agent-to-agent invocation.
+Agents can also be arranged into a manager/direct-report hierarchy. That hierarchy is injected into agent boot context and gives agents a clear delegation convention.
 
 ## How do I reach my HQ from my phone?
 
 - **Install Tailscale** on your phone + HQ host, reach `http://<host-tailscale-ip>:3000`
 - **Tailscale Serve** on the host for TLS: `sudo tailscale serve --bg --https=443 localhost:3000` → `https://hq.<your-tailnet>.ts.net`
-- **Tailscale Funnel** to make it reachable without Tailscale on the phone (Phase 3 will expose this in the UI)
+- **Tailscale Funnel** to make it reachable without Tailscale on the phone
 - **Public custom domain** via Cloudflare Tunnel or your own reverse proxy (see [docs/NETWORKING.md](NETWORKING.md))
 
 Safest path: Tailscale. Your HQ is never on the public internet.
@@ -120,7 +120,7 @@ docker compose up -d
 
 UI Supabase config lives in the project registry (runtime, not baked in), so no UI rebuild is ever required — just pull and restart.
 
-Phase 3 adds a UI "Update" button. Until then, SSH in and run the above.
+Gateway update actions from the UI are still on the roadmap. For now, SSH in and run the commands above.
 
 ## How do I uninstall?
 

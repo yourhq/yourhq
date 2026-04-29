@@ -4,10 +4,12 @@ HQ (the codebase at [`yourhq/yourhq`](https://github.com/yourhq/yourhq), hosted 
 
 For deeper dives, see:
 
+- [`docs/FEATURES.md`](FEATURES.md) — product tour of implemented user-facing features.
 - [`docs/NETWORKING.md`](NETWORKING.md) — Tailscale, public HTTPS, and the bind-mode matrix.
 - [`docs/AGENTS.md`](AGENTS.md) — agents, templates, the OpenClaw integration, and the template library.
 - [`docs/CONFIGURATION.md`](CONFIGURATION.md) — full environment variable reference.
-- [`db/migrations/001_schema.sql`](../db/migrations/001_schema.sql) — schema of record.
+- [`docs/SCHEMA.md`](SCHEMA.md) — table groups, migrations, queues, triggers, and RLS trust model.
+- [`db/migrations/`](../db/migrations/) — schema of record, applied in filename order.
 
 ---
 
@@ -15,7 +17,7 @@ For deeper dives, see:
 
 An agent, in HQ, is a long-lived workspace consisting of a git branch, a Chrome profile, an OpenClaw session, and a Telegram bot. The UI never speaks to agents directly. Every instruction the UI gives — "create this agent", "edit this file", "restart this gateway" — travels through Supabase, where it becomes a row in a queue. Python daemons on each gateway host subscribe to that queue over Supabase Realtime and execute the work locally. The result: the UI can run on your laptop, on a VPS, or in a browser tab from a hotel Wi-Fi, and the gateways can run anywhere you have Docker, with no inbound connections needed between them.
 
-This is a **single-user** design. RLS on Supabase is "authenticated full access". Multi-tenant isolation is out of scope — each operator runs their own Supabase project. The hosted offering (Phase 4) layers an account service on top of this same topology rather than redesigning it.
+This is a **single-user** design. RLS on Supabase is "authenticated full access". Multi-tenant isolation is out of scope — each operator runs their own Supabase project. The hosted offering will layer account management on top of this same topology rather than redesigning it.
 
 ## 2. System diagram
 
@@ -58,7 +60,7 @@ Every arrow on the left of the diagram is a Supabase API call. The only direct U
 
 ## 3. The four services
 
-All four services live in the same monorepo ([`docker-compose.yml`](../docker-compose.yml)). In Phase 1, the UI ships as one container and the three gateway services ship as three more, all bundled in a single Compose project.
+All four services live in the same monorepo ([`docker-compose.yml`](../docker-compose.yml)). The UI ships as one container and the three gateway services ship as three more, all bundled in a single Compose project by default. Larger installs can run the UI and gateway services on separate hosts against the same Supabase project.
 
 | Service | Role | Key files | Ports | Reads from Supabase | Writes to Supabase |
 |---|---|---|---|---|---|
@@ -150,7 +152,7 @@ The `gateway` container is deliberately fat in Phase 1 — it's one image that r
 - **files_api.py** on `0.0.0.0:18790` in-container, gated by `GATEWAY_AUTH_TOKEN`.
 - **openclaw gateway run** as PID 1 under tini. Invoked with `exec` at the end of `entrypoint.sh` so signals propagate cleanly.
 
-**Why one container for all of that?** In Phase 1, OpenClaw, Chrome, and the window manager share a single X display and a single file system namespace — splitting them into separate containers would mean cross-container DISPLAY forwarding, shared XDG, shared user-data-dirs, and shared `openclaw.json`, all over Docker networking. Not impossible, but a lot of moving parts for zero benefit when the whole stack is owned by one operator. Phase 3 (UI-driven gateway management) is the natural point to revisit that split, if at all.
+**Why one container for all of that?** OpenClaw, Chrome, and the window manager share a single X display and a single file system namespace — splitting them into separate containers would mean cross-container DISPLAY forwarding, shared XDG, shared user-data-dirs, and shared `openclaw.json`, all over Docker networking. Not impossible, but a lot of moving parts for little benefit when the whole stack is owned by one operator.
 
 **Volumes.** Two named volumes per Compose project:
 
@@ -199,7 +201,14 @@ Because the only shared state is Supabase and gateways publish their own reachab
 
 **Multi-gateway.** Multiple gateway hosts against the same Supabase. Each gets its own `GATEWAY_ID` (`laptop`, `mac-mini`, `vps-eu`) and registers its own row in the `gateways` table at boot. Each agent has a `gateway_id` FK; the runner filters `lease_command` by its own gateway slug (`lease_command(p_gateway_slug=$GATEWAY_ID)`), and the dispatcher filters inbox items by caching the set of local agent IDs ([`refresh_local_agents`](../gateway/daemons/inbox_dispatcher.py) in `inbox_dispatcher.py`). No gateway ever picks up another gateway's work.
 
-Adding the second gateway from the UI — token pairing, assignment, health display — is **Phase 3**. Today the process is manual: `GATEWAY_ID=<slug> docker compose up -d gateway dispatcher runner` and the row appears in the UI within ~30 seconds.
+Adding another gateway is normally UI-driven:
+
+1. Settings → Gateways → Add Gateway.
+2. The UI mints a single-use registration token and renders an installer command.
+3. The operator runs that command on the gateway host.
+4. The gateway writes its row to Supabase and starts heartbeating.
+
+Manual registration still works for development or advanced operators: set a unique `GATEWAY_ID`, point the host at the same Supabase project, and run `docker compose up -d gateway dispatcher runner`.
 
 ## 11. Trust model / security boundaries
 
@@ -219,13 +228,16 @@ What HQ **does not** provide: per-agent privilege separation, user-facing audit 
 
 Supabase is the backbone. Every piece of coordination — commands, inbox items, heartbeats, audit trails, realtime subscriptions, cross-agent observability — is a row in a Postgres table.
 
-**Why not a custom backend?** Three reasons. First, Realtime + Postgres triggers + RPCs cover the entire messaging surface HQ needs (enqueue, lease, complete, fail, subscribe). Second, hosting Postgres + auth + storage + realtime in one managed service that the operator already owns removes a huge ops burden versus running Redis, Postgres, a WebSocket gateway, and an auth service ourselves. Third, the operator-owned Supabase project is the natural tenant boundary — Phase 2's multi-project UI is just a registry of Supabase URLs, not a multi-tenant schema redesign.
+**Why not a custom backend?** Three reasons. First, Realtime + Postgres triggers + RPCs cover the entire messaging surface HQ needs (enqueue, lease, complete, fail, subscribe). Second, hosting Postgres + auth + storage + realtime in one managed service that the operator already owns removes a huge ops burden versus running Redis, Postgres, a WebSocket gateway, and an auth service ourselves. Third, the operator-owned Supabase project is the natural tenant boundary — the multi-project UI is a registry of Supabase URLs, not a multi-tenant schema redesign.
 
 The structures to know:
 
 - **`agent_commands`** — command queue consumed by the runner. Schema at [`001_schema.sql:1475`](../db/migrations/001_schema.sql). Action enum covers `provision`, `update`, `remove`, `approve_pairing`, `restart_gateway`, `restart_dispatcher`, `update_all`. `lease_command(p_lease_seconds, p_gateway_slug)` is the atomic claim; `start_command`, `complete_command`, `fail_command` report back. Rows persist forever (with `stdout`/`stderr`) for the command-history UI.
 - **`agent_inbox_items`** — background-work queue consumed by agents, not the runner. Inserted by Postgres triggers on `tasks` (task assignment / reassignment), `comments` (@-mentions), and `contacts` (via `automation_rules`). The dispatcher wakes agents; the agent's own session claims work via `lease_inbox_item(p_agent_id, p_lease_seconds)` (see [`001_schema.sql:1286`](../db/migrations/001_schema.sql)) and reports via `complete_inbox_item` / `fail_inbox_item`. `dedup_key` + unique constraint prevents duplicates. `attempt_count < max_attempts` bounds retries before dead-lettering.
 - **`gateways`** — registry of known gateway hosts. Each row has `slug`, `label`, `status`, `last_seen_at`, and `meta.reachable_urls`. Seeded with a `default` row so single-gateway installs work without setup.
+- **`gateway_registration_tokens`** — single-use token records minted by the UI when adding a gateway. The plaintext token is shown once in the installer command; the database stores only the hash and expiry metadata.
+- **`agent_usage` / `agent_budgets`** — usage source-of-truth and per-agent current-period rollup from [`002_usage_budget.sql`](../db/migrations/002_usage_budget.sql). Runtime usage is logged by the HQ bootstrap OpenClaw plugin; hard budget cutoffs are enforced both before replies and before dispatcher wakes.
+- **`agents.reports_to_id`** — lightweight org chart from [`003_agents_reports_to.sql`](../db/migrations/003_agents_reports_to.sql). The `agent_reports_chain` RPC lets the UI prevent cycles before saving manager changes.
 - **Realtime**. Both daemons open a WebSocket to `/realtime/v1/websocket` and subscribe to `postgres_changes` on `agent_commands` / `agent_inbox_items` INSERT. Fallback poll every `POLL_INTERVAL` (30 s runner) / `RECONCILE_INTERVAL` (120 s dispatcher) catches anything Realtime missed during a reconnect.
 - **Triggers worth knowing**: `enqueue_task_assignment` enqueues inbox items when a task is assigned; `enqueue_comment_mentions` does the same for @-mentions; `process_contact_automation` runs `automation_rules` on contact inserts/updates. See [`001_schema.sql:1362`, `1407`, `1655`](../db/migrations/001_schema.sql).
 
@@ -238,16 +250,20 @@ The UI is designed to be configured, not coded, for most everyday changes:
 - **Pipeline stages.** `/dashboard/settings/pipeline` writes to `pipeline_stages`. Status dropdowns, kanban columns, and color swatches all read from this table via `usePipelineStages(entityType)`.
 - **Task streams.** Streams are runtime-created — functional, project, or custom — and hold their own colors. Tasks reference them by FK.
 - **Automation rules.** `/dashboard/automations` creates `automation_rules` that the `process_contact_automation` trigger evaluates on every contact change, enqueuing inbox items when conditions match.
+- **Provider connections.** Settings → Connections enqueues auth commands that the runner executes through OpenClaw. API-key, OAuth paste, device-code, CLI-reuse, and local URL flows share the same command queue.
+- **Agent hierarchy.** Manager/direct-report structure is a regular column on `agents`. Runtime prompt context is assembled by the HQ bootstrap plugin, not hard-coded into templates.
+- **Usage budgets.** Budget config is stored in `agent_budgets`; raw usage is append-only in `agent_usage`. New provider pricing support belongs in the bootstrap plugin's pricing map and should degrade to unmetered calls when unknown.
 - **New command actions.** Add a case in [`command_runner.py`'s `build_command()`](../gateway/daemons/command_runner.py), extend the `command_action` enum in the schema migration, and expose it as a server action call in [`apps/ui/src/app/dashboard/agents/actions.ts`](../apps/ui/src/app/dashboard/agents/actions.ts). This is the extension point for anything a runner needs to do on the gateway host.
 
 ## 14. Where things are going
 
-- **Phase 2 — multi-project UI.** A `projects.json` registry + per-project Supabase client factory, a project switcher in the UI, and per-project GitHub config moving from env vars into registry entries. Same topology, N Supabases.
-- **Phase 3 — UI-driven gateway management.** Token-pairing to attach new gateways from the UI, Codex OAuth triggered through the UI, an "Open Desktop" modal, a logs viewer, an exit-node editor — all built on the existing command queue.
-- **Phase 4 — hosted.** An account-management service + automated provisioning + billing in front of the same gateway image. No redesign; the hosted offering rents gateway instances that speak to the user's Supabase.
+- **Self-hosted hardening.** Better migration tooling, stronger validation around project setup, clearer gateway health diagnostics, and more complete command/log observability.
+- **Hosted offering.** Account management, automated Supabase/gateway provisioning, billing, and managed operations in front of the same core runtime.
+- **Integrations.** More MCP-first integrations, richer provider auth UX, optional email/calendar/Slack/Notion flows, and deeper automation primitives.
+- **Docs site.** The markdown docs in this repository should remain the source of truth and can later be rendered at `docs.yourhq.ai`.
 
-Roadmap items are flagged in the code with comments pointing to the phase. If you see a `// Phase 3 — not yet shipped` in the UI, that's intentional dead code waiting for the backend piece.
+Roadmap items should be tracked in [ROADMAP.md](ROADMAP.md) and issues, not as stale phase labels in docs.
 
 ---
 
-**Next reads:** [`docs/NETWORKING.md`](NETWORKING.md) for the bind-mode / Tailscale / reverse-proxy details, [`docs/AGENTS.md`](AGENTS.md) for the agent runtime and template authoring, [`docs/CONFIGURATION.md`](CONFIGURATION.md) for every environment variable, and [`db/migrations/001_schema.sql`](../db/migrations/001_schema.sql) for the schema of record.
+**Next reads:** [`docs/FEATURES.md`](FEATURES.md) for the product tour, [`docs/NETWORKING.md`](NETWORKING.md) for the bind-mode / Tailscale / reverse-proxy details, [`docs/AGENTS.md`](AGENTS.md) for the agent runtime and template authoring, [`docs/CONFIGURATION.md`](CONFIGURATION.md) for every environment variable, and [`db/migrations/`](../db/migrations/) for the schema of record.

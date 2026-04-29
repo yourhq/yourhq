@@ -48,7 +48,7 @@ A tighter future alternative is [docker-socket-proxy](https://github.com/Tecnati
 
 ### RLS is "authenticated full access"
 
-The Supabase migration grants the `authenticated` role full read/write on every table. HQ is designed as single-user admin software — if you have a Supabase account, you're an admin. **Make sure Supabase email signup is disabled or invite-only**, otherwise anyone who signs up for your Supabase project gets full HQ access. Phase 2 introduces multi-project isolation; per-role permissions are post-Phase 4.
+The Supabase migrations grant the `authenticated` role broad read/write access. HQ is designed as single-user admin software — if you have a Supabase account, you're an admin. **Make sure Supabase email signup is disabled or invite-only**, otherwise anyone who signs up for your Supabase project gets full HQ access. The project registry isolates workspaces by Supabase project; fine-grained per-role permissions are not implemented.
 
 ### Default port bindings are loopback-only
 
@@ -123,7 +123,7 @@ In rough order of importance:
 5. **Put HQ behind an auth gate.** Cloudflare Access, Tailscale, or a reverse proxy with basic-auth — anything that requires authentication *before* a request hits HQ.
 6. **Review the installer before running.** `curl -o install.sh ...; less install.sh; bash install.sh`.
 7. **Generate strong secrets.** `openssl rand -hex 32` for `GATEWAY_AUTH_TOKEN`. Use a password manager for your Supabase credentials.
-8. **Update regularly.** Phase 3 adds a "Update" button in the UI; until then, `docker compose pull && docker compose up -d` manually.
+8. **Update regularly.** Until gateway update actions are available in the UI, run `docker compose pull && docker compose up -d` manually.
 
 ## Secrets and data we collect
 

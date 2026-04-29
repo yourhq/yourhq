@@ -36,7 +36,7 @@ Prerequisites:
 git clone https://github.com/yourhq/yourhq.git
 cd yourhq
 cp .env.example .env
-# Edit .env with your Supabase URL + keys
+# Leave Supabase empty for browser onboarding, or set env overrides for gateway-only testing
 
 # Live-reload dev mode
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up
@@ -58,7 +58,7 @@ npm install --legacy-peer-deps
 npm run dev
 ```
 
-Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in a `.env.local` file. You won't have a gateway in this setup, so gateway-dependent pages will error; that's expected.
+Complete browser onboarding against the local dev server, or set `HQ_CONFIG_DIR` to a local directory with compatible `projects.json` and `secrets.json` files. You won't have a gateway in this setup, so gateway-dependent pages will error; that's expected.
 
 ### Running just the gateway
 
@@ -117,7 +117,7 @@ Open your PR against `main`. CI runs automatically. A maintainer will review wit
 Before proposing big architectural changes, read:
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — current system design
-- [docs/ROADMAP.md](docs/ROADMAP.md) — planned phases
+- [docs/ROADMAP.md](docs/ROADMAP.md) — shipped areas and planned work
 - Recent issues labeled `design`
 
 Big changes go through an issue first. We prefer small, iterative PRs to big refactors.
