@@ -80,11 +80,14 @@ export interface AgentTemplate {
   capabilities?: string[];
 }
 
+export type AgentChannel = "telegram" | "discord" | "slack" | "none";
+
 // Shape we stash into agents.meta via the create wizard.
 export interface AgentMeta {
   emoji?: string;
   team?: string;
   template_branch?: string | null;
+  channel?: AgentChannel;
   telegram_token_env?: string;
 }
 

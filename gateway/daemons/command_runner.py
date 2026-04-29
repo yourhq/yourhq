@@ -192,15 +192,30 @@ def build_command(action, agent_slug, payload):
 
     if action == "provision":
         branch = resolve_branch(agent_slug)
-        token = payload.get("telegram_token")
-        if not token:
-            return None, "Missing telegram_token in payload"
         if not validate_slug(agent_slug):
             return None, f"Invalid agent slug: {agent_slug}"
-        # Phase 1: UI hands off init to the gateway. Payload carries the
-        # wizard inputs so add-agent.sh can create the per-agent branch
-        # locally off the template, patch agent.json, and fill USER.md.
-        args = [f"{HOME}/add-agent.sh", branch, "--token", token]
+        channel = payload.get("channel", "telegram")
+        args = [f"{HOME}/add-agent.sh", branch, "--channel", channel]
+        if channel == "telegram":
+            token = payload.get("telegram_token")
+            if not token:
+                return None, "Missing telegram_token in payload for telegram channel"
+            args += ["--telegram-token", token]
+        elif channel == "discord":
+            token = payload.get("discord_token")
+            if not token:
+                return None, "Missing discord_token in payload for discord channel"
+            args += ["--discord-token", token]
+            if payload.get("discord_server_id"):
+                args += ["--discord-server-id", str(payload["discord_server_id"])]
+            if payload.get("discord_user_id"):
+                args += ["--discord-user-id", str(payload["discord_user_id"])]
+        elif channel == "slack":
+            if not payload.get("slack_app_token") or not payload.get("slack_bot_token"):
+                return None, "Missing slack_app_token or slack_bot_token in payload for slack channel"
+            args += ["--slack-app-token", str(payload["slack_app_token"]),
+                     "--slack-bot-token", str(payload["slack_bot_token"])]
+        # none: no credential args
         source_template = payload.get("source_template")
         if source_template:
             args += ["--source-branch", str(source_template)]
@@ -225,7 +240,8 @@ def build_command(action, agent_slug, payload):
         code = str(code).strip()
         if not validate_pairing_code(code):
             return None, f"Invalid pairing code format"
-        return ["openclaw", "pairing", "approve", "telegram", code], f"Approving pairing"
+        channel = payload.get("channel", "telegram")
+        return ["openclaw", "pairing", "approve", channel, code], f"Approving pairing"
 
     elif action == "update":
         if not agent_slug:
@@ -1099,14 +1115,16 @@ def execute_command(command_row):
                 "p_stderr": stderr,
             })
 
-            # Scrub telegram token from payload after successful provisioning
-            if action == "provision" and "telegram_token" in payload:
-                try:
-                    scrubbed = {k: v for k, v in payload.items() if k != "telegram_token"}
-                    scrubbed["telegram_token_scrubbed"] = True
-                    api_patch("agent_commands", cmd_id, {"payload": scrubbed})
-                except Exception:
-                    pass
+            # Scrub credential tokens from payload after successful provisioning
+            if action == "provision":
+                token_keys = [k for k in payload if k.endswith("_token")]
+                if token_keys:
+                    try:
+                        scrubbed = {k: v for k, v in payload.items() if not k.endswith("_token")}
+                        scrubbed["tokens_scrubbed"] = True
+                        api_patch("agent_commands", cmd_id, {"payload": scrubbed})
+                    except Exception:
+                        pass
         else:
             log(f"Command {cmd_id} failed (exit {result.returncode})")
             api_rpc("fail_command", {

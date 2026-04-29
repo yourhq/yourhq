@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { BUNDLED_TEMPLATES } from "@/generated/templates";
-import type { AgentMeta, CommandAction } from "@/lib/agents/types";
+import type { AgentChannel, AgentMeta, CommandAction } from "@/lib/agents/types";
 import { AGENT_COMMAND_ACTIONS, SYSTEM_COMMAND_ACTIONS } from "@/lib/agents/types";
 
 export interface CreateAgentInput {
@@ -12,8 +12,13 @@ export interface CreateAgentInput {
   description?: string;
   templateBranch: string | null;
   reportsToId?: string | null;
-  // Collected for future secure storage; intentionally not persisted yet.
+  channel?: AgentChannel;
   telegramToken?: string;
+  discordToken?: string;
+  discordServerId?: string;
+  discordUserId?: string;
+  slackAppToken?: string;
+  slackBotToken?: string;
 }
 
 export interface CreateAgentResult {
@@ -79,6 +84,7 @@ export async function createAgentWithBranch(
     .maybeSingle();
   if (existingAgent) throw new Error(`Agent with slug "${slug}" already exists`);
 
+  const channel = input.channel ?? "telegram";
   const tokenEnvVar = `TELEGRAM_TOKEN_${slug.toUpperCase().replace(/-/g, "_")}`;
   const sourceTemplate = input.templateBranch ?? "default";
 
@@ -93,7 +99,8 @@ export async function createAgentWithBranch(
     emoji,
     team: templateMeta?.team || undefined,
     template_branch: input.templateBranch,
-    telegram_token_env: tokenEnvVar,
+    channel,
+    ...(channel === "telegram" ? { telegram_token_env: tokenEnvVar } : {}),
   };
 
   const { data: inserted, error: insertError } = await supabase

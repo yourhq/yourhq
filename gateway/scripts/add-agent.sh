@@ -34,7 +34,13 @@
 set -euo pipefail
 
 AGENT_NAME=""
+CHANNEL="telegram"
 BOT_TOKEN=""
+DISCORD_TOKEN=""
+DISCORD_SERVER_ID=""
+DISCORD_USER_ID=""
+SLACK_APP_TOKEN=""
+SLACK_BOT_TOKEN=""
 SOURCE_BRANCH=""
 AGENT_SLUG=""
 AGENT_DISPLAY_NAME=""
@@ -46,7 +52,14 @@ OWNER_TIMEZONE=""
 
 while [[ $# -gt 0 ]]; do
   case $1 in
+    --channel)               CHANNEL="$2"; shift 2 ;;
     --token)                 BOT_TOKEN="$2"; shift 2 ;;
+    --telegram-token)        BOT_TOKEN="$2"; shift 2 ;;
+    --discord-token)         DISCORD_TOKEN="$2"; shift 2 ;;
+    --discord-server-id)     DISCORD_SERVER_ID="$2"; shift 2 ;;
+    --discord-user-id)       DISCORD_USER_ID="$2"; shift 2 ;;
+    --slack-app-token)       SLACK_APP_TOKEN="$2"; shift 2 ;;
+    --slack-bot-token)       SLACK_BOT_TOKEN="$2"; shift 2 ;;
     --source-branch)         SOURCE_BRANCH="$2"; shift 2 ;;
     --slug)                  AGENT_SLUG="$2"; shift 2 ;;
     --name)                  AGENT_DISPLAY_NAME="$2"; shift 2 ;;
@@ -64,7 +77,15 @@ while [[ $# -gt 0 ]]; do
 done
 
 [ -z "$AGENT_NAME" ] && echo "ERROR: <branch> positional arg required. See --help." && exit 1
-[ -z "$BOT_TOKEN" ] && echo "ERROR: --token required." && exit 1
+if [ "$CHANNEL" = "telegram" ] && [ -z "$BOT_TOKEN" ]; then
+  echo "ERROR: --telegram-token required for telegram channel." && exit 1
+fi
+if [ "$CHANNEL" = "discord" ] && [ -z "$DISCORD_TOKEN" ]; then
+  echo "ERROR: --discord-token required for discord channel." && exit 1
+fi
+if [ "$CHANNEL" = "slack" ] && { [ -z "$SLACK_APP_TOKEN" ] || [ -z "$SLACK_BOT_TOKEN" ]; }; then
+  echo "ERROR: --slack-app-token and --slack-bot-token required for slack channel." && exit 1
+fi
 
 CONFIG="$HOME/.openclaw/openclaw.json"
 REPO_DIR="$HOME/.openclaw/repo.git"
@@ -80,6 +101,7 @@ echo "════════════════════════�
 echo "  Adding agent: $AGENT_NAME"
 echo "  Source:       $SOURCE_BRANCH"
 echo "  Slug:         $AGENT_SLUG"
+echo "  Channel:      $CHANNEL"
 echo "══════════════════════════════════════════"
 
 # ── 1. Ensure the agent's branch exists, created off the source ────────
@@ -122,12 +144,14 @@ jq \
   --arg desc "$AGENT_DESCRIPTION" \
   --arg emoji "$AGENT_EMOJI" \
   --arg tgEnv "$TG_TOKEN_ENV" \
+  --arg channel "$CHANNEL" \
 '
   .slug = $slug |
   (if $name != "" then .name = $name else . end) |
   (if $desc != "" then .description = $desc else . end) |
   (if $emoji != "" then .emoji = $emoji else . end) |
-  .telegram_token_env = $tgEnv
+  .channel = $channel |
+  (if $channel == "telegram" then .telegram_token_env = $tgEnv else . end)
 ' "$AGENT_JSON" > "$TMP" && mv "$TMP" "$AGENT_JSON"
 
 # ── 4. Fill USER.md placeholder tokens if the file exists ──────────────
@@ -235,22 +259,74 @@ TG_ACCOUNT_ID="${AGENT_NAME##*/}"
 # that produced invalid openclaw config. The profile is addressed via
 # .browser.profiles[<name>] keyed on $BROWSER_PROFILE.
 TMP=$(mktemp)
-jq \
-  --arg id "$AGENT_NAME" --arg name "$AGENT_NAME_DISPLAY" --arg workspace "$WORKSPACE" \
-  --arg model "$AGENT_MODEL" --arg bp "$BROWSER_PROFILE" --arg bc "$BROWSER_COLOR" \
-  --arg botToken "$BOT_TOKEN" --arg tgAccount "$TG_ACCOUNT_ID" \
-  --argjson cdpPort "$CDP_PORT" \
-'
+
+# Base patch: always update agent list + browser profile
+BASE_JQ='
   .agents.list //= [] |
   .agents.list = [.agents.list[] | select(.id != $id)] + [{
     id: $id, name: $name, workspace: $workspace, model: $model
   }] |
-  .browser.profiles[$bp] = {cdpPort: $cdpPort, color: $bc} |
-  .channels.telegram.accounts //= {} |
-  .channels.telegram.accounts[$tgAccount] = { botToken: $botToken } |
-  .bindings //= [] |
-  .bindings = [.bindings[] | select(.agentId != $id)] + [{agentId: $id, match: {channel: "telegram", accountId: $tgAccount}}]
-' "$CONFIG" > "$TMP" && mv "$TMP" "$CONFIG"
+  .browser.profiles[$bp] = {cdpPort: $cdpPort, color: $bc}
+'
+
+case "$CHANNEL" in
+  telegram)
+    jq \
+      --arg id "$AGENT_NAME" --arg name "$AGENT_NAME_DISPLAY" --arg workspace "$WORKSPACE" \
+      --arg model "$AGENT_MODEL" --arg bp "$BROWSER_PROFILE" --arg bc "$BROWSER_COLOR" \
+      --arg botToken "$BOT_TOKEN" --arg tgAccount "$TG_ACCOUNT_ID" \
+      --argjson cdpPort "$CDP_PORT" \
+    "${BASE_JQ}"' |
+      .channels.telegram.accounts //= {} |
+      .channels.telegram.accounts[$tgAccount] = { botToken: $botToken } |
+      .bindings //= [] |
+      .bindings = [.bindings[] | select(.agentId != $id)] +
+        [{agentId: $id, match: {channel: "telegram", accountId: $tgAccount}}]
+    ' "$CONFIG" > "$TMP" && mv "$TMP" "$CONFIG"
+    ;;
+  discord)
+    jq \
+      --arg id "$AGENT_NAME" --arg name "$AGENT_NAME_DISPLAY" --arg workspace "$WORKSPACE" \
+      --arg model "$AGENT_MODEL" --arg bp "$BROWSER_PROFILE" --arg bc "$BROWSER_COLOR" \
+      --arg discordToken "$DISCORD_TOKEN" \
+      --arg serverId "$DISCORD_SERVER_ID" --arg userId "$DISCORD_USER_ID" \
+      --argjson cdpPort "$CDP_PORT" \
+    "${BASE_JQ}"' |
+      .channels.discord.enabled = true |
+      .channels.discord.token = $discordToken |
+      (if $serverId != "" and $userId != "" then
+        .channels.discord.guilds[$serverId].users |= (. // []) + [$userId]
+       else . end) |
+      .bindings //= [] |
+      .bindings = [.bindings[] | select(.agentId != $id)] +
+        [{agentId: $id, match: {channel: "discord"}}]
+    ' "$CONFIG" > "$TMP" && mv "$TMP" "$CONFIG"
+    ;;
+  slack)
+    jq \
+      --arg id "$AGENT_NAME" --arg name "$AGENT_NAME_DISPLAY" --arg workspace "$WORKSPACE" \
+      --arg model "$AGENT_MODEL" --arg bp "$BROWSER_PROFILE" --arg bc "$BROWSER_COLOR" \
+      --arg appToken "$SLACK_APP_TOKEN" --arg botToken "$SLACK_BOT_TOKEN" \
+      --argjson cdpPort "$CDP_PORT" \
+    "${BASE_JQ}"' |
+      .channels.slack.enabled = true |
+      .channels.slack.mode = "socket" |
+      .channels.slack.appToken = $appToken |
+      .channels.slack.botToken = $botToken |
+      .bindings //= [] |
+      .bindings = [.bindings[] | select(.agentId != $id)] +
+        [{agentId: $id, match: {channel: "slack"}}]
+    ' "$CONFIG" > "$TMP" && mv "$TMP" "$CONFIG"
+    ;;
+  none|*)
+    jq \
+      --arg id "$AGENT_NAME" --arg name "$AGENT_NAME_DISPLAY" --arg workspace "$WORKSPACE" \
+      --arg model "$AGENT_MODEL" --arg bp "$BROWSER_PROFILE" --arg bc "$BROWSER_COLOR" \
+      --argjson cdpPort "$CDP_PORT" \
+    "${BASE_JQ}" \
+    "$CONFIG" > "$TMP" && mv "$TMP" "$CONFIG"
+    ;;
+esac
 
 # ── 9. Desktop shortcut for this agent's Chrome ────────────────────────
 # Pre-create the user-data dir so Chrome doesn't fight the first launch.
@@ -284,4 +360,9 @@ fi
 
 # ── 11. Restart gateway to pick up new agent ───────────────────────────
 openclaw gateway restart 2>/dev/null || true
-echo "✓ Agent '$AGENT_NAME' added. Pair: openclaw pairing approve telegram <CODE>"
+case "$CHANNEL" in
+  telegram) echo "✓ Agent '$AGENT_NAME' added. Pair: openclaw pairing approve telegram <CODE>" ;;
+  discord)  echo "✓ Agent '$AGENT_NAME' added. Pair: openclaw pairing approve discord <CODE>" ;;
+  slack)    echo "✓ Agent '$AGENT_NAME' added. Bot is active in your Slack workspace." ;;
+  none|*)   echo "✓ Agent '$AGENT_NAME' added. No channel configured." ;;
+esac

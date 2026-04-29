@@ -21,10 +21,10 @@ import {
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { createAgentWithBranch, enqueueAgentCommand } from "@/app/dashboard/agents/actions";
-import type { AgentTemplate } from "@/lib/agents/types";
+import type { AgentChannel, AgentTemplate } from "@/lib/agents/types";
 import { useAgentCommands } from "@/hooks/use-agent-commands";
 
-type Step = "template" | "identity" | "telegram" | "provisioning" | "pairing" | "ready";
+type Step = "template" | "identity" | "channel" | "provisioning" | "pairing" | "ready";
 
 interface AgentCreateWizardProps {
   onClose: () => void;
@@ -34,13 +34,13 @@ interface AgentCreateWizardProps {
 const STEP_LABELS: Record<Step, string> = {
   template: "Template",
   identity: "Identity",
-  telegram: "Telegram",
+  channel: "Channel",
   provisioning: "Provisioning",
   pairing: "Pairing",
   ready: "Ready",
 };
 
-const STEP_ORDER: Step[] = ["template", "identity", "telegram", "provisioning", "pairing", "ready"];
+const STEP_ORDER: Step[] = ["template", "identity", "channel", "provisioning", "pairing", "ready"];
 
 const EMOJI_GRID = [
   "🤖","✨","🌟","⚡","🔥","💡","🧠","🪄","🛠️","📎",
@@ -91,9 +91,19 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
     { id: string; name: string; slug: string; meta: Record<string, unknown> }[]
   >([]);
 
-  // Step 3
+  // Step 3 — channel + credentials
+  const [channel, setChannel] = useState<AgentChannel>("telegram");
+  // Telegram
   const [token, setToken] = useState("");
   const [tokenFocused, setTokenFocused] = useState(false);
+  // Discord
+  const [discordToken, setDiscordToken] = useState("");
+  const [discordTokenFocused, setDiscordTokenFocused] = useState(false);
+  const [discordServerId, setDiscordServerId] = useState("");
+  const [discordUserId, setDiscordUserId] = useState("");
+  // Slack
+  const [slackAppToken, setSlackAppToken] = useState("");
+  const [slackBotToken, setSlackBotToken] = useState("");
 
   // Submit
   const [submitting, setSubmitting] = useState(false);
@@ -203,22 +213,27 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
   }, [filteredTemplates]);
 
   const stepIndex = STEP_ORDER.indexOf(step);
-  const hasToken = token.trim().length > 0;
+
+  const tokenLooksValid = BOTFATHER_TOKEN_RE.test(token.trim());
+  const hasChannelConfig =
+    channel === "telegram" ? token.trim().length > 0
+    : channel === "discord" ? discordToken.trim().length > 0
+    : channel === "slack" ? slackAppToken.trim().length > 0 && slackBotToken.trim().length > 0
+    : true; // "none" — always can proceed
 
   const canAdvanceFromTemplate = selectedTemplate !== null || isCustom;
   const canAdvanceFromIdentity = name.trim().length > 0 && slug.trim().length > 0;
-  const tokenLooksValid = BOTFATHER_TOKEN_RE.test(token.trim());
 
   const goBack = useCallback(() => {
     setError(null);
     if (step === "identity") setStep("template");
-    else if (step === "telegram") setStep("identity");
+    else if (step === "channel") setStep("identity");
   }, [step]);
 
   const goNext = useCallback(() => {
     setError(null);
     if (step === "template" && canAdvanceFromTemplate) setStep("identity");
-    else if (step === "identity" && canAdvanceFromIdentity) setStep("telegram");
+    else if (step === "identity" && canAdvanceFromIdentity) setStep("channel");
   }, [step, canAdvanceFromTemplate, canAdvanceFromIdentity]);
 
   const handleSubmit = useCallback(async () => {
@@ -234,7 +249,13 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
         description: description.trim(),
         templateBranch: selectedTemplate?.branch ?? null,
         reportsToId: reportsToId || undefined,
-        telegramToken: token.trim() || undefined,
+        channel,
+        telegramToken: channel === "telegram" ? token.trim() || undefined : undefined,
+        discordToken: channel === "discord" ? discordToken.trim() || undefined : undefined,
+        discordServerId: channel === "discord" ? discordServerId.trim() || undefined : undefined,
+        discordUserId: channel === "discord" ? discordUserId.trim() || undefined : undefined,
+        slackAppToken: channel === "slack" ? slackAppToken.trim() || undefined : undefined,
+        slackBotToken: channel === "slack" ? slackBotToken.trim() || undefined : undefined,
       });
       setCreatedAgentId(result.agentId);
       setCreatedBranch(result.branch);
@@ -249,7 +270,13 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
           agentSlug: result.slug,
           action: "provision",
           payload: {
-            ...(token.trim() ? { telegram_token: token.trim() } : {}),
+            channel,
+            ...(channel === "telegram" && token.trim() ? { telegram_token: token.trim() } : {}),
+            ...(channel === "discord" && discordToken.trim() ? { discord_token: discordToken.trim() } : {}),
+            ...(channel === "discord" && discordServerId.trim() ? { discord_server_id: discordServerId.trim() } : {}),
+            ...(channel === "discord" && discordUserId.trim() ? { discord_user_id: discordUserId.trim() } : {}),
+            ...(channel === "slack" && slackAppToken.trim() ? { slack_app_token: slackAppToken.trim() } : {}),
+            ...(channel === "slack" && slackBotToken.trim() ? { slack_bot_token: slackBotToken.trim() } : {}),
             source_template: result.sourceBranch,
             name: name.trim(),
             description: description.trim() || undefined,
@@ -273,7 +300,7 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
     } finally {
       setSubmitting(false);
     }
-  }, [submitting, name, slug, emoji, description, selectedTemplate, reportsToId, token, onCreated]);
+  }, [submitting, name, slug, emoji, description, selectedTemplate, reportsToId, channel, token, discordToken, discordServerId, discordUserId, slackAppToken, slackBotToken, onCreated]);
 
   // ── Post-create: command subscription + auto-advance ─────────
 
@@ -305,17 +332,17 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
     return () => clearInterval(t);
   }, [step, refetch]);
 
-  // Auto-advance from provisioning → pairing (or ready, if no token)
+  // Auto-advance from provisioning → pairing (Telegram/Discord) or ready (Slack/None)
   useEffect(() => {
     if (step !== "provisioning") return;
     if (latestProvision?.status !== "done") return;
-    if (hasToken) {
+    if (channel === "telegram" || channel === "discord") {
       setPairingSince(Date.now());
       setStep("pairing");
     } else {
       setStep("ready");
     }
-  }, [step, latestProvision?.status, hasToken]);
+  }, [step, latestProvision?.status, channel]);
 
   // Auto-advance from pairing → ready
   useEffect(() => {
@@ -333,7 +360,15 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
         agentId: createdAgentId,
         agentSlug: slug.trim(),
         action: "provision",
-        payload: token.trim() ? { telegram_token: token.trim() } : {},
+        payload: {
+          channel,
+          ...(channel === "telegram" && token.trim() ? { telegram_token: token.trim() } : {}),
+          ...(channel === "discord" && discordToken.trim() ? { discord_token: discordToken.trim() } : {}),
+          ...(channel === "discord" && discordServerId.trim() ? { discord_server_id: discordServerId.trim() } : {}),
+          ...(channel === "discord" && discordUserId.trim() ? { discord_user_id: discordUserId.trim() } : {}),
+          ...(channel === "slack" && slackAppToken.trim() ? { slack_app_token: slackAppToken.trim() } : {}),
+          ...(channel === "slack" && slackBotToken.trim() ? { slack_bot_token: slackBotToken.trim() } : {}),
+        },
       });
       refetch();
     } catch (e) {
@@ -341,7 +376,7 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
     } finally {
       setRetryingProvision(false);
     }
-  }, [createdAgentId, retryingProvision, slug, token, refetch]);
+  }, [createdAgentId, retryingProvision, slug, channel, token, discordToken, discordServerId, discordUserId, slackAppToken, slackBotToken, refetch]);
 
   const submitPairingCode = useCallback(async () => {
     if (!createdAgentId || submittingPair) return;
@@ -353,7 +388,7 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
         agentId: createdAgentId,
         agentSlug: slug.trim(),
         action: "approve_pairing",
-        payload: { pairing_code: code },
+        payload: { pairing_code: code, channel },
       });
       refetch();
     } catch (e) {
@@ -361,7 +396,7 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
     } finally {
       setSubmittingPair(false);
     }
-  }, [createdAgentId, submittingPair, pairingCode, slug, refetch]);
+  }, [createdAgentId, submittingPair, pairingCode, slug, channel, refetch]);
 
   const handleOpenAgent = useCallback(() => {
     if (!createdAgentId) return;
@@ -376,7 +411,7 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
       if (step === "template" || step === "identity") {
         e.preventDefault();
         goNext();
-      } else if (step === "telegram") {
+      } else if (step === "channel") {
         e.preventDefault();
         handleSubmit();
       } else if (step === "pairing") {
@@ -409,14 +444,14 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
   };
 
   const showBackButton =
-    step === "identity" || step === "telegram";
+    step === "identity" || step === "channel";
 
   return (
     <Dialog open onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-xl p-0 gap-0 overflow-hidden max-h-[85dvh] flex flex-col">
         <DialogTitle className="sr-only">Register a new agent</DialogTitle>
         <DialogDescription className="sr-only">
-          Pick a template, set identity, wire up Telegram, then provision and pair.
+          Pick a template, set identity, choose a channel, then provision and pair.
         </DialogDescription>
 
         {/* Top-left step label */}
@@ -712,86 +747,32 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
             </div>
           )}
 
-          {step === "telegram" && (
-            <div className="grid grid-cols-5 gap-4">
-              <div className="col-span-3 space-y-2">
-                <label className="text-[11px] uppercase tracking-wider text-muted-foreground/50">
-                  Bot token
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={
-                      tokenFocused || !token ? token : maskToken(token)
-                    }
-                    onChange={(e) => setToken(e.target.value)}
-                    onFocus={() => setTokenFocused(true)}
-                    onBlur={() => setTokenFocused(false)}
-                    placeholder="123456:ABCdef…"
-                    autoFocus
-                    className="w-full h-9 rounded border border-border/50 bg-transparent pl-3 pr-16 font-mono text-xs outline-none focus-visible:ring-1 focus-visible:ring-border placeholder:text-muted-foreground/40"
-                  />
-                  <button
-                    type="button"
-                    onClick={handlePasteToken}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1 rounded px-2 py-1 text-[10px] text-muted-foreground hover:bg-muted/40 transition-colors"
-                  >
-                    <Clipboard className="h-3 w-3" />
-                    Paste
-                  </button>
-                </div>
-                {token && (
-                  <div
-                    className={cn(
-                      "flex items-center gap-1.5 text-[11px]",
-                      tokenLooksValid
-                        ? "text-green-400/80"
-                        : "text-muted-foreground/50"
-                    )}
-                  >
-                    {tokenLooksValid && <Check className="h-3 w-3" />}
-                    {tokenLooksValid
-                      ? "Looks like a valid token"
-                      : "Doesn't match the BotFather format"}
-                  </div>
-                )}
-                <p className="text-[11px] text-muted-foreground/50 pt-1">
-                  We&rsquo;ll wire this to{" "}
-                  <span className="font-mono text-muted-foreground/70">
-                    TELEGRAM_TOKEN_{slug.toUpperCase().replace(/-/g, "_") || "SLUG"}
-                  </span>{" "}
-                  on your instance.
-                </p>
-              </div>
-
-              <div className="col-span-2 rounded border border-border/40 bg-[oklch(0.155_0_0)] p-3">
-                <div className="text-[11px] font-medium text-foreground mb-2">
-                  Get a token from @BotFather
-                </div>
-                <ol className="space-y-1.5 text-[11px] text-muted-foreground">
-                  <li>
-                    1. Open Telegram, message{" "}
-                    <a
-                      href="https://t.me/BotFather"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-foreground underline decoration-border hover:decoration-foreground"
-                    >
-                      @BotFather
-                    </a>
-                  </li>
-                  <li>
-                    2. Send <span className="font-mono text-foreground">/newbot</span>
-                  </li>
-                  <li>3. Pick a display name</li>
-                  <li>
-                    4. Pick a username ending in{" "}
-                    <span className="font-mono text-foreground">bot</span>
-                  </li>
-                  <li>5. Copy the token BotFather replies with</li>
-                </ol>
-              </div>
-            </div>
+          {step === "channel" && (
+            <ChannelStep
+              channel={channel}
+              onChannelChange={setChannel}
+              slug={slug}
+              token={token}
+              tokenFocused={tokenFocused}
+              tokenLooksValid={tokenLooksValid}
+              onTokenChange={setToken}
+              onTokenFocus={() => setTokenFocused(true)}
+              onTokenBlur={() => setTokenFocused(false)}
+              onPasteToken={handlePasteToken}
+              discordToken={discordToken}
+              discordTokenFocused={discordTokenFocused}
+              onDiscordTokenChange={setDiscordToken}
+              onDiscordTokenFocus={() => setDiscordTokenFocused(true)}
+              onDiscordTokenBlur={() => setDiscordTokenFocused(false)}
+              discordServerId={discordServerId}
+              onDiscordServerIdChange={setDiscordServerId}
+              discordUserId={discordUserId}
+              onDiscordUserIdChange={setDiscordUserId}
+              slackAppToken={slackAppToken}
+              onSlackAppTokenChange={setSlackAppToken}
+              slackBotToken={slackBotToken}
+              onSlackBotTokenChange={setSlackBotToken}
+            />
           )}
 
           {step === "provisioning" && (
@@ -809,6 +790,7 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
 
           {step === "pairing" && (
             <PairingStep
+              channel={channel}
               pairingCode={pairingCode}
               onChange={setPairingCode}
               onSubmit={submitPairingCode}
@@ -823,7 +805,7 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
               emoji={emoji}
               name={name}
               branch={createdBranch ?? (workspaceSlug ? `${workspaceSlug}/${slug}` : slug)}
-              paired={hasToken}
+              channel={channel}
             />
           )}
         </div>
@@ -840,7 +822,7 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
                 )}
               />
             ))}
-            {submitting && step === "telegram" && (
+            {submitting && step === "channel" && (
               <span className="ml-2 text-[11px] text-muted-foreground/60">
                 Creating branch…
               </span>
@@ -874,7 +856,7 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
                 </Button>
               </>
             )}
-            {step === "telegram" && (
+            {step === "channel" && (
               <>
                 <p className="text-[11px] text-muted-foreground/50">
                   Press Enter to create
@@ -1116,6 +1098,7 @@ function ProvisioningStep({
 }
 
 function PairingStep({
+  channel,
   pairingCode,
   onChange,
   onSubmit,
@@ -1123,6 +1106,7 @@ function PairingStep({
   latestStatus,
   latestError,
 }: {
+  channel: AgentChannel;
   pairingCode: string;
   onChange: (v: string) => void;
   onSubmit: () => void;
@@ -1198,39 +1182,454 @@ function PairingStep({
         <div className="text-[11px] font-medium text-foreground mb-2">
           Get your pairing code
         </div>
-        <ol className="space-y-1.5 text-[11px] text-muted-foreground">
-          <li>1. Open Telegram and find the bot you just created</li>
-          <li>
-            2. Send <span className="font-mono text-foreground">/start</span>
-          </li>
-          <li>3. Copy the code it replies with</li>
-          <li>4. Paste it on the left and press Enter</li>
-        </ol>
-        <a
-          href="https://t.me/"
-          target="_blank"
-          rel="noreferrer"
-          className="mt-3 inline-flex items-center gap-1 text-[11px] text-foreground underline decoration-border hover:decoration-foreground"
-        >
-          Open Telegram
-          <ExternalLink className="h-3 w-3" />
-        </a>
+        {channel === "telegram" && (
+          <>
+            <ol className="space-y-1.5 text-[11px] text-muted-foreground">
+              <li>1. Open Telegram and find the bot you just created</li>
+              <li>
+                2. Send <span className="font-mono text-foreground">/start</span>
+              </li>
+              <li>3. Copy the code it replies with</li>
+              <li>4. Paste it on the left and press Enter</li>
+            </ol>
+            <a
+              href="https://t.me/"
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex items-center gap-1 text-[11px] text-foreground underline decoration-border hover:decoration-foreground"
+            >
+              Open Telegram
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </>
+        )}
+        {channel === "discord" && (
+          <ol className="space-y-1.5 text-[11px] text-muted-foreground">
+            <li>1. Open Discord and DM the bot you just invited</li>
+            <li>2. The bot will reply with a pairing code</li>
+            <li>3. Copy the code and paste it on the left</li>
+            <li>4. Press Enter to pair</li>
+          </ol>
+        )}
       </div>
     </div>
   );
 }
 
+// ── ChannelStep ──────────────────────────────────────────────
+
+type ChannelOption = {
+  id: AgentChannel;
+  label: string;
+  icon: string;
+  description: string;
+};
+
+const CHANNEL_OPTIONS: ChannelOption[] = [
+  { id: "telegram", label: "Telegram", icon: "✈️", description: "Bot token from @BotFather. Fastest setup." },
+  { id: "discord", label: "Discord",   icon: "🎮", description: "Bot token from Developer Portal." },
+  { id: "slack",   label: "Slack",     icon: "💬", description: "App-Level + Bot Token. No pairing needed." },
+  { id: "none",    label: "No channel", icon: "○",  description: "Add a channel later from the agent page." },
+];
+
+const CHANNEL_COMING_SOON = [
+  { id: "whatsapp", label: "WhatsApp", icon: "📱" },
+  { id: "signal",   label: "Signal",   icon: "🔒" },
+];
+
+// Shared token input with mask + paste
+function TokenInput({
+  label,
+  hint,
+  value,
+  focused,
+  onChange,
+  onFocus,
+  onBlur,
+  placeholder,
+  autoFocus,
+}: {
+  label: string;
+  hint?: string;
+  value: string;
+  focused: boolean;
+  onChange: (v: string) => void;
+  onFocus: () => void;
+  onBlur: () => void;
+  placeholder: string;
+  autoFocus?: boolean;
+}) {
+  async function handlePaste() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) onChange(text.trim());
+    } catch { /* clipboard not available */ }
+  }
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-baseline gap-1.5">
+        <label className="text-[11px] uppercase tracking-wider text-muted-foreground/50">{label}</label>
+        {hint && <span className="text-[10px] text-muted-foreground/35 normal-case">{hint}</span>}
+      </div>
+      <div className="relative">
+        <input
+          type="text"
+          value={focused || !value ? value : maskToken(value)}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={onFocus}
+          onBlur={onBlur}
+          placeholder={placeholder}
+          autoFocus={autoFocus}
+          className="w-full h-9 rounded-lg border border-border/50 bg-transparent pl-3 pr-16 font-mono text-xs outline-none focus-visible:ring-1 focus-visible:ring-border/80 placeholder:text-muted-foreground/30"
+        />
+        <button
+          type="button"
+          onClick={handlePaste}
+          className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1 rounded-md px-2 py-1 text-[10px] text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 transition-colors"
+        >
+          <Clipboard className="h-2.5 w-2.5" />
+          Paste
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Plain text input (no masking)
+function PlainInput({
+  label,
+  hint,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  hint?: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-baseline gap-1.5">
+        <label className="text-[11px] uppercase tracking-wider text-muted-foreground/50">{label}</label>
+        {hint && <span className="text-[10px] text-muted-foreground/35 normal-case">{hint}</span>}
+      </div>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full h-9 rounded-lg border border-border/50 bg-transparent px-3 font-mono text-xs outline-none focus-visible:ring-1 focus-visible:ring-border/80 placeholder:text-muted-foreground/30"
+      />
+    </div>
+  );
+}
+
+// Numbered instruction list
+function Steps({ items }: { items: React.ReactNode[] }) {
+  return (
+    <ol className="space-y-2">
+      {items.map((item, i) => (
+        <li key={i} className="flex items-start gap-2 text-[11px] text-muted-foreground">
+          <span className="mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-border/40 text-[9px] font-medium text-muted-foreground/60">
+            {i + 1}
+          </span>
+          <span className="leading-relaxed">{item}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function ChannelStep({
+  channel,
+  onChannelChange,
+  slug,
+  token,
+  tokenFocused,
+  tokenLooksValid,
+  onTokenChange,
+  onTokenFocus,
+  onTokenBlur,
+  onPasteToken,
+  discordToken,
+  discordTokenFocused,
+  onDiscordTokenChange,
+  onDiscordTokenFocus,
+  onDiscordTokenBlur,
+  discordServerId,
+  onDiscordServerIdChange,
+  discordUserId,
+  onDiscordUserIdChange,
+  slackAppToken,
+  onSlackAppTokenChange,
+  slackBotToken,
+  onSlackBotTokenChange,
+}: {
+  channel: AgentChannel;
+  onChannelChange: (c: AgentChannel) => void;
+  slug: string;
+  token: string;
+  tokenFocused: boolean;
+  tokenLooksValid: boolean;
+  onTokenChange: (v: string) => void;
+  onTokenFocus: () => void;
+  onTokenBlur: () => void;
+  onPasteToken: () => void;
+  discordToken: string;
+  discordTokenFocused: boolean;
+  onDiscordTokenChange: (v: string) => void;
+  onDiscordTokenFocus: () => void;
+  onDiscordTokenBlur: () => void;
+  discordServerId: string;
+  onDiscordServerIdChange: (v: string) => void;
+  discordUserId: string;
+  onDiscordUserIdChange: (v: string) => void;
+  slackAppToken: string;
+  onSlackAppTokenChange: (v: string) => void;
+  slackBotToken: string;
+  onSlackBotTokenChange: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-4">
+
+      {/* Channel picker — tile grid */}
+      <div className="grid grid-cols-2 gap-2">
+        {CHANNEL_OPTIONS.map((opt) => {
+          const selected = channel === opt.id;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => onChannelChange(opt.id)}
+              className={cn(
+                "group relative flex flex-col gap-1.5 rounded-xl border p-3 text-left transition-all duration-150 outline-none focus-visible:ring-1 focus-visible:ring-border",
+                selected
+                  ? "border-foreground/60 bg-foreground/[0.04]"
+                  : "border-border/50 bg-card/30 hover:border-border/80 hover:bg-card/60"
+              )}
+            >
+              <div className="flex items-center justify-between">
+                <span className={cn(
+                  "flex h-7 w-7 items-center justify-center rounded-lg text-sm transition-colors",
+                  selected ? "bg-foreground text-background" : "bg-muted/50 text-foreground"
+                )}>
+                  {opt.icon}
+                </span>
+                {selected && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-foreground" />
+                )}
+              </div>
+              <div>
+                <div className={cn(
+                  "text-[12px] font-medium leading-tight transition-colors",
+                  selected ? "text-foreground" : "text-foreground/80"
+                )}>
+                  {opt.label}
+                </div>
+                <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground/60">
+                  {opt.description}
+                </p>
+              </div>
+            </button>
+          );
+        })}
+
+        {/* Coming soon tiles */}
+        {CHANNEL_COMING_SOON.map((opt) => (
+          <div
+            key={opt.id}
+            className="relative flex flex-col gap-1.5 rounded-xl border border-border/30 bg-card/10 p-3 opacity-50 cursor-not-allowed select-none"
+          >
+            <div className="flex items-center justify-between">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted/30 text-sm text-muted-foreground/60">
+                {opt.icon}
+              </span>
+              <span className="rounded-full bg-muted/40 px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground/60 uppercase tracking-wide">
+                Soon
+              </span>
+            </div>
+            <div className="text-[12px] font-medium leading-tight text-muted-foreground/50">
+              {opt.label}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Credential form — only shown for channels that need one */}
+      {channel !== "none" && (
+        <div className="rounded-xl border border-border/40 bg-[oklch(0.13_0_0)] overflow-hidden">
+          <div className="grid grid-cols-[1fr_auto] divide-x divide-border/30">
+
+            {/* Left: form */}
+            <div className="p-4 space-y-3">
+              {channel === "telegram" && (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] uppercase tracking-wider text-muted-foreground/50">Bot token</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={tokenFocused || !token ? token : maskToken(token)}
+                        onChange={(e) => onTokenChange(e.target.value)}
+                        onFocus={onTokenFocus}
+                        onBlur={onTokenBlur}
+                        placeholder="123456:ABCdef…"
+                        autoFocus
+                        className="w-full h-9 rounded-lg border border-border/50 bg-transparent pl-3 pr-16 font-mono text-xs outline-none focus-visible:ring-1 focus-visible:ring-border/80 placeholder:text-muted-foreground/30"
+                      />
+                      <button
+                        type="button"
+                        onClick={onPasteToken}
+                        className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1 rounded-md px-2 py-1 text-[10px] text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 transition-colors"
+                      >
+                        <Clipboard className="h-2.5 w-2.5" />
+                        Paste
+                      </button>
+                    </div>
+                    {token && (
+                      <div className={cn(
+                        "flex items-center gap-1.5 text-[11px]",
+                        tokenLooksValid ? "text-green-400/80" : "text-muted-foreground/40"
+                      )}>
+                        {tokenLooksValid
+                          ? <><Check className="h-3 w-3" /> Looks valid</>
+                          : "Doesn't match BotFather format"}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/40 leading-relaxed">
+                    Stored as{" "}
+                    <span className="font-mono text-muted-foreground/60">
+                      TELEGRAM_TOKEN_{slug.toUpperCase().replace(/-/g, "_") || "SLUG"}
+                    </span>{" "}
+                    on your gateway.
+                  </p>
+                </>
+              )}
+
+              {channel === "discord" && (
+                <>
+                  <TokenInput
+                    label="Bot token"
+                    value={discordToken}
+                    focused={discordTokenFocused}
+                    onChange={onDiscordTokenChange}
+                    onFocus={onDiscordTokenFocus}
+                    onBlur={onDiscordTokenBlur}
+                    placeholder="Bot token from Developer Portal"
+                    autoFocus
+                  />
+                  <PlainInput
+                    label="Server ID"
+                    hint="optional"
+                    value={discordServerId}
+                    onChange={onDiscordServerIdChange}
+                    placeholder="Right-click server → Copy Server ID"
+                  />
+                  <PlainInput
+                    label="Your User ID"
+                    hint="optional"
+                    value={discordUserId}
+                    onChange={onDiscordUserIdChange}
+                    placeholder="Right-click avatar → Copy User ID"
+                  />
+                </>
+              )}
+
+              {channel === "slack" && (
+                <>
+                  <TokenInput
+                    label="App-Level Token"
+                    hint="xapp-…"
+                    value={slackAppToken}
+                    focused={false}
+                    onChange={onSlackAppTokenChange}
+                    onFocus={() => {}}
+                    onBlur={() => {}}
+                    placeholder="xapp-1-…"
+                    autoFocus
+                  />
+                  <TokenInput
+                    label="Bot Token"
+                    hint="xoxb-…"
+                    value={slackBotToken}
+                    focused={false}
+                    onChange={onSlackBotTokenChange}
+                    onFocus={() => {}}
+                    onBlur={() => {}}
+                    placeholder="xoxb-…"
+                  />
+                </>
+              )}
+            </div>
+
+            {/* Right: numbered instructions */}
+            <div className="w-44 shrink-0 p-4">
+              <p className="mb-3 text-[10px] uppercase tracking-wider text-muted-foreground/40">
+                How to get it
+              </p>
+              {channel === "telegram" && (
+                <Steps items={[
+                  <>Message <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" className="text-foreground underline decoration-border hover:decoration-foreground">@BotFather</a></>,
+                  <>Send <span className="font-mono text-foreground">/newbot</span></>,
+                  "Name your bot",
+                  "Copy the token it replies with",
+                ]} />
+              )}
+              {channel === "discord" && (
+                <Steps items={[
+                  <><a href="https://discord.com/developers/applications" target="_blank" rel="noreferrer" className="text-foreground underline decoration-border hover:decoration-foreground">Developer Portal</a> → New App</>,
+                  <>Bot → <span className="text-foreground">Reset Token</span></>,
+                  <>Enable <span className="text-foreground">Message Content</span> Intent</>,
+                  "OAuth2 → invite to your server",
+                  "Enable Developer Mode to copy IDs",
+                ]} />
+              )}
+              {channel === "slack" && (
+                <Steps items={[
+                  <><a href="https://api.slack.com/apps/new" target="_blank" rel="noreferrer" className="text-foreground underline decoration-border hover:decoration-foreground">api.slack.com</a> → New App</>,
+                  "Create from manifest",
+                  <>App-Level Token → <span className="text-foreground">connections:write</span></>,
+                  "Install app → copy Bot Token",
+                  "No pairing step — active immediately",
+                ]} />
+              )}
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {channel === "none" && (
+        <p className="text-[11px] text-muted-foreground/50 leading-relaxed">
+          The agent will be provisioned without a messaging channel. Add one later from the agent page.
+        </p>
+      )}
+    </div>
+  );
+}
+
+const CHANNEL_LABELS: Record<AgentChannel, string> = {
+  telegram: "Telegram",
+  discord: "Discord",
+  slack: "Slack",
+  none: "",
+};
+
 function ReadyStep({
   emoji,
   name,
   branch,
-  paired,
+  channel,
 }: {
   emoji: string | undefined;
   name: string;
   branch: string;
-  paired: boolean;
+  channel: AgentChannel;
 }) {
+  const channelLabel = CHANNEL_LABELS[channel];
   return (
     <div className="flex flex-col items-center justify-center py-8 text-center">
       <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-500/10 mb-4">
@@ -1241,11 +1640,16 @@ function ReadyStep({
         {name || "Agent"} is ready
       </div>
       <div className="mt-1.5 text-xs text-muted-foreground">
-        {paired ? "Connected to Telegram" : "Pair later from the agent page"} · <span className="font-mono">{branch}</span>
+        {channel !== "none" ? `Connected to ${channelLabel}` : "Add a channel from the agent page"} · <span className="font-mono">{branch}</span>
       </div>
-      {!paired && (
+      {channel === "none" && (
         <p className="mt-4 max-w-sm text-[11px] text-muted-foreground/60 leading-relaxed">
-          You didn&rsquo;t add a Telegram token — the agent is provisioned but not yet reachable over Telegram. Add a token and pair from the agent page when you&rsquo;re ready.
+          The agent is provisioned but has no channel. Add a channel from the agent page when you&rsquo;re ready.
+        </p>
+      )}
+      {channel === "slack" && (
+        <p className="mt-4 max-w-sm text-[11px] text-muted-foreground/60 leading-relaxed">
+          Your Slack bot is wired up and ready. Message it in Slack to start a conversation.
         </p>
       )}
     </div>
