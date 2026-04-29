@@ -320,12 +320,25 @@ CODE_PATTERNS = [
     re.compile(r"verification[_ ]code[: ]+([A-Z0-9-]{4,12})", re.IGNORECASE),
 ]
 
+ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[a-zA-Z]|\x1b\][^\x07]*\x07|[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
+
+def strip_ansi(s):
+    """Drop ANSI escape sequences + control bytes that clack-style CLIs emit.
+
+    openclaw uses the @clack/prompts library which paints UI with cursor
+    moves and spinner frames. Without stripping, our regex matches the
+    URL but the surrounding line has 30+ control bytes that break copy.
+    """
+    return ANSI_RE.sub("", s)
+
 
 def parse_auth_progress(text):
     """Pull URL + verification code out of CLI stdout. Returns (url, code) or (None, None)."""
+    cleaned = strip_ansi(text)
     url = None
     code = None
-    for line in text.splitlines():
+    for line in cleaned.splitlines():
         if not url:
             m = URL_PATTERNS[0].search(line)
             if m:
@@ -339,29 +352,46 @@ def parse_auth_progress(text):
     return url, code
 
 
-def watch_auth_stdout(cmd_id, proc, on_url_ready):
-    """Background thread: scan proc.stdout for URL/code, fire callback once found."""
-    buf = []
+def watch_auth_stdout(cmd_id, master_fd, on_url_ready, stop_event, output_sink):
+    """Background thread: read PTY master, scan for URL/code, fire callback.
+
+    Reads bytes off the master fd (the parent end of the PTY) and appends
+    to `output_sink` (a list) so the main handler can pull final output
+    when the process exits. `stop_event` signals shutdown.
+    """
+    import select
+    buf = b""
     found = False
-    try:
-        for line in iter(proc.stdout.readline, ""):
-            if not line:
-                break
-            buf.append(line)
-            if not found:
-                url, code = parse_auth_progress("".join(buf))
-                if url:
-                    found = True
-                    try:
-                        on_url_ready(url, code)
-                    except Exception as e:
-                        log(f"on_url_ready failed: {e}")
-            # If buffer grows huge, drop the prefix — we only need the
-            # most recent few KB to find late-arriving codes.
-            if len(buf) > 200:
-                buf = buf[-100:]
-    except Exception as e:
-        log(f"watch_auth_stdout for {cmd_id} crashed: {e}")
+    while not stop_event.is_set():
+        try:
+            r, _, _ = select.select([master_fd], [], [], 0.5)
+        except (OSError, ValueError):
+            break
+        if master_fd not in r:
+            continue
+        try:
+            chunk = os.read(master_fd, 4096)
+        except OSError:
+            break
+        if not chunk:
+            break
+        buf += chunk
+        output_sink.append(chunk)
+        if not found:
+            try:
+                text = buf.decode("utf-8", errors="replace")
+            except Exception:
+                text = ""
+            url, code = parse_auth_progress(text)
+            if url:
+                found = True
+                try:
+                    on_url_ready(url, code)
+                except Exception as e:
+                    log(f"on_url_ready failed: {e}")
+        # Cap buffer growth — only need the recent few KB.
+        if len(buf) > 32 * 1024:
+            buf = buf[-8 * 1024:]
     log(f"auth stdout stream closed for {cmd_id}")
 
 
@@ -369,10 +399,24 @@ def cleanup_auth_flow(cmd_id, sock=None):
     with INFLIGHT_LOCK:
         entry = INFLIGHT_AUTH.pop(cmd_id, None)
     if entry:
+        # Signal the watcher thread first so it stops blocking on select().
+        stop_event = entry.get("stop_event")
+        if stop_event:
+            try:
+                stop_event.set()
+            except Exception:
+                pass
         try:
             entry["proc"].terminate()
         except Exception:
             pass
+        # Close the PTY master fd we opened.
+        master_fd = entry.get("master_fd")
+        if master_fd is not None:
+            try:
+                os.close(master_fd)
+            except Exception:
+                pass
     if sock:
         try:
             sock.close()
@@ -481,17 +525,36 @@ def handle_auth_start(cmd_id, payload):
 
     sock = occupy_localhost_1455() if mode != "device_code" else None
 
+    # PTY-backed spawn. openclaw uses @clack/prompts which calls
+    # process.stdin.isTTY — without a real tty it bails immediately
+    # (exit 1, "Open: <url>" printed, then the spinner never renders).
+    # We allocate a pseudo-terminal pair: child gets `slave` as its
+    # stdin/stdout/stderr, we keep `master` to read output and write
+    # the user's pasted code in.
+    import pty
+    master_fd, slave_fd = pty.openpty()
+    output_sink = []
+    stop_event = threading.Event()
+
     try:
         proc = subprocess.Popen(
             args,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-            env={**os.environ, "HOME": HOME},
+            stdin=slave_fd,
+            stdout=slave_fd,
+            stderr=slave_fd,
+            close_fds=True,
+            env={**os.environ, "HOME": HOME, "TERM": "xterm-256color"},
+            preexec_fn=os.setsid,  # Detach from runner's controlling tty.
         )
     except Exception as e:
+        try:
+            os.close(master_fd)
+        except Exception:
+            pass
+        try:
+            os.close(slave_fd)
+        except Exception:
+            pass
         cleanup_auth_flow(cmd_id, sock)
         api_rpc("fail_command", {
             "p_command_id": cmd_id, "p_exit_code": None,
@@ -500,10 +563,18 @@ def handle_auth_start(cmd_id, payload):
         })
         return
 
+    # The child has its own copy of slave_fd via dup2 — close ours.
+    try:
+        os.close(slave_fd)
+    except Exception:
+        pass
+
     started_at = time.time()
     with INFLIGHT_LOCK:
         INFLIGHT_AUTH[cmd_id] = {
             "proc": proc,
+            "master_fd": master_fd,
+            "stop_event": stop_event,
             "started_at": started_at,
             "provider": provider,
             "profile_name": profile_name,
@@ -519,7 +590,7 @@ def handle_auth_start(cmd_id, payload):
 
     threading.Thread(
         target=watch_auth_stdout,
-        args=(cmd_id, proc, on_url_ready),
+        args=(cmd_id, master_fd, on_url_ready, stop_event, output_sink),
         daemon=True,
     ).start()
 
@@ -535,9 +606,27 @@ def handle_auth_start(cmd_id, payload):
         time.sleep(1)
 
     rc = proc.returncode
-    # Drain any remaining output.
+    # Stop the watcher and drain remaining bytes.
+    stop_event.set()
+    time.sleep(0.2)  # let watcher exit so we don't double-read
     try:
-        remaining = proc.stdout.read() if proc.stdout else ""
+        # Drain anything still buffered. Non-blocking read.
+        import fcntl
+        fcntl.fcntl(master_fd, fcntl.F_SETFL, os.O_NONBLOCK)
+        while True:
+            try:
+                chunk = os.read(master_fd, 4096)
+            except (BlockingIOError, OSError):
+                break
+            if not chunk:
+                break
+            output_sink.append(chunk)
+    except Exception:
+        pass
+
+    remaining_bytes = b"".join(output_sink)
+    try:
+        remaining = strip_ansi(remaining_bytes.decode("utf-8", errors="replace"))
     except Exception:
         remaining = ""
 
@@ -612,10 +701,15 @@ def handle_auth_paste(cmd_id, payload):
     except Exception:
         pass
 
-    proc = entry["proc"]
+    master_fd = entry.get("master_fd")
     try:
-        proc.stdin.write(value + "\n")
-        proc.stdin.flush()
+        if master_fd is None:
+            raise RuntimeError("parent flow has no master fd")
+        # Write to the PTY master so the child sees it on its stdin.
+        # Newline submits the prompt for line-mode prompts (clack uses
+        # this for text fields). Some prompts may need \r instead — we
+        # send both to be safe.
+        os.write(master_fd, (value + "\r\n").encode("utf-8"))
         # Scrub the pasted secret immediately.
         scrubbed = {k: v for k, v in payload.items() if k != "value"}
         scrubbed["value_scrubbed"] = True
