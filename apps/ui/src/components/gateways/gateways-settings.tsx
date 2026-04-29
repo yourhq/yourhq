@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   MoreHorizontal,
   Trash2,
+  Download,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -33,6 +34,7 @@ import {
   listGatewaysAction,
   removeGatewayAction,
 } from "@/app/dashboard/settings/gateways/actions";
+import { enqueueAgentCommand } from "@/app/dashboard/agents/actions";
 import {
   GATEWAY_STATUS,
   isHeartbeatFresh,
@@ -49,6 +51,7 @@ export function GatewaysSettings({ initialGateways }: GatewaysSettingsProps) {
   const [gateways, setGateways] = useState<Gateway[]>(initialGateways);
   const [addOpen, setAddOpen] = useState(false);
   const [deleting, setDeleting] = useState<Gateway | null>(null);
+  const [updating, setUpdating] = useState<Gateway | null>(null);
   const router = useRouter();
 
   const refetch = useMemo(
@@ -106,6 +109,7 @@ export function GatewaysSettings({ initialGateways }: GatewaysSettingsProps) {
                   key={gw.id}
                   gateway={gw}
                   isFirst={idx === 0}
+                  onUpdate={() => setUpdating(gw)}
                   onDelete={() => setDeleting(gw)}
                 />
               ))}
@@ -119,6 +123,34 @@ export function GatewaysSettings({ initialGateways }: GatewaysSettingsProps) {
         onOpenChange={setAddOpen}
         onAdded={() => void refetch()}
       />
+
+      {updating && (
+        <ConfirmDialog
+          open
+          onCancel={() => setUpdating(null)}
+          title={`Update ${updating.label}?`}
+          description={
+            <>
+              This will pull the latest images and restart the gateway{" "}
+              <span className="font-mono">{updating.slug}</span>. Agents will
+              briefly disconnect during the restart.
+            </>
+          }
+          confirmLabel="Update"
+          onConfirm={async () => {
+            try {
+              await enqueueAgentCommand({
+                action: "update_gateway",
+                gatewayId: updating.id,
+              });
+              toast.success("Update queued — check System for progress");
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Failed to queue update");
+            }
+            setUpdating(null);
+          }}
+        />
+      )}
 
       {deleting && (
         <ConfirmDialog
@@ -158,10 +190,12 @@ export function GatewaysSettings({ initialGateways }: GatewaysSettingsProps) {
 function GatewayRow({
   gateway,
   isFirst,
+  onUpdate,
   onDelete,
 }: {
   gateway: Gateway;
   isFirst: boolean;
+  onUpdate: () => void;
   onDelete: () => void;
 }) {
   const fresh = isHeartbeatFresh(gateway.last_seen_at);
@@ -247,6 +281,16 @@ function GatewayRow({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                onUpdate();
+              }}
+              className="gap-2"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Update
+            </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={(e) => {
                 e.preventDefault();

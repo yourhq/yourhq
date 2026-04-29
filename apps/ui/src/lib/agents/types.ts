@@ -107,7 +107,8 @@ export type CommandAction =
   | "auth_list"
   | "auth_remove"
   | "auth_refresh"
-  | "auth_set_default";
+  | "auth_set_default"
+  | "update_gateway";
 
 export type CommandStatus = "pending" | "leased" | "running" | "done" | "failed";
 
@@ -138,7 +139,7 @@ export const AGENT_COMMAND_ACTIONS: CommandAction[] = [
 ];
 
 export const SYSTEM_COMMAND_ACTIONS: CommandAction[] = [
-  "restart_gateway", "update_all", "restart_dispatcher",
+  "restart_gateway", "update_all", "restart_dispatcher", "update_gateway",
 ];
 
 export const CONNECTION_COMMAND_ACTIONS: CommandAction[] = [
@@ -161,6 +162,7 @@ export const COMMAND_ACTION_LABELS: Record<CommandAction, string> = {
   auth_remove: "Remove connection",
   auth_refresh: "Probe connection",
   auth_set_default: "Set default model",
+  update_gateway: "Update Gateway",
 };
 
 export const COMMAND_STATUS_COLORS: Record<CommandStatus, string> = {

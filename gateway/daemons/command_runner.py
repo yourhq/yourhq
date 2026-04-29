@@ -252,6 +252,11 @@ def build_command(action, agent_slug, payload):
             return ["docker", "compose", "-p", COMPOSE_PROJECT, "restart", "dispatcher"], "Restarting dispatcher (docker)"
         return ["systemctl", "--user", "restart", "hq-inbox-dispatcher"], "Restarting dispatcher"
 
+    elif action == "update_gateway":
+        if RUNTIME_MODE == "docker":
+            return ["bash", "-c", f"docker compose -p {COMPOSE_PROJECT} pull && docker compose -p {COMPOSE_PROJECT} up -d"], "Updating gateway (docker pull + up)"
+        return ["bash", "-c", "cd ~ && git pull && ./install.sh --update"], "Updating gateway (git pull)"
+
     else:
         return None, f"Unknown action: {action}"
 

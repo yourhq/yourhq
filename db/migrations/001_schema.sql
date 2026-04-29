@@ -1476,6 +1476,7 @@ ALTER TYPE command_action ADD VALUE IF NOT EXISTS 'auth_list';
 ALTER TYPE command_action ADD VALUE IF NOT EXISTS 'auth_remove';
 ALTER TYPE command_action ADD VALUE IF NOT EXISTS 'auth_refresh';
 ALTER TYPE command_action ADD VALUE IF NOT EXISTS 'auth_set_default';
+ALTER TYPE command_action ADD VALUE IF NOT EXISTS 'update_gateway';
 
 DO $$ BEGIN
   CREATE TYPE command_status AS ENUM (

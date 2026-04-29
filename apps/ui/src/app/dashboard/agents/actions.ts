@@ -142,6 +142,7 @@ export async function createAgentWithBranch(
 export interface EnqueueCommandInput {
   agentId?: string;
   agentSlug?: string;
+  gatewayId?: string;
   action: CommandAction;
   payload?: Record<string, unknown>;
 }
@@ -183,6 +184,7 @@ export async function enqueueAgentCommand(
     .insert({
       agent_id: input.agentId || null,
       agent_slug: input.agentSlug || null,
+      gateway_id: input.gatewayId || null,
       action: input.action,
       payload: input.payload ?? {},
       requested_by: user.id,
