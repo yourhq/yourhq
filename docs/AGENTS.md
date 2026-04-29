@@ -10,9 +10,10 @@ In HQ, an agent is a long-lived workspace made of:
 - A **Chrome profile** on the gateway (persistent cookies, logged-in sessions, extensions).
 - An **OpenClaw session** — the runtime. Handles prompt assembly, tool calls, conversation state.
 - A **Telegram bot** — each agent has its own bot, its own token. Primary I/O channel.
-- A row in the Supabase `agents` table — the metadata, including `gateway_id` (which gateway runs it) and `meta` JSONB for template-specific config.
+- A row in the Supabase `agents` table — the metadata, including `gateway_id` (which gateway runs it), `reports_to_id` (its manager), and `meta` JSONB for template-specific config.
+- A usage budget row in `agent_budgets` once usage is configured or first recorded.
 
-Agents run on **one gateway**. If a gateway goes down, its agents go down with it. Moving an agent to another gateway is manual (re-provision, or Phase 3 adds a UI flow).
+Agents run on **one gateway**. If a gateway goes down, its agents go down with it. Moving an agent to another gateway is still an operator action: provision on the target gateway and migrate the branch/state intentionally.
 
 ## The template library
 
@@ -49,7 +50,7 @@ The rest of the template (role-specific skills, IDENTITY prose, MEMORY, etc.) is
 
 1. UI → Agents → New Agent.
 2. Wizard step 1: pick a template. Templates load from `/api/agents/templates` (baked into the UI image from the `templates/` directory at build time).
-3. Step 2: name, slug (auto-generated from name), emoji, optional description override.
+3. Step 2: name, slug (auto-generated from name), emoji, optional description override, and optional manager.
 4. Step 3: paste a Telegram bot token (from BotFather).
 5. Click Create.
 
@@ -173,6 +174,33 @@ Every agent lives on its own git branch. File changes land on disk immediately, 
 
 11. Open a PR if it's generally useful.
 
+## Org chart and delegation
+
+Agents can report to other agents. The `reports_to_id` field creates a lightweight org chart in the agent list and on each agent detail page.
+
+When an agent has a manager or direct reports, the HQ bootstrap plugin injects a "Your Position" section into runtime context. That context tells the agent:
+
+- Who its manager is.
+- Which agents report to it.
+- To delegate by creating assigned tasks for direct reports.
+- To escalate by creating high-priority tasks for its manager.
+- To ask the human before routing work to peer agents outside the direct hierarchy.
+
+Cycle prevention is handled before saving manager changes: an agent cannot report to itself, and the UI checks the manager chain so loops cannot be created accidentally.
+
+## Usage budgets
+
+HQ records model usage for each agent in `agent_usage` and keeps a current-period rollup in `agent_budgets`.
+
+Budget controls live on the agent detail page. Per-agent settings include:
+
+- Monthly limit in USD.
+- Soft warning threshold percentage.
+- Whether to hard-stop the agent after exceeding the limit.
+- Period timezone.
+
+When pricing is known, the runtime estimates cost from token counts. When pricing is unknown, calls are still counted as unmetered usage. If a hard cutoff is active and the agent exceeds its limit, the bootstrap plugin blocks further replies and the inbox dispatcher skips background wakes for that agent.
+
 ## Skills and tools
 
 Agents have access to (via openclaw):
@@ -180,7 +208,6 @@ Agents have access to (via openclaw):
 - **Browser** — a dedicated Chrome profile they can drive. Visit pages, screenshot, click, type. Persistent cookies.
 - **Telegram** — send/receive messages with their paired user.
 - **HQ database** — read/write contacts, tasks, documents, interactions via the service role.
-- **Voice / calling** — phone-control plugin (Phase 3).
 - **MCP servers** — any MCP server you configure. Slack, GitHub, Notion, Google Calendar, etc.
 - **Shell** — scoped to their workspace directory.
 
@@ -206,7 +233,7 @@ Agents see the same database, so they can see each other's tasks and documents. 
 - **Automation rules** — `automation_rules` table can fire inbox items on CRM events. Agent A writes a contact update → rule creates inbox item for agent B.
 - **Task assignment** — assigning a task to an agent enqueues an inbox item (via `enqueue_task_assignment` trigger).
 
-Phase 2+ may add more direct invocation patterns.
+The org chart adds a convention on top of these primitives: managers and direct reports coordinate through tasks instead of direct hidden calls.
 
 ## Debugging an agent
 

@@ -12,7 +12,7 @@ One UI, many AI agents, your infrastructure.
 
 ---
 
-HQ is a self-hosted dashboard for running AI agents that do real work on your behalf — drafting outreach, managing contacts, handling tasks, browsing the web, talking over Telegram. Your Supabase, your Docker host, your agents.
+HQ is a self-hosted dashboard for running AI agents that do real work on your behalf: drafting outreach, managing contacts, handling tasks, browsing the web, talking over Telegram, coordinating with each other, and keeping durable memory in their own workspaces. Your Supabase, your Docker hosts, your agents.
 
 No vendor lock-in. No per-seat pricing. No data leaving your infrastructure.
 
@@ -22,6 +22,7 @@ No vendor lock-in. No per-seat pricing. No data leaving your infrastructure.
 - **Run anywhere Docker runs.** Laptop, Raspberry Pi, Mac mini, VPS, EC2 — same code, same experience.
 - **One UI, many gateways.** Run the UI on your laptop, gateways anywhere. Agents provision on the host you pick.
 - **Agents are real programs**, not chat wrappers. They browse, send messages, edit files, call APIs — with real memory across sessions.
+- **Operational workspace included.** CRM, tasks, docs, assets, automations, activity, notifications, usage budgets, and gateway management live in one UI.
 - **Template library included.** Cofounder, designer, analyst, CMO, newsletter editor, and more — starting points you customize in-place.
 
 ## Install
@@ -45,7 +46,7 @@ Then in the browser: paste your Supabase URL + keys in the onboarding screen, si
 ### Prerequisites
 
 - Docker (installer can install it for you on Linux)
-- A Supabase project — [create a free one](https://supabase.com), then run [`db/migrations/001_schema.sql`](db/migrations/001_schema.sql) in the SQL editor. You paste the URL + keys into the UI once it's up.
+- A Supabase project — [create a free one](https://supabase.com), then run the SQL migrations in [`db/migrations/`](db/migrations/) in order. You paste the URL + keys into the UI once it's up.
 
 ### Manual install
 
@@ -84,10 +85,11 @@ _Coming soon — see [yourhq.ai](https://yourhq.ai) for screenshots and demo._
            └──────────┘  └──────────┘  └──────────┘
 ```
 
-Each gateway is a Docker container with:
+Each gateway host runs:
 - **OpenClaw** — the agent runtime
 - **Chrome + noVNC** — a full desktop with a browser each agent can drive
 - **Python daemons** — wake agents when there's new work; execute lifecycle commands
+- **Files API** — lets the UI read and edit agent worktree files safely
 
 Agents get their own git branch, their own Chrome profile, and a shared workspace. No two agents stomp on each other.
 
@@ -98,15 +100,14 @@ Read the full breakdown in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 Out of the box, agents have access to:
 
 - **Web browsing** — a dedicated Chrome profile they can drive autonomously
-- **Your CRM** — contacts, organizations, tasks, interactions
-- **Documents** — shared knowledge base with vector search
+- **Your workspace** — contacts, organizations, tasks, interactions, documents, assets
 - **Telegram** — each agent gets its own bot
-- **Voice** — inbound calls (Phase 3)
+- **Provider connections** — OpenAI, Anthropic, Gemini, local OpenAI-compatible servers, and other OpenClaw-supported providers
 - **Calendar, email, Slack, Notion** — via MCP or custom plugins
 
-They have persistent memory across sessions, can delegate to each other, and write their own workflow improvements back to files (with your approval, if you want).
+They have persistent memory across sessions, can report to and delegate to each other, can be governed by monthly usage budgets, and can write their own workflow improvements back to files.
 
-See [docs/AGENTS.md](docs/AGENTS.md) for the agent model and how to write a custom template.
+See [docs/FEATURES.md](docs/FEATURES.md) for the product tour and [docs/AGENTS.md](docs/AGENTS.md) for the agent model and custom templates.
 
 ## Deploying
 
@@ -123,14 +124,11 @@ All of these use the same installer and the same Docker images. The only differe
 
 See [docs/NETWORKING.md](docs/NETWORKING.md) for deployment topologies.
 
-## Roadmap
+## Current status
 
-HQ is shipping in phases. See the [full plan](docs/ROADMAP.md) for detail.
+HQ already includes the self-hosted stack, browser onboarding, multi-project registry, UI-driven gateway registration, provider connections, noVNC desktop access, agent templates, CRM, tasks, documents, automations, agent usage budgets, and agent reporting hierarchy.
 
-- ✅ **Phase 1** — monorepo, Docker stack, installer, multi-gateway support at the DB level
-- 🔄 **Phase 2** — multi-project UI (one install manages N Supabase projects), config-less first boot
-- ⏳ **Phase 3** — UI-driven gateway management (add gateways from the UI, Codex/API-key auth flows, updates, open-desktop modal)
-- ⏳ **Phase 4** — hosted offering for those who don't want to self-host
+The remaining roadmap is mostly hardening, polish, hosted deployment, and deeper integrations. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Contributing
 

@@ -22,17 +22,16 @@ cp .env.example .env
 
 Fill in `.env`:
 
-- `SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL` — your Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — anon key from Supabase → Settings → API
-- `SUPABASE_SERVICE_ROLE_KEY` — service role key from the same page
+- `SUPABASE_URL` — optional override for gateway services. Leave empty to use browser onboarding.
+- `SUPABASE_SERVICE_ROLE_KEY` — optional override for gateway services. Leave empty to use browser onboarding.
 - `WORKSPACE_SLUG` — any slug, e.g. `dev`
 - `GATEWAY_AUTH_TOKEN` — generate with `openssl rand -hex 32`
 
 Run the migration in your Supabase project:
 
 1. Open Supabase Studio → SQL Editor
-2. Paste `db/migrations/001_schema.sql`
-3. Run
+2. Run every file in `db/migrations/` in filename order
+3. Confirm the schema now has the core tables plus `agent_usage`, `agent_budgets`, and `agents.reports_to_id`
 
 Create an auth user: Supabase → Authentication → Users → Add user (check "Auto Confirm User").
 
@@ -67,13 +66,11 @@ npm run dev
 Create `apps/ui/.env.local`:
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
 GATEWAY_AUTH_TOKEN=...
 ```
 
-Pages that depend on a gateway will error — expected.
+Then either complete browser onboarding against the dev server or set `HQ_CONFIG_DIR` to a local directory containing compatible `projects.json` and `secrets.json` files. Pages that depend on a gateway will error if no gateway is running — expected.
 
 ## Working on just the gateway
 
@@ -105,7 +102,7 @@ yourhq/
 │   ├── scripts/                # Shell helpers (add-agent.sh, etc.)
 │   └── xfce-defaults/          # XFCE theme XMLs
 ├── templates/                  # Agent templates (one dir each)
-├── db/migrations/              # Single schema migration
+├── db/migrations/              # Ordered SQL migrations
 ├── installer/install.sh        # The curl | bash target
 ├── docker-compose.yml          # Production stack
 ├── docker-compose.dev.yml      # Live-reload overlay
@@ -121,7 +118,7 @@ docker compose build --no-cache ui
 docker compose up -d ui
 ```
 
-Needed when you add npm packages or change `NEXT_PUBLIC_*` env vars.
+Needed when you add npm packages or change build-time UI behavior. Supabase browser config is runtime-injected from the project registry, so changing Supabase projects does not require an image rebuild.
 
 ### Reset the gateway state
 

@@ -1,18 +1,18 @@
-# Testing Phase 1
+# Testing
 
-Staged test plan for validating the Phase 1 Docker stack. Each stage is independently testable; stop at the first failure, debug, retry that stage.
+Staged test plan for validating the Docker stack. Each stage is independently testable; stop at the first failure, debug, retry that stage.
 
 ## Environment
 
-Recommended: **GitHub Codespaces** on this repo's `initial` branch.
+Recommended: **GitHub Codespaces** on this repo's default branch.
 
-- Open the repo on GitHub → **Code → Codespaces → Create codespace on initial**.
+- Open the repo on GitHub → **Code → Codespaces → Create codespace**.
 - Wait ~3 min for the devcontainer to boot.
 - The `postCreateCommand` installs UI deps, copies `.env.example` → `.env`, and prints a quick-start banner.
 
 Ports forwarded automatically: `3000` (UI), `6901` (noVNC).
 
-You'll also need a **throwaway Supabase project** — do not point this at production while testing. Go to [supabase.com](https://supabase.com), create a free project, and in SQL Editor paste the contents of [`db/migrations/001_schema.sql`](db/migrations/001_schema.sql). Then copy the URL, anon key, and service role key into the Codespaces `.env`.
+You'll also need a **throwaway Supabase project** — do not point this at production while testing. Go to [supabase.com](https://supabase.com), create a free project, and run every SQL file in [`db/migrations/`](db/migrations/) in filename order. Then copy the URL, anon key, and service role key for browser onboarding.
 
 ## Stage 1 — UI build and run
 
@@ -28,7 +28,7 @@ Expected:
 - Build completes without errors (first build: 3–5 min — Next.js compile + optimize).
 - `ui` container shows "Ready on http://0.0.0.0:3000" in logs.
 - Codespaces shows a notification for port 3000; click to open the URL.
-- Browser loads the login page (may 500 if Supabase creds are wrong — that's fine, this stage is just container runtime).
+- Browser loads the onboarding or login page. If the project registry is empty, onboarding is expected.
 
 Common failures:
 - `ENOENT ./public/...` → a COPY path in the Dockerfile is wrong.
@@ -40,8 +40,8 @@ Common failures:
 
 Prove the UI connects to Supabase and renders real data.
 
-1. In `.env`, fill in `SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`. Both `NEXT_PUBLIC_*` entries are required — they're baked into the Next.js client bundle at build time, so they must be set **before** `docker compose build ui`. If you change them afterward, rebuild with `docker compose build --no-cache ui`.
-2. Create an auth user in Supabase → Authentication → Users → Add user → "Create new user."
+1. Start the UI and complete browser onboarding with the throwaway Supabase URL, anon key, and service role key.
+2. Create or sign in with a Supabase auth user when prompted. You can also create one manually in Supabase → Authentication → Users → Add user.
 
 ```bash
 docker compose up -d ui

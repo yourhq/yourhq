@@ -345,8 +345,9 @@ Use cases:
 HQ doesn't bundle anything here — you pick the tool. Listed best-first for
 typical use cases.
 
-> A Phase 3 UI flow to set these up from Settings → Gateways is planned; for
-> now it's all manual. The options below all work today.
+The options below all work today. Gateway URL overrides can be managed from
+Settings → Gateways; host-level reverse proxy and tunnel setup is still done
+outside HQ.
 
 ### Option A: Tailscale Serve — `https://hq.<tailnet>.ts.net`
 
@@ -551,8 +552,8 @@ missing)`, either:
 
 - Supabase is unreachable from the gateway host (check
   `curl $SUPABASE_URL/rest/v1/` from the host)
-- The `gateways` table doesn't exist — run the migration at
-  `db/migrations/001_schema.sql` in the Supabase SQL editor.
+- The `gateways` table doesn't exist — run every migration in
+  `db/migrations/` in filename order from the Supabase SQL editor.
 
 If it registered fine but the UI still doesn't list it: the UI polls the
 `gateways` table every ~30s; give it a refresh.
