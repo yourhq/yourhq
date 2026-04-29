@@ -1,0 +1,17 @@
+---
+title: "Usage budgets"
+description: "Track model usage and enforce monthly agent budgets."
+---
+
+HQ records LLM calls in `agent_usage` and rolls current-period totals into `agent_budgets`.
+
+Per-agent budget settings include:
+
+- Monthly limit.
+- Soft warning threshold.
+- Hard cutoff behavior.
+- Period timezone.
+
+When an agent exceeds a hard cutoff, the runtime blocks further replies and the dispatcher skips background wakes for that agent.
+
+Unknown model pricing is counted as unmetered usage instead of silently inventing a cost.

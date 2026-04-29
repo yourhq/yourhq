@@ -1,0 +1,44 @@
+---
+title: "Add a gateway"
+description: "Register another Docker host so it can run agents for the same HQ workspace."
+---
+
+A gateway is a Docker host that runs agents. One HQ workspace can have multiple gateways.
+
+## UI-driven flow
+
+1. Open Settings → Gateways.
+2. Select Add Gateway.
+3. Enter a label.
+4. Optionally paste a Tailscale auth key for the gateway host.
+5. Copy the generated installer command.
+6. Run it on the new host.
+7. Keep the dialog open until the token is consumed and the gateway appears.
+
+The UI stores only a hash of the registration token. The plaintext token is shown once in the generated command.
+
+## Manual flow
+
+Manual registration is useful for development or unusual deployment layouts.
+
+1. Clone the repo on the gateway host.
+2. Copy `.env.example` to `.env`.
+3. Set a unique `GATEWAY_ID`.
+4. Point the gateway at the same Supabase project.
+5. Set `HOST_REACHABLE_URL` for that host.
+6. Run:
+
+```bash
+docker compose up -d gateway dispatcher runner
+```
+
+The gateway upserts itself into the `gateways` table and starts heartbeating.
+
+## Troubleshooting
+
+If the gateway does not appear, check:
+
+- Supabase URL and service role key.
+- Migration status.
+- Host networking and firewall.
+- Gateway logs with `docker compose logs gateway`.

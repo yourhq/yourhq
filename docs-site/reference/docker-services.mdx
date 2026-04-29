@@ -1,0 +1,22 @@
+---
+title: "Docker services"
+description: "The containers in the HQ Compose stack."
+---
+
+HQ's default Compose stack has four services.
+
+## `ui`
+
+Next.js dashboard. Renders the workspace and writes Supabase rows through server actions.
+
+## `gateway`
+
+Agent runtime host container. Runs OpenClaw, Chrome/Chromium, XFCE, noVNC, and the files API.
+
+## `dispatcher`
+
+Python daemon that watches `agent_inbox_items`, filters work for the local gateway, checks budget state, and wakes agents.
+
+## `runner`
+
+Python daemon that watches `agent_commands`, leases commands for the local gateway, executes lifecycle/auth/operations work, and reports results.

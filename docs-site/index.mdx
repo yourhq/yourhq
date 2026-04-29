@@ -1,0 +1,33 @@
+---
+title: "HQ documentation"
+description: "Open-source docs for running, operating, extending, and contributing to HQ."
+---
+
+HQ is a self-hostable agent operations platform. It gives one operator a workspace for agents, CRM, tasks, documents, automations, provider connections, gateways, and usage budgets.
+
+The project is fully open source. You can clone it, inspect it, run it on your own infrastructure, fork it, and change it for your own workflows.
+
+## Start here
+
+- [Quickstart](/getting-started/quickstart) — get HQ running for the first time.
+- [Installation](/self-host/installation) — install paths and post-install setup.
+- [Architecture](/concepts/architecture) — how UI, Supabase, gateways, queues, and agents fit together.
+- [Agents](/concepts/agents) — agent workspaces, templates, memory, Telegram, and delegation.
+- [Security policy](/security/security-policy) — trust boundaries and hardening recommendations.
+
+## What HQ includes
+
+- A Next.js dashboard for operations.
+- Supabase as the user-owned database, auth, realtime, and storage backbone.
+- A Docker gateway runtime with OpenClaw, Chrome/Chromium, XFCE, noVNC, a files API, and daemons.
+- Agent templates and skills that live in git worktrees.
+- CRM, tasks, documents, assets, automations, activity, and notifications.
+- Provider connection flows and per-agent model defaults.
+- Agent usage tracking, monthly budgets, and hard cutoff enforcement.
+- Multi-project and multi-gateway support.
+
+## Open-source expectations
+
+The docs include manual paths as well as UI paths. They also document the sharp edges: Supabase service role access, Docker socket access, noVNC exposure, gateway state backups, migration order, and what to do when a command or agent gets stuck.
+
+If something is unclear, open an issue or send a docs PR. Documentation is part of the product.

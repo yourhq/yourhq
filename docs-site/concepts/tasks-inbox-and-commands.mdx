@@ -1,0 +1,12 @@
+---
+title: "Tasks, inbox, and commands"
+description: "The queues that coordinate UI, gateways, and agents."
+---
+
+HQ uses Supabase tables as queues.
+
+`agent_commands` is consumed by the runner. It handles lifecycle and operations work: provision, update, remove, provider auth, gateway operations, and pairing approval.
+
+`agent_inbox_items` is consumed by agents. It represents background work from task assignment, comment mentions, CRM automation rules, or other workspace events.
+
+The UI writes rows. Daemons lease rows. Agents and gateway processes report results back to Supabase.

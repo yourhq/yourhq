@@ -70,7 +70,7 @@ ALLOWED_ORIGINS=https://<codespace-name>-3000.app.github.dev,http://100.x.y.z:30
 docker compose up -d ui
 ```
 
-Codespaces users: the installer sets `CODESPACE_NAME` / `GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN` automatically if they're in the environment. If you're running Codespaces locally (VS Code tunnel), set `ALLOWED_ORIGINS` manually. See [docs/CONFIGURATION.md](CONFIGURATION.md) for the full list of origin-related vars.
+Codespaces users: the installer sets `CODESPACE_NAME` / `GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN` automatically if they're in the environment. If you're running Codespaces locally (VS Code tunnel), set `ALLOWED_ORIGINS` manually. See [Configuration](/reference/configuration) for the full list of origin-related vars.
 
 ### "Site can't be reached" from a phone/laptop via the Tailscale IP
 
@@ -100,7 +100,7 @@ Recreate the containers so the new port mappings take effect:
 docker compose up -d --force-recreate
 ```
 
-Re-running the installer and picking option 2 (Tailscale) does the same thing. See [docs/NETWORKING.md](NETWORKING.md) for the full networking model.
+Re-running the installer and picking option 2 (Tailscale) does the same thing. See [Networking](/self-host/networking) for the full networking model.
 
 ### `docker compose up` fails with "pull access denied" on ghcr.io/yourhq/*
 
@@ -254,7 +254,7 @@ curl -fsSL https://tailscale.com/install.sh | sh
 sudo tailscale up --authkey=tskey-auth-... --hostname="yourhq-$(hostname)"
 ```
 
-Then update `.env` with the new IP (`HOST_REACHABLE_URL=http://<ip>`) and `docker compose up -d --force-recreate`. See [docs/NETWORKING.md](NETWORKING.md).
+Then update `.env` with the new IP (`HOST_REACHABLE_URL=http://<ip>`) and `docker compose up -d --force-recreate`. See [Networking](/self-host/networking).
 
 ### `openclaw models auth login` for Codex hangs forever
 
@@ -359,7 +359,7 @@ You send a DM to your agent's Telegram bot. No reply. Ever.
 2. Open the UI → the agent's detail page → **Pair Telegram** field → paste the code → submit.
 3. Send another message. Agent engages.
 
-If the bot doesn't reply with a pairing code on the first message either, it means the bot token is invalid or the runner never ran `add-agent.sh` successfully — see the "provisioning" symptom above. See [docs/AGENTS.md](AGENTS.md).
+If the bot doesn't reply with a pairing code on the first message either, it means the bot token is invalid or the runner never ran `add-agent.sh` successfully — see the "provisioning" symptom above. See [Agents](/concepts/agents).
 
 ---
 
@@ -550,4 +550,4 @@ bash scripts/diagnostic-bundle.sh > diag.txt
 
 It collects: `docker compose ps`, recent logs for each service, compose config with secrets redacted, `.env` keys (values redacted), `docker --version`, `tailscale status`, host OS info, and openclaw version. Attach `diag.txt` to your issue.
 
-See also: [docs/NETWORKING.md](NETWORKING.md), [docs/CONFIGURATION.md](CONFIGURATION.md), [docs/AGENTS.md](AGENTS.md), [docs/SCHEMA.md](SCHEMA.md).
+See also: [Networking](/self-host/networking), [Configuration](/reference/configuration), [Agents](/concepts/agents), [Database schema](/reference/database-schema).

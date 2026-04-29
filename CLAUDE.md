@@ -52,7 +52,7 @@ Inside `apps/ui/src/`:
 - `hooks/` — data-fetching hooks (`use-contacts.ts`, `use-agents.ts`, etc.).
 - `lib/` — domain types + Supabase clients + GitHub client + audit log helpers.
 
-For the public-facing tour of the system, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+For the public-facing tour of the system, see [`docs-site/concepts/architecture.mdx`](docs-site/concepts/architecture.mdx).
 
 ## Gateway runtime
 

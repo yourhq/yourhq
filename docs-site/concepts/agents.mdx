@@ -121,7 +121,7 @@ Every agent lives on its own git branch. File changes land on disk immediately, 
 
 **Conflict strategy: local wins.** If both local and remote have diverged, the sweep logs a warning and skips the pull. This isn't a collaboration tool — same user, different machines, not multiple editors.
 
-**Configuring the remote:** either `GIT_REMOTE_URL` (any git host), or `GITHUB_TOKEN` + `GITHUB_REPO_OWNER` + `GITHUB_REPO_NAME` (GitHub shorthand). See [CONFIGURATION.md → Git remote sync](CONFIGURATION.md) for details.
+**Configuring the remote:** either `GIT_REMOTE_URL` (any git host), or `GITHUB_TOKEN` + `GITHUB_REPO_OWNER` + `GITHUB_REPO_NAME` (GitHub shorthand). See [CONFIGURATION.md → Git remote sync](/reference/configuration) for details.
 
 **Disabling the sweep:** set `GIT_SYNC_INTERVAL=0`. Event-driven commits and the post-commit push hook still work; only the periodic safety net turns off.
 
@@ -245,4 +245,4 @@ The org chart adds a convention on top of these primitives: managers and direct 
 - **Tail gateway logs** — `docker compose logs -f gateway | grep <agent-slug>` for openclaw-side traces.
 - **Read the agent's branch** — file browser in the UI, or `docker compose exec gateway bash` → `cd ~/.openclaw/workspace-<slug>` → inspect directly.
 
-See [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common agent-related failure modes.
+See [Troubleshooting](/troubleshooting/common-issues) for common agent-related failure modes.

@@ -1,0 +1,71 @@
+---
+title: "Quickstart"
+description: "Run HQ locally, connect Supabase, and create your first agent."
+---
+
+This quickstart gets HQ running on a Docker host with your own Supabase project.
+
+## Prerequisites
+
+- Docker.
+- A Supabase project.
+- A Supabase auth user.
+- A model provider account or API key.
+- Optional: Tailscale if you want private access from another device.
+
+## 1. Create a Supabase project
+
+Create a free Supabase project at [supabase.com](https://supabase.com).
+
+Open SQL Editor and run every file in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) in filename order.
+
+## 2. Start HQ
+
+On a Linux or macOS host with Docker:
+
+```bash
+curl -fsSL install.yourhq.ai | bash
+```
+
+For manual setup:
+
+```bash
+git clone https://github.com/yourhq/yourhq.git
+cd yourhq
+cp .env.example .env
+docker compose up -d
+```
+
+## 3. Complete onboarding
+
+Open `http://localhost:3000`.
+
+The browser onboarding flow asks for:
+
+- Supabase project URL.
+- Supabase anon key.
+- Supabase service role key.
+- Supabase auth account.
+
+After project onboarding, complete workspace setup with your workspace name, owner profile, pipeline, fields, and streams.
+
+## 4. Connect a model provider
+
+Go to Settings → Connections and connect at least one provider.
+
+API-key providers can be added directly. Interactive providers use the command runner to show login URLs, device codes, or redirect-paste flows in the UI.
+
+## 5. Create your first agent
+
+Go to Agents → New Agent.
+
+Choose a template, set the agent identity, optionally choose a manager, paste a Telegram bot token from [BotFather](https://t.me/botfather), and create the agent.
+
+When the agent replies with a pairing code in Telegram, paste it into the pairing field on the agent detail page.
+
+## 6. Next reads
+
+- [Installation](/self-host/installation)
+- [Architecture](/concepts/architecture)
+- [Agents](/concepts/agents)
+- [Troubleshooting](/troubleshooting/common-issues)

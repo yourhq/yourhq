@@ -3,9 +3,9 @@
 This is the authoritative reference for every environment variable and configuration knob in yourhq. If you're trying to figure out what a variable does, whether you need to set it, or why a change you made didn't take effect, start here.
 
 Related reading:
-- `docs/NETWORKING.md` — deep dive on `NETWORKING_MODE` and host vs container networking
-- `docs/AGENTS.md` — agent-specific runtime config (not covered here; lives in `agent.json` per branch)
-- `docs/FEATURES.md` — product-level explanation of workspace features and gateway management
+- [Networking](/self-host/networking) — deep dive on `NETWORKING_MODE` and host vs container networking
+- [Agents](/concepts/agents) — agent-specific runtime config (not covered here; lives in `agent.json` per branch)
+- [Features](/concepts/features) — product-level explanation of workspace features and gateway management
 
 ---
 
@@ -63,7 +63,7 @@ These let one Supabase project host multiple independent gateway hosts (your lap
 
 ### 2.3 Networking
 
-Host-level networking decisions: local-only vs Tailscale vs public HTTPS. The installer sets all five of these together based on the mode you pick. See `docs/NETWORKING.md` for the full topology.
+Host-level networking decisions: local-only vs Tailscale vs public HTTPS. The installer sets all five of these together based on the mode you pick. See [Networking](/self-host/networking) for the full topology.
 
 - **`NETWORKING_MODE`** — **Required**. Default `local`. One of `local` / `tailscale` / `public`. Purely informational for the containers — it's written into the `gateways.meta.networking_mode` column so the UI knows how to build URLs. The actual binding behavior is controlled by the `*_HOST_PORT` variables below.
 
@@ -211,7 +211,7 @@ A lot of yourhq's configuration is runtime-configurable via the UI, not via envi
 
 - **`/dashboard/settings`** — add or edit pipeline stages, custom field definitions, streams, automations, and agent identities after the initial setup. Most per-workspace behavior lives here, not in `.env`.
 
-- **`/dashboard/agents`** — the agent creation wizard (three steps: template → identity → Telegram). See `docs/AGENTS.md` for agent-specific configuration (each agent has its own `agent.json` committed to its git branch).
+- **`/dashboard/agents`** — the agent creation wizard (three steps: template → identity → Telegram). See [Agents](/concepts/agents) for agent-specific configuration (each agent has its own `agent.json` committed to its git branch).
 
 Rule of thumb: if it varies between workspaces of the same deployment, it's probably in the DB and configured in the UI. If it's infrastructure-level (where Supabase lives, how the host is networked, which git remote to back up to), it's in `.env`.
 
