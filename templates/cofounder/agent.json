@@ -3,9 +3,7 @@
   "name": "Co-Founder",
   "description": "Strategic operator who helps drive execution, shape direction, and keep the business moving.",
   "team": "strategy",
-  "model": "openai-codex/gpt-5.4",
   "domains": [],
   "capabilities": [],
-  "telegram_token_env": "TELEGRAM_TOKEN_AGENT_COFOUNDER",
   "browser_profile_color": "#14b8a6"
 }

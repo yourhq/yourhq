@@ -1,12 +1,29 @@
 ---
 title: "Tasks, inbox, and commands"
-description: "The queues that coordinate UI, gateways, and agents."
+description: "The queues that coordinate the UI, gateways, and agents."
 ---
 
-HQ uses Supabase tables as queues.
+HQ uses Supabase tables as durable queues. Everything the UI tells a gateway to do — and everything agents do in the background — flows through these queues.
 
-`agent_commands` is consumed by the runner. It handles lifecycle and operations work: provision, update, remove, provider auth, gateway operations, and pairing approval.
+## The two queues
 
-`agent_inbox_items` is consumed by agents. It represents background work from task assignment, comment mentions, CRM automation rules, or other workspace events.
+<CardGroup cols={2}>
+  <Card title="Commands" icon="terminal">
+    `agent_commands` — consumed by the **runner**. Handles lifecycle and operations: provision, update, remove, provider auth, gateway restart, and pairing approval.
+  </Card>
+  <Card title="Inbox" icon="inbox">
+    `agent_inbox_items` — consumed by **agents**. Represents background work from task assignments, comment @-mentions, CRM automation rules, and other workspace events.
+  </Card>
+</CardGroup>
 
-The UI writes rows. Daemons lease rows. Agents and gateway processes report results back to Supabase.
+## How it flows
+
+```text
+UI writes rows  →  Daemons lease rows  →  Agents / gateway processes execute  →  Results written back to Supabase
+```
+
+<Tip>
+  Commands and inbox items are never deleted — they persist as durable history. You can review them from Settings → System.
+</Tip>
+
+Both queues use atomic leasing (`FOR UPDATE SKIP LOCKED`) so parallel daemons on different gateways never steal each other's work. See [Command lifecycle](/reference/command-lifecycle) for the full state machine.

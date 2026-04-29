@@ -3,9 +3,7 @@
   "name": "Social Media Content Writer",
   "description": "Short-form writer who creates platform-native social content that captures attention and keeps people engaged.",
   "team": "content",
-  "model": "openai-codex/gpt-5.4",
   "domains": [],
   "capabilities": [],
-  "telegram_token_env": "TELEGRAM_TOKEN_AGENT_SOCIAL_WRITER",
   "browser_profile_color": "#22c55e"
 }

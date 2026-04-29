@@ -5,13 +5,28 @@ description: "Where major parts of the HQ codebase live."
 
 ```text
 yourhq/
-  apps/ui/              Next.js dashboard
-  gateway/              Gateway image, files API, daemons, scripts
-  db/migrations/        Supabase SQL migrations
-  templates/            Agent template library
-  installer/            Install scripts
+  apps/ui/              Next.js dashboard (App Router, Tailwind, shadcn)
+  gateway/              Gateway image, files API, daemons, lifecycle scripts
+  db/migrations/        Supabase SQL migrations (001–017)
+  templates/            Agent template library (15 templates)
+  installer/            Interactive install scripts
   docs-site/            Mintlify documentation source
   .github/workflows/    CI and image publishing
 ```
+
+<CardGroup cols={2}>
+  <Card title="UI" icon="browser" href="/development/local-development">
+    `apps/ui/` — the Next.js dashboard. Server actions in `src/app/dashboard/*/actions.ts`, components in `src/components/`, hooks in `src/hooks/`.
+  </Card>
+  <Card title="Gateway" icon="server" href="/concepts/gateways">
+    `gateway/` — Dockerfile, `entrypoint.sh`, `files_api.py`, daemons in `daemons/`, lifecycle scripts in `scripts/`.
+  </Card>
+  <Card title="Templates" icon="copy" href="/reference/templates">
+    `templates/` — one directory per agent role. Each is a starting worktree for new agents.
+  </Card>
+  <Card title="Migrations" icon="database" href="/reference/migrations">
+    `db/migrations/` — ordered SQL files. Schema source of truth.
+  </Card>
+</CardGroup>
 
 Read [Architecture](/concepts/architecture) for how these pieces interact at runtime.

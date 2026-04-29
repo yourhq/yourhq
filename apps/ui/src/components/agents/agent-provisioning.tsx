@@ -12,7 +12,7 @@ import {
   Terminal,
   Trash2,
 } from "lucide-react";
-import type { Agent, AgentCommand, CommandStatus } from "@/lib/agents/types";
+import type { Agent, AgentCommand, AgentMeta, CommandStatus } from "@/lib/agents/types";
 import { COMMAND_ACTION_LABELS, COMMAND_STATUS_COLORS } from "@/lib/agents/types";
 import { useAgentCommands } from "@/hooks/use-agent-commands";
 import { enqueueAgentCommand } from "@/app/dashboard/agents/actions";
@@ -205,7 +205,8 @@ export function AgentProvisioning({ agent }: AgentProvisioningProps) {
             className="h-7 text-xs gap-1.5"
             onClick={() => {
               if (!pairingCode.trim()) return;
-              enqueue("approve_pairing", { pairing_code: pairingCode.trim() });
+              const meta = (agent.meta ?? {}) as AgentMeta;
+              enqueue("approve_pairing", { pairing_code: pairingCode.trim(), channel: meta.channel ?? "telegram" });
               setPairingCode("");
             }}
             disabled={submitting !== null || !pairingCode.trim()}

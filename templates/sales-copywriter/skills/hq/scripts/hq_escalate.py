@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Escalate a task: set to blocked, post a comment, and notify the human via Telegram.
+Escalate a task: set to blocked, post a comment, and notify the human via their configured channel.
 
 Usage:
   python3 skills/hq/scripts/hq_escalate.py TASK_ID "Reason for escalation"
@@ -13,7 +13,7 @@ import sys
 import os
 
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import check_env, api_get, api_patch, api_post, audit, get_agent_id, AGENT_SLUG, now_iso, output
+from hq_base import check_env, api_get, api_patch, api_post, audit, get_agent_id, AGENT_SLUG, AGENT_CHANNEL, now_iso, output
 
 check_env()
 
@@ -21,7 +21,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("task_id")
 ap.add_argument("reason")
 ap.add_argument("--notify-agent-id", default="main",
-                help="OpenClaw agent ID to send Telegram notification through (default: main)")
+                help="OpenClaw agent ID to send notification through (default: main)")
 args = ap.parse_args()
 
 agent_id = get_agent_id()
@@ -48,8 +48,8 @@ api_post("comments", {
     "mentions": ["prajoth"],
 })
 
-# 3. Notify via Telegram
-telegram_msg = (
+# 3. Notify via configured channel
+notify_msg = (
     f"🚫 Task blocked by {AGENT_SLUG}\n\n"
     f"Task: {task_title}\n"
     f"Reason: {args.reason}\n"
@@ -57,14 +57,16 @@ telegram_msg = (
     f"Respond in the HQ or reply here."
 )
 
-try:
-    result = subprocess.run(
-        ["openclaw", "agent", "--agent", args.notify_agent_id, "--message", telegram_msg, "--deliver", "--reply-channel", "telegram"],
-        capture_output=True, text=True, timeout=15,
-    )
-    telegram_sent = result.returncode == 0
-except Exception as e:
-    telegram_sent = False
+notified = False
+if AGENT_CHANNEL != "none":
+    try:
+        result = subprocess.run(
+            ["openclaw", "agent", "--agent", args.notify_agent_id, "--message", notify_msg, "--deliver", "--reply-channel", AGENT_CHANNEL],
+            capture_output=True, text=True, timeout=15,
+        )
+        notified = result.returncode == 0
+    except Exception:
+        notified = False
 
 output({
     "status": "escalated",
@@ -73,5 +75,6 @@ output({
     "reason": args.reason,
     "blocked": True,
     "comment_posted": True,
-    "telegram_sent": telegram_sent,
+    "notified": notified,
+    "channel": AGENT_CHANNEL,
 })

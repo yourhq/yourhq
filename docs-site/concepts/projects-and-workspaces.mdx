@@ -1,10 +1,33 @@
 ---
 title: "Projects and workspaces"
-description: "How one UI can manage multiple Supabase-backed HQ workspaces."
+description: "How one UI manages multiple Supabase-backed workspaces."
 ---
 
-An HQ project is a Supabase-backed workspace.
+An HQ project is a Supabase-backed workspace — your agents, tasks, CRM, documents, and settings all live in one Supabase project that you own.
 
-The UI stores project metadata in `/config/projects.json` and project secrets in `/config/secrets.json` on the `ui-config` volume. The active project is selected at runtime and injected into the browser without rebuilding the UI image.
+## How it works
 
-Each Supabase project is an isolation boundary. HQ does not implement multi-tenant row-level isolation inside one shared database.
+<CardGroup cols={2}>
+  <Card title="Project registry" icon="folder-open">
+    The UI stores project metadata in `/config/projects.json` and secrets in `/config/secrets.json` on the `ui-config` Docker volume.
+  </Card>
+  <Card title="Runtime injection" icon="bolt">
+    The active project is selected at runtime and injected into the browser — no image rebuild needed when switching projects.
+  </Card>
+</CardGroup>
+
+## Multi-project support
+
+One UI install can manage multiple Supabase projects. Each project is a fully isolated workspace — HQ does not implement multi-tenant row-level isolation inside a shared database. Instead, each workspace gets its own Supabase project.
+
+<Tip>
+  Use the project switcher in Settings → Projects to move between workspaces. Each project has its own agents, gateways, tasks, and CRM data.
+</Tip>
+
+## Isolation model
+
+| Boundary | Scope |
+|---|---|
+| **Supabase project** | Full isolation — separate database, auth, and realtime |
+| **Gateway** | Bound to one project via Supabase credentials |
+| **UI** | Can switch between projects at runtime |

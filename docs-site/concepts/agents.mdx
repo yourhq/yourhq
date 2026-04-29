@@ -9,7 +9,7 @@ In HQ, an agent is a long-lived workspace made of:
 - A **git branch** on the gateway's local repo (`workspace-slug/agent-slug`). Holds the agent's identity files, memory, skills, and any artifacts it produces.
 - A **Chrome profile** on the gateway (persistent cookies, logged-in sessions, extensions).
 - An **OpenClaw session** — the runtime. Handles prompt assembly, tool calls, conversation state.
-- A **Telegram bot** — each agent has its own bot, its own token. Primary I/O channel.
+- A **messaging channel** — Telegram, Discord, Slack, or none. Each agent can be bound to one channel for conversational I/O.
 - A row in the Supabase `agents` table — the metadata, including `gateway_id` (which gateway runs it), `reports_to_id` (its manager), and `meta` JSONB for template-specific config.
 - A usage budget row in `agent_budgets` once usage is configured or first recorded.
 
@@ -40,7 +40,7 @@ templates/cofounder/
 
 At provision time, `add-agent.sh` forks the chosen template branch into the agent's personal branch, then patches:
 
-- `agent.json` — sets `slug`, `name`, `description`, `emoji`, `telegram_token_env`
+- `agent.json` — sets `slug`, `name`, `description`, `emoji`, `channel`
 - `USER.md` — replaces `USER_NAME_HERE`, `PREFERRED_NAME_HERE`, `TIMEZONE_HERE` with the workspace owner's profile
 - `IDENTITY.md` — updates the Name/Emoji section to the new agent's identity
 
@@ -51,7 +51,7 @@ The rest of the template (role-specific skills, IDENTITY prose, MEMORY, etc.) is
 1. UI → Agents → New Agent.
 2. Wizard step 1: pick a template. Templates load from `/api/agents/templates` (baked into the UI image from the `templates/` directory at build time).
 3. Step 2: name, slug (auto-generated from name), emoji, optional description override, and optional manager.
-4. Step 3: paste a Telegram bot token (from BotFather).
+4. Step 3: choose a messaging channel (Telegram, Discord, Slack, or None) and enter the required credentials.
 5. Click Create.
 
 UI-side:
@@ -65,25 +65,35 @@ Gateway-side:
   1. Creates a new branch from the template branch in the bare repo.
   2. Creates a git worktree at `/home/openclaw/.openclaw/workspace-<agent-slug>/`.
   3. Patches `agent.json`, `USER.md`, `IDENTITY.md`.
-  4. Appends a bindings entry to `openclaw.json` for the Telegram account.
+  4. Appends a bindings entry to `openclaw.json` for the chosen channel (Telegram account, Discord bot, Slack socket, or no binding).
   5. Creates a Chrome desktop shortcut for the new browser profile.
   6. Links shared auth directories (so all agents share model tokens).
 - Runner restarts the gateway container so openclaw picks up the new agent.
 - Agent appears as `online` in the UI within ~60 seconds.
 
-## Telegram pairing
+## Channel pairing
 
-After provisioning:
+After provisioning, the next step depends on the channel:
 
-1. Send `/start` to your bot on Telegram.
+**Telegram or Discord** (DM pairing):
+
+1. Send a message to your bot (Telegram DM or Discord DM).
 2. Bot replies with a 6-digit pairing code.
-3. In the UI, open the agent's detail page → Pair Telegram field → paste code → Submit.
-4. Runner executes `openclaw pairing approve`.
-5. Next Telegram message triggers the agent.
+3. In the UI, open the agent's detail page → Pairing Code field → paste code → Submit.
+4. Runner executes `openclaw pairing approve <channel> <code>`.
+5. Next message triggers the agent.
 
-If the agent doesn't respond to the first real message, check:
+**Slack** (no pairing):
+
+The agent is active in your Slack workspace immediately after provisioning. No pairing step needed.
+
+**None**:
+
+The agent is provisioned without a channel binding. You can add a channel later.
+
+If an agent doesn't respond to the first real message, check:
 - Runner logs: `docker compose logs runner | grep pairing`
-- Gateway logs: `docker compose logs gateway | grep telegram`
+- Gateway logs: `docker compose logs gateway | grep <channel>`
 - openclaw.json in the gateway-state volume has the correct `bindings` entry
 
 ## Customizing agents after creation
@@ -95,7 +105,7 @@ Two paths:
 - Edit `IDENTITY.md`, `MEMORY.md`, `TOOLS.md`, any skill file.
 - Save. The UI auto-enqueues an `update` command. Gateway reloads the agent.
 
-**In Telegram, conversationally**:
+**Via the agent's messaging channel** (Telegram, Discord, Slack):
 - "Remember that I prefer short-form responses." → agent updates its own `MEMORY.md` (with your approval).
 - "Learn to summarize in three bullets." → agent updates `SKILL.md` or adds a new skill.
 
@@ -139,10 +149,10 @@ Every agent lives on its own git branch. File changes land on disk immediately, 
      "name": "Your Role",
      "emoji": "🎯",
      "team": "ops",
-     "model": "openai/gpt-5.4",
      "description": "One-sentence role description."
    }
    ```
+   The `model` field is optional — agents use whatever default provider/model is configured in Settings → Connections. You can override per-agent from the agent detail page.
 
 3. Edit `IDENTITY.md` — this is the prose that gets prepended to every prompt. Voice, domain knowledge, how they talk. See `templates/cofounder/IDENTITY.md` for a good example.
 
@@ -206,7 +216,7 @@ When pricing is known, the runtime estimates cost from token counts. When pricin
 Agents have access to (via openclaw):
 
 - **Browser** — a dedicated Chrome profile they can drive. Visit pages, screenshot, click, type. Persistent cookies.
-- **Telegram** — send/receive messages with their paired user.
+- **Messaging channel** — Telegram, Discord, or Slack — send/receive messages with their paired user.
 - **HQ database** — read/write contacts, tasks, documents, interactions via the service role.
 - **MCP servers** — any MCP server you configure. Slack, GitHub, Notion, Google Calendar, etc.
 - **Shell** — scoped to their workspace directory.

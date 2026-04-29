@@ -18,7 +18,7 @@ templates/
 
 At minimum:
 
-- `agent.json` — manifest. Contains placeholder tokens like `AGENT_SLUG_HERE`, `TEAM_HERE`, and `TELEGRAM_TOKEN_AGENT_SLUG_HERE` that the agent-create wizard substitutes when creating an agent from this template.
+- `agent.json` — manifest. Contains placeholder tokens like `AGENT_SLUG_HERE` and `TEAM_HERE` that the agent-create wizard substitutes when creating an agent from this template. The `channel` field is set at provision time based on the wizard's channel selection.
 - `IDENTITY.md`, `SOUL.md`, `HEARTBEAT.md`, `USER.md` — personality and memory scaffolding.
 - `AGENTS.md`, `TOOLS.md`, `MEMORY.md` — operational docs the agent reads to understand its own role.
 - `skills/hq/` — the Supabase-backed integration scripts (`hq_*.py`) every agent needs.

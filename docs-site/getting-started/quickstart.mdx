@@ -1,9 +1,9 @@
 ---
 title: "Quickstart"
-description: "Run HQ locally, connect Supabase, and create your first agent."
+description: "Install Your HQ, connect Supabase, and create your first agent."
 ---
 
-This quickstart gets HQ running on a Docker host with your own Supabase project.
+This quickstart gets Your HQ running on a Docker host with your own Supabase project.
 
 <Info>
   If you are not technical, the important idea is simple: HQ runs on your computer or server, and Supabase stores your workspace data.
@@ -19,7 +19,7 @@ This quickstart gets HQ running on a Docker host with your own Supabase project.
     Stores your workspace, auth, tasks, agents, and command queues.
   </Card>
   <Card title="Model provider" icon="plug">
-    OpenAI, Anthropic, Gemini, OpenRouter, local OpenAI-compatible servers, or another supported provider.
+    Any provider — OpenAI, Anthropic, Gemini, Ollama, or 25+ others. HQ is model-agnostic.
   </Card>
   <Card title="Optional: Tailscale" icon="network-wired">
     Private remote access from your phone, laptop, or another machine.
@@ -60,7 +60,7 @@ This quickstart gets HQ running on a Docker host with your own Supabase project.
     Go to Settings → Connections. API-key providers can be added directly; interactive providers show the next step in the UI.
   </Step>
   <Step title="Create your first agent">
-    Go to Agents → New Agent. Pick a template, name the agent, paste a Telegram bot token from [BotFather](https://t.me/botfather), then pair the bot with the code it sends you.
+    Go to Agents → New Agent. Pick a template, name the agent, choose a messaging channel (Telegram, Discord, Slack, or None), enter the channel credentials, and complete any pairing step.
   </Step>
 </Steps>
 
@@ -71,7 +71,7 @@ This quickstart gets HQ running on a Docker host with your own Supabase project.
     More setup paths, updates, and install troubleshooting.
   </Card>
   <Card title="Understand agents" icon="robot" href="/concepts/agents">
-    How templates, memory, Telegram, boot docs, and delegation work.
+    How templates, memory, channels, boot docs, and delegation work.
   </Card>
   <Card title="Add another gateway" icon="server" href="/self-host/add-gateway">
     Run agents on a second machine.

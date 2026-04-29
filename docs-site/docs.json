@@ -58,7 +58,7 @@
         ]
       },
       {
-        "group": "Use HQ",
+        "group": "Use Your HQ",
         "pages": [
           "guides/workspace-setup",
           "guides/create-agent",

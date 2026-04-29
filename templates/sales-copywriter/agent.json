@@ -3,9 +3,7 @@
   "name": "Sales Copywriter",
   "description": "Persuasive writer who crafts outreach and follow-ups that earn replies and move conversations forward.",
   "team": "content",
-  "model": "openai-codex/gpt-5.4",
   "domains": [],
   "capabilities": [],
-  "telegram_token_env": "TELEGRAM_TOKEN_AGENT_SALES_COPYWRITER",
   "browser_profile_color": "#ec4899"
 }

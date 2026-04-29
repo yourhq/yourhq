@@ -1,11 +1,9 @@
 {
   "slug": "assistant",
   "name": "Assistant",
-  "description": "Central coordinator that routes work, tracks moving parts, and keeps the user\u2019s agent system organized.",
+  "description": "Central coordinator that routes work, tracks moving parts, and keeps the user’s agent system organized.",
   "team": "ops",
-  "model": "openai-codex/gpt-5.4",
   "domains": [],
   "capabilities": [],
-  "telegram_token_env": "TELEGRAM_TOKEN_AGENT_ASSISTANT",
   "browser_profile_color": "#3b82f6"
 }

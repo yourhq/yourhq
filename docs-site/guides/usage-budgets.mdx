@@ -1,17 +1,43 @@
 ---
 title: "Usage budgets"
-description: "Track model usage and enforce monthly agent budgets."
+description: "Track model usage per agent and enforce monthly spending limits."
 ---
 
-HQ records LLM calls in `agent_usage` and rolls current-period totals into `agent_budgets`.
+HQ records every LLM call an agent makes and lets you set monthly budgets to control spend.
 
-Per-agent budget settings include:
+## What gets tracked
 
-- Monthly limit.
-- Soft warning threshold.
-- Hard cutoff behavior.
-- Period timezone.
+<CardGroup cols={2}>
+  <Card title="Token usage" icon="coins">
+    Input, output, cache-read, and cache-write tokens per call.
+  </Card>
+  <Card title="Estimated cost" icon="dollar-sign">
+    Calculated from known model pricing. Unknown models are counted as unmetered — never silently invented.
+  </Card>
+</CardGroup>
 
-When an agent exceeds a hard cutoff, the runtime blocks further replies and the dispatcher skips background wakes for that agent.
+## Setting a budget
 
-Unknown model pricing is counted as unmetered usage instead of silently inventing a cost.
+<Steps>
+  <Step title="Open the agent detail page">
+    Navigate to Agents → select an agent → scroll to the Usage & Budget section.
+  </Step>
+  <Step title="Configure limits">
+    Set a monthly limit in USD, a soft warning threshold (percentage), and whether to hard-stop the agent when the limit is exceeded.
+  </Step>
+  <Step title="Monitor spend">
+    Current-period usage rolls up automatically. Budget warnings and exceedances create notifications.
+  </Step>
+</Steps>
+
+## What happens at the limit
+
+| Setting | Behavior |
+|---|---|
+| **Soft threshold** | A notification is created when the agent crosses the warning percentage |
+| **Hard cutoff enabled** | The runtime blocks further replies and the dispatcher stops waking the agent for background work |
+| **Hard cutoff disabled** | The agent keeps working — you get the notification but no enforcement |
+
+<Tip>
+  Start without a hard cutoff to see how much an agent actually uses, then set limits based on real data.
+</Tip>

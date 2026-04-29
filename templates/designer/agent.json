@@ -3,9 +3,7 @@
   "name": "Designer",
   "description": "Visual creator who turns ideas into clear, engaging, platform-ready graphics and edited content.",
   "team": "design",
-  "model": "openai-codex/gpt-5.4",
   "domains": [],
   "capabilities": [],
-  "telegram_token_env": "TELEGRAM_TOKEN_AGENT_DESIGNER",
   "browser_profile_color": "#a855f7"
 }

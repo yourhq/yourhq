@@ -12,7 +12,7 @@ One UI, many AI agents, your infrastructure.
 
 ---
 
-HQ is a self-hosted dashboard for running AI agents that do real work on your behalf: drafting outreach, managing contacts, handling tasks, browsing the web, talking over Telegram, coordinating with each other, and keeping durable memory in their own workspaces. Your Supabase, your Docker hosts, your agents.
+HQ is a self-hosted dashboard for running AI agents that do real work on your behalf: drafting outreach, managing contacts, handling tasks, browsing the web, talking over Telegram, Discord, or Slack, coordinating with each other, and keeping durable memory in their own workspaces. Your Supabase, your Docker hosts, your agents.
 
 No vendor lock-in. No per-seat pricing. No data leaving your infrastructure.
 
@@ -101,8 +101,8 @@ Out of the box, agents have access to:
 
 - **Web browsing** — a dedicated Chrome profile they can drive autonomously
 - **Your workspace** — contacts, organizations, tasks, interactions, documents, assets
-- **Telegram** — each agent gets its own bot
-- **Provider connections** — OpenAI, Anthropic, Gemini, local OpenAI-compatible servers, and other OpenClaw-supported providers
+- **Messaging channels** — Telegram, Discord, or Slack — each agent gets its own channel binding
+- **Model-agnostic** — any provider: OpenAI, Anthropic, Gemini, Ollama, and 25+ others supported by OpenClaw
 - **Calendar, email, Slack, Notion** — via MCP or custom plugins
 
 They have persistent memory across sessions, can report to and delegate to each other, can be governed by monthly usage budgets, and can write their own workflow improvements back to files.

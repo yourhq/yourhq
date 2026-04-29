@@ -3,15 +3,34 @@ title: "Command lifecycle"
 description: "How gateway commands move from UI action to runner execution."
 ---
 
-Commands are rows in `agent_commands`.
+Commands are rows in `agent_commands`. They represent every instruction the UI gives to a gateway — provisioning agents, approving pairings, connecting providers, restarting services, and more.
 
-Typical flow:
+## State machine
 
-1. UI inserts a command row.
-2. Runner receives a realtime event or polling reconciliation finds it.
-3. Runner calls `lease_command(...)`.
-4. Runner marks the command in progress.
-5. Runner executes the mapped shell or OpenClaw operation.
-6. Runner writes stdout, stderr, exit code, and final status.
+```text
+pending  →  leased  →  running  →  done
+                    ↘          ↘  failed
+```
 
-Commands are durable history. They are not deleted after completion.
+<Steps>
+  <Step title="UI inserts a command">
+    A server action writes a row to `agent_commands` with `status = 'pending'`.
+  </Step>
+  <Step title="Runner leases the command">
+    The runner daemon picks it up via Realtime subscription or polling, then calls `lease_command(p_gateway_slug)` to atomically claim it.
+  </Step>
+  <Step title="Runner executes">
+    The runner maps the command action to a shell operation (e.g. `add-agent.sh` for provision) and runs it.
+  </Step>
+  <Step title="Runner reports results">
+    On completion, the runner writes `stdout`, `stderr`, `exit_code`, and final `status` (done or failed) back to the row.
+  </Step>
+</Steps>
+
+## Durability
+
+Commands are never deleted after completion. They persist as a full history of every operation — viewable from Settings → System → Commands.
+
+<Tip>
+  If a command is stuck in `leased` or `running` for more than 5 minutes, the runner likely crashed or lost its lease. Check `docker compose logs runner` for details.
+</Tip>

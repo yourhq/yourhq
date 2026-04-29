@@ -3,9 +3,7 @@
   "name": "Chief of Staff",
   "description": "Execution partner who turns priorities into coordinated action and keeps important work from slipping.",
   "team": "ops",
-  "model": "openai-codex/gpt-5.4",
   "domains": [],
   "capabilities": [],
-  "telegram_token_env": "TELEGRAM_TOKEN_AGENT_CHIEF_OF_STAFF",
   "browser_profile_color": "#f59e0b"
 }

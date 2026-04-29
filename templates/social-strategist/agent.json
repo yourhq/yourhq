@@ -3,9 +3,7 @@
   "name": "Social Media Strategist",
   "description": "Platform strategist who designs social content systems that grow attention, engagement, and audience momentum.",
   "team": "strategy",
-  "model": "openai-codex/gpt-5.4",
   "domains": [],
   "capabilities": [],
-  "telegram_token_env": "TELEGRAM_TOKEN_AGENT_SOCIAL_STRATEGIST",
   "browser_profile_color": "#f97316"
 }

@@ -43,9 +43,25 @@ def _resolve_agent_slug() -> str:
     return Path.cwd().name
 
 
+def _resolve_agent_channel() -> str:
+    for base in (Path.cwd(), Path(__file__).resolve().parent):
+        for parent in (base, *base.parents):
+            candidate = parent / "agent.json"
+            if candidate.is_file():
+                try:
+                    data = json.loads(candidate.read_text())
+                    ch = str(data.get("channel", "")).strip()
+                    if ch:
+                        return ch
+                except (json.JSONDecodeError, OSError):
+                    pass
+    return "telegram"
+
+
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 AGENT_SLUG = _resolve_agent_slug()
+AGENT_CHANNEL = _resolve_agent_channel()
 EMBEDDING_API_KEY = os.environ.get("EMBEDDING_API_KEY", "")
 EMBEDDING_MODEL = "text-embedding-3-small"
 

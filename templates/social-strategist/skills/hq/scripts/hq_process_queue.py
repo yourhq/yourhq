@@ -10,7 +10,7 @@ The agent should:
 1. Run this to see what's queued
 2. Claim the first task
 3. Process it (read attachments, do the work, update status)
-4. If stuck, escalate (blocked + comment + telegram)
+4. If stuck, escalate (blocked + comment + channel notification)
 5. Run this again to get the next task
 6. Repeat until the queue is empty
 

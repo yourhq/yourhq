@@ -1,16 +1,48 @@
 ---
 title: "Create an agent"
-description: "Provision an agent from a template and pair it with Telegram."
+description: "Provision an agent from a template and connect it to a messaging channel."
 ---
 
-1. Go to Agents → New Agent.
-2. Pick a template.
-3. Set name, slug, emoji, description, and optional manager.
-4. Paste a Telegram bot token from BotFather.
-5. Create the agent.
+<Steps>
+  <Step title="Start the wizard">
+    Go to Agents → **New Agent**.
+  </Step>
+  <Step title="Pick a template">
+    Choose a starting role — cofounder, designer, analyst, newsletter writer, or any of the 15 bundled templates. Each template comes with pre-configured identity, skills, and tools.
+  </Step>
+  <Step title="Set identity">
+    Name, slug, emoji, description, and optional manager (if you want this agent to report to another agent).
+  </Step>
+  <Step title="Choose a messaging channel">
+    Pick how this agent communicates with you:
 
-The UI inserts the agent row and enqueues a `provision` command. The runner leases that command, creates the branch and worktree, patches template files, updates OpenClaw config, and restarts the gateway runtime.
+    <CardGroup cols={2}>
+      <Card title="Telegram" icon="paper-plane">
+        Paste a bot token from [BotFather](https://t.me/botfather). After provisioning, DM the bot for a pairing code.
+      </Card>
+      <Card title="Discord" icon="discord">
+        Paste a bot token from the [Developer Portal](https://discord.com/developers/applications). Optionally add Server ID and User ID. DM the bot for a pairing code.
+      </Card>
+      <Card title="Slack" icon="slack">
+        Paste an App-Level Token and Bot Token from your [Slack app](https://api.slack.com/apps). No pairing step — active immediately.
+      </Card>
+      <Card title="None" icon="ban">
+        Skip channel setup. The agent is provisioned without messaging. Add a channel later from settings.
+      </Card>
+    </CardGroup>
 
-After provisioning, message the bot on Telegram. It replies with a pairing code. Paste that code into the agent detail page.
+    WhatsApp and Signal are shown as coming soon.
+  </Step>
+  <Step title="Create">
+    Click Create. The UI inserts the agent row and enqueues a `provision` command. The runner creates the branch, patches template files, updates OpenClaw config, and restarts the gateway.
+  </Step>
+  <Step title="Pair (Telegram / Discord only)">
+    After provisioning, send a DM to the bot. It replies with a pairing code. Paste that code into the agent detail page. Your next message triggers the agent.
+  </Step>
+</Steps>
 
-See [Agents](/concepts/agents) for the full model.
+<Tip>
+  Slack agents are active immediately after provisioning — no pairing step needed. For agents with no channel, you can still interact via task assignments, comment mentions, and automations.
+</Tip>
+
+See [Agents](/concepts/agents) for the full agent model, templates, memory, and delegation.

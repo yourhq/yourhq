@@ -1,13 +1,37 @@
 ---
 title: "Agent boot documents"
-description: "Use document tags to inject shared context into agent sessions."
+description: "Give agents shared context they read before every session."
 ---
 
-Documents can be added to agent boot context with tags.
+Boot documents are regular HQ documents that get injected into an agent's context at the start of every session. Use them for durable context the agent should always have: company background, writing style, important projects, operating rules, and standard procedures.
 
-- `boot:all` includes a document for every agent.
-- `boot:<agent-slug>` includes a document for one agent.
+## How to tag a document
 
-Use boot documents for durable context the agent should read before working: company background, writing style, important projects, operating rules, and standard procedures.
+<Steps>
+  <Step title="Create or open a document">
+    Go to Documents and create a new document, or open an existing one.
+  </Step>
+  <Step title="Add a boot tag">
+    Tag the document with one of the boot prefixes:
 
-Keep boot documents concise. Large or stale context makes agents slower and less predictable.
+    | Tag | Effect |
+    |---|---|
+    | `boot:all` | Included for **every** agent |
+    | `boot:<agent-slug>` | Included for **one specific** agent |
+  </Step>
+  <Step title="Agent reads it automatically">
+    Next time the agent wakes up, it reads the tagged document as part of its boot context. No restart needed.
+  </Step>
+</Steps>
+
+<Tip>
+  Keep boot documents concise. Large or stale context makes agents slower and less predictable. A few focused paragraphs is better than a ten-page dump.
+</Tip>
+
+## Good boot document examples
+
+- Company one-pager (who you are, what you do, your voice)
+- Writing style guide
+- Current quarter priorities
+- Operating rules ("always CC me on outbound", "never commit to pricing")
+- Standard procedures the agent should follow

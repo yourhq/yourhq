@@ -15,7 +15,7 @@ For deeper dives, see:
 
 ## 1. Intro
 
-An agent, in HQ, is a long-lived workspace consisting of a git branch, a Chrome profile, an OpenClaw session, and a Telegram bot. The UI never speaks to agents directly. Every instruction the UI gives — "create this agent", "edit this file", "restart this gateway" — travels through Supabase, where it becomes a row in a queue. Python daemons on each gateway host subscribe to that queue over Supabase Realtime and execute the work locally. The result: the UI can run on your laptop, on a VPS, or in a browser tab from a hotel Wi-Fi, and the gateways can run anywhere you have Docker, with no inbound connections needed between them.
+An agent, in HQ, is a long-lived workspace consisting of a git branch, a Chrome profile, an OpenClaw session, and a messaging channel (Telegram, Discord, Slack, or none). The UI never speaks to agents directly. Every instruction the UI gives — "create this agent", "edit this file", "restart this gateway" — travels through Supabase, where it becomes a row in a queue. Python daemons on each gateway host subscribe to that queue over Supabase Realtime and execute the work locally. The result: the UI can run on your laptop, on a VPS, or in a browser tab from a hotel Wi-Fi, and the gateways can run anywhere you have Docker, with no inbound connections needed between them.
 
 This is a **single-user** design. RLS on Supabase is "authenticated full access". Multi-tenant isolation is out of scope — each operator runs their own Supabase project. The hosted offering will layer account management on top of this same topology rather than redesigning it.
 
@@ -75,7 +75,7 @@ The `gateway`, `dispatcher`, and `runner` containers all share the Docker volume
 
 This is the most "I see how it all fits" path through the system. Everything else is a variation of it.
 
-1. **User picks "New agent"** in the UI (`Dashboard → Agents → New agent`). The agent-create wizard ([`apps/ui/src/components/agents/agent-create-wizard.tsx`](https://github.com/yourhq/yourhq/tree/main/apps/ui/src/components/agents/agent-create-wizard.tsx), referenced but owned in `apps/ui`) has three steps: template, identity, Telegram token.
+1. **User picks "New agent"** in the UI (`Dashboard → Agents → New agent`). The agent-create wizard ([`apps/ui/src/components/agents/agent-create-wizard.tsx`](https://github.com/yourhq/yourhq/tree/main/apps/ui/src/components/agents/agent-create-wizard.tsx), referenced but owned in `apps/ui`) has four steps: template, identity, channel (Telegram/Discord/Slack/None), and provisioning.
 
 2. **Templates are fetched** from [`GET /api/agents/templates`](https://github.com/yourhq/yourhq/tree/main/apps/ui/src/app/api/agents/templates/route.ts), which returns the list baked into the UI image at build time from [`templates/`](/reference/templates). Each template carries its `agent.json` and a `branch` field like `template/cofounder`.
 
@@ -84,14 +84,14 @@ This is the most "I see how it all fits" path through the system. Everything els
    - Reads the `workspace` singleton for the owner profile + `workspace.slug`.
    - Confirms the slug is free in `agents`.
    - Computes the branch name — `"${workspace.slug}/${slug}"` (e.g. `my-workspace/ricardo`).
-   - Inserts an `agents` row with `meta.team`, `meta.template_branch`, `meta.emoji`, and `meta.telegram_token_env` all derived from the template.
+   - Inserts an `agents` row with `meta.team`, `meta.template_branch`, `meta.emoji`, and `meta.channel` all derived from the wizard inputs.
    - Writes an `audit_log` entry.
 
-4. **The UI enqueues a `provision` command** via `enqueueAgentCommand` (same file). That's an `INSERT` into `agent_commands` with `action='provision'`, `agent_slug=<slug>`, and `payload` containing `telegram_token`, `source_template`, `name`, `description`, `emoji`, and the owner profile fields.
+4. **The UI enqueues a `provision` command** via `enqueueAgentCommand` (same file). That's an `INSERT` into `agent_commands` with `action='provision'`, `agent_slug=<slug>`, and `payload` containing the channel type, channel-specific credentials (e.g. `telegram_token`, `discord_token`, or `slack_app_token`/`slack_bot_token`), `source_template`, `name`, `description`, `emoji`, and the owner profile fields.
 
 5. **The runner wakes up.** In [`command_runner.py`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/command_runner.py), the Realtime listener on `agent_commands` sees the new row and calls `process_pending()`, which calls the `lease_command(p_gateway_slug=GATEWAY_ID)` RPC to atomically claim it. `lease_command` ([`014_agent_commands.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/014_agent_commands.sql)) does `FOR UPDATE SKIP LOCKED` so parallel runners on different gateways never steal each other's work.
 
-6. **The runner builds the shell command** via `build_command('provision', …)`: it resolves the branch name from `workspace.slug` + `agent_slug`, then invokes [`gateway/scripts/add-agent.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/scripts/add-agent.sh) with `--token`, `--source-branch`, `--slug`, and the owner-profile flags.
+6. **The runner builds the shell command** via `build_command('provision', …)`: it resolves the branch name from `workspace.slug` + `agent_slug`, then invokes [`gateway/scripts/add-agent.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/scripts/add-agent.sh) with `--channel`, channel-specific credential flags (e.g. `--telegram-token`, `--discord-token`, `--slack-app-token`/`--slack-bot-token`), `--source-branch`, `--slug`, and the owner-profile flags.
 
 7. **`add-agent.sh` does the real work** in the gateway container's state volume:
    - Creates the agent's branch off the template (or `default`) inside the bare repo at `$HOME/.openclaw/repo.git`.
@@ -102,27 +102,27 @@ This is the most "I see how it all fits" path through the system. Everything els
    - Swaps `BROWSER_PROFILE_HERE` in `TOOLS.md` for the agent's slug.
    - Commits the init patches.
    - Allocates a CDP port (18801+) for this agent's Chrome.
-   - Patches `openclaw.json` to register the agent, its Telegram bot account, and the new browser profile.
+   - Patches `openclaw.json` to register the agent, its channel binding (Telegram account, Discord bot, Slack socket, or none), and the new browser profile.
    - Creates an XFCE desktop shortcut for the agent's Chrome.
    - Links the shared Codex auth profile.
    - Runs `openclaw gateway restart` so the new agent is picked up.
 
-8. **The runner reports back.** `complete_command` writes `status='done'`, `exit_code=0`, `stdout`, and `stderr` to the `agent_commands` row; the UI's subscription on that row renders the command as green in the command history view at `/dashboard/settings/system`. On success the runner also PATCHes the `payload` to scrub `telegram_token` (the only place in the system it ever touches).
+8. **The runner reports back.** `complete_command` writes `status='done'`, `exit_code=0`, `stdout`, and `stderr` to the `agent_commands` row; the UI's subscription on that row renders the command as green in the command history view at `/dashboard/settings/system`. On success the runner also PATCHes the `payload` to scrub all channel credential tokens (any key ending in `_token`).
 
-9. **The agent is online.** `openclaw gateway run` now has the agent in its session list; the agent's Telegram bot is bound; its Chrome profile is ready; its git worktree is writable both from inside the container (by openclaw itself) and from outside via the files-API.
+9. **The agent is online.** `openclaw gateway run` now has the agent in its session list; the agent's messaging channel is bound; its Chrome profile is ready; its git worktree is writable both from inside the container (by openclaw itself) and from outside via the files-API.
 
 If any step after the branch is created fails, the runner reports the failure but **does not roll back** the branch. That's a known asymmetry — the UI-side insert has a try/catch rollback for the `agents` row only. Cleanup of orphaned branches is a `remove` command on the same queue.
 
-## 5. Data flow: incoming Telegram message
+## 5. Data flow: incoming channel message
 
 This path is mostly owned by OpenClaw (the agent runtime; see [`openclaw`](https://github.com/yourhq/openclaw)). HQ's integration surface is intentionally thin:
 
-1. The user DMs or @-mentions the bot on Telegram.
-2. Telegram hits openclaw's long-poll inside the gateway container.
-3. openclaw matches the inbound account to an `agentId` via the `bindings[]` array in `openclaw.json` (written by `add-agent.sh` at step 8/7.8 above).
+1. The user sends a message through the agent's configured channel (Telegram DM, Discord DM, Slack message).
+2. The channel provider delivers the message to openclaw inside the gateway container (Telegram via long-poll, Discord via gateway websocket, Slack via socket mode).
+3. openclaw matches the inbound message to an `agentId` via the `bindings[]` array in `openclaw.json` (written by `add-agent.sh` at provision time).
 4. openclaw wakes that agent's session, loads its workspace (the git worktree from `add-agent.sh`), and runs the message through the agent's prompt assembly (`IDENTITY.md`, `SOUL.md`, `TOOLS.md`, `USER.md`, and skills under `skills/`).
-5. The agent's response is streamed back to Telegram directly. If the agent writes to Supabase during the turn — `interactions`, `tasks`, `contacts`, `audit_log` — it does so via the `skills/hq/*` Python scripts baked into every template, which talk to Supabase with the service role key.
-6. HQ's dispatcher is not involved in Telegram-originated messages. It only fires on the "background inbox" path (§4 above): when HQ itself (a trigger on `tasks` or `contacts`, or an @-mention in a task comment) enqueues an `agent_inbox_items` row.
+5. The agent's response is streamed back through the same channel. If the agent writes to Supabase during the turn — `interactions`, `tasks`, `contacts`, `audit_log` — it does so via the `skills/hq/*` Python scripts baked into every template, which talk to Supabase with the service role key.
+6. HQ's dispatcher is not involved in channel-originated messages. It only fires on the "background inbox" path (§4 above): when HQ itself (a trigger on `tasks` or `contacts`, or an @-mention in a task comment) enqueues an `agent_inbox_items` row.
 
 ## 6. Data flow: UI edits an agent file
 

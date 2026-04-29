@@ -343,23 +343,34 @@ update agent_commands set status='failed', error='manual cancel'
 where status='in_progress' and leased_at < now() - interval '5 minutes';
 ```
 
-### Telegram bot never responds
+### Agent never responds to messages
 
 **What you see**
 
-You send a DM to your agent's Telegram bot. No reply. Ever.
+You send a DM to your agent's bot (Telegram or Discord) or a message in Slack. No reply.
 
 **Why it happens**
 
-99% of the time: you skipped the pairing step. openclaw's Telegram plugin default policy is `pairing` — the bot won't engage with a DM until you've paired your Telegram account to the agent.
+For **Telegram and Discord**: 99% of the time you skipped the pairing step. OpenClaw's default policy is `pairing` — the bot won't engage until you've paired your account to the agent.
 
-**How to fix**
+For **Slack**: the agent should respond immediately after provisioning with no pairing step. If it doesn't, the App-Level Token or Bot Token is invalid, or the runner never ran `add-agent.sh` successfully.
+
+**How to fix (Telegram / Discord)**
 
 1. Send any message to the bot. It should reply with a pairing code (6-digit).
-2. Open the UI → the agent's detail page → **Pair Telegram** field → paste the code → submit.
+2. Open the UI → the agent's detail page → **Pairing Code** field → paste the code → submit.
 3. Send another message. Agent engages.
 
-If the bot doesn't reply with a pairing code on the first message either, it means the bot token is invalid or the runner never ran `add-agent.sh` successfully — see the "provisioning" symptom above. See [Agents](/concepts/agents).
+If the bot doesn't reply with a pairing code on the first message either, it means the bot token is invalid or the runner never ran `add-agent.sh` successfully — see the "provisioning" symptom above.
+
+**How to fix (Slack)**
+
+1. Verify the App-Level Token (`xapp-...`) has the `connections:write` scope.
+2. Verify the Bot Token (`xoxb-...`) has the required scopes (`chat:write`, `im:history`, `im:read`, `im:write`).
+3. Check runner logs: `docker compose logs runner | grep provision`.
+4. Check gateway logs: `docker compose logs gateway | grep slack`.
+
+See [Agents](/concepts/agents).
 
 ---
 

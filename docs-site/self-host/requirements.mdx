@@ -1,6 +1,6 @@
 ---
 title: "Requirements"
-description: "Infrastructure and accounts needed to run HQ."
+description: "Infrastructure and accounts needed to run Your HQ."
 ---
 
 HQ is self-hosted software. The minimum setup is one machine that can run Docker and one Supabase project.
@@ -19,7 +19,7 @@ HQ is self-hosted software. The minimum setup is one machine that can run Docker
     Stores your workspace data, auth users, realtime events, command queues, and agent state metadata.
   </Card>
   <Card title="Model provider" icon="plug">
-    At least one provider such as OpenAI, Anthropic, Gemini, OpenRouter, or a local OpenAI-compatible server.
+    Any provider — OpenAI, Anthropic, Gemini, Ollama, or 25+ others. HQ is model-agnostic.
   </Card>
   <Card title="Gateway token" icon="key">
     A `GATEWAY_AUTH_TOKEN` shared by the UI and gateway files API. The installer can generate this for you.
@@ -30,7 +30,7 @@ HQ is self-hosted software. The minimum setup is one machine that can run Docker
 
 <CardGroup cols={2}>
   <Card title="Tailscale" icon="network-wired">
-    The easiest safe way to reach HQ from another device without opening public ports.
+    The easiest safe way to reach Your HQ from another device without opening public ports.
   </Card>
   <Card title="Dedicated Supabase project" icon="shield-halved">
     Keeps HQ data and permissions separate from other apps.
@@ -45,9 +45,14 @@ HQ is self-hosted software. The minimum setup is one machine that can run Docker
 
 ## Host sizing
 
-Small personal use can run on a laptop, Mac mini, Raspberry Pi 5, or small VPS.
-
 Active browser agents use memory and CPU, so plan capacity around active agents, not just total agents.
+
+| Host | RAM | Comfortable for |
+|---|---|---|
+| Raspberry Pi 5 | 8 GB | 1–2 agents |
+| t3.small / Hetzner CX22 | 2 GB | 1 idle agent |
+| t3.medium / Mac mini | 4 GB | 2–3 active agents |
+| t3.large or larger | 8+ GB | 5+ active agents |
 
 ## Security assumptions
 

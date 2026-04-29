@@ -1,18 +1,40 @@
 ---
 title: "Workspace setup"
-description: "Configure the workspace profile, pipeline, custom fields, and streams."
+description: "Configure your workspace profile, pipeline, custom fields, and task streams."
 ---
 
-After onboarding, HQ redirects new workspaces to the setup wizard.
+After onboarding, HQ opens the workspace setup wizard. This is where you personalize your workspace — it takes about two minutes.
 
-The wizard configures:
+## What the wizard configures
 
-- Workspace name and slug.
-- Owner profile.
-- Pipeline stages.
-- Contact and organization fields.
-- Initial task streams.
+<Steps>
+  <Step title="Workspace identity">
+    Set your workspace name, slug, and owner profile (name, preferred name, timezone).
+  </Step>
+  <Step title="Pipeline stages">
+    Define the stages contacts move through — e.g. Lead → Qualified → Proposal → Won. These power the CRM kanban view.
+  </Step>
+  <Step title="Custom fields">
+    Add fields to contacts and organizations beyond the defaults — company size, industry, referral source, etc.
+  </Step>
+  <Step title="Task streams">
+    Create streams for grouping work — e.g. Content, Outreach, Product, Ops. Tasks belong to streams.
+  </Step>
+</Steps>
 
-Presets help seed common workflows such as outreach, job search, recruiting, sales, client work, networking, personal operations, or a blank workspace.
+## Presets
 
-You can edit these later from Settings.
+Don't want to configure from scratch? Pick a preset that seeds sensible defaults for your use case:
+
+<CardGroup cols={3}>
+  <Card title="Outreach" icon="paper-plane">Pipeline, fields, and streams for outbound sales or BD.</Card>
+  <Card title="Job search" icon="briefcase">Track applications, contacts, and follow-ups.</Card>
+  <Card title="Recruiting" icon="users">Candidate pipeline with interview stages.</Card>
+  <Card title="Sales" icon="chart-line">Full sales pipeline with deal tracking.</Card>
+  <Card title="Client work" icon="handshake">Project-oriented streams and client fields.</Card>
+  <Card title="Blank" icon="file">Start empty and build your own.</Card>
+</CardGroup>
+
+<Tip>
+  Everything the wizard configures can be changed later from Settings → Pipeline, Settings → Fields, and Settings → Streams.
+</Tip>

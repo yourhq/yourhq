@@ -1,15 +1,41 @@
 ---
 title: "Gateways"
-description: "Docker hosts that run agents, desktops, files API, and daemons."
+description: "Docker hosts that run your agents, browsers, and daemons."
 ---
 
-A gateway is the host-side runtime for agents.
+A gateway is a Docker host that runs agents on infrastructure you control. Each gateway is a self-contained runtime environment — agents, browsers, files, and daemons all live inside it.
 
-Each gateway stack includes:
+<CardGroup cols={2}>
+  <Card title="Gateway container" icon="server">
+    Runs OpenClaw (agent runtime), Chrome/Chromium, XFCE desktop, noVNC (remote desktop), and the files API.
+  </Card>
+  <Card title="Dispatcher daemon" icon="inbox">
+    Watches for background work (task assignments, comment mentions, automations) and wakes the right agent.
+  </Card>
+  <Card title="Runner daemon" icon="terminal">
+    Executes lifecycle commands: provision, update, remove, provider auth, gateway operations.
+  </Card>
+  <Card title="Shared state volume" icon="hard-drive">
+    Holds OpenClaw config, the git repo, agent worktrees, browser profiles, desktop files, and auth state.
+  </Card>
+</CardGroup>
 
-- `gateway` container with OpenClaw, Chrome/Chromium, XFCE, noVNC, and files API.
-- `dispatcher` daemon for background inbox work.
-- `runner` daemon for lifecycle and operations commands.
-- `gateway-state` volume for worktrees, browser profiles, OpenClaw config, and desktop state.
+## One workspace, many gateways
 
-Gateways register reachable URLs in Supabase so the UI can open the correct files API and noVNC endpoint for each host.
+A single HQ workspace can have multiple gateways on different hosts. Each gateway registers itself in the `gateways` table with its reachable URLs, so the UI knows how to reach each one.
+
+Agents are bound to a specific gateway via `gateway_id`. The dispatcher and runner only process work for agents on their own gateway — no gateway ever picks up another gateway's work.
+
+<Tip>
+  Start with one gateway. You can add more later from Settings → Gateways without reconfiguring anything.
+</Tip>
+
+## Adding a gateway
+
+The recommended path is UI-driven:
+
+1. Settings → Gateways → **Add Gateway**.
+2. Copy the generated installer command.
+3. Run it on the new host.
+
+See [Add a gateway](/self-host/add-gateway) for the full walkthrough, or [Networking](/self-host/networking) for how gateways connect.

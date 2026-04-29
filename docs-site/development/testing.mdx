@@ -101,18 +101,18 @@ Expected: `Auth profile saved`.
 
 ## Stage 5 — Create an agent end-to-end
 
-Through the UI: navigate to Agents → New Agent → pick the Cofounder template → give it a name/slug/Telegram token → click Create.
+Through the UI: navigate to Agents → New Agent → pick the Cofounder template → give it a name/slug → choose a channel (e.g. Telegram) and enter credentials → click Create.
 
 Watch `docker compose logs -f runner`:
 - Command `provision` leased.
-- `add-agent.sh cofounder-xyz --token ...` runs.
+- `add-agent.sh cofounder-xyz --channel telegram --telegram-token ...` runs.
 - Git worktree created at `/home/openclaw/.openclaw/workspace-.../`.
-- `openclaw.json` patched with the agent entry.
+- `openclaw.json` patched with the agent entry and channel binding.
 - Gateway restarted.
 
 Agent should appear in the UI as `online` within a minute.
 
-Send a Telegram message to the bot. Expect a pairing code to reply. Paste the code back into the UI's "Pair Telegram" field. Command runner runs `openclaw pairing approve`. Next Telegram message triggers the agent.
+For Telegram/Discord: send a DM to the bot. Expect a pairing code reply. Paste the code into the agent's detail page. Command runner runs `openclaw pairing approve <channel> <code>`. Next message triggers the agent. For Slack: the agent is active immediately — no pairing step.
 
 ## Stage 6 — noVNC desktop view
 

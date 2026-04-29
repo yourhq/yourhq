@@ -26,6 +26,7 @@ import {
   Bot,
   CheckSquare,
   ExternalLink,
+  MessageSquare,
   MoreHorizontal,
   Pause,
   Pencil,
@@ -37,7 +38,7 @@ import {
   Zap,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import type { Agent, AgentMeta } from "@/lib/agents/types";
+import type { Agent, AgentChannel, AgentMeta } from "@/lib/agents/types";
 import type { TaskSeries } from "@/lib/tasks/types";
 import type { AutomationRule } from "@/lib/automations/types";
 import { longCadenceLabel } from "@/lib/tasks/cadence";
@@ -610,10 +611,31 @@ function EventRow({
 
 // ─── Direct channels (always-on) ─────────────────────────────────────
 
+const CHANNEL_ROW: Record<Exclude<AgentChannel, "none">, {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  detail: string;
+}> = {
+  telegram: {
+    icon: Send,
+    label: "Telegram",
+    detail: "Wakes up on Telegram DMs or @-mentions.",
+  },
+  discord: {
+    icon: MessageSquare,
+    label: "Discord",
+    detail: "Wakes up on Discord DMs or server messages.",
+  },
+  slack: {
+    icon: MessageSquare,
+    label: "Slack",
+    detail: "Wakes up on Slack DMs or channel messages.",
+  },
+};
+
 function DirectChannelsList({ agent }: { agent: Agent }) {
   const meta = (agent.meta ?? {}) as AgentMeta;
-  const telegramHandle = (meta as { telegram_bot_username?: string })
-    .telegram_bot_username;
+  const agentChannel = meta.channel ?? "telegram";
 
   const channels: {
     icon: React.ComponentType<{ className?: string }>;
@@ -630,14 +652,12 @@ function DirectChannelsList({ agent }: { agent: Agent }) {
       label: "Comment @-mentions",
       detail: "Wakes up when you @-mention them in a task comment.",
     },
-    {
-      icon: Bot,
-      label: "Telegram",
-      detail: telegramHandle
-        ? `Wakes up on Telegram DMs or @-mentions — @${telegramHandle}`
-        : "Wakes up when you message them on Telegram. Bot handle is set per agent during creation.",
-    },
   ];
+
+  if (agentChannel !== "none") {
+    const row = CHANNEL_ROW[agentChannel];
+    channels.push({ icon: row.icon, label: row.label, detail: row.detail });
+  }
 
   return (
     <div className="overflow-hidden rounded-md border border-border/60 bg-card/40">

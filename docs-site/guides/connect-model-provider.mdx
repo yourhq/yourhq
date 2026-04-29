@@ -1,12 +1,44 @@
 ---
 title: "Connect a model provider"
-description: "Add API-key and interactive provider auth from the UI."
+description: "Add any model provider — HQ is model-agnostic."
 ---
 
-Go to Settings → Connections.
+HQ is model-agnostic. There is no required or default provider — agents work with whatever you connect. OpenClaw supports 25+ providers including OpenAI, Anthropic, Gemini, OpenRouter, Ollama, LM Studio, and other OpenAI-compatible servers.
 
-HQ supports provider auth flows exposed by OpenClaw, including API keys, OAuth paste flows, device codes, CLI reuse, and local URL flows.
+## Adding a provider
 
-The UI enqueues connection commands. The runner executes them on the gateway and streams the required state back through the command row.
+<Steps>
+  <Step title="Open Connections">
+    Go to Settings → Connections.
+  </Step>
+  <Step title="Pick a provider">
+    Choose from the provider catalog. Each provider shows its auth method and what you need.
+  </Step>
+  <Step title="Complete the auth flow">
+    The method depends on the provider:
 
-After a provider is connected, set a default model globally or from an individual agent's rail.
+    | Auth type | How it works |
+    |---|---|
+    | **API key** | Paste your key directly — connected immediately |
+    | **OAuth / device code** | Follow the login flow in your browser, then complete in the UI |
+    | **CLI reuse** | Reuse an existing auth session from a local CLI tool |
+    | **Local URL** | Point to a local server (Ollama, LM Studio, vLLM) |
+  </Step>
+  <Step title="Set a default model">
+    After connecting, set a default model globally or per-agent from the agent detail page.
+  </Step>
+</Steps>
+
+## Per-agent model overrides
+
+Different agents can use different providers. For example:
+
+- A coding agent on Claude
+- A research agent on GPT
+- A local agent on Ollama
+
+Set overrides from the agent detail page → model selector in the rail.
+
+<Tip>
+  You can connect multiple providers at once. The default model applies to all agents unless overridden individually.
+</Tip>

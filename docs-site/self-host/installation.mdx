@@ -107,8 +107,8 @@ UI reloads on file changes under `apps/ui/`. See [Local development](/developmen
 2. Log in with the Supabase auth user you created.
 3. Complete the setup wizard (workspace name, pipeline stages, custom fields, task streams).
 4. Authenticate at least one model provider from Settings → Connections. API-key providers can be added directly. Interactive providers show the login URL or device flow in the UI and complete through the command runner.
-5. Create your first agent: Agents → New Agent → pick a template → name → Telegram bot token from [BotFather](https://t.me/botfather) → Create.
-6. Send your bot a message on Telegram. It'll reply with a pairing code; paste that into the UI's Pair Telegram field. Next message triggers the agent.
+5. Create your first agent: Agents → New Agent → pick a template → name → choose a messaging channel (Telegram, Discord, Slack, or None) → enter credentials → Create.
+6. For Telegram or Discord: send your bot a DM — it replies with a pairing code. Paste it into the agent's detail page. For Slack: the agent is active in your workspace immediately. Next message triggers the agent.
 
 ## Multi-machine setups
 

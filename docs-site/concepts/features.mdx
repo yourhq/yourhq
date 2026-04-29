@@ -11,7 +11,7 @@ This page is the product tour. For system internals, read [Architecture](/concep
 
 <CardGroup cols={3}>
   <Card title="Agents" icon="robot" href="#agents">
-    Long-lived workers with memory, browser profiles, templates, Telegram, and tools.
+    Long-lived workers with memory, browser profiles, templates, messaging channels, and tools.
   </Card>
   <Card title="Workspace" icon="briefcase" href="#workspace">
     CRM, tasks, documents, assets, automations, notifications, and activity.
@@ -79,18 +79,30 @@ The dashboard is backed by Supabase realtime subscriptions, so most operational 
 
 ## Agents
 
-An HQ agent is a long-lived workspace with:
+An HQ agent is a long-lived workspace — not a chat wrapper.
 
-- A Supabase `agents` row for metadata and status.
-- A git branch in the gateway's local bare repository.
-- A per-agent worktree containing identity, memory, skills, and artifacts.
-- A per-agent Chrome profile.
-- An OpenClaw runtime session.
-- A Telegram bot binding.
-- Optional manager/direct-report relationships.
-- Optional usage budget configuration.
+<CardGroup cols={3}>
+  <Card title="Git branch" icon="code-branch">
+    Identity files, memory, skills, and artifacts on a dedicated branch.
+  </Card>
+  <Card title="Chrome profile" icon="browser">
+    Persistent cookies, logged-in sessions, and extensions.
+  </Card>
+  <Card title="Messaging channel" icon="message">
+    Telegram, Discord, Slack, or none. Each agent gets its own channel binding.
+  </Card>
+  <Card title="Runtime session" icon="play">
+    OpenClaw handles prompt assembly, tool calls, and conversation state.
+  </Card>
+  <Card title="Org chart" icon="sitemap">
+    Optional manager/direct-report relationships for delegation.
+  </Card>
+  <Card title="Usage budget" icon="gauge-high">
+    Optional monthly limits with soft warnings and hard cutoffs.
+  </Card>
+</CardGroup>
 
-Agents are created from templates under `templates/`. The creation wizard lets the operator choose a template, set identity fields, select a manager, provide a Telegram bot token, and then watches the gateway provisioning command.
+Agents are created from templates under `templates/`. The creation wizard lets you choose a template, set identity fields, select a manager, choose a messaging channel, enter credentials, and watch the gateway provisioning command run.
 
 The agent detail page includes:
 
@@ -250,13 +262,15 @@ The Settings -> Gateways UI supports:
 
 ## Provider Connections and Models
 
-Model provider auth is managed from Settings -> Connections and from the agent rail.
+HQ is model-agnostic. Agents work with whatever provider you connect — there is no required or default provider.
 
-HQ supports the providers exposed by the OpenClaw model auth layer, including OpenAI, Anthropic, Gemini, OpenRouter, local OpenAI-compatible servers, and other API-key or CLI/device-code based providers.
+<CardGroup cols={3}>
+  <Card title="API key" icon="key">OpenAI, Anthropic, Gemini, DeepSeek, Mistral, and more.</Card>
+  <Card title="OAuth / device code" icon="right-to-bracket">OpenAI Codex, GitHub Copilot, and interactive flows.</Card>
+  <Card title="Local models" icon="server">Ollama, LM Studio, vLLM, and OpenAI-compatible servers.</Card>
+</CardGroup>
 
-The command runner handles provider auth through `agent_commands`, including API-key storage, interactive auth flows, pasted redirects, provider listing, removal, refresh, and default model selection.
-
-Agents can have default providers/models selected inline from their detail page.
+Model provider auth is managed from Settings → Connections and from the agent rail. The command runner handles auth flows through `agent_commands`. Agents can have default providers/models selected inline from their detail page.
 
 ## Networking
 

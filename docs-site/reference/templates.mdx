@@ -1,21 +1,29 @@
 ---
 title: "Agent templates"
-description: "Template files, structure, and how new agents are created from templates."
+description: "Template structure, files, and how new agents are created from templates."
 ---
 
-Templates live in [`templates/`](https://github.com/yourhq/yourhq/tree/main/templates).
+Templates are role-specific starting points for agents. They live in [`templates/`](https://github.com/yourhq/yourhq/tree/main/templates) and get seeded into the gateway's local git repo as `template/<name>` branches on first boot.
 
-Each template is a starting worktree for a new agent. The gateway seeds templates into the local bare repo as `template/<name>` branches on first boot.
+## Template files
 
-Common files:
+| File | Purpose |
+|---|---|
+| `agent.json` | Runtime metadata: slug, name, description, team, capabilities, browser color |
+| `IDENTITY.md` | Role, voice, and domain behavior |
+| `SOUL.md` | Goals and non-negotiables |
+| `USER.md` | Owner profile placeholders (filled at provision time) |
+| `MEMORY.md` | Starting long-term context |
+| `TOOLS.md` | Tool-use guidance |
+| `AGENTS.md` | Agent-specific instructions |
+| `skills/` | Reusable procedures and scripts |
 
-- `agent.json` — runtime metadata.
-- `IDENTITY.md` — role, voice, and domain behavior.
-- `SOUL.md` — goals and non-negotiables.
-- `USER.md` — owner profile placeholders.
-- `MEMORY.md` — starting long-term context.
-- `TOOLS.md` — tool-use guidance.
-- `AGENTS.md` — agent-specific instructions.
-- `skills/` — reusable procedures and scripts.
+## How provisioning works
 
-When an agent is provisioned, HQ creates a branch from the selected template and patches identity fields.
+When you create an agent, HQ forks the selected template branch into the agent's personal branch, then patches identity fields (`slug`, `name`, `emoji`, `channel`).
+
+The `model` field is optional — agents use the default provider configured in Settings → Connections unless overridden per-agent from the agent detail page.
+
+<Tip>
+  To create a custom template, copy `templates/default/` to `templates/your-role/`, edit the identity files, add role-specific skills, and rebuild the templates index. See [Agents → Writing a new template](/concepts/agents#writing-a-new-template) for the full walkthrough.
+</Tip>

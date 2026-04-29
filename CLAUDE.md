@@ -62,7 +62,7 @@ For the public-facing tour of the system, see [`docs-site/concepts/architecture.
 2. Optionally attach to `$GIT_REMOTE_URL`.
 3. Optionally bring up Tailscale (`$TAILSCALE_AUTH_KEY`) and apply `$TAILSCALE_EXIT_NODE`.
 4. Run `openclaw onboard` on first boot.
-5. Patch `openclaw.json` (browser, telegram, plugin paths).
+5. Patch `openclaw.json` (browser, channels, plugin paths).
 6. Install the hq-bootstrap plugin.
 7. Start Xvfb + fluxbox + VNC (x0vncserver).
 8. Start websockify → noVNC, binding per `$NOVNC_BIND` (local / tailscale / public).

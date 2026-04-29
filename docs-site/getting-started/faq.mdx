@@ -23,14 +23,14 @@ An agent is a persistent workspace with:
 
 - Its own git branch (identity files, memory, skills)
 - Its own Chrome profile (persistent cookies, logged-in sessions)
-- Its own Telegram bot (for conversational input/output)
+- Its own messaging channel — Telegram, Discord, Slack, or none (for conversational input/output)
 - Its own OpenClaw session (the runtime)
 
 Agents have real memory across sessions, can browse the web, send messages, edit files, and call APIs. They're not chat bots.
 
 ## What models do agents use?
 
-Whatever OpenClaw is configured with: OpenAI, Anthropic, Gemini, OpenRouter, local OpenAI-compatible servers, and other supported providers. Switching is available per agent through the agent rail and through Settings → Connections.
+HQ is model-agnostic. Agents use whatever provider you configure — OpenAI, Anthropic, Gemini, OpenRouter, local OpenAI-compatible servers, and 20+ other providers supported by OpenClaw. There is no default or required provider. Switching is available per agent through the agent rail and globally through Settings → Connections.
 
 You connect models through the Connections UI. API-key providers can be added directly; interactive providers complete through the runner command flow.
 
@@ -48,11 +48,11 @@ Model API costs are on top and depend on usage — typically $10–$100/month pe
 ## Does it need internet?
 
 The UI and gateway need internet for:
-- Model API calls (OpenAI, Anthropic, etc.)
+- Model API calls (unless using a local model like Ollama)
 - Supabase (if your Supabase is cloud-hosted)
-- openclaw plugin updates
+- OpenClaw plugin updates
 
-Gateway agents need internet to browse. Beyond that, local-only is fine.
+Gateway agents need internet to browse. Beyond that, local-only is fine. With a local model provider and self-hosted Supabase, agents can work fully offline.
 
 ## Can I run multiple gateways?
 

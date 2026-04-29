@@ -1,18 +1,48 @@
 ---
 title: "Automations"
-description: "Turn CRM and task events into agent inbox work."
+description: "Turn CRM and task events into background agent work."
 ---
 
-Automations create `agent_inbox_items` from workspace events.
+Automations let you wire up workspace events to agents — when something changes, an agent wakes up and handles it. No manual messaging needed.
 
-Common patterns:
+## Supported triggers
 
-- Contact created.
-- Contact status changed.
-- Contact fields updated.
-- Task assigned or reassigned.
-- Agent mentioned in a comment.
+<CardGroup cols={2}>
+  <Card title="Contact created" icon="user-plus">
+    A new contact is added to the CRM.
+  </Card>
+  <Card title="Status changed" icon="arrows-rotate">
+    A contact moves to a new pipeline stage.
+  </Card>
+  <Card title="Fields updated" icon="pen-to-square">
+    Specific contact fields are modified.
+  </Card>
+  <Card title="Task assigned" icon="list-check">
+    A task is assigned or reassigned to an agent.
+  </Card>
+  <Card title="Agent mentioned" icon="at">
+    An agent is @-mentioned in a task or document comment.
+  </Card>
+</CardGroup>
 
-The dispatcher wakes the assigned agent, and the agent claims and processes the inbox item from its runtime.
+## How it works
 
-Use automations when you want background agent work without sending a Telegram message.
+```text
+Workspace event  →  Automation rule matches  →  Inbox item created  →  Dispatcher wakes agent  →  Agent processes work
+```
+
+<Steps>
+  <Step title="Create a rule">
+    Go to Automations and define when the rule should fire (trigger type + conditions).
+  </Step>
+  <Step title="Assign an agent">
+    Pick which agent should handle the work when the rule fires.
+  </Step>
+  <Step title="Agent works in the background">
+    The dispatcher wakes the agent, which claims the inbox item and processes it from its runtime.
+  </Step>
+</Steps>
+
+<Tip>
+  Automations are great for repetitive work: enriching new contacts, drafting follow-ups when a deal moves stages, or notifying an agent when it's mentioned in a comment.
+</Tip>

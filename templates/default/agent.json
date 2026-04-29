@@ -3,9 +3,7 @@
   "name": "Agent Display Name",
   "description": "What this agent does in one sentence",
   "team": "TEAM_HERE",
-  "model": "openai-codex/gpt-5.4",
   "domains": [],
   "capabilities": [],
-  "telegram_token_env": "TELEGRAM_TOKEN_AGENT_SLUG_HERE",
   "browser_profile_color": "#8b5cf6"
 }

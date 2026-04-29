@@ -3,28 +3,41 @@ title: "Migrations"
 description: "Ordered Supabase migration files and how to apply them."
 ---
 
-Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations).
+Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations). Run them in filename order for a fresh project.
 
-Run them in filename order for a fresh project.
+## Migration files
 
-The current split keeps migration files domain-oriented:
+| File | Domain |
+|---|---|
+| `001_extensions.sql` | Postgres extensions |
+| `002_enums.sql` | Shared enum types |
+| `003_shared_functions.sql` | Common trigger functions |
+| `004_workspace.sql` | Workspace, pipeline, fields |
+| `005_crm.sql` | Contacts, organizations, campaigns |
+| `006_gateways.sql` | Gateway registry and tokens |
+| `007_agents.sql` | Agent metadata and org chart |
+| `008_interactions.sql` | Contact interaction timeline |
+| `009_tasks_streams.sql` | Tasks, streams, recurrence |
+| `010_comments_attachments.sql` | Comments and attachments |
+| `011_assets_documents.sql` | Documents and assets |
+| `012_audit_notifications.sql` | Audit log and notifications |
+| `013_agent_inbox.sql` | Inbox queue and automation triggers |
+| `014_agent_commands.sql` | Command queue and lifecycle RPCs |
+| `015_usage_budgets.sql` | Usage tracking and budgets |
+| `016_rls_realtime_storage.sql` | RLS policies, Realtime, Storage |
+| `017_setup_wizard.sql` | First-run setup RPC |
 
-- Extensions.
-- Enums.
-- Shared functions.
-- Workspace.
-- CRM.
-- Gateways.
-- Agents.
-- Interactions.
-- Tasks and streams.
-- Comments and attachments.
-- Assets and documents.
-- Audit and notifications.
-- Agent inbox.
-- Agent commands.
-- Usage budgets.
-- RLS, realtime, and storage.
-- Setup wizard.
+## Applying migrations
 
-For existing projects, back up first and apply only missing migrations.
+<Tabs>
+  <Tab title="Fresh project">
+    Run every `.sql` file in order from the Supabase SQL Editor, or use the onboarding wizard which concatenates them into a single copy-paste blob.
+  </Tab>
+  <Tab title="Existing project">
+    Back up first. All migration files are idempotent (`IF NOT EXISTS`, `CREATE OR REPLACE`) and safe to re-run.
+  </Tab>
+</Tabs>
+
+<Tip>
+  Always include explicit `GRANT` statements for `authenticated` and `service_role` in any new migrations. Supabase does not grant these by default.
+</Tip>
