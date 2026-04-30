@@ -1,17 +1,6 @@
-// Creates the first Supabase auth user for a freshly-connected project.
-// Replaces the manual "Add user in the Supabase dashboard" step that
-// today's docs/INSTALL.md walks through.
-//
-// Uses Supabase's admin REST API with the service role key:
-//   POST <url>/auth/v1/admin/users
-//   Authorization: Bearer <service_role_key>
-//   { email, password, email_confirm: true }
-//
-// We set email_confirm: true so the user doesn't need to click a
-// confirmation email they never got (they'd have to configure SMTP in
-// Supabase first, which is out of scope for onboarding).
-
 import "server-only";
+
+import { createClient } from "@supabase/supabase-js";
 
 export interface CreateAuthUserInput {
   url: string;
@@ -27,99 +16,49 @@ export interface CreateAuthUserResult {
   hint?: string;
 }
 
-function parseError(body: string): string | null {
-  try {
-    const parsed = JSON.parse(body);
-    return (
-      (typeof parsed.msg === "string" && parsed.msg) ||
-      (typeof parsed.message === "string" && parsed.message) ||
-      (typeof parsed.error_description === "string" && parsed.error_description) ||
-      null
-    );
-  } catch {
-    return null;
-  }
-}
-
 export async function createAuthUser(
   input: CreateAuthUserInput,
 ): Promise<CreateAuthUserResult> {
-  const base = input.url.replace(/\/$/, "");
-  const endpoint = `${base}/auth/v1/admin/users`;
+  const supabase = createClient(input.url, input.serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
 
-  let res: Response;
-  try {
-    res = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: input.serviceRoleKey,
-        Authorization: `Bearer ${input.serviceRoleKey}`,
-      },
-      body: JSON.stringify({
-        email: input.email,
-        password: input.password,
-        email_confirm: true,
-      }),
-    });
-  } catch (err) {
+  const { data, error } = await supabase.auth.admin.createUser({
+    email: input.email,
+    password: input.password,
+    email_confirm: true,
+  });
+
+  if (!error) {
+    return { ok: true, userId: data.user?.id };
+  }
+
+  const msg = error.message ?? "";
+  console.error(`[createAuthUser] error: ${msg} (status: ${error.status})`);
+
+  if (/already|exist|registered/i.test(msg)) {
     return {
       ok: false,
-      error: `Couldn't reach Supabase: ${(err as Error).message}`,
+      error: "An account with that email already exists.",
+      hint: "Try signing in instead, or use a different email.",
     };
   }
 
-  if (res.ok) {
-    const parsed = await res.json().catch(() => ({}));
-    return {
-      ok: true,
-      userId: typeof parsed?.id === "string" ? parsed.id : undefined,
-    };
-  }
-
-  const body = await res.text().catch(() => "");
-  const msg = parseError(body);
-  console.error(`[createAuthUser] ${res.status} response: ${body.slice(0, 500)}`);
-
-  if (res.status === 401 || res.status === 403) {
+  if (/password/i.test(msg)) {
     return {
       ok: false,
-      error: msg ?? "Secret key was rejected by Supabase.",
-      hint: `HTTP ${res.status}. Check the service_role key in Project Settings → API.`,
+      error: `Password rejected: ${msg}`,
+      hint: "Supabase requires at least 6 characters by default.",
     };
   }
 
-  if (res.status === 422 || res.status === 400) {
-    // Already-exists is the most common case — treat as soft success
-    // if the caller wanted "ensure a user with this email exists."
-    if (msg && /already|exist|registered/i.test(msg)) {
-      return {
-        ok: false,
-        error: "An account with that email already exists.",
-        hint: "Try signing in instead, or use a different email.",
-      };
-    }
-    if (msg && /password/i.test(msg)) {
-      return {
-        ok: false,
-        error: `Password rejected: ${msg}`,
-        hint: "Supabase requires at least 6 characters by default.",
-      };
-    }
-    if (msg && /email/i.test(msg)) {
-      return {
-        ok: false,
-        error: `Email rejected: ${msg}`,
-      };
-    }
+  if (/invalid.*key|unauthorized|forbidden/i.test(msg)) {
     return {
       ok: false,
-      error: msg ?? `Supabase rejected the request (${res.status}).`,
+      error: msg,
+      hint: "Check the service_role key in Project Settings → API.",
     };
   }
 
-  return {
-    ok: false,
-    error: msg ?? `Supabase returned ${res.status} creating the user.`,
-  };
+  return { ok: false, error: msg };
 }
