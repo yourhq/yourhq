@@ -364,8 +364,8 @@ DECLARE
   v_default_pct integer;
   v_default_cut boolean;
   v_period      date;
-  v_old_status  budget_status;
-  v_new_status  budget_status;
+  v_old_status  public.budget_status;
+  v_new_status  public.budget_status;
   v_tenant_id   uuid;
 BEGIN
   IF NEW.agent_id IS NULL THEN RETURN NEW; END IF;
@@ -670,7 +670,7 @@ $$;
 -- ── recompute_agent_budget: tenant-aware workspace lookup ──────────
 
 CREATE OR REPLACE FUNCTION recompute_agent_budget(p_agent_id uuid)
-RETURNS agent_budgets LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+RETURNS public.agent_budgets LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE
   v_anchor_tz  text;
   v_period     date;

@@ -391,52 +391,57 @@ export async function runOneClickMigrationAction(
   }
 
   const { projectRef, region, dbPassword } = parsed.data;
-  const connectionString =
-    `postgresql://postgres.${projectRef}:${encodeURIComponent(dbPassword)}@aws-0-${region}.pooler.supabase.com:5432/postgres`;
+  const encodedPassword = encodeURIComponent(dbPassword);
+  const { runMigrations } = await import("@/lib/projects/run-migrations");
 
-  try {
-    const { runMigrations } = await import(
-      "@/lib/projects/run-migrations"
-    );
+  const poolerPrefixes = ["aws-0", "aws-1", "aws-2"];
 
-    const result = await runMigrations({
-      connectionString,
-      onProgress: (msg) => console.log(`[one-click] ${msg}`),
-    });
+  for (const prefix of poolerPrefixes) {
+    const connectionString =
+      `postgresql://postgres.${projectRef}:${encodedPassword}@${prefix}-${region}.pooler.supabase.com:5432/postgres`;
+    try {
+      const result = await runMigrations({
+        connectionString,
+        onProgress: (msg) => console.log(`[one-click] ${msg}`),
+      });
 
-    if (result.errors.length > 0) {
-      const first = result.errors[0];
+      if (result.errors.length > 0) {
+        const first = result.errors[0];
+        return {
+          ok: false,
+          error: `Migration failed on ${first.name}: ${first.error}`,
+          applied: result.applied.length,
+          skipped: result.skipped.length,
+        };
+      }
+
       return {
-        ok: false,
-        error: `Migration failed on ${first.name}: ${first.error}`,
+        ok: true,
         applied: result.applied.length,
         skipped: result.skipped.length,
       };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("password authentication failed")) {
+        return {
+          ok: false,
+          error: "Incorrect database password.",
+          hint: "This is the password you set when creating the Supabase project, not your Supabase account password.",
+        };
+      }
+      // "Tenant or user not found" means wrong pooler instance — try next
+      if (msg.includes("Tenant") || msg.includes("ENOTFOUND")) {
+        continue;
+      }
+      return { ok: false, error: msg };
     }
-
-    return {
-      ok: true,
-      applied: result.applied.length,
-      skipped: result.skipped.length,
-    };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("ENOTFOUND") || msg.includes("ECONNREFUSED") || msg.includes("timeout")) {
-      return {
-        ok: false,
-        error: "Could not connect to the database.",
-        hint: "Check that the region matches where you created your Supabase project, and that the project isn't paused.",
-      };
-    }
-    if (msg.includes("password authentication failed")) {
-      return {
-        ok: false,
-        error: "Incorrect database password.",
-        hint: "This is the password you set when creating the Supabase project, not your Supabase account password.",
-      };
-    }
-    return { ok: false, error: msg };
   }
+
+  return {
+    ok: false,
+    error: "Could not connect to the database.",
+    hint: "Check that the region matches where you created your Supabase project, and that the project isn't paused.",
+  };
 }
 
 /**
