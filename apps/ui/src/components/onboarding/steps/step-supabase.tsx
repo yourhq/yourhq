@@ -98,6 +98,7 @@ export function StepSupabase({
   const [anonKey, setAnonKey] = useState("");
   const [serviceRoleKey, setServiceRoleKey] = useState("");
   const [dbPassword, setDbPassword] = useState("");
+  const [dbRegion, setDbRegion] = useState("");
   const [keysError, setKeysError] = useState<string | null>(null);
   const [forceInstall, setForceInstall] = useState(false);
 
@@ -174,8 +175,8 @@ export function StepSupabase({
   const runOneClickInstall = useCallback(async (): Promise<boolean> => {
     setInstall({ status: "running", oneClick: true });
     const r = await runOneClickMigrationAction({
-      url: creds.url,
-      serviceRoleKey: creds.serviceRoleKey,
+      projectRef: resolved?.projectRef ?? "",
+      region: dbRegion,
       dbPassword: dbPassword.trim(),
     });
     if (!r.ok) {
@@ -189,7 +190,7 @@ export function StepSupabase({
     }
     setInstall({ status: "ok", oneClick: true });
     return true;
-  }, [creds, dbPassword]);
+  }, [creds, resolved, dbRegion, dbPassword]);
 
   const confirmInstall = useCallback(async (): Promise<boolean> => {
     setInstall((prev) => ({ ...prev, status: "running" }));
@@ -252,22 +253,22 @@ export function StepSupabase({
     }
     // Schema missing — present the right install panel and wait for
     // the user to explicitly trigger it.
-    if (dbPassword.trim()) {
+    if (dbPassword.trim() && dbRegion) {
       setInstall({ status: "awaiting", oneClick: true });
       return;
     }
     await prepareInstall();
-  }, [runValidate, prepareInstall, runSave, dbPassword]);
+  }, [runValidate, prepareInstall, runSave, dbPassword, dbRegion]);
 
   const installAnyway = useCallback(async () => {
     setForceInstall(true);
     setValidate({ status: "ok" });
-    if (dbPassword.trim()) {
+    if (dbPassword.trim() && dbRegion) {
       setInstall({ status: "awaiting", oneClick: true });
       return;
     }
     await prepareInstall();
-  }, [prepareInstall, dbPassword]);
+  }, [prepareInstall, dbPassword, dbRegion]);
 
   const handleConfirmInstall = useCallback(async () => {
     const ok = await confirmInstall();
@@ -411,6 +412,7 @@ export function StepSupabase({
         anonKey={anonKey}
         serviceRoleKey={serviceRoleKey}
         dbPassword={dbPassword}
+        dbRegion={dbRegion}
         isCloudHosted={resolved.isCloudHosted}
         error={keysError}
         onBack={() => setPhase("url")}
@@ -419,6 +421,7 @@ export function StepSupabase({
           if (patch.serviceRoleKey !== undefined)
             setServiceRoleKey(patch.serviceRoleKey);
           if (patch.dbPassword !== undefined) setDbPassword(patch.dbPassword);
+          if (patch.dbRegion !== undefined) setDbRegion(patch.dbRegion);
         }}
         onSubmit={() => {
           if (!anonKey.trim() || !serviceRoleKey.trim()) {
@@ -629,6 +632,7 @@ function KeysPhase({
   anonKey,
   serviceRoleKey,
   dbPassword,
+  dbRegion,
   isCloudHosted,
   error,
   onBack,
@@ -640,6 +644,7 @@ function KeysPhase({
   anonKey: string;
   serviceRoleKey: string;
   dbPassword: string;
+  dbRegion: string;
   isCloudHosted: boolean;
   error: string | null;
   onBack: () => void;
@@ -647,6 +652,7 @@ function KeysPhase({
     anonKey?: string;
     serviceRoleKey?: string;
     dbPassword?: string;
+    dbRegion?: string;
   }) => void;
   onSubmit: () => void;
 }) {
@@ -739,28 +745,79 @@ function KeysPhase({
           </p>
         </div>
 
-        <div className="space-y-2.5 border-t border-border/40 pt-5">
-          <label className="flex items-center gap-2 text-[12px] font-medium text-muted-foreground">
-            <Database className="h-3.5 w-3.5" />
-            Database password
+        <div className="space-y-4 border-t border-border/40 pt-5">
+          <div className="flex items-center gap-2">
+            <Database className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-[12px] font-medium text-muted-foreground">
+              One-click schema install
+            </span>
             <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground/50">
               optional
             </span>
-          </label>
-          <input
-            type="password"
-            value={dbPassword}
-            onChange={(e) => onChange({ dbPassword: e.target.value })}
-            placeholder="The password you set when creating the Supabase project"
-            spellCheck={false}
-            autoComplete="off"
-            className="w-full border-0 border-b border-border/60 bg-transparent pb-2 font-mono text-[13px] outline-none transition-colors placeholder:text-muted-foreground/30 focus:border-foreground"
-          />
-          <p className="text-[11px] text-muted-foreground/60">
+          </div>
+          <p className="text-[11px] leading-relaxed text-muted-foreground/60">
             {isCloudHosted
-              ? "If provided, HQ installs the schema for you automatically. Otherwise you'll paste SQL into the Supabase editor."
-              : "If provided, HQ installs the schema for you automatically via direct Postgres connection."}
+              ? "Provide your database password and region to let HQ install the schema automatically. Without these, you'll paste SQL into the Supabase editor manually."
+              : "Provide your database password and region to let HQ install the schema automatically via the session pooler."}
           </p>
+
+          <div className="grid grid-cols-[1fr_1fr] gap-3">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium text-muted-foreground/70">
+                Region
+              </label>
+              <select
+                value={dbRegion}
+                onChange={(e) => onChange({ dbRegion: e.target.value })}
+                className={cn(
+                  "w-full rounded-md border border-border/60 bg-transparent px-2.5 py-2 text-[12px] outline-none transition-colors focus:border-foreground",
+                  !dbRegion && "text-muted-foreground/30",
+                )}
+              >
+                <option value="">Select region…</option>
+                <optgroup label="North America">
+                  <option value="us-east-1">US East (N. Virginia)</option>
+                  <option value="us-east-2">US East (Ohio)</option>
+                  <option value="us-west-1">US West (N. California)</option>
+                  <option value="us-west-2">US West (Oregon)</option>
+                  <option value="ca-central-1">Canada (Central)</option>
+                </optgroup>
+                <optgroup label="Europe">
+                  <option value="eu-west-1">West EU (Ireland)</option>
+                  <option value="eu-west-2">West EU (London)</option>
+                  <option value="eu-west-3">West EU (Paris)</option>
+                  <option value="eu-central-1">Central EU (Frankfurt)</option>
+                  <option value="eu-central-2">Central EU (Zurich)</option>
+                  <option value="eu-north-1">North EU (Stockholm)</option>
+                </optgroup>
+                <optgroup label="Asia Pacific">
+                  <option value="ap-south-1">South Asia (Mumbai)</option>
+                  <option value="ap-southeast-1">Southeast Asia (Singapore)</option>
+                  <option value="ap-northeast-1">Northeast Asia (Tokyo)</option>
+                  <option value="ap-northeast-2">Northeast Asia (Seoul)</option>
+                  <option value="ap-southeast-2">Oceania (Sydney)</option>
+                </optgroup>
+                <optgroup label="South America">
+                  <option value="sa-east-1">South America (São Paulo)</option>
+                </optgroup>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium text-muted-foreground/70">
+                Database password
+              </label>
+              <input
+                type="password"
+                value={dbPassword}
+                onChange={(e) => onChange({ dbPassword: e.target.value })}
+                placeholder="Your project password"
+                spellCheck={false}
+                autoComplete="off"
+                className="w-full rounded-md border border-border/60 bg-transparent px-2.5 py-2 text-[12px] font-mono outline-none transition-colors placeholder:text-muted-foreground/30 focus:border-foreground"
+              />
+            </div>
+          </div>
         </div>
       </div>
 

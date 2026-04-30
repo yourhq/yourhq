@@ -372,8 +372,8 @@ export async function prepareSchemaInstallAction(
 // ── One-click migration via direct Postgres connection ──────────────
 
 const oneClickSchema = z.object({
-  url: z.string().url(),
-  serviceRoleKey: z.string().min(20),
+  projectRef: z.string().min(1),
+  region: z.string().min(1),
   dbPassword: z.string().min(1),
 });
 
@@ -387,30 +387,15 @@ export async function runOneClickMigrationAction(
 ): Promise<OneClickMigrationResult> {
   const parsed = oneClickSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: "Missing database password or credentials." };
+    return { ok: false, error: "Region and database password are required." };
   }
 
-  let projectRef: string | null = null;
-  try {
-    const u = new URL(parsed.data.url);
-    const m = u.hostname.match(/^([a-z0-9]{20})\.supabase\.co$/i);
-    projectRef = m ? m[1] : null;
-  } catch {}
-
-  let connectionString: string;
-  if (projectRef) {
-    connectionString = `postgres://postgres:${encodeURIComponent(parsed.data.dbPassword)}@db.${projectRef}.supabase.co:5432/postgres`;
-  } else {
-    try {
-      const u = new URL(parsed.data.url);
-      connectionString = `postgres://postgres:${encodeURIComponent(parsed.data.dbPassword)}@${u.hostname}:5432/postgres`;
-    } catch {
-      return { ok: false, error: "Could not parse database host from URL." };
-    }
-  }
+  const { projectRef, region, dbPassword } = parsed.data;
+  const connectionString =
+    `postgresql://postgres.${projectRef}:${encodeURIComponent(dbPassword)}@aws-0-${region}.pooler.supabase.com:5432/postgres`;
 
   try {
-    const { runMigrations, discoverMigrations } = await import(
+    const { runMigrations } = await import(
       "@/lib/projects/run-migrations"
     );
 
@@ -436,13 +421,11 @@ export async function runOneClickMigrationAction(
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("ECONNREFUSED") || msg.includes("timeout")) {
+    if (msg.includes("ENOTFOUND") || msg.includes("ECONNREFUSED") || msg.includes("timeout")) {
       return {
         ok: false,
         error: "Could not connect to the database.",
-        hint:
-          "Cloud Supabase may block direct connections on port 5432 if your plan doesn't support it, " +
-          "or the password may be incorrect. You can skip this and use the SQL editor instead.",
+        hint: "Check that the region matches where you created your Supabase project, and that the project isn't paused.",
       };
     }
     if (msg.includes("password authentication failed")) {
