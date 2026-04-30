@@ -29,6 +29,7 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 UPDATE gateways SET status = 'ready' WHERE status = 'online';
 UPDATE gateways SET status = 'error' WHERE status = 'offline';
 
+ALTER TABLE gateways ALTER COLUMN status DROP DEFAULT;
 ALTER TABLE gateways ALTER COLUMN status TYPE gateway_status USING status::gateway_status;
 ALTER TABLE gateways ALTER COLUMN status SET DEFAULT 'ready';
 
