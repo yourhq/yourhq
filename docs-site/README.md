@@ -21,9 +21,12 @@ mint dev
 
 ```bash
 cd docs-site
+node scripts/generate-llms-full.mjs
 mint validate
 mint broken-links
 ```
+
+`llms-full.txt` is generated from the pages listed in `docs.json`. If you add or move pages, run the generator and commit the updated file.
 
 ## Deployment
 

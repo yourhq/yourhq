@@ -1,0 +1,75 @@
+# HQ
+
+> HQ is an open-source, self-hostable agent operations platform. It gives one operator a workspace for AI agents, CRM, tasks, documents, automations, provider connections, gateways, and usage budgets. HQ runs on infrastructure the user controls, with Supabase as the user-owned backend and Docker gateway hosts running agents.
+
+## Primary docs
+
+- [HQ documentation](https://docs.yourhq.ai): Human-readable documentation home.
+- [Choose your path](https://docs.yourhq.ai/getting-started/choose-your-path): Audience-based starting points for new users, self-hosters, agent builders, developers, and security reviewers.
+- [Quickstart](https://docs.yourhq.ai/getting-started/quickstart): Fastest path from zero to a running HQ workspace.
+- [What HQ includes](https://docs.yourhq.ai/concepts/features): Product tour of agents, CRM, tasks, documents, automations, gateways, usage, and budgets.
+- [Roadmap](https://docs.yourhq.ai/getting-started/roadmap): Shipped areas and planned work.
+
+## Self-hosting
+
+- [Requirements](https://docs.yourhq.ai/self-host/requirements): Infrastructure and accounts needed to run HQ.
+- [Supabase setup](https://docs.yourhq.ai/self-host/supabase): Create the Supabase project, run migrations, and configure auth.
+- [Installation](https://docs.yourhq.ai/self-host/installation): One-line install, manual install, and development mode.
+- [Networking](https://docs.yourhq.ai/self-host/networking): Local, Tailscale, public, and multi-machine deployment topologies.
+- [Add a gateway](https://docs.yourhq.ai/self-host/add-gateway): Register another Docker host so it can run agents.
+- [Operations](https://docs.yourhq.ai/self-host/operations): Updates, backups, image pinning, and uninstalling.
+
+## Using HQ
+
+- [Workspace setup](https://docs.yourhq.ai/guides/workspace-setup): Configure workspace profile, pipeline, fields, and streams.
+- [Create an agent](https://docs.yourhq.ai/guides/create-agent): Provision an agent from a template and pair it with Telegram.
+- [Connect a model provider](https://docs.yourhq.ai/guides/connect-model-provider): Add API-key and interactive provider auth from the UI.
+- [Agent boot documents](https://docs.yourhq.ai/guides/agent-boot-docs): Use document tags to inject shared context into agent sessions.
+- [Automations](https://docs.yourhq.ai/guides/automations): Turn CRM and task events into agent inbox work.
+- [Usage budgets](https://docs.yourhq.ai/guides/usage-budgets): Track model usage and enforce monthly agent budgets.
+
+## Concepts
+
+- [Architecture](https://docs.yourhq.ai/concepts/architecture): How the UI, Supabase, gateways, queues, files API, and agents fit together.
+- [Agents](https://docs.yourhq.ai/concepts/agents): Agent workspaces, templates, memory, Telegram, tools, org chart, and budgets.
+- [Projects and workspaces](https://docs.yourhq.ai/concepts/projects-and-workspaces): How one UI manages multiple Supabase-backed workspaces.
+- [Gateways](https://docs.yourhq.ai/concepts/gateways): Docker hosts that run agents, desktops, files API, and daemons.
+- [Tasks, inbox, and commands](https://docs.yourhq.ai/concepts/tasks-inbox-and-commands): The queues that coordinate UI, gateways, and agents.
+- [Security model](https://docs.yourhq.ai/concepts/security-model): Trust boundaries behind HQ's self-hosted architecture.
+
+## Reference
+
+- [Configuration](https://docs.yourhq.ai/reference/configuration): Environment variables and runtime configuration.
+- [Database schema](https://docs.yourhq.ai/reference/database-schema): Tables, migrations, queues, triggers, and RLS trust model.
+- [Migrations](https://docs.yourhq.ai/reference/migrations): Ordered Supabase migration files and how to apply them.
+- [Agent templates](https://docs.yourhq.ai/reference/templates): Template files, structure, and provisioning behavior.
+- [Docker services](https://docs.yourhq.ai/reference/docker-services): Containers in the HQ Compose stack.
+- [Files API](https://docs.yourhq.ai/reference/files-api): How the UI reads and edits files in agent worktrees.
+- [Command lifecycle](https://docs.yourhq.ai/reference/command-lifecycle): How gateway commands move from UI action to runner execution.
+
+## Development and contribution
+
+- [Local development](https://docs.yourhq.ai/development/local-development): Development setup, project structure, and common tasks.
+- [Repo structure](https://docs.yourhq.ai/development/repo-structure): Where major parts of the codebase live.
+- [Contributing](https://docs.yourhq.ai/development/contributing): Contribution flow for code, templates, docs, and bug reports.
+- [Testing](https://docs.yourhq.ai/development/testing): Staged test plan for validating the Docker stack.
+- [Docs development](https://docs.yourhq.ai/development/docs): How to edit and preview the Mintlify documentation site.
+
+## Security and troubleshooting
+
+- [Security policy](https://docs.yourhq.ai/security/security-policy): Vulnerability reporting, trust model, known risks, and hardening.
+- [Troubleshooting](https://docs.yourhq.ai/troubleshooting/common-issues): Symptom-indexed fixes for common UI, Supabase, gateway, install, and agent issues.
+
+## Source
+
+- [GitHub repository](https://github.com/yourhq/yourhq): Source code, issues, discussions, and pull requests.
+- [License](https://github.com/yourhq/yourhq/blob/main/LICENSE): Apache 2.0.
+- [Code of conduct](https://github.com/yourhq/yourhq/blob/main/CODE_OF_CONDUCT.md): Community standards.
+
+## Notes for AI agents
+
+- HQ is open source and self-hosted. Do not assume users are using a hosted YourHQ backend.
+- Supabase is user-owned and is the main state backbone.
+- Gateway hosts run agents in Docker and store local agent worktrees, browser profiles, and OpenClaw state.
+- The docs are the best source for install, architecture, security, and operational behavior.
+- Use `https://docs.yourhq.ai/llms-full.txt` when a complete Markdown snapshot of the docs is needed.

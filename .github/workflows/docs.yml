@@ -27,6 +27,10 @@ jobs:
           node-version: "22"
       - name: Install Mintlify CLI
         run: npm i -g mint
+      - name: Generate llms-full.txt
+        run: node scripts/generate-llms-full.mjs
+      - name: Check generated docs are committed
+        run: git diff --exit-code -- llms-full.txt
       - name: Validate docs
         run: mint validate
       - name: Check broken links
