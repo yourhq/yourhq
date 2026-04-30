@@ -409,7 +409,8 @@ if [ ! -L "$HOME/Desktop" ]; then
 fi
 
 
-export XDG_RUNTIME_DIR="/tmp/runtime-$(id -u)"
+XDG_RUNTIME_DIR="/tmp/runtime-$(id -u)"
+export XDG_RUNTIME_DIR
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
 
@@ -606,7 +607,8 @@ log "Starting openclaw gateway (foreground) ..."
 # start" even though the process briefly exists. The XFCE subshell
 # above sets them locally; here we re-export for the openclaw process.
 export DISPLAY=:1
-export XDG_RUNTIME_DIR="/tmp/runtime-$(id -u)"
+XDG_RUNTIME_DIR="/tmp/runtime-$(id -u)"
+export XDG_RUNTIME_DIR
 export XDG_SESSION_TYPE=x11
 export XDG_CONFIG_HOME="$HOME/.config"
 export XDG_DATA_HOME="$HOME/.local/share"

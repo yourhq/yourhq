@@ -67,7 +67,7 @@ if [ "$need_docker" = "1" ]; then
   case "$(uname -s)" in
     Linux)
       say "${B}Installing Docker…${R}"
-      local_sh=sh
+      local_sh="sh"
       if [ "$(id -u)" -ne 0 ]; then
         if command -v sudo >/dev/null 2>&1; then
           local_sh="sudo sh"
