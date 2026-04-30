@@ -43,13 +43,13 @@ BEGIN
     'audit_log', 'notifications',
     'agent_inbox_items', 'automation_rules',
     'agent_commands',
-    'agent_usage', 'agent_budgets',
-    'tenants'
+    'agent_usage', 'agent_budgets'
   ]
   LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', _tbl);
 
     EXECUTE format('DROP POLICY IF EXISTS "Authenticated full access" ON %I', _tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "Tenant isolation" ON %I', _tbl);
 
     EXECUTE format(
       'CREATE POLICY "Tenant isolation" ON %I FOR ALL TO authenticated USING (tenant_id = public.current_tenant_id()) WITH CHECK (tenant_id = public.current_tenant_id())',
@@ -64,6 +64,19 @@ BEGIN
   END LOOP;
 END
 $$;
+
+-- ── Tenants table: RLS uses `id` not `tenant_id` ─────────────────
+
+ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Authenticated full access" ON tenants;
+DROP POLICY IF EXISTS "Tenant isolation" ON tenants;
+CREATE POLICY "Tenant isolation" ON tenants
+  FOR ALL TO authenticated
+  USING (id = public.current_tenant_id())
+  WITH CHECK (id = public.current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON tenants;
+CREATE POLICY "Service role full access" ON tenants
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 -- ── Ensure gateway_registration_tokens also has the updated policies ─
 -- (it had its own policy defined in 006_gateways.sql)
