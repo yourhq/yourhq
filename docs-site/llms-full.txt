@@ -4031,9 +4031,16 @@ mint dev
 
 ```bash
 cd docs-site
+node scripts/generate-llms-full.mjs
 mint validate
 mint broken-links
 ```
+
+## AI-readable docs
+
+`llms.txt` is a curated index for AI assistants. `llms-full.txt` is generated from the Mintlify navigation in `docs.json`.
+
+CI checks that `llms-full.txt` is up to date. If a docs change reaches `main` without regenerating it, the `Update llms-full` workflow opens a follow-up PR automatically.
 
 ## Deployment
 
