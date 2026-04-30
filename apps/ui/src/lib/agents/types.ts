@@ -1,6 +1,6 @@
 // Agent Types — mirrors Supabase schema
 
-export type AgentStatus = "online" | "offline" | "error" | "paused";
+export type AgentStatus = "ready" | "error" | "paused" | "provisioning" | "hibernating";
 
 export interface Agent {
   id: string;
@@ -27,24 +27,27 @@ export interface Agent {
 // Constants
 
 export const AGENT_STATUSES: { value: AgentStatus; label: string }[] = [
-  { value: "online", label: "Online" },
-  { value: "offline", label: "Offline" },
+  { value: "ready", label: "Ready" },
   { value: "error", label: "Error" },
   { value: "paused", label: "Paused" },
+  { value: "provisioning", label: "Setting up" },
+  { value: "hibernating", label: "Sleeping" },
 ];
 
 export const AGENT_STATUS_COLORS: Record<AgentStatus, string> = {
-  online: "bg-green-500/20 text-green-400",
-  offline: "bg-gray-500/20 text-gray-400",
+  ready: "bg-green-500/20 text-green-400",
   error: "bg-red-500/20 text-red-400",
   paused: "bg-yellow-500/20 text-yellow-400",
+  provisioning: "bg-yellow-500/20 text-yellow-400",
+  hibernating: "bg-gray-500/20 text-gray-400",
 };
 
 export const AGENT_STATUS_DOT_COLORS: Record<AgentStatus, string> = {
-  online: "bg-green-500",
-  offline: "bg-gray-500",
+  ready: "bg-green-500",
   error: "bg-red-500",
   paused: "bg-yellow-500",
+  provisioning: "bg-yellow-500",
+  hibernating: "bg-gray-500",
 };
 
 export const DOMAIN_LABELS: Record<string, string> = {

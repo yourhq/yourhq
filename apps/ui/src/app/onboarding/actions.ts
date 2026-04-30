@@ -674,7 +674,7 @@ export async function mintGatewayTokenAction(input: {
 }
 
 export interface GatewayPollResult {
-  status: "pending" | "online" | "expired";
+  status: "pending" | "ready" | "expired";
   gatewayId?: string;
   dockerServices?: { name: string; state: string }[];
 }
@@ -689,12 +689,12 @@ export async function pollLocalGateway(): Promise<GatewayPollResult> {
     const { data } = await supabase
       .from("gateways")
       .select("id, status, last_seen_at")
-      .neq("status", "offline")
+      .neq("status", "error")
       .order("last_seen_at", { ascending: false, nullsFirst: false })
       .limit(1)
       .maybeSingle();
     if (data?.id) {
-      return { status: "online", gatewayId: data.id as string };
+      return { status: "ready", gatewayId: data.id as string };
     }
   } catch {
     // no supabase yet, or RPC error — fall through to compose check
@@ -704,7 +704,7 @@ export async function pollLocalGateway(): Promise<GatewayPollResult> {
   // container CAN reach the Docker socket).
   const status = await localGatewayStatus();
   return {
-    status: status.running ? "online" : "pending",
+    status: status.running ? "ready" : "pending",
     dockerServices: status.services,
   };
 }
@@ -714,7 +714,7 @@ export async function pollRemoteGatewayToken(
 ): Promise<GatewayPollResult> {
   const r = await checkTokenConsumed(tokenId);
   if ("consumed" in r && r.consumed) {
-    return { status: "online", gatewayId: r.gatewayId };
+    return { status: "ready", gatewayId: r.gatewayId };
   }
   if ("expired" in r && r.expired) {
     return { status: "expired" };

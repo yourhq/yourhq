@@ -4,11 +4,11 @@
 // gets a typed accessor here.
 
 export type GatewayStatus =
-  | "online"
-  | "offline"
-  | "provisioning"
+  | "ready"
   | "error"
-  | "paused";
+  | "paused"
+  | "provisioning"
+  | "hibernating";
 
 export interface GatewayReachableUrls {
   base?: string;
@@ -51,11 +51,11 @@ export const GATEWAY_STATUS: Record<
   GatewayStatus,
   { color: string; label: string; pulse?: boolean }
 > = {
-  online: { color: "var(--status-success)", label: "Online", pulse: true },
-  provisioning: { color: "var(--status-warning)", label: "Provisioning", pulse: true },
-  offline: { color: "var(--status-neutral)", label: "Offline" },
+  ready: { color: "var(--status-success)", label: "Ready", pulse: true },
+  provisioning: { color: "var(--status-warning)", label: "Setting up", pulse: true },
   error: { color: "var(--status-error)", label: "Error" },
   paused: { color: "var(--status-warning)", label: "Paused" },
+  hibernating: { color: "var(--status-neutral)", label: "Sleeping" },
 };
 
 // Heartbeat freshness threshold. Anything older than this and the UI

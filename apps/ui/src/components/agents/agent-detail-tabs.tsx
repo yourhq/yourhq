@@ -52,10 +52,11 @@ import { AgentUsageTab } from "./agent-usage-tab";
 import { updateAgent } from "@/app/dashboard/agents/actions";
 
 const agentStatusDotHex: Record<string, string> = {
-  online: "var(--status-success)",
-  offline: "var(--status-neutral)",
+  ready: "var(--status-success)",
   error: "var(--status-error)",
   paused: "var(--status-warning)",
+  provisioning: "var(--status-warning)",
+  hibernating: "var(--status-neutral)",
 };
 
 interface BootDocument {
@@ -130,7 +131,7 @@ export function AgentDetailTabs({
             <StatusDot
               color={statusColor}
               size="sm"
-              pulse={agent.status === "online"}
+              pulse={agent.status === "ready"}
             />
             <span>{statusLabel}</span>
             <span>·</span>
@@ -326,7 +327,7 @@ function AgentRailContent({
           <StatusDot
             color={statusColor}
             size="sm"
-            pulse={agent.status === "online"}
+            pulse={agent.status === "ready"}
           />
           <span>{statusLabel}</span>
           <span className="text-muted-foreground/60">· {lastSeen}</span>

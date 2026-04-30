@@ -144,7 +144,7 @@ export async function mintGatewayTokenForSettings(
 }
 
 // Polled by the AddGatewayDialog while it shows the one-liner — flips
-// to "online" the moment the remote install-gateway.sh has run +
+// to "ready" the moment the remote install-gateway.sh has run +
 // consume_gateway_token() has succeeded.
 export async function pollGatewayTokenAction(
   tokenId: string,
@@ -152,12 +152,12 @@ export async function pollGatewayTokenAction(
   GatewayActionResult<
     | { status: "pending" }
     | { status: "expired" }
-    | { status: "online"; gatewayId: string }
+    | { status: "ready"; gatewayId: string }
   >
 > {
   const r = await checkTokenConsumed(tokenId);
   if (r.consumed) {
-    return { ok: true, data: { status: "online", gatewayId: r.gatewayId } };
+    return { ok: true, data: { status: "ready", gatewayId: r.gatewayId } };
   }
   if (r.expired) {
     return { ok: true, data: { status: "expired" } };

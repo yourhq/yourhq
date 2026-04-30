@@ -59,6 +59,9 @@ WAKE_COOLDOWN = int(os.environ.get("WAKE_COOLDOWN", "30"))
 
 # This gateway's slug — only wake agents bound to this gateway.
 GATEWAY_ID = os.environ.get("GATEWAY_ID", "default")
+
+DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000000"
+TENANT_ID = os.environ.get("TENANT_ID", DEFAULT_TENANT_ID)
 # Cached set of agent IDs on this gateway. Refreshed periodically.
 LOCAL_AGENT_IDS = set()
 LOCAL_AGENT_IDS_LOCK = threading.Lock()

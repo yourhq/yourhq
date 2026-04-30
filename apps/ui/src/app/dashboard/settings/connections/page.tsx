@@ -15,7 +15,7 @@ export default async function ConnectionsSettingsPage() {
 
   // Pick the gateway to show first: prefer online, fall back to oldest.
   const initialGateway =
-    gateways.find((g) => g.status === "online") ?? gateways[0] ?? null;
+    gateways.find((g) => g.status === "ready") ?? gateways[0] ?? null;
 
   // Pre-load the cached connections for snappy first paint. The client
   // component triggers a fresh probe on mount so this is just to avoid

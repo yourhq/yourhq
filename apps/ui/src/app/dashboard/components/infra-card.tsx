@@ -9,9 +9,11 @@ import type {
 import { cn } from "@/lib/utils";
 
 const STATUS_COLOR: Record<string, string> = {
-  online: "var(--status-success)",
-  offline: "var(--status-error)",
+  ready: "var(--status-success)",
+  error: "var(--status-error)",
+  paused: "var(--status-warning)",
   provisioning: "var(--status-warning)",
+  hibernating: "var(--status-neutral)",
 };
 
 const STALE_MS = 2 * 60 * 1000;
@@ -76,7 +78,7 @@ export function InfraCard({
             const color =
               STATUS_COLOR[gw.status] ?? "var(--status-neutral)";
             const isStale =
-              gw.status === "online" &&
+              gw.status === "ready" &&
               gw.last_seen_at &&
               now - new Date(gw.last_seen_at).getTime() > STALE_MS;
 
@@ -88,7 +90,7 @@ export function InfraCard({
                 <span
                   className={cn(
                     "h-1.5 w-1.5 shrink-0 rounded-full",
-                    gw.status === "online" && !isStale && "animate-pulse"
+                    gw.status === "ready" && !isStale && "animate-pulse"
                   )}
                   style={{ backgroundColor: isStale ? "var(--status-warning)" : color }}
                 />

@@ -10,20 +10,22 @@ import { useAgentBudget } from "@/hooks/use-agent-budget";
 import { BUDGET_STATUS_META } from "@/lib/usage/types";
 
 const STATUS_PRIORITY: Record<string, number> = {
-  online: 0,
+  ready: 0,
   paused: 1,
   error: 2,
-  offline: 3,
+  provisioning: 3,
+  hibernating: 4,
 };
 
 const AGENT_STATUS: Record<
   string,
   { color: string; label: string; pulse?: boolean }
 > = {
-  online: { color: "var(--status-success)", label: "Online", pulse: true },
-  offline: { color: "var(--status-neutral)", label: "Offline" },
+  ready: { color: "var(--status-success)", label: "Ready", pulse: true },
   error: { color: "var(--status-error)", label: "Error" },
   paused: { color: "var(--status-warning)", label: "Paused" },
+  provisioning: { color: "var(--status-warning)", label: "Setting up", pulse: true },
+  hibernating: { color: "var(--status-neutral)", label: "Sleeping" },
 };
 
 /**
@@ -120,7 +122,7 @@ export function AgentRow({
   onTogglePause,
   onDelete,
 }: AgentRowProps) {
-  const status = AGENT_STATUS[agent.status] ?? AGENT_STATUS.offline;
+  const status = AGENT_STATUS[agent.status] ?? AGENT_STATUS.error;
   const meta = (agent.meta ?? {}) as AgentMeta;
   const emoji = meta.emoji;
 

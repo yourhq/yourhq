@@ -5,10 +5,11 @@ import type { AgentFleetItem, CommandQueueStats } from "@/lib/types/dashboard";
 import { cn } from "@/lib/utils";
 
 const STATUS_COLOR: Record<string, string> = {
-  online: "var(--status-success)",
-  offline: "var(--status-neutral)",
+  ready: "var(--status-success)",
   error: "var(--status-error)",
   paused: "var(--status-warning)",
+  provisioning: "var(--status-warning)",
+  hibernating: "var(--status-neutral)",
 };
 
 export function AgentFleetCard({
@@ -50,7 +51,7 @@ export function AgentFleetCard({
                   <span
                     className={cn(
                       "h-1.5 w-1.5 shrink-0 rounded-full",
-                      agent.status === "online" && "animate-pulse"
+                      agent.status === "ready" && "animate-pulse"
                     )}
                     style={{ backgroundColor: color }}
                   />

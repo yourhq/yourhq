@@ -202,8 +202,8 @@ function GatewayRow({
   // If the DB row says online but no recent heartbeat, surface that as
   // a stale signal — the daemon stopped writing even if the backing
   // process is technically alive.
-  const stale = gateway.status === "online" && !fresh;
-  const effectiveStatus: GatewayStatus = stale ? "offline" : gateway.status;
+  const stale = gateway.status === "ready" && !fresh;
+  const effectiveStatus: GatewayStatus = stale ? "error" : gateway.status;
   const status = GATEWAY_STATUS[effectiveStatus];
 
   const lastSeen = gateway.last_seen_at

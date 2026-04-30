@@ -526,12 +526,12 @@ PYEOF
   )
   # Upsert by slug; create if missing.
   curl -fsS -X POST \
-    "$SUPABASE_URL/rest/v1/gateways?on_conflict=slug" \
+    "$SUPABASE_URL/rest/v1/gateways?on_conflict=tenant_id,slug" \
     -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
     -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
     -H "Content-Type: application/json" \
     -H "Prefer: resolution=merge-duplicates,return=minimal" \
-    -d "$(python3 -c "import json,os,sys; print(json.dumps({'slug': os.environ['GATEWAY_ID'], 'label': os.environ['GATEWAY_LABEL'], 'status': 'online', 'last_seen_at': __import__('datetime').datetime.utcnow().isoformat()+'Z', 'meta': json.loads(sys.stdin.read())}))" <<< "$REACHABLE_JSON")" \
+    -d "$(python3 -c "import json,os,sys; print(json.dumps({'slug': os.environ['GATEWAY_ID'], 'label': os.environ['GATEWAY_LABEL'], 'status': 'ready', 'last_seen_at': __import__('datetime').datetime.utcnow().isoformat()+'Z', 'tenant_id': os.environ.get('TENANT_ID', '00000000-0000-0000-0000-000000000000'), 'meta': json.loads(sys.stdin.read())}))" <<< "$REACHABLE_JSON")" \
     > /dev/null \
     && log "  registered (reachable at $(echo "$REACHABLE_JSON" | python3 -c "import json,sys; print(json.loads(sys.stdin.read())['reachable_urls']['base'])"))" \
     || log "  registration failed (Supabase unreachable or gateways table missing — will retry from daemon)"

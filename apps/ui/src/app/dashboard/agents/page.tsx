@@ -134,10 +134,11 @@ function AgentsContent() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="online">Online</SelectItem>
+                <SelectItem value="ready">Ready</SelectItem>
                 <SelectItem value="paused">Paused</SelectItem>
                 <SelectItem value="error">Error</SelectItem>
-                <SelectItem value="offline">Offline</SelectItem>
+                <SelectItem value="provisioning">Setting up</SelectItem>
+                <SelectItem value="hibernating">Sleeping</SelectItem>
               </SelectContent>
             </Select>
 

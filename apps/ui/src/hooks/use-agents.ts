@@ -67,7 +67,7 @@ export function useAgents() {
 
   async function togglePause(id: string, currentStatus: string) {
     const agent = agents.find((a) => a.id === id);
-    const newStatus = currentStatus === "paused" ? "offline" : "paused";
+    const newStatus = currentStatus === "paused" ? "ready" : "paused";
     await supabase.from("agents").update({ status: newStatus }).eq("id", id);
     logAudit(supabase, {
       module: "agents",

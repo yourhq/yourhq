@@ -323,7 +323,7 @@ function WaitingPhase({
       const r = await pollGatewayTokenAction(bootstrap.tokenId);
       if (cancelled) return;
       if (!r.ok || !r.data) return;
-      if (r.data.status === "online") {
+      if (r.data.status === "ready") {
         onConsumedRef.current(r.data.gatewayId);
         return;
       }

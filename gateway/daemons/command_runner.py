@@ -84,6 +84,9 @@ COMPOSE_PROJECT = os.environ.get("COMPOSE_PROJECT", "yourhq")
 GATEWAY_ID = os.environ.get("GATEWAY_ID", "default")
 GATEWAY_LABEL = os.environ.get("GATEWAY_LABEL", GATEWAY_ID)
 
+DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000000"
+TENANT_ID = os.environ.get("TENANT_ID", DEFAULT_TENANT_ID)
+
 # Where the user's browser sits relative to this gateway. "local" = same
 # machine, so openclaw's native http://localhost:1455 callback can
 # auto-complete OAuth without a paste step. Anything else (tailscale,
@@ -1302,14 +1305,15 @@ class CommandListener:
 
 
 def heartbeat_once():
-    """Upsert this gateway's row in the gateways table so the UI sees us online."""
+    """Upsert this gateway's row in the gateways table so the UI sees us as ready."""
     try:
         api_post_upsert("gateways", {
             "slug": GATEWAY_ID,
             "label": GATEWAY_LABEL,
-            "status": "online",
+            "status": "ready",
             "last_seen_at": now_iso(),
-        }, on_conflict="slug")
+            "tenant_id": TENANT_ID,
+        }, on_conflict="tenant_id,slug")
     except Exception as e:
         log(f"heartbeat failed: {e}")
 

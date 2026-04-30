@@ -96,8 +96,8 @@ export function GatewayDetail({
   }, []);
 
   const fresh = isHeartbeatFresh(gateway.last_seen_at);
-  const stale = gateway.status === "online" && !fresh;
-  const effectiveStatus: GatewayStatus = stale ? "offline" : gateway.status;
+  const stale = gateway.status === "ready" && !fresh;
+  const effectiveStatus: GatewayStatus = stale ? "error" : gateway.status;
   const status = GATEWAY_STATUS[effectiveStatus];
 
   return (
@@ -250,8 +250,8 @@ function GatewayRailContent({
   onOpenDesktop: () => void;
 }) {
   const fresh = isHeartbeatFresh(gateway.last_seen_at);
-  const stale = gateway.status === "online" && !fresh;
-  const effectiveStatus: GatewayStatus = stale ? "offline" : gateway.status;
+  const stale = gateway.status === "ready" && !fresh;
+  const effectiveStatus: GatewayStatus = stale ? "error" : gateway.status;
   const status = GATEWAY_STATUS[effectiveStatus];
   const lastSeen = gateway.last_seen_at
     ? formatDistanceToNow(new Date(gateway.last_seen_at), { addSuffix: true })

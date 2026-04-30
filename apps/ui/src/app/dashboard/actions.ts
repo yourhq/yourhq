@@ -29,7 +29,7 @@ async function fetchAlerts(): Promise<DashboardAlert[]> {
       supabase
         .from("gateways")
         .select("id, slug, label, status")
-        .neq("status", "online"),
+        .neq("status", "ready"),
       supabase
         .from("agents")
         .select("*", { count: "exact", head: true })
@@ -104,9 +104,10 @@ async function fetchAlerts(): Promise<DashboardAlert[]> {
 
 const AGENT_STATUS_ORDER: Record<string, number> = {
   error: 0,
-  online: 1,
+  ready: 1,
   paused: 2,
-  offline: 3,
+  provisioning: 3,
+  hibernating: 4,
 };
 
 async function fetchAgentFleet(): Promise<AgentFleetItem[]> {
@@ -140,7 +141,7 @@ async function fetchGatewayStats(): Promise<{
   const gateways = (data ?? []) as GatewaySummary[];
   return {
     total: gateways.length,
-    online: gateways.filter((g) => g.status === "online").length,
+    online: gateways.filter((g) => g.status === "ready").length,
     gateways,
   };
 }
@@ -603,7 +604,7 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
   return {
     alerts,
     agentCounts: {
-      online: agentFleet.filter((a) => a.status === "online").length,
+      online: agentFleet.filter((a) => a.status === "ready").length,
       total: agentFleet.length,
       error: agentFleet.filter((a) => a.status === "error").length,
     },
