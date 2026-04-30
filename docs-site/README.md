@@ -26,7 +26,9 @@ mint validate
 mint broken-links
 ```
 
-`llms-full.txt` is generated from the pages listed in `docs.json`. If you add or move pages, run the generator and commit the updated file.
+`llms-full.txt` is generated from the pages listed in `docs.json`.
+
+CI checks that the generated file is committed. If a docs change reaches `main` without an updated `llms-full.txt`, the `Update llms-full` workflow opens a follow-up PR with the generated file.
 
 ## Deployment
 

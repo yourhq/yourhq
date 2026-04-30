@@ -1,0 +1,40 @@
+name: Update llms-full
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs-site/**/*.mdx"
+      - "docs-site/**/*.md"
+      - "docs-site/docs.json"
+      - "docs-site/scripts/generate-llms-full.mjs"
+      - ".github/workflows/update-llms-full.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Generate llms-full.txt
+        run: node scripts/generate-llms-full.mjs
+        working-directory: docs-site
+
+      - name: Create pull request if llms-full changed
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: chore/update-llms-full
+          title: "chore: update llms-full.txt"
+          commit-message: "chore: update llms-full.txt"
+          body: "Generated from the latest Mintlify docs source."
+          add-paths: docs-site/llms-full.txt
+          delete-branch: true
