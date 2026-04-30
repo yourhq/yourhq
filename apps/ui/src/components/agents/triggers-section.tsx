@@ -19,12 +19,13 @@
 //   - Outbound work the agent created (that's "what the agent does",
 //     not "what wakes it").
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import {
   AtSign,
   CheckSquare,
   ExternalLink,
+  Heart,
   MessageSquare,
   MoreHorizontal,
   Pause,
@@ -36,8 +37,10 @@ import {
   Trash2,
   Zap,
 } from "lucide-react";
+import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import type { Agent, AgentChannel, AgentMeta } from "@/lib/agents/types";
+import { HEARTBEAT_PRESETS } from "@/lib/agents/types";
 import type { TaskSeries } from "@/lib/tasks/types";
 import type { AutomationRule } from "@/lib/automations/types";
 import { longCadenceLabel } from "@/lib/tasks/cadence";
@@ -57,13 +60,15 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { AutomationRuleForm } from "@/components/automations/automation-rule-form";
 import { SeriesForm } from "@/components/tasks/series-form";
+import { updateAgent } from "@/app/dashboard/agents/actions";
 import { cn } from "@/lib/utils";
 
 interface TriggersSectionProps {
   agent: Agent;
+  onAgentUpdated?: () => void;
 }
 
-export function TriggersSection({ agent }: TriggersSectionProps) {
+export function TriggersSection({ agent, onAgentUpdated }: TriggersSectionProps) {
   const series = useAgentTaskSeries(agent.id);
   const rules = useAgentAutomationRules(agent.id);
 
@@ -202,6 +207,9 @@ export function TriggersSection({ agent }: TriggersSectionProps) {
             </div>
           )}
         </SubSection>
+
+        {/* ── Heartbeat ─────────────────────────────────────────── */}
+        <HeartbeatSubSection agent={agent} onAgentUpdated={onAgentUpdated} />
 
         {/* ── Direct ────────────────────────────────────────────── */}
         <SubSection
@@ -605,6 +613,81 @@ function EventRow({
         </DropdownMenu>
       </div>
     </div>
+  );
+}
+
+// ─── Heartbeat sub-section ───────────────────────────────────────────
+
+function HeartbeatSubSection({
+  agent,
+  onAgentUpdated,
+}: {
+  agent: Agent;
+  onAgentUpdated?: () => void;
+}) {
+  const [saving, setSaving] = useState(false);
+
+  const currentPreset =
+    HEARTBEAT_PRESETS.find((p) => p.value === agent.heartbeat_cron) ?? HEARTBEAT_PRESETS[0];
+
+  const handleChange = useCallback(
+    async (value: string) => {
+      const newCron = value === "" ? null : value;
+      if (newCron === agent.heartbeat_cron) return;
+
+      setSaving(true);
+      try {
+        await updateAgent({ agentId: agent.id, heartbeatCron: newCron });
+        toast.success(newCron ? "Heartbeat schedule updated" : "Heartbeat disabled");
+        onAgentUpdated?.();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to update heartbeat");
+      } finally {
+        setSaving(false);
+      }
+    },
+    [agent.id, agent.heartbeat_cron, onAgentUpdated],
+  );
+
+  return (
+    <SubSection
+      icon={Heart}
+      title="Heartbeat"
+      countLabel={currentPreset.value ? currentPreset.label.toLowerCase() : "off"}
+      description="Periodic wake-up on a fixed schedule. The agent receives a heartbeat inbox item so it can do background work, check on things, or run maintenance."
+    >
+      <div className="overflow-hidden rounded-md border border-border/60 bg-card/40 px-3 py-2.5">
+        <div className="flex items-center justify-between gap-3">
+          <label
+            htmlFor="heartbeat-select"
+            className="text-[12px] font-medium text-foreground"
+          >
+            Frequency
+          </label>
+          <select
+            id="heartbeat-select"
+            disabled={saving}
+            value={agent.heartbeat_cron ?? ""}
+            onChange={(e) => handleChange(e.target.value)}
+            className="h-7 rounded border border-border/60 bg-background px-2 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            {HEARTBEAT_PRESETS.map((p) => (
+              <option key={p.label} value={p.value ?? ""}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        {agent.last_heartbeat_at && (
+          <p className="mt-1.5 text-[11px] text-muted-foreground/70">
+            Last heartbeat{" "}
+            {formatDistanceToNow(new Date(agent.last_heartbeat_at), {
+              addSuffix: true,
+            })}
+          </p>
+        )}
+      </div>
+    </SubSection>
   );
 }
 

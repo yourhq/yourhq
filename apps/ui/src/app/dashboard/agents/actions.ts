@@ -246,6 +246,7 @@ export async function enqueueAgentCommand(
 export interface UpdateAgentInput {
   agentId: string;
   reportsToId?: string | null;
+  heartbeatCron?: string | null;
 }
 
 export async function updateAgent(input: UpdateAgentInput): Promise<void> {
@@ -263,6 +264,10 @@ export async function updateAgent(input: UpdateAgentInput): Promise<void> {
   if (!agent) throw new Error("Agent not found");
 
   const updates: Record<string, unknown> = {};
+
+  if (input.heartbeatCron !== undefined) {
+    updates.heartbeat_cron = input.heartbeatCron;
+  }
 
   if (input.reportsToId !== undefined) {
     if (input.reportsToId === input.agentId) {
@@ -294,26 +299,43 @@ export async function updateAgent(input: UpdateAgentInput): Promise<void> {
     .eq("id", input.agentId);
   if (error) throw new Error(error.message);
 
-  let managerLabel = "Operator";
-  if (input.reportsToId) {
-    const { data: manager } = await supabase
-      .from("agents")
-      .select("slug")
-      .eq("id", input.reportsToId)
-      .single();
-    if (manager) managerLabel = `'${manager.slug}'`;
+  const summaryParts: string[] = [];
+
+  if (input.reportsToId !== undefined) {
+    let managerLabel = "Operator";
+    if (input.reportsToId) {
+      const { data: manager } = await supabase
+        .from("agents")
+        .select("slug")
+        .eq("id", input.reportsToId)
+        .single();
+      if (manager) managerLabel = `'${manager.slug}'`;
+    }
+    summaryParts.push(
+      input.reportsToId
+        ? `Set manager of '${agent.slug}' to ${managerLabel}`
+        : `Cleared manager of '${agent.slug}'`,
+    );
   }
 
-  await supabase.from("audit_log").insert({
-    actor_type: "human",
-    module: "agents",
-    entity_type: "agent",
-    entity_id: input.agentId,
-    action: "updated",
-    summary: input.reportsToId
-      ? `Set manager of '${agent.slug}' to ${managerLabel}`
-      : `Cleared manager of '${agent.slug}'`,
-  });
+  if (input.heartbeatCron !== undefined) {
+    summaryParts.push(
+      input.heartbeatCron
+        ? `Set heartbeat of '${agent.slug}' to ${input.heartbeatCron}`
+        : `Disabled heartbeat for '${agent.slug}'`,
+    );
+  }
+
+  if (summaryParts.length > 0) {
+    await supabase.from("audit_log").insert({
+      actor_type: "human",
+      module: "agents",
+      entity_type: "agent",
+      entity_id: input.agentId,
+      action: "updated",
+      summary: summaryParts.join("; "),
+    });
+  }
 }
 
 export async function toggleAgentPauseAction(

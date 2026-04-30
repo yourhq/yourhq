@@ -12,6 +12,7 @@ export interface Agent {
   avatar_url: string | null;
   status: AgentStatus;
   last_seen_at: string | null;
+  last_heartbeat_at: string | null;
   // FK to gateways.id — every agent runs on exactly one gateway. The
   // schema seeds a 'default' gateway so single-gateway installs Just
   // Work, but multi-gateway deployments rely on this FK to route
@@ -20,6 +21,7 @@ export interface Agent {
   reports_to_id: string | null;
   domains: string[];
   capabilities: string[] | null;
+  heartbeat_cron: string | null;
   config: Record<string, unknown>;
   meta: Record<string, unknown>;
 }
@@ -56,6 +58,15 @@ export const DOMAIN_LABELS: Record<string, string> = {
   assets: "Assets",
   analytics: "Analytics",
 };
+
+export const HEARTBEAT_PRESETS: { label: string; value: string | null }[] = [
+  { label: "Off", value: null },
+  { label: "Every 15 min", value: "*/15 * * * *" },
+  { label: "Every 30 min", value: "*/30 * * * *" },
+  { label: "Every hour", value: "0 * * * *" },
+  { label: "Every 6 hours", value: "0 */6 * * *" },
+  { label: "Every day (9 AM)", value: "0 9 * * *" },
+];
 
 // Shape of the JSON manifest stored at agent.json in each agent branch.
 export interface AgentManifest {

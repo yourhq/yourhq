@@ -197,7 +197,7 @@ export function AgentDetailTabs({
                 <DirectReportsSection agent={agent} allAgents={allAgents} />
                 <ContextDocsSection agent={agent} bootDocuments={bootDocuments} />
                 <div className="border-t border-border/50 pt-6">
-                  <TriggersSection agent={agent} />
+                  <TriggersSection agent={agent} onAgentUpdated={onAgentUpdated} />
                 </div>
                 <div className="border-t border-border/50 pt-6">
                   <InboxSection agentId={agent.id} />
