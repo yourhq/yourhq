@@ -12,6 +12,7 @@ export interface CreateAgentInput {
   description?: string;
   templateBranch: string | null;
   reportsToId?: string | null;
+  gatewayId?: string;
   channel?: AgentChannel;
   telegramToken?: string;
   discordToken?: string;
@@ -103,6 +104,16 @@ export async function createAgentWithBranch(
     ...(channel === "telegram" ? { telegram_token_env: tokenEnvVar } : {}),
   };
 
+  let gatewayId = input.gatewayId ?? null;
+  if (!gatewayId) {
+    const { data: gw } = await supabase
+      .from("gateways")
+      .select("id")
+      .limit(1)
+      .maybeSingle();
+    gatewayId = gw?.id ?? null;
+  }
+
   const { data: inserted, error: insertError } = await supabase
     .from("agents")
     .insert({
@@ -112,6 +123,7 @@ export async function createAgentWithBranch(
       domains: templateMeta?.domains ?? [],
       capabilities: templateMeta?.capabilities ?? [],
       reports_to_id: input.reportsToId ?? null,
+      gateway_id: gatewayId,
       meta,
     })
     .select("id")
@@ -177,13 +189,26 @@ export async function enqueueAgentCommand(
 
     const { data: agent } = await supabase
       .from("agents")
-      .select("id, slug")
+      .select("id, slug, gateway_id")
       .eq("id", input.agentId)
       .single();
     if (!agent) throw new Error("Agent not found");
 
     // Use the agent's actual slug
     input.agentSlug = agent.slug;
+    if (!input.gatewayId && agent.gateway_id) {
+      input.gatewayId = agent.gateway_id;
+    }
+  }
+
+  // System commands without a specific gateway target the first available
+  if (!input.gatewayId) {
+    const { data: gw } = await supabase
+      .from("gateways")
+      .select("id")
+      .limit(1)
+      .maybeSingle();
+    if (gw) input.gatewayId = gw.id;
   }
 
   const { data: inserted, error } = await supabase

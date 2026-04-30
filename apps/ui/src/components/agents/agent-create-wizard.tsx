@@ -104,6 +104,9 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
   // Slack
   const [slackAppToken, setSlackAppToken] = useState("");
   const [slackBotToken, setSlackBotToken] = useState("");
+  // Gateway
+  const [gateways, setGateways] = useState<{ id: string; slug: string; label: string | null }[]>([]);
+  const [selectedGatewayId, setSelectedGatewayId] = useState<string | null>(null);
 
   // Submit
   const [submitting, setSubmitting] = useState(false);
@@ -159,6 +162,16 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
             meta: Record<string, unknown>;
           }[],
         );
+      });
+    supabase
+      .from("gateways")
+      .select("id, slug, label")
+      .order("slug", { ascending: true })
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        const rows = data as { id: string; slug: string; label: string | null }[];
+        setGateways(rows);
+        if (rows.length === 1) setSelectedGatewayId(rows[0].id);
       });
 
     return () => {
@@ -244,6 +257,7 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
         description: description.trim(),
         templateBranch: selectedTemplate?.branch ?? null,
         reportsToId: reportsToId || undefined,
+        gatewayId: selectedGatewayId || undefined,
         channel,
         telegramToken: channel === "telegram" ? token.trim() || undefined : undefined,
         discordToken: channel === "discord" ? discordToken.trim() || undefined : undefined,
@@ -295,7 +309,7 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
     } finally {
       setSubmitting(false);
     }
-  }, [submitting, name, slug, emoji, description, selectedTemplate, reportsToId, channel, token, discordToken, discordServerId, discordUserId, slackAppToken, slackBotToken, onCreated]);
+  }, [submitting, name, slug, emoji, description, selectedTemplate, reportsToId, selectedGatewayId, channel, token, discordToken, discordServerId, discordUserId, slackAppToken, slackBotToken, onCreated]);
 
   // ── Post-create: command subscription + auto-advance ─────────
 
@@ -407,6 +421,7 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
         e.preventDefault();
         goNext();
       } else if (step === "channel") {
+        if (gateways.length > 1 && !selectedGatewayId) return;
         e.preventDefault();
         handleSubmit();
       } else if (step === "pairing") {
@@ -767,6 +782,9 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
               onSlackAppTokenChange={setSlackAppToken}
               slackBotToken={slackBotToken}
               onSlackBotTokenChange={setSlackBotToken}
+              gateways={gateways}
+              selectedGatewayId={selectedGatewayId}
+              onGatewayChange={setSelectedGatewayId}
             />
           )}
 
@@ -860,7 +878,7 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
                   size="sm"
                   className="h-7 text-xs"
                   onClick={handleSubmit}
-                  disabled={submitting}
+                  disabled={submitting || (gateways.length > 1 && !selectedGatewayId)}
                 >
                   {submitting ? "Creating…" : "Create agent"}
                 </Button>
@@ -1361,6 +1379,9 @@ function ChannelStep({
   onSlackAppTokenChange,
   slackBotToken,
   onSlackBotTokenChange,
+  gateways,
+  selectedGatewayId,
+  onGatewayChange,
 }: {
   channel: AgentChannel;
   onChannelChange: (c: AgentChannel) => void;
@@ -1385,9 +1406,31 @@ function ChannelStep({
   onSlackAppTokenChange: (v: string) => void;
   slackBotToken: string;
   onSlackBotTokenChange: (v: string) => void;
+  gateways: { id: string; slug: string; label: string | null }[];
+  selectedGatewayId: string | null;
+  onGatewayChange: (id: string) => void;
 }) {
   return (
     <div className="space-y-4">
+
+      {/* Gateway picker — only when multiple gateways exist */}
+      {gateways.length > 1 && (
+        <div className="flex items-center gap-2 text-[11px]">
+          <span className="text-muted-foreground/50">Gateway:</span>
+          <select
+            value={selectedGatewayId ?? ""}
+            onChange={(e) => onGatewayChange(e.target.value)}
+            className="h-6 rounded border border-border/40 bg-transparent px-2 text-[11px] text-muted-foreground outline-none focus-visible:ring-1 focus-visible:ring-border"
+          >
+            <option value="" disabled>Select a gateway…</option>
+            {gateways.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.label || g.slug}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Channel picker — tile grid */}
       <div className="grid grid-cols-2 gap-2">

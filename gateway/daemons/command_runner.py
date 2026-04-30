@@ -529,6 +529,9 @@ def handle_auth_set_api_key(cmd_id, payload):
                 except Exception as e:
                     log(f"Failed to set baseUrl in {real}: {e}")
 
+        if result.returncode == 0:
+            sync_to_shared_auth()
+
         # Scrub the API key from the row immediately on completion.
         scrubbed = {k: v for k, v in payload.items() if k not in ("api_key", "base_url")}
         scrubbed["api_key_scrubbed"] = True
@@ -739,6 +742,7 @@ def handle_auth_start(cmd_id, payload):
 
     if rc == 0:
         profile_id = f"{provider}:{profile_name}"
+        sync_to_shared_auth()
         patch_command_payload(cmd_id, {
             "connection_state": {"stage": "completed", "profileId": profile_id},
         })
@@ -1028,6 +1032,91 @@ def handle_auth_set_default(cmd_id, payload):
             "p_command_id": cmd_id, "p_exit_code": None,
             "p_stdout": None, "p_stderr": None, "p_error": str(e),
         })
+
+
+def sync_to_shared_auth():
+    """Copy the latest auth-profiles.json into shared-auth and propagate to all
+    agent directories so every agent (existing and future) has credentials."""
+    state_dir = os.environ.get("OPENCLAW_STATE_DIR", os.path.join(HOME, ".openclaw"))
+    shared_dir = os.path.join(state_dir, "shared-auth")
+    shared_path = os.path.join(shared_dir, "auth-profiles.json")
+
+    import glob as _glob
+    import shutil
+
+    agent_dirs = _glob.glob(os.path.join(state_dir, "agents", "*", "agent"))
+    agent_auth_files = [os.path.join(d, "auth-profiles.json") for d in agent_dirs]
+    existing = [p for p in agent_auth_files if os.path.exists(p)]
+
+    if not existing:
+        # openclaw may have written to a gateway-level auth location
+        gateway_auth = os.path.join(state_dir, "auth-profiles.json")
+        if os.path.exists(gateway_auth):
+            existing = [gateway_auth]
+        else:
+            return
+
+    best = None
+    best_mtime = 0
+    seen = set()
+    for p in existing:
+        real = os.path.realpath(p)
+        if real in seen:
+            continue
+        if os.path.exists(shared_path) and real == os.path.realpath(shared_path):
+            continue
+        seen.add(real)
+        try:
+            mt = os.path.getmtime(real)
+            if mt > best_mtime:
+                best_mtime = mt
+                best = real
+        except OSError:
+            continue
+
+    if not best:
+        return
+
+    try:
+        os.makedirs(shared_dir, exist_ok=True)
+        shutil.copy2(best, shared_path)
+        log(f"Synced auth-profiles to shared-auth from {best}")
+    except Exception as e:
+        log(f"Failed to sync shared-auth: {e}")
+        return
+
+    # Also sync auth-state.json if present alongside the best source
+    best_dir = os.path.dirname(best)
+    state_src = os.path.join(best_dir, "auth-state.json")
+    state_dst = os.path.join(shared_dir, "auth-state.json")
+    if os.path.exists(state_src):
+        try:
+            shutil.copy2(state_src, state_dst)
+        except Exception:
+            pass
+
+    for agent_dir in agent_dirs:
+        target = os.path.join(agent_dir, "auth-profiles.json")
+        real_target = os.path.realpath(target) if os.path.exists(target) else None
+        real_shared = os.path.realpath(shared_path)
+        if real_target == real_shared:
+            continue
+        if real_target == best:
+            continue
+        try:
+            if os.path.islink(target):
+                os.unlink(target)
+            elif os.path.exists(target):
+                os.unlink(target)
+            os.symlink(shared_path, target)
+            # Also link auth-state.json
+            state_target = os.path.join(agent_dir, "auth-state.json")
+            if os.path.exists(state_dst):
+                if os.path.islink(state_target) or os.path.exists(state_target):
+                    os.unlink(state_target)
+                os.symlink(state_dst, state_target)
+        except Exception as e:
+            log(f"Failed to link auth to {agent_dir}: {e}")
 
 
 CONNECTION_HANDLERS = {
