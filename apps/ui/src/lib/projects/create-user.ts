@@ -79,12 +79,13 @@ export async function createAuthUser(
 
   const body = await res.text().catch(() => "");
   const msg = parseError(body);
+  console.error(`[createAuthUser] ${res.status} response: ${body.slice(0, 500)}`);
 
   if (res.status === 401 || res.status === 403) {
     return {
       ok: false,
-      error: "Secret key was rejected by Supabase.",
-      hint: "Check the secret key in Project Settings → API Keys.",
+      error: msg ?? "Secret key was rejected by Supabase.",
+      hint: `HTTP ${res.status}. Check the service_role key in Project Settings → API.`,
     };
   }
 
