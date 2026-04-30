@@ -6,6 +6,8 @@
 
 -- ── consume_gateway_token: propagate tenant_id ─────────────────────
 
+DROP FUNCTION IF EXISTS consume_gateway_token(text, text, text);
+
 CREATE OR REPLACE FUNCTION consume_gateway_token(
   p_token     text,
   p_label     text DEFAULT NULL,
@@ -590,6 +592,8 @@ END;
 $$;
 
 -- ── complete_setup: accept + propagate tenant_id ───────────────────
+
+DROP FUNCTION IF EXISTS complete_setup(text, text, text, text, text, text, jsonb, jsonb, jsonb);
 
 CREATE OR REPLACE FUNCTION complete_setup(
   p_name text,

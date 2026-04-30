@@ -941,6 +941,7 @@ export async function finalizeOnboarding(): Promise<ActionResult> {
     p_stages: stagesJson,
     p_fields: fieldsJson,
     p_streams: streamsJson,
+    p_tenant_id: "00000000-0000-0000-0000-000000000000",
   });
   if (error) return { ok: false, error: error.message };
 
