@@ -23,6 +23,10 @@ HQ stores shared state in one Supabase project per workspace. The SQL source of 
 | `015_usage_budgets.sql` | LLM usage logging, per-agent budgets, and enforcement |
 | `016_rls_realtime_storage.sql` | Row-level security, Realtime subscriptions, Storage buckets |
 | `017_setup_wizard.sql` | `complete_setup()` RPC for the first-run wizard |
+| `018_tenants.sql` | Tenant registry, `tenant_id` column on all tenant-owned tables, tenant-scoped RLS policies |
+| `019_onboarding_rpc.sql` | `finalizeOnboarding()` RPC for project setup |
+| `020_rpc_tenant_scoped.sql` | Tenant-scoped RPCs: `lease_command`, `consume_gateway_token`, `spawn_due_task_instances`, `complete_setup`, `recompute_agent_budget` |
+| `021_status_enums_schema_version.sql` | `agent_status` and `gateway_status` enum migration, `_schema_version` table |
 
 For a fresh Supabase project, run all files in filename order from the SQL Editor. The onboarding wizard handles this automatically — it concatenates all files and lets you copy/paste a single SQL blob.
 
@@ -30,12 +34,12 @@ For an existing project, review each migration before applying. All files are id
 
 ## Trust Model
 
-HQ is designed as single-user admin software.
+HQ uses a multi-project isolation model.
 
-- The `authenticated` role has broad workspace access.
-- The `service_role` key is trusted by the UI and gateway services.
-- Workspace isolation is by Supabase project, not by tenant rows inside one shared database.
-- The hosted product, when built, should add an account layer outside this self-hosted schema.
+- Each Supabase project is a fully-isolated workspace — no multi-tenant RLS gymnastics within a single database.
+- Every tenant-owned table has a `tenant_id` column referencing the `tenants` table. RLS policies enforce `tenant_id = current_tenant_id()` for the `authenticated` role, where `current_tenant_id()` extracts the tenant ID from the JWT's `app_metadata`.
+- The `service_role` key bypasses RLS and has unrestricted access (used by daemons and server actions).
+- Self-hosted deployments use a single default tenant (`00000000-0000-0000-0000-000000000000`).
 
 Disable public email signup in Supabase unless you intentionally want every signed-up user to have admin-level HQ access.
 
@@ -82,7 +86,7 @@ The `agent_usage_rollup` trigger updates `agent_budgets` after each usage row. B
 - `tasks` — operator and agent work items.
 - `streams` — task grouping and workflow lanes.
 - `task_series` — recurring task definitions.
-- `task_comments` / comments-related tables — discussion and mention surface.
+- `comments` — polymorphic comments with mention support.
 - `task_attachments` — links from tasks to documents/assets/files.
 
 Task assignment and comment mention triggers enqueue `agent_inbox_items` for affected agents.
@@ -114,6 +118,24 @@ Contact automation rules are evaluated by database functions on contact insert/u
 
 These are configured from the UI and read by forms, tables, kanban views, filters, and agent skills.
 
+### Status Enums
+
+**`agent_status`:** `ready`, `error`, `paused`, `provisioning`, `hibernating`
+
+**`gateway_status`:** `ready`, `error`, `paused`, `provisioning`, `hibernating`
+
+| Status | Meaning | Set by |
+|---|---|---|
+| `ready` | Operational, heartbeat active | Daemon heartbeat |
+| `error` | Crashed or unreachable | Stale detection / manual |
+| `paused` | User-initiated pause | UI pause button |
+| `provisioning` | Being set up | Provisioning flow |
+| `hibernating` | System-initiated sleep | Idle detector (hosted) |
+
+### Schema Version
+
+The `_schema_version` table tracks the current schema version. The UI reads `EXPECTED_SCHEMA_VERSION` and compares it to the applied version to show update banners when migrations are pending.
+
 ## Realtime
 
 The runner and dispatcher use Supabase Realtime subscriptions for low-latency wakeups:
@@ -129,7 +151,7 @@ Fresh project:
 
 1. Create a Supabase project.
 2. Open SQL Editor.
-3. Run every `.sql` file in `db/migrations/` in filename order (`001` through `017`). Or use the onboarding wizard, which concatenates them all into a single copy-paste blob.
+3. Run every `.sql` file in `db/migrations/` in filename order (`001` through `021`). Or use the onboarding wizard, which concatenates them all into a single copy-paste blob.
 4. Create an auth user and disable public signup unless needed.
 
 Existing project:

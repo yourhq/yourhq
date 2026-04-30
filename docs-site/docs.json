@@ -88,6 +88,7 @@
           "reference/migrations",
           "reference/templates",
           "reference/docker-services",
+          "reference/heartbeat",
           "reference/files-api",
           "reference/command-lifecycle"
         ]

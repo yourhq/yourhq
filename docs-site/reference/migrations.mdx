@@ -26,6 +26,27 @@ Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main
 | `015_usage_budgets.sql` | Usage tracking and budgets |
 | `016_rls_realtime_storage.sql` | RLS policies, Realtime, Storage |
 | `017_setup_wizard.sql` | First-run setup RPC |
+| `018_tenants.sql` | Tenant registry and tenant_id columns |
+| `019_onboarding_rpc.sql` | `finalizeOnboarding()` RPC |
+| `020_rpc_tenant_scoped.sql` | Tenant-scoped RPCs |
+| `021_status_enums_schema_version.sql` | Status enums and schema version tracking |
+
+## Migration CLI
+
+The `@yourhq/migrate` package provides a CLI for applying schema migrations directly against Postgres (session mode, port 5432).
+
+```bash
+cd apps/migrate && npm install
+
+npx yourhq-migrate --list
+npx yourhq-migrate --dry-run --connection-string "postgres://postgres:PASSWORD@db.xxxx.supabase.co:5432/postgres"
+npx yourhq-migrate --connection-string "postgres://postgres:PASSWORD@db.xxxx.supabase.co:5432/postgres"
+npx yourhq-migrate --bundle > schema.sql
+```
+
+The runner tracks applied migrations in a `_yourhq_migrations` table (version, checksum, applied_at). It verifies checksums on already-applied migrations to detect drift. Each migration runs in a transaction — if one fails, it rolls back and stops.
+
+For Cloud Supabase users who can't access port 5432, the onboarding wizard provides a "Copy SQL → Open SQL Editor" manual flow.
 
 ## Applying migrations
 
