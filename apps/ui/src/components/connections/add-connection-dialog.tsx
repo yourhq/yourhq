@@ -1020,78 +1020,69 @@ function InteractivePhase({
                 <Loader2 className="h-3 w-3 animate-spin" />
                 Waiting for you to approve in your browser…
               </div>
-            ) : state.stage === "url_ready" && state.autoCallback ? (
-              // oauth_paste in local mode: openclaw's own listener catches
-              // the redirect on the gateway machine. The user just signs
-              // in and the flow auto-completes — no paste step.
-              <div className="space-y-1.5 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Waiting for you to finish signing in…
-                </div>
-                <p className="text-[10.5px] text-muted-foreground/70">
-                  When you complete sign-in in your browser, this dialog
-                  will close automatically.
-                </p>
-              </div>
             ) : (
-              // oauth_paste in remote mode: user's browser is on a
-              // different machine, openclaw's localhost:1455 listener
-              // can't catch their redirect, so they paste the URL back.
-              <div className="space-y-1.5 pt-1">
-                <Label htmlFor="redirect" className="text-[12px]">
-                  Step 2 — paste the page you landed on
-                </Label>
-                <div className="flex gap-1.5">
-                  <Input
-                    id="redirect"
-                    value={pasted}
-                    onChange={(e) => setPasted(e.target.value)}
-                    placeholder="https://… or the code from the page"
-                    className="font-mono text-[11px]"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={!pasted.trim() || submitting}
-                    onClick={async () => {
-                      const value = pasted.trim();
-                      if (!value) return;
-                      setSubmitting(true);
-                      try {
-                        const enq = await enqueueConnectionCommand({
-                          gatewayId,
-                          action: "auth_paste",
-                          payload: {
-                            parent_command_id: commandId,
-                            value,
-                          },
-                        });
-                        if (!enq.ok || !enq.data) {
-                          onFailure(enq.error ?? "Failed to submit code");
-                          return;
-                        }
-                        // The parent command (auth_start) will transition
-                        // to done/failed; the realtime/polling above
-                        // catches that and closes the dialog. We don't
-                        // gate on the auth_paste row itself.
-                      } finally {
-                        setSubmitting(false);
-                      }
-                    }}
-                    className="shrink-0 h-9"
-                  >
-                    {submitting ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      "Submit"
-                    )}
-                  </Button>
+              <div className="space-y-3">
+                <div className="space-y-1.5 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Waiting for you to finish signing in…
+                  </div>
+                  <p className="text-[10.5px] text-muted-foreground/70">
+                    If sign-in completes automatically, this dialog will close on its own.
+                  </p>
                 </div>
-                <p className="text-[11px] text-muted-foreground/70">
-                  After signing in, copy the address bar (or any code shown on
-                  the page) and paste it here.
-                </p>
+
+                <div className="space-y-1.5 pt-1">
+                  <Label htmlFor="redirect" className="text-[12px]">
+                    Or paste the redirect URL manually
+                  </Label>
+                  <div className="flex gap-1.5">
+                    <Input
+                      id="redirect"
+                      value={pasted}
+                      onChange={(e) => setPasted(e.target.value)}
+                      placeholder="https://… or the code from the page"
+                      className="font-mono text-[11px]"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={!pasted.trim() || submitting}
+                      onClick={async () => {
+                        const value = pasted.trim();
+                        if (!value) return;
+                        setSubmitting(true);
+                        try {
+                          const enq = await enqueueConnectionCommand({
+                            gatewayId,
+                            action: "auth_paste",
+                            payload: {
+                              parent_command_id: commandId,
+                              value,
+                            },
+                          });
+                          if (!enq.ok || !enq.data) {
+                            onFailure(enq.error ?? "Failed to submit code");
+                            return;
+                          }
+                        } finally {
+                          setSubmitting(false);
+                        }
+                      }}
+                      className="shrink-0 h-9"
+                    >
+                      {submitting ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        "Submit"
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground/70">
+                    If the page doesn&apos;t load after signing in, copy the URL
+                    from your browser&apos;s address bar and paste it here.
+                  </p>
+                </div>
               </div>
             )}
           </>

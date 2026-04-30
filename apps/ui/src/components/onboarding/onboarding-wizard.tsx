@@ -219,7 +219,7 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
       if (placement === "local") {
         const r = await pollLocalGateway();
         if (r.status === "ready") {
-          setGateway((g) => (g ? { ...g, gatewayOnline: true } : g));
+          setGateway((g) => (g ? { ...g, gatewayOnline: true, gatewayId: r.gatewayId } : g));
         }
       } else if (placement === "remote" && gateway.tokenId) {
         const r = await pollRemoteGatewayToken(gateway.tokenId);
