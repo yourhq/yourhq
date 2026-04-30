@@ -1,0 +1,190 @@
+---
+title: "Gateway boot sequence"
+description: "What happens inside the gateway container from entrypoint to OpenClaw start."
+---
+
+`gateway/entrypoint.sh` is the container's entrypoint. It runs on every container start and is fully idempotent — steps that already completed on a prior boot are skipped.
+
+---
+
+## Boot sequence
+
+### Step 0 — Resolve Supabase credentials
+
+Three credential paths are tried in order:
+
+**Path A: environment variables** — `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` already set in env. Used immediately, no waiting.
+
+**Path B: gateway token exchange** — For remote gateways installed via `install-gateway.sh`. If `GATEWAY_TOKEN` is set and `$OPENCLAW_HOME/.token-consumed` does not exist, the entrypoint calls `consume_gateway_token()` to exchange the one-time token for a gateway slug and UUID.
+
+- Requires: `GATEWAY_TOKEN`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`
+- On success: writes the assigned slug to `.gateway-slug` and marks the token consumed with `.token-consumed`
+- One-shot — the marker file prevents re-exchange on subsequent boots
+- If it fails, the container exits (restart with a fresh token)
+
+**Path C: project registry** — For co-located installs where the UI writes creds to the shared `ui-config` volume. The entrypoint polls `/config/projects.json` + `/config/secrets.json` every 5 seconds until creds appear. This lets the gateway start before the user has completed browser onboarding — it will wait indefinitely, logging a status line every 30 seconds.
+
+On every subsequent boot, the pinned slug from `.gateway-slug` (if present) is restored into `GATEWAY_ID` so the gateway always registers as the same row in Supabase.
+
+---
+
+### Step 1 — Seed git repo (first boot only)
+
+If `$OPENCLAW_HOME/repo.git` does not exist:
+
+1. Creates a bare git repo with `default` as the HEAD branch
+2. Seeds it with agent template branches:
+   - From `TEMPLATES_SOURCE` (if set, format `git+<url>`)
+   - Otherwise from `/opt/templates` bundled in the image
+3. Each template directory becomes a git branch: `default` or `template/<name>`
+
+This step is skipped on every subsequent boot.
+
+---
+
+### Step 2 — Attach git remote (conditional)
+
+If `GIT_REMOTE_URL` is set (or synthesized from `GITHUB_TOKEN` + `GITHUB_REPO_OWNER` + `GITHUB_REPO_NAME`):
+
+1. Adds/updates the `origin` remote on the bare repo
+2. Installs a `post-commit` hook that async-pushes every commit to origin
+3. Fetches from origin to fast-forward any branches that moved while the gateway was down
+
+This step runs on every boot so the remote URL stays current (tokens rotate).
+
+---
+
+### Step 3 — OpenClaw onboard (first boot only)
+
+If `$OPENCLAW_HOME/openclaw.json` does not exist, runs:
+
+```bash
+openclaw onboard --non-interactive --flow quickstart \
+  --auth-choice skip --accept-risk --skip-health \
+  --gateway-port 18789 --gateway-bind loopback
+```
+
+Creates `openclaw.json` with baseline config. If it exits non-zero, the entrypoint logs a warning and continues — the next boot will retry.
+
+---
+
+### Step 4 — Patch `openclaw.json`
+
+Every boot (idempotent via `//=` defaults in `jq`):
+
+- Sets `tools.profile = "full"`
+- Sets Chrome executable and profile paths
+- Enables Telegram channel with `pairing` DM policy
+- Enables the `hq-bootstrap` plugin and adds its path to `plugins.load.paths`
+
+---
+
+### Step 5 — Install hq-bootstrap plugin
+
+Copies `*.json` and `*.ts` files from `/opt/openclaw-plugins/hq-bootstrap` into `$OPENCLAW_HOME/plugins/hq-bootstrap/`. Runs every boot — safe to repeat.
+
+---
+
+### Step 6 — VNC password
+
+If `$HOME/.vnc/passwd` does not exist, generates a VNC password:
+
+- Uses `VNC_PASSWORD` env if set
+- Otherwise generates a random 12-character password
+- Saves the vncpasswd-encoded hash to `$HOME/.vnc/passwd`
+- Saves plaintext to `$OPENCLAW_HOME/.vnc-password` (readable inside the `gateway-state` volume)
+
+---
+
+### Step 7 — Start Xtigervnc + XFCE
+
+Starts the virtual display and desktop:
+
+1. Removes stale X lock files (`/tmp/.X1-lock`, `/tmp/.X11-unix/X1`) from a crashed prior run
+2. Starts Xtigervnc on `:1` — combined X server + VNC server (RFB on port 5901, localhost-only)
+3. Starts `autocutsel` twice (CLIPBOARD → PRIMARY sync for noVNC clipboard passthrough)
+4. Starts `dbus-daemon` session bus with a deterministic socket path
+5. Starts `startxfce4`
+
+The D-Bus socket is started explicitly (not via `dbus-launch`) because `dbus-launch` double-forks in a way that leaves XFCE components unable to find the bus address in container environments.
+
+---
+
+### Step 8 — Start websockify (noVNC)
+
+If `NOVNC_BIND != "off"`, starts:
+
+```bash
+websockify --web=/usr/share/novnc 0.0.0.0:6901 localhost:5901
+```
+
+Inside the container websockify always binds `0.0.0.0:6901`. The Docker host port mapping (`NOVNC_HOST_PORT`) decides whether port 6901 is reachable from outside the host.
+
+Set `NOVNC_BIND=off` to skip noVNC entirely (e.g. on a headless host where you never need remote desktop).
+
+---
+
+### Step 9 — Register in Supabase
+
+If Supabase creds are available, upserts a row in the `gateways` table with:
+
+- `slug` = `GATEWAY_ID`
+- `label` = `GATEWAY_LABEL`
+- `status` = `ready`
+- `last_seen_at` = now
+- `meta.reachable_urls` = URLs built from `HOST_REACHABLE_URL` + port config
+- `meta.networking_mode` = `NETWORKING_MODE`
+- `tenant_id` = `TENANT_ID`
+
+Conflict key is `(tenant_id, slug)`, so re-runs update the existing row.
+
+Also resolves `GATEWAY_DB_ID` (the row's UUID) and exports it so the hq-bootstrap plugin can tag `agent_usage` rows with the gateway that ran them.
+
+---
+
+### Step 10 — Start files-API (conditional)
+
+If `GATEWAY_AUTH_TOKEN` is available (from env or `/config/gateway-auth-token`) AND `FILES_API_BIND != "off"`:
+
+```bash
+FILES_API_BIND=docker FILES_API_PORT=18790 python3 /usr/local/bin/files_api.py
+```
+
+Serves the agent worktrees to the HQ UI file browser over HTTP with bearer-token auth.
+
+If no token is available, the step is skipped silently — the token file is created by the UI the first time someone opens an agent's Files tab. The next gateway restart picks it up.
+
+---
+
+### Step 11 — Clear Chrome Singleton locks
+
+Sweeps `$HOME/.openclaw/browser/` for `Singleton*` files left behind by a crashed browser session. Without this, Chrome aborts launch on next boot reporting it's already running.
+
+---
+
+### Step 12 — Exec OpenClaw gateway
+
+```bash
+exec openclaw gateway run
+```
+
+Replaces the entrypoint shell process with the OpenClaw gateway as the container's foreground process. All X11/XDG/DBUS env vars are exported first so OpenClaw's browser launcher can find the Xtigervnc display.
+
+---
+
+## State directory layout
+
+`$OPENCLAW_HOME` defaults to `~/.openclaw` and is persisted in the `gateway-state` Docker volume.
+
+| Path | Created | Purpose |
+|---|---|---|
+| `openclaw.json` | First boot (onboard) | OpenClaw runtime config |
+| `repo.git` | First boot | Bare git repo for agent branches |
+| `plugins/hq-bootstrap/` | Every boot | HQ plugin files |
+| `shared-auth/auth-profiles.json` | On first auth success | Shared auth profiles synced across agents |
+| `.vnc-password` | First boot | Plaintext VNC password |
+| `.token-consumed` | First boot (token exchange) | Prevents re-exchange of `GATEWAY_TOKEN` |
+| `.gateway-slug` | First boot (token exchange) | Pinned gateway slug restored on subsequent boots |
+| `Desktop/` | First boot | XFCE desktop shortcuts (agent launch icons) |
+
+`$HOME/.vnc/passwd` is the vncpasswd-encoded password hash read by Xtigervnc.

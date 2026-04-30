@@ -26,4 +26,26 @@ UI writes rows  →  Daemons lease rows  →  Agents / gateway processes execute
   Commands and inbox items are never deleted — they persist as durable history. You can review them from Settings → System.
 </Tip>
 
-Both queues use atomic leasing (`FOR UPDATE SKIP LOCKED`) so parallel daemons on different gateways never steal each other's work. See [Command lifecycle](/reference/command-lifecycle) for the full state machine.
+Both queues use atomic leasing so parallel daemons on different gateways never steal each other's work.
+
+## How the dispatcher wakes agents
+
+When a new inbox item arrives (via Realtime or the periodic reconciliation sweep), the dispatcher calls:
+
+```bash
+openclaw agent --agent <workspace>/<agent-slug> --message "[inbox] <reason> ..."
+```
+
+This is fire-and-forget — the dispatcher doesn't wait for the agent to respond. Before waking, the dispatcher checks:
+
+- The agent is not paused or hibernating
+- No active lease already exists for this agent (it's not already processing)
+- The agent's budget hasn't hit a hard cutoff
+- There's actually actionable work (`pending` or retryable `failed` items)
+- The cooldown period has elapsed since the last wake
+
+Inbox items are **not** leased by the dispatcher — the agent's background session leases them directly when it starts processing. The dispatcher only signals that work is available.
+
+If the Realtime connection drops, the dispatcher's reconciliation sweep (every `RECONCILE_INTERVAL` seconds, default 120) acts as a safety net and wakes any agents with pending work that were missed.
+
+See [Command lifecycle](/reference/command-lifecycle) for the command state machine and [Inbox dispatch](/reference/inbox-dispatch) for full dispatcher details.

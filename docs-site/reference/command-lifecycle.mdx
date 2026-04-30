@@ -27,6 +27,19 @@ pending  →  leased  →  running  →  done
   </Step>
 </Steps>
 
+## RPC lifecycle calls
+
+The runner uses four RPCs to manage command state:
+
+| RPC | Called when |
+|---|---|
+| `lease_command(p_gateway_slug, p_lease_seconds)` | Runner atomically claims a pending command. Returns the command row or nothing. Lease duration = `COMMAND_TIMEOUT + 60` seconds. |
+| `start_command(p_command_id)` | Runner marks the command `running` just before executing it. |
+| `complete_command(p_command_id, p_exit_code, p_stdout, p_stderr)` | Command exited 0. |
+| `fail_command(p_command_id, p_exit_code, p_stdout, p_stderr, p_error)` | Command failed (non-zero exit, timeout, or validation error). |
+
+Connection actions (`auth_*`) call `start_command` and `complete_command`/`fail_command` themselves — they don't go through the standard shell-command path.
+
 ## Durability
 
 Commands are never deleted after completion. They persist as a full history of every operation — viewable from Settings → System → Commands.
@@ -34,3 +47,5 @@ Commands are never deleted after completion. They persist as a full history of e
 <Tip>
   If a command is stuck in `leased` or `running` for more than 5 minutes, the runner likely crashed or lost its lease. Check `docker compose logs runner` for details.
 </Tip>
+
+See [Command actions](/reference/command-actions) for the full list of supported actions and their payload schemas.

@@ -1,0 +1,231 @@
+---
+title: "Command actions"
+description: "Every action the UI can dispatch to a gateway, with payload schemas and auth flow details."
+---
+
+Commands are rows in `agent_commands`. Each row has an `action` field that tells the runner daemon what to do. There are two categories:
+
+- **Shell actions** — mapped to a shell script/binary and run synchronously. The runner captures stdout/stderr and exit code.
+- **Connection actions** (`auth_*`) — interactive OAuth/API-key flows that need long-lived processes and intermediate progress updates.
+
+---
+
+## Shell actions
+
+### `provision`
+
+Create a new agent: runs `~/add-agent.sh` which creates a git branch, checks out a template, and registers the agent with OpenClaw.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `channel` | string | No | `telegram` / `discord` / `slack` / `none`. Default `telegram` |
+| `telegram_token` | string | If `channel=telegram` | Bot token from @BotFather |
+| `discord_token` | string | If `channel=discord` | Discord bot token |
+| `discord_server_id` | string | No | Discord guild ID |
+| `discord_user_id` | string | No | Discord user ID for DM fallback |
+| `slack_app_token` | string | If `channel=slack` | App-level token (`xapp-...`) |
+| `slack_bot_token` | string | If `channel=slack` | Bot token (`xoxb-...`) |
+| `source_template` | string | No | Git branch name to copy from (e.g. `template/researcher`) |
+| `name` | string | No | Display name |
+| `description` | string | No | Short description |
+| `emoji` | string | No | Emoji avatar |
+| `owner_name` | string | No | Workspace owner's full name (for agent context) |
+| `owner_preferred_name` | string | No | Owner's preferred first name |
+| `owner_timezone` | string | No | Owner's timezone (e.g. `America/New_York`) |
+
+After success, the runner scrubs all `*_token` fields from the row's `payload` and sets `tokens_scrubbed = true`.
+
+---
+
+### `approve_pairing`
+
+Approve a pending channel pairing code. Runs `openclaw pairing approve <channel> <code>`.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `pairing_code` | string | Yes | The code the user received in the channel |
+| `channel` | string | No | `telegram` / `discord` / `slack`. Default `telegram` |
+
+---
+
+### `update`
+
+Pull the latest commits for one agent's branch. Runs `~/update-agent.sh <workspace-slug>/<agent-slug>`.
+
+No payload fields required beyond `agent_slug` on the command row.
+
+---
+
+### `remove`
+
+Remove an agent: unregisters from OpenClaw and deletes the git branch. Runs `~/remove-agent.sh <branch>`.
+
+No payload fields required beyond `agent_slug` on the command row.
+
+---
+
+### `update_all`
+
+Update every agent on this gateway. Runs `~/update-all-agents.sh`.
+
+No payload fields.
+
+---
+
+### `restart_gateway`
+
+Restart the gateway process. Behavior depends on `RUNTIME_MODE`:
+
+| `RUNTIME_MODE` | Command |
+|---|---|
+| `docker` (default) | `docker compose -p <COMPOSE_PROJECT> restart gateway` |
+| `systemd` | `openclaw gateway restart` |
+
+No payload fields.
+
+---
+
+### `restart_dispatcher`
+
+Restart the inbox dispatcher daemon. Behavior depends on `RUNTIME_MODE`:
+
+| `RUNTIME_MODE` | Command |
+|---|---|
+| `docker` | `docker compose -p <COMPOSE_PROJECT> restart dispatcher` |
+| `systemd` | `systemctl --user restart hq-inbox-dispatcher` |
+
+No payload fields.
+
+---
+
+### `update_gateway`
+
+Pull and restart the full gateway stack. Behavior depends on `RUNTIME_MODE`:
+
+| `RUNTIME_MODE` | Command |
+|---|---|
+| `docker` | `docker compose -p <COMPOSE_PROJECT> pull && docker compose up -d` |
+| `systemd` | `cd ~ && git pull && ./install.sh --update` |
+
+No payload fields.
+
+---
+
+## Connection actions (`auth_*`)
+
+OAuth flows and provider API keys use these actions. They can't follow the standard shell-command shape because they need long-lived processes, intermediate progress updates, and stdin pipes for paste-back.
+
+The runner maintains an in-memory registry of in-flight auth sessions. If the runner restarts mid-flow, the session is lost and the user must retry — flows are short (5 min max) and runner restarts are rare.
+
+### `auth_set_api_key`
+
+Add a provider using a direct API key. No interactive flow required.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `provider` | string | Yes | Provider ID (e.g. `openai`, `anthropic`, `gemini`) |
+| `api_key` | string | Yes | The API key |
+| `profile_name` | string | No | Profile slot. Default `default` |
+| `base_url` | string | No | Custom endpoint URL (for local/Ollama providers) |
+
+After success, `api_key` and `base_url` are scrubbed from the payload (`api_key_scrubbed: true`, `base_url_applied: true`).
+
+---
+
+### `auth_start`
+
+Begin an interactive OAuth or device-code login. This action runs **asynchronously** in a background thread so the main command loop stays responsive (and can process the `auth_paste` that completes the flow).
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `provider` | string | Yes | Provider ID |
+| `profile_name` | string | No | Profile slot. Default `default` |
+| `mode` | string | No | `oauth_paste` (default) or `device_code` |
+
+**Progress states** — written to `agent_commands.payload.connection_state` as the flow advances:
+
+| Stage | When |
+|---|---|
+| `starting` | Flow just kicked off |
+| `url_ready` | OAuth URL detected — UI should show it for the user to click |
+| `polling` | Device-code flow — URL + code ready, waiting for user to authorize |
+| `completed` | Success — `profileId` field contains `provider:profile_name` |
+| `failed` | Error or timeout — `error` field contains the reason |
+
+If `NETWORKING_MODE=local` and `mode=oauth_paste`, the runner allows OpenClaw's built-in `localhost:1455` callback to catch the OAuth redirect automatically (`autoCallback: true` in the state). Otherwise the runner pre-occupies port 1455 to force the paste-back path, and the UI prompts the user to paste the redirect URL into the `auth_paste` command.
+
+The flow times out after **5 minutes**.
+
+---
+
+### `auth_paste`
+
+Submit the OAuth redirect URL or code that the user pasted. This completes a running `auth_start` flow.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `parent_command_id` | string | Yes | The `id` of the `auth_start` command row |
+| `value` | string | Yes | The full redirect URL or verification code |
+
+After success, `value` is scrubbed (`value_scrubbed: true`).
+
+---
+
+### `auth_list`
+
+Probe all configured provider profiles and return their health. The runner calls `openclaw models status --json --probe` and writes the JSON output to `stdout` on the command row. The UI reads `stdout` to render the connections list.
+
+No payload fields.
+
+---
+
+### `auth_refresh`
+
+Probe one specific profile (or all profiles) for current health.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `profile_id` | string | No | Format: `provider:profile_name`. If omitted, all profiles are probed |
+
+---
+
+### `auth_remove`
+
+Delete a provider profile from the auth store across all agent directories.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `profile_id` | string | Yes | Format: `provider:profile_name` (e.g. `anthropic:default`) |
+
+Edits `auth-profiles.json` directly since OpenClaw doesn't ship a delete subcommand.
+
+---
+
+### `auth_set_default`
+
+Set the default provider/model for this gateway.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `provider` | string | Yes | Provider ID |
+| `profile_name` | string | No | Profile slot. Default `default` |
+
+---
+
+## Lease and timeout semantics
+
+The runner calls `lease_command(p_gateway_slug, p_lease_seconds)` to atomically claim each command. The lease duration is `COMMAND_TIMEOUT + 60` seconds — long enough that the command won't be visible to other runners before it finishes, even at the edge of the timeout.
+
+- **No auto-retry.** Failed commands are marked `failed` and stay that way. The UI surfaces failures; the operator re-enqueues if needed.
+- **Timeout.** Shell commands are killed after `COMMAND_TIMEOUT` seconds (default 120). Auth flows have a separate 5-minute ceiling.
+- **Parallelism.** `auth_start` runs in a background thread. All other actions run sequentially on the main lease loop. This ensures an `auth_paste` can be leased and processed while an `auth_start` is waiting for user input.
+
+## Credential scrubbing
+
+The runner redacts secrets from command rows immediately after they're used:
+
+| Action | Fields scrubbed |
+|---|---|
+| `provision` | All `*_token` fields |
+| `auth_set_api_key` | `api_key`, `base_url` |
+| `auth_paste` | `value` |

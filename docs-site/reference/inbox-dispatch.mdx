@@ -1,0 +1,105 @@
+---
+title: "Inbox dispatch"
+description: "How the inbox dispatcher wakes agents and what gates a wake call."
+---
+
+The inbox dispatcher is a daemon that runs alongside the gateway. It does one thing: watch `agent_inbox_items` for new work and wake the right agent to process it.
+
+The dispatcher does **not** process work. It only wakes agents. The agent's background inbox session (started by OpenClaw) does the actual processing.
+
+---
+
+## Wake mechanism
+
+When the dispatcher decides an agent needs waking, it calls:
+
+```bash
+openclaw agent --agent <workspace-slug>/<agent-slug> --message "<inbox message>"
+```
+
+The message is always:
+
+```
+[inbox] <reason>
+
+Process your inbox:
+1. python3 skills/hq/scripts/hq_inbox_process.py
+2. Handle each item, then mark done or escalate
+3. Continue until inbox is empty or batch limit reached
+```
+
+`reason` is either `New: <item-summary>` (from a Realtime event) or `Reconciliation: pending inbox items found` (from the periodic sweep).
+
+The call is fire-and-forget (`subprocess.Popen` with stdout/stderr discarded). The dispatcher doesn't wait for the agent to finish — it moves on immediately.
+
+---
+
+## Wake gating
+
+Before calling `openclaw agent`, the dispatcher checks a series of conditions. Any failing condition skips the wake for that agent.
+
+| Condition | Skip reason | Details |
+|---|---|---|
+| Cooldown | `cooldown` | At least `WAKE_COOLDOWN` seconds (default 30) must have passed since the last successful wake for this agent |
+| In-flight wake | `wake_in_flight` | A wake for this agent is already running (in-memory, per-process) |
+| Agent paused/hibernating | `agent_paused` | Checks `agents.status` — won't wake a user-paused or hibernating agent |
+| Active lease | `active_lease` | Agent already has a `status=leased` inbox item with a future `leased_until` — background processing is already in progress |
+| Budget exceeded | `budget_exceeded` | `agent_budgets.status = 'exceeded'` AND `hard_cutoff = true` — hard budget limit enforced here as a second ring (the plugin is ring 1 during prompt build) |
+| No actionable work | `no_actionable_work` | No items in `pending` status, and no `failed` items with `attempt_count < 3` |
+
+Skip reasons are logged at `info` level so you can see why an agent wasn't woken:
+
+```json
+{"ts": "...", "level": "info", "daemon": "inbox_dispatcher", "msg": "Skipping wake for my-agent (cooldown)"}
+```
+
+---
+
+## Realtime vs reconciliation
+
+The dispatcher uses **two paths** to catch inbox work:
+
+### Realtime (primary)
+
+Subscribes to `INSERT` events on `agent_inbox_items` via Supabase Realtime. When a new item lands, the dispatcher immediately evaluates whether to wake the agent (applying all the gates above).
+
+On each Realtime wake, the dispatcher also updates the item row:
+
+- `last_wake_attempt_at` — set before the wake attempt
+- `last_wake_success_at` — set if the wake succeeded
+
+These are tracking fields only — they don't affect processing.
+
+### Reconciliation sweep (safety net)
+
+Every `RECONCILE_INTERVAL` seconds (default 120), the dispatcher:
+
+1. Refreshes its cache of agents bound to this gateway
+2. Queries for all items with `status=pending` or `status=failed AND attempt_count < 3`
+3. Dedupes by agent, filters to local agents, calls `wake_agent` for each
+
+The reconciliation sweep catches anything Realtime missed (dropped WebSocket message, agent provisioned mid-flight, items inserted while the daemon was restarting). It applies the same wake gates, so the cooldown prevents spam even if multiple items exist for the same agent.
+
+---
+
+## Gateway filtering
+
+The dispatcher only wakes agents bound to **this gateway**. It maintains a local cache (`LOCAL_AGENT_IDS`) of agent UUIDs belonging to this gateway's slug, refreshed on:
+
+- Startup
+- Every reconciliation sweep
+- Any time a Realtime event arrives for an unknown agent (one-time refresh + re-check)
+
+If an agent was just provisioned it may not be in the cache yet — the one-time refresh on unknown agent handles this without waiting for the next reconciliation.
+
+---
+
+## Supabase tables accessed
+
+| Table | Operation | Purpose |
+|---|---|---|
+| `workspace` | SELECT | Fetch workspace slug for OpenClaw agent ID prefix |
+| `gateways` | SELECT | Resolve gateway UUID from slug to filter agents |
+| `agents` | SELECT | Cache local agent IDs; check `status` per wake |
+| `agent_inbox_items` | SELECT, PATCH | Query actionable items; update wake tracking fields |
+| `agent_budgets` | SELECT | Check budget status before waking |

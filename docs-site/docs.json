@@ -54,6 +54,7 @@
           "self-host/installation",
           "self-host/networking",
           "self-host/add-gateway",
+          "self-host/gateway-boot",
           "self-host/operations"
         ]
       },
@@ -90,7 +91,9 @@
           "reference/docker-services",
           "reference/heartbeat",
           "reference/files-api",
-          "reference/command-lifecycle"
+          "reference/command-lifecycle",
+          "reference/command-actions",
+          "reference/inbox-dispatch"
         ]
       },
       {

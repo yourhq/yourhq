@@ -119,6 +119,14 @@ If `GIT_REMOTE_URL` is empty AND all three `GITHUB_*` vars below are set, the ga
 
 Without a remote, all of this still works locally — commits just don't leave the gateway's volume.
 
+### 2.7 Remote gateway provisioning
+
+These are only needed when installing a gateway on a **separate host** from the UI using `install-gateway.sh`. The normal co-located install doesn't use them.
+
+- **`GATEWAY_TOKEN`** — **Optional, one-time**. A short-lived token minted in the UI (Settings → Gateways → Add Gateway). The gateway exchanges it for a stable `gateway_id` + slug on first boot via `consume_gateway_token()`. The exchange is one-shot — a `.token-consumed` marker file prevents re-exchange on subsequent boots. After the exchange, `GATEWAY_ID` is pinned to the assigned slug and persisted across reboots.
+
+- **`SUPABASE_ANON_KEY`** — **Required if `GATEWAY_TOKEN` is set**. The Supabase project's anon key, used for the token exchange RPC call (which uses the anon role). The service role key is used for everything else.
+
 ### 2.8 Runtime tuning
 
 Control loops in the dispatcher and runner daemons. Defaults are sensible; override only when instrumenting or tuning latency.
@@ -127,11 +135,23 @@ Control loops in the dispatcher and runner daemons. Defaults are sensible; overr
 
 - **`COMMAND_TIMEOUT`** — **Optional**. Default `120`. Seconds a single command can run before the runner kills it and marks it failed.
 
-- **`RECONCILE_INTERVAL`** — **Optional**. Default `60`. Seconds between dispatcher reconciliation passes (checking for orphaned inbox items, stale leases, etc.).
+- **`RECONCILE_INTERVAL`** — **Optional**. Default `120`. Seconds between dispatcher reconciliation sweeps — the safety-net pass that wakes agents with pending inbox work that Realtime may have missed.
 
-- **`WAKE_COOLDOWN`** — **Optional**. Default `30`. Seconds the dispatcher waits before re-waking an agent that just failed.
+- **`WAKE_COOLDOWN`** — **Optional**. Default `30`. Minimum seconds between successive wake calls for the same agent. Prevents the dispatcher from spamming an agent with rapid wakes when multiple inbox items arrive in a burst.
 
 - **`GIT_SYNC_INTERVAL`** — **Optional**. Default `1800` (30 min). Seconds between backup-sweep passes in the runner (commits dirty worktrees, fast-forwards branches that moved on the remote). Set to `0` to disable the sweep entirely — event-driven commits and the post-commit auto-push still work.
+
+- **`RUNTIME_MODE`** — **Optional**. Default `docker`. One of `docker` or `systemd`. Controls how `restart_gateway`, `restart_dispatcher`, and `update_gateway` commands are executed. `docker` uses `docker compose` commands; `systemd` uses `openclaw gateway restart` and `systemctl`. Set to `systemd` only if you installed without Docker (rare).
+
+- **`TENANT_ID`** — **Optional**. Default `00000000-0000-0000-0000-000000000000`. The UUID of the tenant row this gateway and its agents belong to. Self-hosted installs use the default nil UUID. Override only if you're running a multi-tenant setup.
+
+### 2.9 Gateway internals
+
+These are rarely needed but documented for completeness and troubleshooting.
+
+- **`OPENCLAW_HOME`** — **Optional**. Default `~/.openclaw`. The directory where OpenClaw stores its state: `openclaw.json`, the bare git repo, agent branches, auth profiles, and the VNC password. Must be inside the `gateway-state` Docker volume to persist across container restarts.
+
+- **`DEBUG`** — **Optional**. Default unset. Set to `1` to enable `set -x` in the gateway entrypoint, printing every shell command to the container log. Noisy but useful for diagnosing boot failures.
 
 ### 2.9 Image overrides
 
