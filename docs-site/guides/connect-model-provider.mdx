@@ -1,44 +1,161 @@
 ---
 title: "Connect a model provider"
-description: "Add any model provider — HQ is model-agnostic."
+description: "Add any AI model provider to HQ. OpenAI, Anthropic, Gemini, Ollama, and 25+ more."
 ---
 
-HQ is model-agnostic. There is no required or default provider — agents work with whatever you connect. OpenClaw supports 25+ providers including OpenAI, Anthropic, Gemini, OpenRouter, Ollama, LM Studio, and other OpenAI-compatible servers.
+HQ is model-agnostic. There is no required or default provider — you connect whatever you want, and agents use it. You can connect multiple providers and pick different ones per agent.
 
-## Adding a provider
+**Where to go:** Settings → Connections → Add connection
+
+---
+
+## Supported providers
+
+<Tabs>
+  <Tab title="API key providers">
+    These are the simplest to connect — paste a key, done.
+
+    | Provider | Get your key | Typical cost |
+    |---|---|---|
+    | **OpenAI** (GPT-4o, o1, etc.) | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) | ~$0.01–0.06 per 1K tokens |
+    | **Anthropic** (Claude 3.5, 4.x) | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) | ~$0.003–0.075 per 1K tokens |
+    | **Google Gemini** | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) | ~$0.007 per 1K tokens |
+    | **DeepSeek** | [platform.deepseek.com](https://platform.deepseek.com) | Very low cost |
+    | **Mistral** | [console.mistral.ai](https://console.mistral.ai) | Competitive pricing |
+    | **Groq** | [console.groq.com/keys](https://console.groq.com/keys) | Fast inference, usage-based |
+    | **OpenRouter** | [openrouter.ai/keys](https://openrouter.ai/keys) | Routes to 100+ models via one key |
+    | **Together AI** | [api.together.ai](https://api.together.ai) | Open-source model hosting |
+    | **Fireworks AI** | [fireworks.ai](https://fireworks.ai) | Fast, cheap open-source models |
+    | **Perplexity** | [perplexity.ai](https://www.perplexity.ai) | Search-augmented models |
+    | **xAI (Grok)** | [console.x.ai](https://console.x.ai) | Grok models |
+    | **Cohere** | [dashboard.cohere.com](https://dashboard.cohere.com) | Command R and enterprise models |
+
+    <Tip>
+      **Not sure which to start with?** OpenAI GPT-4o or Anthropic Claude 3.5 Sonnet are the most capable general-purpose choices. OpenRouter is useful if you want to experiment with many models without managing multiple keys.
+    </Tip>
+  </Tab>
+  <Tab title="OAuth / interactive providers">
+    These require a browser login flow. HQ walks you through it in the UI.
+
+    | Provider | Notes |
+    |---|---|
+    | **OpenAI Codex** | OAuth flow — HQ shows a URL, you complete login in browser |
+    | **GitHub Copilot** | Device-code flow — HQ shows a code, you enter it on GitHub |
+
+    For these providers, HQ opens an interactive auth flow in the Connections UI. Follow the on-screen prompts.
+  </Tab>
+  <Tab title="Local / self-hosted">
+    Run models on your own machine — no API costs, fully private.
+
+    | Provider | What it is | Setup |
+    |---|---|---|
+    | **Ollama** | Easy local model runner | See walkthrough below |
+    | **LM Studio** | GUI app for local models | See walkthrough below |
+    | **vLLM** | High-performance serving | Set URL to your vLLM endpoint |
+    | **Any OpenAI-compatible server** | LiteLLM, LocalAI, etc. | Set base URL in HQ |
+  </Tab>
+</Tabs>
+
+---
+
+## Step-by-step: adding a provider
 
 <Steps>
   <Step title="Open Connections">
-    Go to Settings → Connections.
+    Go to **Settings → Connections** in the HQ sidebar.
   </Step>
-  <Step title="Pick a provider">
-    Choose from the provider catalog. Each provider shows its auth method and what you need.
+  <Step title="Click Add connection">
+    Select your provider from the catalog. Each card shows the auth method.
   </Step>
-  <Step title="Complete the auth flow">
-    The method depends on the provider:
-
-    | Auth type | How it works |
-    |---|---|
-    | **API key** | Paste your key directly — connected immediately |
-    | **OAuth / device code** | Follow the login flow in your browser, then complete in the UI |
-    | **CLI reuse** | Reuse an existing auth session from a local CLI tool |
-    | **Local URL** | Point to a local server (Ollama, LM Studio, vLLM) |
+  <Step title="Complete auth">
+    - **API key:** paste your key, click Connect
+    - **OAuth:** click Start, follow the browser flow, return to HQ
+    - **Local URL:** enter the endpoint URL (see Ollama/LM Studio guides below)
   </Step>
   <Step title="Set a default model">
-    After connecting, set a default model globally or per-agent from the agent detail page.
+    After connecting, you'll be prompted to pick a default model. This applies to all agents unless overridden per-agent.
   </Step>
 </Steps>
 
+---
+
+## Ollama (free, runs on your machine)
+
+Ollama lets you run models like Llama 3, Mistral, Gemma, and others locally with no API costs. Everything stays on your machine.
+
+<Steps>
+  <Step title="Install Ollama">
+    Download from [ollama.com](https://ollama.com) and install it.
+  </Step>
+  <Step title="Pull a model">
+    ```bash
+    ollama pull llama3.2        # fast, general purpose
+    ollama pull mistral         # good at instruction following
+    ollama pull qwen2.5-coder   # strong at code
+    ```
+
+    Check available models at [ollama.com/library](https://ollama.com/library).
+  </Step>
+  <Step title="Connect in HQ">
+    Go to **Settings → Connections → Add connection → Ollama**. Enter this URL:
+
+    ```
+    http://host.docker.internal:11434
+    ```
+
+    `host.docker.internal` is how Docker reaches your Mac/Windows machine. On Linux, use your host IP (e.g. `http://172.17.0.1:11434`).
+  </Step>
+  <Step title="Verify">
+    Click **Connect**. HQ probes the endpoint and lists available models. Pick one as the default.
+  </Step>
+</Steps>
+
+<Warning>
+  Local models need enough RAM to load. Llama 3.2 (3B) needs ~2 GB; Llama 3.1 (8B) needs ~6 GB; Llama 3.1 (70B) needs ~48 GB. If Ollama is slow or crashes, try a smaller model.
+</Warning>
+
+---
+
+## LM Studio
+
+LM Studio is a Mac/Windows/Linux app with a GUI for downloading and running local models.
+
+<Steps>
+  <Step title="Install and load a model">
+    Download from [lmstudio.ai](https://lmstudio.ai), open it, browse the model library, and download a model.
+  </Step>
+  <Step title="Start the local server">
+    In LM Studio, go to **Local Server** (left sidebar) → click **Start Server**. Note the port (default is 1234).
+  </Step>
+  <Step title="Connect in HQ">
+    Go to **Settings → Connections → Add connection → LM Studio** (or use "OpenAI-compatible"). Enter:
+
+    ```
+    http://host.docker.internal:1234
+    ```
+  </Step>
+</Steps>
+
+---
+
 ## Per-agent model overrides
 
-Different agents can use different providers. For example:
+Each agent can use a different provider and model. This lets you run a cheap local model for a background researcher while a cofounder agent uses GPT-4o.
 
-- A coding agent on Claude
-- A research agent on GPT
-- A local agent on Ollama
-
-Set overrides from the agent detail page → model selector in the rail.
+To override for one agent: open the agent's detail page → look for the **Model** selector in the right rail → pick provider and model.
 
 <Tip>
-  You can connect multiple providers at once. The default model applies to all agents unless overridden individually.
+  Mix and match freely. A common setup: one expensive model for agents doing complex reasoning, a cheap/fast model for agents doing simple lookups, and Ollama for agents that handle private data.
 </Tip>
+
+---
+
+## Rotating or removing a provider
+
+To remove a provider or rotate keys:
+
+1. Go to **Settings → Connections**
+2. Find the provider → click **Remove** or **Update key**
+3. For a key rotation: click Remove, then re-add with the new key
+
+If you remove a provider that's set as the default for some agents, those agents will fail until you set a new default.

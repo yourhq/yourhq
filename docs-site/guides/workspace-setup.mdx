@@ -1,40 +1,80 @@
 ---
 title: "Workspace setup"
-description: "Configure your workspace profile, pipeline, custom fields, and task streams."
+description: "Configure your workspace profile, pipeline stages, custom fields, and task streams."
 ---
 
-After onboarding, HQ opens the workspace setup wizard. This is where you personalize your workspace — it takes about two minutes.
+After connecting Supabase and signing in, HQ opens the **Workspace Setup** wizard. This takes about 2 minutes and sets up the core structure of your workspace.
+
+<Info>
+  Everything you configure here can be changed later from Settings → Pipeline, Settings → Fields, and Settings → Streams. Nothing is permanent.
+</Info>
+
+---
 
 ## What the wizard configures
 
 <Steps>
   <Step title="Workspace identity">
-    Set your workspace name, slug, and owner profile (name, preferred name, timezone).
+    Set your **workspace name** (shown in the top nav), a URL-friendly **slug**, and your **owner profile** — your name, preferred name, and timezone. Agents use your timezone to schedule work and reference times correctly.
   </Step>
   <Step title="Pipeline stages">
-    Define the stages contacts move through — e.g. Lead → Qualified → Proposal → Won. These power the CRM kanban view.
+    Define the stages contacts move through, e.g. `Lead → Qualified → Proposal → Negotiation → Won / Lost`. These power the CRM kanban view and gate automation conditions. You can reorder, rename, or add stages from Settings → Pipeline later.
   </Step>
   <Step title="Custom fields">
-    Add fields to contacts and organizations beyond the defaults — company size, industry, referral source, etc.
+    Add extra fields to contacts and organizations beyond the defaults (name, email, phone, company). Examples: `Company size`, `Industry`, `Referral source`, `ICP score`. Field types: text, number, date, select, multi-select.
   </Step>
   <Step title="Task streams">
-    Create streams for grouping work — e.g. Content, Outreach, Product, Ops. Tasks belong to streams.
+    Create streams for grouping tasks — e.g. `Content`, `Outreach`, `Product`, `Ops`. Every task belongs to a stream. Agents also use streams to organize their work.
   </Step>
 </Steps>
 
+---
+
 ## Presets
 
-Don't want to configure from scratch? Pick a preset that seeds sensible defaults for your use case:
+Presets seed sensible defaults for your pipeline stages, fields, and streams so you don't have to configure from scratch. Pick one that matches your use case — you can customize everything afterward.
 
-<CardGroup cols={3}>
-  <Card title="Outreach" icon="paper-plane">Pipeline, fields, and streams for outbound sales or BD.</Card>
-  <Card title="Job search" icon="briefcase">Track applications, contacts, and follow-ups.</Card>
-  <Card title="Recruiting" icon="users">Candidate pipeline with interview stages.</Card>
-  <Card title="Sales" icon="chart-line">Full sales pipeline with deal tracking.</Card>
-  <Card title="Client work" icon="handshake">Project-oriented streams and client fields.</Card>
-  <Card title="Blank" icon="file">Start empty and build your own.</Card>
+<CardGroup cols={2}>
+  <Card title="Personal ops" icon="user">
+    General-purpose: task streams for Content, Outreach, Admin. Minimal pipeline. Good starting point if you're unsure.
+  </Card>
+  <Card title="Outreach" icon="paper-plane">
+    Pipeline and fields for outbound sales or business development: Lead, Contacted, Qualified, Proposal, Closed.
+  </Card>
+  <Card title="Job search" icon="briefcase">
+    Track job applications, contacts at target companies, and follow-up tasks. Stages: Identified, Applied, Interviewing, Offer, Rejected.
+  </Card>
+  <Card title="Recruiting" icon="users">
+    Candidate pipeline with interview stages: Sourced, Screening, Interview, Offer, Hired.
+  </Card>
+  <Card title="Sales" icon="chart-line">
+    Full sales pipeline with deal fields: company size, ARR, close date, deal stage.
+  </Card>
+  <Card title="Client work" icon="handshake">
+    Project-oriented setup: client contacts, project status fields, work streams per engagement.
+  </Card>
+  <Card title="Blank" icon="file">
+    Start empty. Build the pipeline and fields from scratch.
+  </Card>
 </CardGroup>
 
-<Tip>
-  Everything the wizard configures can be changed later from Settings → Pipeline, Settings → Fields, and Settings → Streams.
-</Tip>
+---
+
+## After setup
+
+Once you complete the wizard, your workspace is active. Next steps:
+
+<CardGroup cols={2}>
+  <Card title="Create your first agent" icon="robot" href="/guides/create-agent">
+    Pick a template, set a channel (Telegram, etc.), and provision.
+  </Card>
+  <Card title="Connect a model provider" icon="plug" href="/guides/connect-model-provider">
+    Add OpenAI, Anthropic, Ollama, or another provider so agents have a model to use.
+  </Card>
+  <Card title="Set up automations" icon="bolt" href="/guides/automations">
+    Wire workspace events to agents so background work happens automatically.
+  </Card>
+  <Card title="Add boot documents" icon="file-lines" href="/guides/agent-boot-docs">
+    Give agents persistent context they read before every session.
+  </Card>
+</CardGroup>

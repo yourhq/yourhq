@@ -1,43 +1,72 @@
 ---
 title: "Usage budgets"
-description: "Track model usage per agent and enforce monthly spending limits."
+description: "Track model usage per agent and set monthly spending limits to avoid surprise bills."
 ---
 
-HQ records every LLM call an agent makes and lets you set monthly budgets to control spend.
+HQ records every LLM call an agent makes and lets you set per-agent monthly budgets. Budgets reset on the first of each calendar month.
+
+---
 
 ## What gets tracked
 
 <CardGroup cols={2}>
   <Card title="Token usage" icon="coins">
-    Input, output, cache-read, and cache-write tokens per call.
+    Input tokens, output tokens, cache-read tokens, and cache-write tokens — tracked per call and rolled up per agent per month.
   </Card>
   <Card title="Estimated cost" icon="dollar-sign">
-    Calculated from known model pricing. Unknown models are counted as unmetered — never silently invented.
+    Calculated from known model pricing. If a model's pricing isn't in HQ's list, usage is recorded as "unmetered" — never silently invented or guessed.
   </Card>
 </CardGroup>
+
+Usage is visible on each agent's detail page and in the aggregate on the Settings → System page.
+
+---
 
 ## Setting a budget
 
 <Steps>
   <Step title="Open the agent detail page">
-    Navigate to Agents → select an agent → scroll to the Usage & Budget section.
+    Go to **Agents** → select an agent → scroll to the **Usage & Budget** section.
   </Step>
-  <Step title="Configure limits">
-    Set a monthly limit in USD, a soft warning threshold (percentage), and whether to hard-stop the agent when the limit is exceeded.
+  <Step title="Set a monthly limit">
+    Enter a dollar amount (e.g. `$10`). This is the hard ceiling for the calendar month. Leave blank for no limit.
   </Step>
-  <Step title="Monitor spend">
-    Current-period usage rolls up automatically. Budget warnings and exceedances create notifications.
+  <Step title="Set a warning threshold">
+    Enter a percentage (e.g. `80`). A notification fires when the agent crosses this percentage of the monthly limit — before the agent is stopped.
+  </Step>
+  <Step title="Enable or disable hard cutoff">
+    Toggle **Stop agent at limit** on or off. This controls what happens when the monthly limit is reached (see below).
   </Step>
 </Steps>
+
+---
 
 ## What happens at the limit
 
 | Setting | Behavior |
 |---|---|
-| **Soft threshold** | A notification is created when the agent crosses the warning percentage |
-| **Hard cutoff enabled** | The runtime blocks further replies and the dispatcher stops waking the agent for background work |
-| **Hard cutoff disabled** | The agent keeps working — you get the notification but no enforcement |
+| **Warning threshold crossed** | A notification is created. The agent keeps working. |
+| **Monthly limit reached + hard cutoff ON** | The runtime blocks further LLM replies. The dispatcher stops waking the agent for background work. The agent is effectively paused until the next month or until you raise the limit. |
+| **Monthly limit reached + hard cutoff OFF** | A notification fires, but the agent keeps working. No enforcement. |
 
 <Tip>
-  Start without a hard cutoff to see how much an agent actually uses, then set limits based on real data.
+  Start without a hard cutoff to see how much an agent actually uses over a few weeks, then set limits based on real data. It's easy to underestimate how much an active agent spends.
 </Tip>
+
+---
+
+## Budget periods
+
+Budgets roll over automatically on the **first of each calendar month (UTC)**. Usage from the previous month is preserved in `agent_usage` for historical reporting — it's never deleted.
+
+If an agent hits its hard cutoff mid-month, you can:
+- **Raise the limit** in the agent detail page — the agent becomes active again immediately
+- **Wait for the reset** — the agent resumes automatically at the start of next month
+
+---
+
+## Checking spend across all agents
+
+Go to **Settings → System → Usage** to see a summary table of all agents with their current-period spend, monthly limit, and how close each one is to its threshold.
+
+This view is useful for identifying which agents are consuming the most model budget before costs compound.

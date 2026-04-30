@@ -1,44 +1,115 @@
 ---
 title: "Add a gateway"
-description: "Register another Docker host so it can run agents for the same HQ workspace."
+description: "Register a second Docker host so it can run agents for the same HQ workspace."
 ---
 
-A gateway is a Docker host that runs agents. One HQ workspace can have multiple gateways.
+A gateway is a Docker host that runs agents. One HQ workspace can have multiple gateways — different machines, different geos, all coordinated through the same Supabase project.
 
-## UI-driven flow
+---
 
-1. Open Settings → Gateways.
-2. Select Add Gateway.
-3. Enter a label.
-4. Optionally paste a Tailscale auth key for the gateway host.
-5. Copy the generated installer command.
-6. Run it on the new host.
-7. Keep the dialog open until the token is consumed and the gateway appears.
+## Why add another gateway?
 
-The UI stores only a hash of the registration token. The plaintext token is shown once in the generated command.
+- Run agents on a more powerful machine (e.g., a cloud VPS) while keeping the UI on a laptop
+- Split agents across hosts by role (e.g., research agents on one server, writing agents on another)
+- Keep a development gateway separate from your production one
+- Add a gateway in a different region for latency-sensitive work
 
-## Manual flow
+---
 
-Manual registration is useful for development or unusual deployment layouts.
+## UI-driven flow (recommended)
 
-1. Clone the repo on the gateway host.
-2. Copy `.env.example` to `.env`.
-3. Set a unique `GATEWAY_ID`.
-4. Point the gateway at the same Supabase project.
-5. Set `HOST_REACHABLE_URL` for that host.
-6. Run:
+<Steps>
+  <Step title="Open Gateway settings">
+    Go to **Settings → Gateways** in the left sidebar.
+  </Step>
+  <Step title="Click Add Gateway">
+    Click **+ Add Gateway**. A dialog opens.
+  </Step>
+  <Step title="Fill in the details">
+    - **Label** — a friendly name for this gateway (e.g. "Home Mac mini", "Hetzner VPS")
+    - **Tailscale auth key** (optional) — if you want this gateway's host to join your tailnet automatically, paste a Tailscale auth key here. Leave blank to configure Tailscale separately.
+  </Step>
+  <Step title="Copy the installer command">
+    HQ mints a single-use registration token and generates a `curl | bash` installer command pre-loaded with your Supabase credentials and the token. Click **Copy**.
 
-```bash
-docker compose up -d gateway dispatcher runner
-```
+    <Warning>
+      The token is shown **once** and valid for 10 minutes. HQ stores only a hash — not the plaintext. If it expires, close the dialog and start over to generate a new one.
+    </Warning>
+  </Step>
+  <Step title="Run the command on the new host">
+    SSH into the new machine and paste the command. It pulls Docker images, configures `.env`, and starts the stack. The gateway registers itself in your Supabase project using the token.
+  </Step>
+  <Step title="Wait for the gateway to appear">
+    Keep the dialog open. Within ~60 seconds, the new gateway row will appear in the list with a green heartbeat. If it doesn't appear after 2 minutes, check the logs on the new host:
 
-The gateway upserts itself into the `gateways` table and starts heartbeating.
+    ```bash
+    docker compose logs -f gateway
+    ```
+
+    Look for `registered (reachable at http://...)` — that confirms success.
+  </Step>
+</Steps>
+
+---
+
+## Manual registration
+
+Use this for development setups, unusual deployment layouts, or if you want full control over the configuration.
+
+<Steps>
+  <Step title="Clone the repo on the gateway host">
+    ```bash
+    git clone https://github.com/yourhq/yourhq.git
+    cd yourhq
+    cp .env.example .env
+    ```
+  </Step>
+  <Step title="Configure .env">
+    Edit `.env` and set these values:
+
+    ```bash
+    GATEWAY_ID=my-second-gateway          # must be unique across your workspace
+    SUPABASE_URL=https://xxxx.supabase.co
+    SUPABASE_SERVICE_ROLE_KEY=eyJ...
+    HOST_REACHABLE_URL=http://100.x.y.z   # how the UI reaches this gateway
+    ```
+
+    Leave `GATEWAY_TOKEN` unset — manual registration skips the token exchange.
+  </Step>
+  <Step title="Start the gateway services">
+    ```bash
+    docker compose up -d gateway dispatcher runner
+    ```
+
+    The gateway upserts itself into the `gateways` table in Supabase and starts heartbeating every 30 seconds.
+  </Step>
+  <Step title="Verify in the UI">
+    Go to **Settings → Gateways**. The new gateway should appear with a green heartbeat. If it shows "Stale" or doesn't appear, check:
+
+    - `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are correct
+    - Migrations are complete (all 21 files in `db/migrations/` have been run)
+    - The host can reach Supabase: `curl $SUPABASE_URL/rest/v1/` from inside the container
+    - Gateway logs: `docker compose logs gateway | tail -50`
+  </Step>
+</Steps>
+
+---
+
+## Assigning agents to a specific gateway
+
+When you create a new agent, HQ asks which gateway it should run on. The agent's `gateway_id` is set at creation time. To move an agent to a different gateway, delete and recreate it — agents are provisioned into a specific gateway's file system and can't be migrated live.
+
+---
 
 ## Troubleshooting
 
-If the gateway does not appear, check:
+**Gateway appears but shows "Stale" heartbeat:**
+The runner daemon has likely stopped. Check: `docker compose logs -f runner | tail -50`. Restart: `docker compose restart runner`.
 
-- Supabase URL and service role key.
-- Migration status.
-- Host networking and firewall.
-- Gateway logs with `docker compose logs gateway`.
+**Gateway registered but agents won't provision:**
+The `dispatcher` or `runner` may not be running. Check all four services: `docker compose ps`. If any show `Restarting`, tail their logs.
+
+**Token expired before you ran the command:**
+Close the Add Gateway dialog and open it again — this generates a fresh token with a new 10-minute window.
+
+See also [Operations →](/self-host/operations), [Gateway boot sequence →](/self-host/gateway-boot)

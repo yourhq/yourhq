@@ -1,42 +1,212 @@
 ---
 title: "Operations"
-description: "Update, back up, and maintain your self-hosted HQ install."
+description: "How to update, back up, monitor, and maintain your HQ install."
 ---
 
-## Update
+## Updating HQ
 
-For source installs:
-
-```bash
-git pull
-docker compose pull
-docker compose up -d
-```
-
-For installer installs, run the same commands from the install directory.
-
-## Back up Supabase
-
-Use Supabase backups or `pg_dump`. Supabase stores workspace records, agents, tasks, CRM, documents, automations, notifications, command history, inbox history, usage, and budgets.
-
-## Back up gateway state
-
-The `gateway-state` volume holds OpenClaw config, the local git repo, agent worktrees, browser profiles, desktop shortcuts, plugins, shared auth, and VNC state.
-
-Back it up before destructive Docker operations.
-
-## Back up `.env`
-
-`.env` contains infrastructure secrets such as `GATEWAY_AUTH_TOKEN` and optional git credentials. Keep it in a password manager or encrypted storage.
-
-## Pin image versions
-
-For production, pin image tags instead of tracking `latest`.
-
-## Uninstall
+Updating is a pull-and-restart — no rebuilds required.
 
 ```bash
-docker compose down -v
+cd ~/.yourhq          # or wherever you installed
+docker compose pull   # download latest images
+docker compose up -d  # restart with new images
 ```
 
-This deletes Docker volumes, including gateway state. Delete the Supabase project separately if you no longer need the data.
+The UI's Supabase config lives in the project registry (runtime, not baked into the image), so updates never require a UI rebuild. Just pull and restart.
+
+**Update from the UI:** Settings → Gateways → hover a gateway row → **Update gateway**. This runs `docker compose pull && up -d` on the gateway host via the runner daemon.
+
+<Warning>
+  Check [GitHub releases](https://github.com/yourhq/yourhq/releases) before updating. If a release includes new migrations, run them in Supabase SQL Editor before pulling the new images. Skipping this step can cause the UI to show a "schema out of date" banner.
+</Warning>
+
+---
+
+## Backing up
+
+Three things to back up. Don't skip any of them.
+
+<AccordionGroup>
+  <Accordion title="1. Supabase — workspace data" icon="database" defaultOpen>
+    Supabase stores everything: contacts, tasks, agents, documents, automations, usage history, audit log, and gateway registrations. Losing it means losing your entire workspace.
+
+    **Option A: Supabase built-in backups (Pro tier)**
+
+    Supabase Pro includes daily automatic backups and point-in-time recovery. Enable under **Project Settings → Database → Backups**. This is the easiest path if you're on Pro.
+
+    **Option B: `pg_dump` (free, manual)**
+
+    ```bash
+    pg_dump \
+      "postgresql://postgres:<db-password>@db.<project-ref>.supabase.co:5432/postgres" \
+      -Fc -f supabase-backup-$(date +%Y%m%d).dump
+    ```
+
+    Your database password and project ref are in **Supabase → Project Settings → Database → Connection string**.
+
+    To restore:
+    ```bash
+    pg_restore \
+      "postgresql://postgres:<db-password>@db.<project-ref>.supabase.co:5432/postgres" \
+      -d postgres supabase-backup-20260101.dump
+    ```
+
+    **Recommended frequency:** daily for active workspaces, weekly for light use.
+  </Accordion>
+
+  <Accordion title="2. Gateway state volume — agent files" icon="folder">
+    The `gateway-state` Docker volume holds everything that lives on the gateway: agent git branches, OpenClaw config, Chrome profiles, desktop shortcuts, auth tokens, plugins, and the VNC password.
+
+    Losing this means losing your agents' memory, skills, and browser sessions. They can be reprovisioned, but you'll lose accumulated state.
+
+    **Back up the volume:**
+    ```bash
+    docker run --rm \
+      -v yourhq-gateway-state:/src \
+      -v $(pwd):/dst \
+      alpine tar -czf /dst/gateway-state-$(date +%Y%m%d).tar.gz -C /src .
+    ```
+
+    This creates a compressed archive in your current directory.
+
+    **Restore from backup:**
+    ```bash
+    # Stop the gateway first
+    docker compose stop gateway dispatcher runner
+
+    # Restore into the volume
+    docker run --rm \
+      -v yourhq-gateway-state:/dst \
+      -v $(pwd):/src \
+      alpine sh -c "cd /dst && tar -xzf /src/gateway-state-20260101.tar.gz"
+
+    # Restart
+    docker compose up -d
+    ```
+
+    **Better option: git remote sync.** Set `GIT_REMOTE_URL` in `.env` to push every agent branch to GitHub or Gitea automatically. Even if you lose the Docker volume, the branches survive. See [Configuration](/reference/configuration) → Git remote sync.
+
+    **Recommended frequency:** weekly for agent state, or enable git remote sync for continuous backup of agent branches.
+  </Accordion>
+
+  <Accordion title="3. .env — infrastructure secrets" icon="key">
+    `.env` contains `GATEWAY_AUTH_TOKEN`, optional git credentials, and other secrets. It's a flat text file and easy to lose track of.
+
+    Store a copy in:
+    - A password manager (1Password, Bitwarden, etc.)
+    - An encrypted note
+    - Your secure git repo (private, access-controlled)
+
+    **Never commit `.env` to a public repo.** The file contains keys that give full database access to your workspace.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Monitoring
+
+### Container health
+
+```bash
+# Check all container status
+docker compose ps
+
+# Tail all logs
+docker compose logs -f
+
+# Check a specific service
+docker compose logs -f gateway
+docker compose logs -f runner
+docker compose logs -f dispatcher
+```
+
+All four services should show `Status: Up`. If a container is in `Restarting` state, tail its logs to find the error.
+
+### Gateway heartbeat
+
+The gateway daemon writes `last_seen_at` to Supabase every 30 seconds. The UI shows heartbeat health on Settings → Gateways.
+
+- **Healthy** (green) — `last_seen_at` updated within 90 seconds
+- **Stale** (amber) — status is `ready` but heartbeat is old
+- **No signal** — gateway has never reported (possibly never started)
+
+If you see "Stale", the runner daemon is likely stopped. Check:
+```bash
+docker compose logs -f runner | tail -50
+```
+
+### Command history
+
+Settings → System → Commands shows every command the runner has processed, with status, stdout, and stderr. Useful for diagnosing failed provisions or auth flows.
+
+### Disk usage
+
+Agent branches, Chrome profiles, and logs accumulate over time:
+
+```bash
+# Check volume sizes
+docker system df -v
+
+# Check gateway-state volume specifically
+docker run --rm -v yourhq-gateway-state:/data alpine du -sh /data/*
+```
+
+If the volume is large, the most likely culprit is Chrome profile data. You can clear an agent's Chrome profile from the agent detail page → Operations → Clear browser profile.
+
+---
+
+## Pinning image versions
+
+By default, HQ tracks `:latest`. For production installs where stability matters more than freshness:
+
+```bash
+# In .env
+UI_IMAGE=ghcr.io/yourhq/yourhq-ui:2026.04.20
+GATEWAY_IMAGE=ghcr.io/yourhq/yourhq-gateway:2026.04.20
+DISPATCHER_IMAGE=ghcr.io/yourhq/yourhq-dispatcher:2026.04.20
+RUNNER_IMAGE=ghcr.io/yourhq/yourhq-runner:2026.04.20
+```
+
+Then pull and restart:
+```bash
+docker compose pull && docker compose up -d
+```
+
+Pin to the same date tag across all four images — mixing versions can cause incompatibilities.
+
+---
+
+## Restarting individual services
+
+You don't need to restart the whole stack for most changes:
+
+```bash
+# Restart just the UI (e.g. after changing ALLOWED_ORIGINS)
+docker compose restart ui
+
+# Restart gateway after .env changes
+docker compose up -d gateway
+
+# Force-recreate a service (e.g. after changing port bindings)
+docker compose up -d --force-recreate gateway
+```
+
+See [Configuration](/reference/configuration) → Section 7 for which variables require which restart.
+
+---
+
+## Uninstalling
+
+<Warning>
+  `docker compose down -v` deletes all Docker volumes, including the gateway-state volume with all agent files. Back up first if you want to keep anything.
+</Warning>
+
+```bash
+cd ~/.yourhq
+docker compose down -v   # stops containers and deletes volumes
+cd ..
+rm -rf .yourhq
+```
+
+To also delete the Supabase project: go to **Supabase → Settings → General → Delete project**.

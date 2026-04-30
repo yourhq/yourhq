@@ -1,61 +1,97 @@
 ---
-title: "Run your own AI operations HQ"
-description: "Open-source docs for self-hosting Your HQ, creating agents, and operating an agent-powered workspace."
+title: "Your HQ"
+description: "Open-source AI operations HQ — self-hosted agents, CRM, tasks, documents, and automations on infrastructure you control."
 ---
 
-HQ is an open-source workspace for running AI agents on infrastructure you control. It combines agents, CRM, tasks, documents, automations, provider connections, gateways, and usage budgets in one self-hosted dashboard.
+<img
+  className="block dark:hidden"
+  src="/images/hero-light.svg"
+  alt="HQ diagram"
+/>
+<img
+  className="hidden dark:block"
+  src="/images/hero-dark.svg"
+  alt="HQ diagram"
+/>
 
-You can use Your HQ as a non-technical operator, a technical self-hoster, an agent builder, or a developer who wants to fork and extend the project.
+**HQ is an open-source workspace for running AI agents on infrastructure you control.** You bring a Docker host and a Supabase project. HQ gives you the UI, the agent runtime, 15 role templates, and the full stack to manage them.
 
 <CardGroup cols={2}>
-  <Card title="Start from zero" icon="rocket" href="/getting-started/quickstart">
-    Install Your HQ, connect Supabase, finish onboarding, connect a model provider, and create your first agent.
+  <Card title="Get started in 15 minutes" icon="rocket" href="/getting-started/quickstart">
+    Install HQ, connect Supabase, connect a model, and create your first agent.
   </Card>
-  <Card title="Pick the right path" icon="signs-post" href="/getting-started/choose-your-path">
-    Not sure where to begin? Choose a path for self-hosting, using Your HQ, building agents, contributing, or security review.
+  <Card title="Not sure where to start?" icon="signs-post" href="/getting-started/choose-your-path">
+    Pick a path based on what you want to do — try it, self-host it, build agents, fork it, or review security.
   </Card>
 </CardGroup>
 
-## What you can do with Your HQ
-
-<CardGroup cols={3}>
-  <Card title="Run agents" icon="robot" href="/concepts/agents">
-    Create long-lived agents with their own memory, tools, browser profile, messaging channel, and worktree.
-  </Card>
-  <Card title="Manage work" icon="list-check" href="/guides/workspace-setup">
-    Use CRM, tasks, documents, assets, automations, notifications, and activity in one workspace.
-  </Card>
-  <Card title="Self-host anywhere" icon="server" href="/self-host/requirements">
-    Run the UI and gateways on a laptop, home server, Raspberry Pi, VPS, or multiple hosts.
-  </Card>
-  <Card title="Connect models" icon="plug" href="/guides/connect-model-provider">
-    Any model, any provider. OpenAI, Anthropic, Gemini, Ollama, and 25+ more.
-  </Card>
-  <Card title="Control spend" icon="chart-line" href="/guides/usage-budgets">
-    Track model usage per agent and enforce monthly usage budgets with hard cutoffs.
-  </Card>
-  <Card title="Fork and extend" icon="code-branch" href="/development/local-development">
-    Customize templates, skills, UI modules, gateway commands, migrations, and integrations.
-  </Card>
-</CardGroup>
+---
 
 ## How HQ fits together
 
-```text
-HQ UI  →  your Supabase project  →  gateway hosts  →  agents
+```
+Your browser  →  HQ UI (Next.js)  →  Your Supabase project  →  Gateway hosts  →  Agents
 ```
 
-The UI is where you manage work. Supabase is the shared state layer you own. Gateways are Docker hosts that run agents. Agents are persistent workspaces that can browse, read context, update files, and process assigned work.
+The **UI** is where you manage everything: agents, tasks, CRM, documents, automations, connections, and settings.
 
-<CardGroup cols={2}>
-  <Card title="Read the architecture" icon="diagram-project" href="/concepts/architecture">
-    Understand the runtime, queues, daemons, files API, and data flows.
+**Supabase** is the shared database and auth system — owned by you, on your account.
+
+**Gateways** are Docker hosts that run agents. One gateway is the default; you can add more on other machines.
+
+**Agents** are long-lived workspaces: their own git branch, Chrome profile, messaging channel, and skills.
+
+<CardGroup cols={3}>
+  <Card title="Run agents" icon="robot" href="/concepts/agents">
+    Templates, memory, channels, boot docs, org chart, and delegation.
   </Card>
-  <Card title="Review the security model" icon="shield-halved" href="/security/security-policy">
-    Understand the real trust boundaries before exposing HQ beyond localhost.
+  <Card title="Manage work" icon="list-check" href="/concepts/features">
+    CRM, tasks, documents, assets, automations, and notifications.
+  </Card>
+  <Card title="Self-host anywhere" icon="server" href="/self-host/requirements">
+    Laptop, Mac mini, Raspberry Pi, VPS, or multiple hosts.
+  </Card>
+  <Card title="Connect any model" icon="plug" href="/guides/connect-model-provider">
+    OpenAI, Anthropic, Gemini, Ollama, and 25+ providers.
+  </Card>
+  <Card title="Control spend" icon="gauge-high" href="/guides/usage-budgets">
+    Per-agent monthly budgets with soft warnings and hard cutoffs.
+  </Card>
+  <Card title="Fork and extend" icon="code-branch" href="/development/local-development">
+    Templates, skills, UI modules, gateway commands, migrations.
   </Card>
 </CardGroup>
 
+---
+
+## Who HQ is for
+
+<CardGroup cols={2}>
+  <Card title="Non-technical operators" icon="user">
+    Use the installer and browser UI. No coding required to install, create agents, and manage your workspace.
+  </Card>
+  <Card title="Technical self-hosters" icon="server">
+    Clone, configure `.env`, run Docker Compose. Full control over every layer.
+  </Card>
+  <Card title="Agent builders" icon="wand-magic-sparkles">
+    Write templates, skills, and custom logic. The full template library and agent model are yours to extend.
+  </Card>
+  <Card title="Developers and contributors" icon="code">
+    Standard Next.js + Python stack. Fork it, customize it, submit PRs.
+  </Card>
+</CardGroup>
+
+---
+
 ## Open source by design
 
-HQ is not a hosted-first product with a self-hosted checkbox. The repo is the product. The docs include UI paths, manual paths, operational notes, security risks, and extension points so you can run it yourself or build your own version.
+HQ is not a hosted product with a self-hosted checkbox — the repo is the product. The docs include UI paths, manual paths, operational notes, security risks, and extension points so you can run it yourself or build your own version.
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="diagram-project" href="/concepts/architecture">
+    Runtime, queues, daemons, files API, and full data flow.
+  </Card>
+  <Card title="Security model" icon="shield-halved" href="/security/security-policy">
+    Trust boundaries before you expose HQ beyond localhost.
+  </Card>
+</CardGroup>

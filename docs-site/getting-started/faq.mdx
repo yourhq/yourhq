@@ -1,160 +1,323 @@
-# FAQ
+---
+title: "FAQ"
+description: "Common questions about HQ — what it is, how it works, and how to run it."
+---
 
-## What is HQ?
+<AccordionGroup>
 
-A self-hostable dashboard for running AI agents. You provide the infrastructure (a Docker host and a Supabase project); HQ gives you the UI, the agent runtime, and a library of templates.
+  {/* ───── Getting started ───── */}
 
-## Why would I self-host this instead of using a SaaS?
+  <Accordion title="What is HQ?">
+    HQ is an open-source platform for running AI agents on your own infrastructure. You bring a Docker host and a free Supabase account; HQ gives you the UI, the agent runtime, a CRM, a task system, and a library of agent templates.
 
-- **Your data stays on your machine.** No third party has access to your CRM, documents, or agent outputs.
-- **No per-seat pricing.** Run as many agents as your hardware can handle.
-- **Open source.** Fork it, customize it, ship your version.
-- **Offline-capable.** Gateways can run on a laptop or home server and keep working without internet.
+    Agents have real memory, can browse the web, use tools, manage files, and respond through messaging channels (Telegram, Discord, Slack). They're not chat bots — they run as persistent processes that do background work on your behalf.
+  </Accordion>
 
-SaaS trade-off: you handle updates, debugging, and ops. If that's unappealing, watch for the hosted offering described in [ROADMAP.md](/getting-started/roadmap).
+  <Accordion title="How long does it take to get started?">
+    About 15 minutes:
 
-## Is there a hosted version?
+    - ~2 min to create a Supabase project
+    - ~3 min to run migrations and create an auth user
+    - ~5 min for Docker to pull images on first run (~1.5 GB)
+    - ~2 min to connect your model provider and create the first agent
 
-Not yet. A hosted offering at `yourhq.ai` is on the roadmap. Until then, self-host.
+    See the [Quickstart →](/getting-started/quickstart)
+  </Accordion>
 
-## What does "agent" mean here?
+  <Accordion title="Do I need to know how to code?">
+    No. The install is a single `curl | bash` command. Everything else — Supabase setup, agent creation, automations — is done through the UI. You don't need to edit any code or understand Docker internals to get started.
 
-An agent is a persistent workspace with:
+    If you want to customize agent templates, build your own, or contribute to the project, coding knowledge helps — but it's entirely optional.
+  </Accordion>
 
-- Its own git branch (identity files, memory, skills)
-- Its own Chrome profile (persistent cookies, logged-in sessions)
-- Its own messaging channel — Telegram, Discord, Slack, or none (for conversational input/output)
-- Its own OpenClaw session (the runtime)
+  <Accordion title="Is there a hosted version?">
+    Not yet. A hosted offering at `yourhq.ai` is on the roadmap — you'd sign up and skip the self-hosting entirely. Until then, everyone self-hosts.
 
-Agents have real memory across sessions, can browse the web, send messages, edit files, and call APIs. They're not chat bots.
+    See [Roadmap →](/getting-started/roadmap)
+  </Accordion>
 
-## What models do agents use?
+  <Accordion title="Why self-host instead of using a SaaS?">
+    - **Your data stays on your machine.** No third party has access to your CRM, documents, or agent outputs.
+    - **No per-seat pricing.** Run as many agents as your hardware can handle.
+    - **Open source.** Fork it, customize it, ship your own version.
+    - **Offline-capable.** Gateways can run on a laptop or home server with no cloud dependency.
 
-HQ is model-agnostic. Agents use whatever provider you configure — OpenAI, Anthropic, Gemini, OpenRouter, local OpenAI-compatible servers, and 20+ other providers supported by OpenClaw. There is no default or required provider. Switching is available per agent through the agent rail and globally through Settings → Connections.
+    The trade-off: you're responsible for updates, backups, and debugging. If that's unappealing, wait for the hosted offering.
+  </Accordion>
 
-You connect models through the Connections UI. API-key providers can be added directly; interactive providers complete through the runner command flow.
+  <Accordion title="Why the name "HQ"?">
+    It's the headquarters metaphor — one place where you manage everything. Short, memorable, hard to misspell.
+  </Accordion>
 
-## What does it cost to run?
+</AccordionGroup>
 
-Infrastructure:
-- Laptop: free
-- $4/month VPS (Hetzner CX22): fine for 1–2 agents
-- $20/month VPS (t3.medium on AWS): comfortable for 5+ agents
+---
 
-Supabase free tier covers small/personal use. Upgrade to Pro ($25/mo) if you hit limits.
+## Agents & models
 
-Model API costs are on top and depend on usage — typically $10–$100/month per active agent depending on how much it works.
+<AccordionGroup>
 
-## Does it need internet?
+  <Accordion title="What is an agent?">
+    An agent is a persistent workspace made up of:
 
-The UI and gateway need internet for:
-- Model API calls (unless using a local model like Ollama)
-- Supabase (if your Supabase is cloud-hosted)
-- OpenClaw plugin updates
+    - A **git branch** — holds identity files, memory notes, skills, and docs
+    - A **Chrome profile** — persistent cookies and logged-in browser sessions
+    - A **messaging channel** — Telegram, Discord, Slack, or none
+    - An **OpenClaw session** — the runtime that executes prompts and tool calls
 
-Gateway agents need internet to browse. Beyond that, local-only is fine. With a local model provider and self-hosted Supabase, agents can work fully offline.
+    Agents have real memory across sessions, can browse the web, send messages, edit files, and call APIs. They run as background processes, not just in response to messages.
+  </Accordion>
 
-## Can I run multiple gateways?
+  <Accordion title="What models can agents use?">
+    HQ is model-agnostic. Agents use whatever provider you configure:
 
-Yes. Each gateway registers itself in the `gateways` table with its own `GATEWAY_ID`. Agents are bound to a specific gateway via `gateway_id` FK. The UI talks to each gateway via its reachable URL (stored in `gateways.meta.reachable_urls`).
+    - **API key providers**: OpenAI, Anthropic, Gemini, DeepSeek, Mistral, Groq, OpenRouter, and 15+ more
+    - **OAuth providers**: OpenAI Codex, GitHub Copilot
+    - **Local / self-hosted**: Ollama, LM Studio, vLLM, any OpenAI-compatible server
 
-Example topology: UI on your laptop, one gateway on a Mac mini at home, one gateway on a VPS. All point at the same Supabase. Each runs its own set of agents.
+    There is no default or required provider. You can set different models per agent.
 
-Yes. The normal path is Settings → Gateways → Add Gateway. HQ mints a single-use registration token and gives you a one-line installer command for the new host. Manual registration still works for advanced setups.
+    See [Connect a model provider →](/guides/connect-model-provider)
+  </Accordion>
 
-## Can I run multiple projects / workspaces?
+  <Accordion title="Can I use a free / local model?">
+    Yes. Ollama lets you run models like Llama 3, Mistral, and Gemma entirely on your machine — no API costs, fully private. Install Ollama, pull a model, and point HQ at `http://host.docker.internal:11434`.
 
-Yes. The UI has a project registry and project switcher, so one UI install can manage multiple Supabase-backed workspaces. Each project is still isolated at the Supabase-project level.
+    Local models are slower and less capable than frontier models for complex tasks, but they're free and work offline.
 
-You can run multiple Compose stacks on the same host by setting different `COMPOSE_PROJECT` values in `.env` — each gets its own volumes and container names.
+    See the Ollama walkthrough in [Connect a model provider →](/guides/connect-model-provider)
+  </Accordion>
 
-## How do agents see each other?
+  <Accordion title="Can I use different models for different agents?">
+    Yes. Each agent has its own model selector on its detail page. A common pattern: use a frontier model (GPT-4o, Claude 3.5) for agents doing complex reasoning, and a cheap/fast model or Ollama for agents doing simple lookups.
+  </Accordion>
 
-They share a Supabase database, so tasks, contacts, documents, and comments are visible across agents. @-mentioning an agent in a comment inserts a row into `agent_inbox_items`; the dispatcher wakes the mentioned agent.
+  <Accordion title="Can agents see each other and collaborate?">
+    Yes — agents share the same Supabase database, so tasks, contacts, documents, and comments are all visible across agents.
 
-For more sophisticated coordination (agent A's output triggering agent B), the pattern today is:
-- Agent A completes a task or writes a document
-- Automation rule fires on the change
-- New inbox item gets enqueued for agent B
-- Dispatcher wakes B
+    Collaboration patterns:
+    - **@-mentions**: type `@agent-slug` in any task or document comment to wake that agent
+    - **Automations**: set a rule so agent A's output (a status change, new task, etc.) triggers agent B
+    - **Org chart**: agents can be arranged into a manager/direct-report hierarchy. That hierarchy is injected into agent boot context and gives agents a clear delegation model
 
-Agents can also be arranged into a manager/direct-report hierarchy. That hierarchy is injected into agent boot context and gives agents a clear delegation convention.
+    See [Automations →](/guides/automations)
+  </Accordion>
 
-## How do I reach my HQ from my phone?
+  <Accordion title="What happens when an agent hits its budget limit?">
+    It depends on how you've configured it:
 
-- **Install Tailscale** on your phone + HQ host, reach `http://<host-tailscale-ip>:3000`
-- **Tailscale Serve** on the host for TLS: `sudo tailscale serve --bg --https=443 localhost:3000` → `https://hq.<your-tailnet>.ts.net`
-- **Tailscale Funnel** to make it reachable without Tailscale on the phone
-- **Public custom domain** via Cloudflare Tunnel or your own reverse proxy (see [Networking](/self-host/networking))
+    - **Soft threshold only** — a notification fires when the agent crosses the warning percentage. The agent keeps working.
+    - **Hard cutoff enabled** — the runtime blocks further LLM replies and the dispatcher stops waking the agent for background work. The agent is effectively paused until the next budget period (first of the month) or until you raise the limit.
 
-Safest path: Tailscale. Your HQ is never on the public internet.
+    See [Usage budgets →](/guides/usage-budgets)
+  </Accordion>
 
-## Can I use a Raspberry Pi?
+  <Accordion title="What agent templates are included?">
+    HQ ships 15 built-in templates:
 
-Yes. Raspberry Pi 4 or 5 (arm64) runs the stack fine. Pi 4 with 4 GB is the minimum; Pi 5 with 8 GB is comfortable. Use the same installer — arm64 images are published automatically.
+    `default`, `analytics`, `assistant`, `chief-of-staff`, `cmo`, `cofounder`, `crm-researcher`, `designer`, `market-researcher`, `newsletter-editor`, `newsletter-writer`, `sales-copywriter`, `script-writer`, `social-strategist`, `social-writer`
 
-## What about resource usage?
+    Each template comes with pre-loaded identity files, skills, and a personality. You pick one when creating an agent — you can customize everything afterward.
 
-A single gateway with 1–2 idle agents uses about 1.5 GB RAM and 5–10% CPU. Each active agent (browsing, running) adds ~500 MB and spikes CPU during work.
+    See [Templates reference →](/reference/templates)
+  </Accordion>
 
-t3.small (2 GB) is the floor. t3.medium (4 GB) is comfortable for 2–3 active agents. t3.large or m5.large for heavier use.
+  <Accordion title="Can I write my own agent template?">
+    Yes. Copy `templates/default/` to `templates/your-role/`, edit the identity files (`IDENTITY.md`, `SOUL.md`, `USER.md`, `MEMORY.md`), and add role-specific skills under `skills/`. The gateway picks up new templates automatically when it reboots.
 
-## How do I back up my data?
+    If your template might be useful to others, open a PR.
 
-Three things to back up:
+    See [Agents →](/concepts/agents)
+  </Accordion>
 
-1. **Supabase** — your contacts, tasks, agents, documents, audit log. Use Supabase's built-in backups (Pro tier) or `pg_dump` against the direct connection.
-2. **Gateway state volume** — per-agent git branches, Chrome profile, OpenClaw config. `docker run --rm -v yourhq-gateway-state:/src -v $(pwd):/dst alpine tar -czf /dst/gateway-state.tar.gz -C /src .`
-3. **`.env`** — contains secrets. Keep a copy somewhere safe (password manager, encrypted disk).
+</AccordionGroup>
 
-Optional: set `GIT_REMOTE_URL` in `.env` so per-agent branches push to a GitHub/Gitea remote you control.
+---
 
-## How do I update?
+## Self-hosting & operations
 
-```bash
-cd ~/yourhq
-git pull
-docker compose pull
-docker compose up -d
-```
+<AccordionGroup>
 
-UI Supabase config lives in the project registry (runtime, not baked in), so no UI rebuild is ever required — just pull and restart.
+  <Accordion title="What hardware do I need?">
+    **Minimum:** Any machine with 4 GB RAM and Docker. A t3.medium on AWS (~$20/month) or the equivalent Hetzner CX22 (~$4/month) works well.
 
-You can also trigger this from the UI: Settings → Gateways → hover a gateway row → Update. Or Settings → System → Update Gateway. Both show a confirmation dialog before proceeding.
+    **Resource usage per gateway:**
+    - Idle (1–2 agents): ~1.5 GB RAM, 5–10% CPU
+    - Active agent (browsing/running): +~500 MB RAM, CPU spikes during work
 
-## How do I uninstall?
+    **Recommended minimums:**
+    - t3.small (2 GB RAM): absolute floor, 1 agent
+    - t3.medium (4 GB RAM): comfortable for 2–3 active agents
+    - t3.large / m5.large: heavier use, 5+ agents
 
-```bash
-cd ~/yourhq
-docker compose down -v  # stops containers, DELETES volumes — all agent state gone
-cd ..
-rm -rf yourhq
-```
+    Raspberry Pi 4/5 (arm64, 4–8 GB) works fine — arm64 images are published automatically.
+  </Accordion>
 
-Supabase project: go to Supabase → Settings → General → delete project.
+  <Accordion title="Does HQ need internet access?">
+    The gateway needs internet for:
+    - Model API calls (unless using Ollama or another local model)
+    - Supabase connectivity (unless you self-host Supabase)
+    - OpenClaw plugin updates
 
-## Can I customize the UI?
+    Gateway agents need internet to browse the web. Beyond that, a local model + self-hosted Supabase gives you a fully offline setup.
+  </Accordion>
 
-Yes, fork the repo. `apps/ui/` is a standard Next.js app (App Router, Tailwind, shadcn). Changes go into your fork; pull upstream updates as desired.
+  <Accordion title="Can I run multiple gateways?">
+    Yes. Each gateway registers itself with a unique `GATEWAY_ID`. Agents are bound to a specific gateway via a foreign key; the UI talks to each gateway via its stored reachable URL.
 
-If your changes might benefit others, PR them.
+    Example: UI on your laptop, one gateway on a Mac mini at home, one gateway on a VPS — all pointing at the same Supabase project.
 
-## Can I write my own agent template?
+    To add a gateway: **Settings → Gateways → Add Gateway**. HQ generates a one-time registration token and gives you the installer command for the new host.
 
-Yes. Copy `templates/default/` to `templates/your-role/`, edit the identity files (`IDENTITY.md`, `SOUL.md`, `USER.md`, `MEMORY.md`), add role-specific skills under `skills/`, rebuild the templates index, open a PR (or keep in your fork).
+    See [Add a gateway →](/self-host/add-gateway)
+  </Accordion>
 
-See [Agents](/concepts/agents).
+  <Accordion title="Can I run multiple workspaces?">
+    Yes. One HQ UI instance can manage multiple independent Supabase projects via the project registry. Use the project picker in the top nav to switch between workspaces. Each workspace is completely isolated — separate agents, data, gateways, and auth users.
 
-## Who uses HQ?
+    You can also run multiple Compose stacks on the same host by setting a different `COMPOSE_PROJECT` in each `.env` — they get separate volumes and container names.
+  </Accordion>
 
-Currently: the maintainers, beta testers, and whoever else has discovered it. The project targets founders, solo operators, and small teams who want their agents to do real work on their own infrastructure.
+  <Accordion title="Can I run HQ on a Raspberry Pi?">
+    Yes. Raspberry Pi 4 or 5 (arm64) runs the full stack. The Pi 4 with 4 GB RAM is the minimum; Pi 5 with 8 GB is comfortable. arm64 images are built and published automatically — the installer handles it.
+  </Accordion>
 
-## Why the name "HQ"?
+  <Accordion title="How do I reach HQ from my phone?">
+    Several options, from simplest to most involved:
 
-It's the headquarters metaphor — one place where you manage everything. Short, memorable, hard to misspell.
+    1. **Tailscale** (recommended) — install Tailscale on both your phone and the HQ host, access via `http://<host-tailscale-ip>:3000`. Private, no port exposure.
+    2. **Tailscale Serve** — `sudo tailscale serve --bg --https=443 localhost:3000` → TLS access at `https://hq.<tailnet>.ts.net`
+    3. **Tailscale Funnel** — makes HQ accessible from the internet without Tailscale on the phone
+    4. **Reverse proxy** — Cloudflare Tunnel, nginx, Caddy, etc. (see [Networking](/self-host/networking))
 
-## Where do I ask more questions?
+    See [Networking →](/self-host/networking)
+  </Accordion>
 
-- [GitHub Discussions](https://github.com/yourhq/yourhq/discussions) — design questions, roadmap, workflow
-- [GitHub Issues](https://github.com/yourhq/yourhq/issues) — bugs, feature requests
-- `security@yourhq.ai` — security issues only (see [SECURITY.md](/security/security-policy))
+  <Accordion title="How do I update HQ?">
+    ```bash
+    cd ~/.yourhq
+    docker compose pull
+    docker compose up -d
+    ```
+
+    No rebuilds required — the UI reads its Supabase config from a runtime volume, not from the image.
+
+    You can also trigger updates from the UI: **Settings → Gateways → hover a gateway row → Update gateway**.
+
+    <Warning>
+      If a new release includes database migrations, run them in the Supabase SQL Editor **before** pulling new images. Check the [GitHub releases page](https://github.com/yourhq/yourhq/releases) first.
+    </Warning>
+  </Accordion>
+
+  <Accordion title="How do I back up my data?">
+    Three things to back up:
+
+    1. **Supabase** — your contacts, tasks, agents, documents, audit log. Use Supabase built-in backups (Pro tier) or `pg_dump` to a file. See [Operations →](/self-host/operations)
+    2. **Gateway state volume** — per-agent git branches, Chrome profiles, OpenClaw config. Back up with `docker run --rm -v yourhq-gateway-state:/src -v $(pwd):/dst alpine tar -czf /dst/gateway-state.tar.gz -C /src .`
+    3. **`.env`** — contains secrets. Store in a password manager or encrypted disk.
+
+    Optional: set `GIT_REMOTE_URL` in `.env` to continuously sync agent branches to GitHub/Gitea.
+  </Accordion>
+
+  <Accordion title="How do I uninstall?">
+    ```bash
+    cd ~/.yourhq
+    docker compose down -v   # deletes containers AND volumes — all agent state gone
+    cd ..
+    rm -rf .yourhq
+    ```
+
+    To also delete the database: Supabase dashboard → Settings → General → Delete project.
+
+    <Warning>
+      `docker compose down -v` is irreversible. Back up the gateway state volume first if you want to keep anything.
+    </Warning>
+  </Accordion>
+
+  <Accordion title="What does it cost to run?">
+    Infrastructure:
+    - **Laptop / home server**: free
+    - **Hetzner CX22** (~2 vCPU, 4 GB RAM): ~$4/month
+    - **AWS t3.medium** (2 vCPU, 4 GB RAM): ~$20/month
+
+    Supabase free tier covers small and personal use. Pro is $25/month if you hit the free tier limits.
+
+    Model API costs vary widely: typically $10–$100/month per active agent depending on the provider and how much work the agent does. Use Ollama to eliminate API costs entirely.
+  </Accordion>
+
+</AccordionGroup>
+
+---
+
+## Data & security
+
+<AccordionGroup>
+
+  <Accordion title="Who can see my data?">
+    Only you — and only if you set it up that way. HQ stores everything in **your own Supabase project**. Anthropic and the HQ maintainers have no access to your workspace data, your agent conversations, or your API keys.
+
+    The only outbound connections are model API calls (to your chosen provider) and Supabase queries (to your own project).
+  </Accordion>
+
+  <Accordion title="How is multi-tenancy handled?">
+    HQ does not use row-level security to isolate tenants within a single database. Instead, each workspace gets its own Supabase project — full database-level isolation. The UI's project registry lets one HQ instance switch between multiple isolated projects.
+
+    See [Security model →](/concepts/security-model)
+  </Accordion>
+
+  <Accordion title="How do I report a security issue?">
+    Email `security@yourhq.ai`. Do not open a public GitHub issue for security vulnerabilities.
+
+    See [Security policy →](/security/security-policy)
+  </Accordion>
+
+  <Accordion title="Is my service role key safe?">
+    The service role key is stored in the `ui-config` Docker volume on your host — never sent to or stored by Anthropic or the HQ maintainers. It's included in `.env` for the gateway daemons that need direct database access.
+
+    Treat it like a database password: don't commit it to public repos, don't share it in screenshots. If it leaks, regenerate it in Supabase → Settings → API.
+  </Accordion>
+
+</AccordionGroup>
+
+---
+
+## Customization & development
+
+<AccordionGroup>
+
+  <Accordion title="Can I customize the UI?">
+    Yes — fork the repo. `apps/ui/` is a standard Next.js app (App Router, Tailwind CSS, shadcn components). Modify, rebuild, and deploy from your fork. Pull upstream changes at your own cadence.
+
+    If your changes might benefit others, open a PR.
+  </Accordion>
+
+  <Accordion title="Can I add my own agent templates?">
+    Yes. Copy `templates/default/` to `templates/your-role/` and edit the identity files. The gateway picks up new templates from `/opt/templates/` at boot. Rebuild the gateway image with your templates included, or set `TEMPLATES_SOURCE` in `.env` to point at an external repo.
+
+    See [Templates reference →](/reference/templates)
+  </Accordion>
+
+  <Accordion title="Can I add custom automations or triggers?">
+    The automation trigger types are defined in the UI and matched in the inbox dispatcher. Adding a new trigger type requires:
+
+    1. A new entry in the `automation_trigger_type` enum (via a migration)
+    2. A place in the UI or a backend hook that creates the `agent_inbox_items` row
+    3. The dispatcher handles it automatically — it dispatches any actionable inbox item
+
+    See [Inbox dispatch reference →](/reference/inbox-dispatch)
+  </Accordion>
+
+  <Accordion title="How do I contribute?">
+    - Read [Contributing →](/development/contributing) for the PR process
+    - Bug reports: [GitHub Issues](https://github.com/yourhq/yourhq/issues)
+    - Design questions, roadmap: [GitHub Discussions](https://github.com/yourhq/yourhq/discussions)
+    - Security issues: `security@yourhq.ai` only
+
+    Local development setup is in [Local development →](/development/local-development).
+  </Accordion>
+
+  <Accordion title="Who uses HQ?">
+    Currently: the maintainers, beta testers, and early adopters who've discovered it. The project targets founders, solo operators, and small teams who want their AI agents to do real background work on their own infrastructure — not in a SaaS they don't control.
+  </Accordion>
+
+</AccordionGroup>

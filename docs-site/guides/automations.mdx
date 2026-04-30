@@ -1,48 +1,153 @@
 ---
 title: "Automations"
-description: "Turn CRM and task events into background agent work."
+description: "Wire up workspace events to agents so background work happens automatically."
 ---
 
-Automations let you wire up workspace events to agents — when something changes, an agent wakes up and handles it. No manual messaging needed.
+Automations let you define rules: when something happens in the workspace, an agent wakes up and handles it — no manual messaging needed.
+
+**Where to go:** Settings → Automations
+
+---
+
+## What automations do
+
+```
+Workspace event  →  Rule matches  →  Inbox item created  →  Dispatcher wakes agent  →  Agent processes it
+```
+
+An automation rule is: **when [trigger] matching [conditions], assign work to [agent]**.
+
+The work arrives in the agent's inbox as a background task. The agent picks it up on its next active session, runs the relevant skill, and marks it done.
+
+---
 
 ## Supported triggers
 
 <CardGroup cols={2}>
   <Card title="Contact created" icon="user-plus">
-    A new contact is added to the CRM.
+    Fires when a new contact is added to the CRM — manually, by another agent, or via import.
   </Card>
-  <Card title="Status changed" icon="arrows-rotate">
-    A contact moves to a new pipeline stage.
+  <Card title="Contact status changed" icon="arrows-rotate">
+    Fires when a contact moves to a new pipeline stage (e.g. Lead → Qualified).
   </Card>
-  <Card title="Fields updated" icon="pen-to-square">
-    Specific contact fields are modified.
+  <Card title="Contact fields updated" icon="pen-to-square">
+    Fires when specific fields on a contact record change.
   </Card>
   <Card title="Task assigned" icon="list-check">
-    A task is assigned or reassigned to an agent.
+    Fires when a task is assigned or reassigned to a specific agent.
   </Card>
   <Card title="Agent mentioned" icon="at">
-    An agent is @-mentioned in a task or document comment.
+    Fires when `@agent-slug` appears in any task or document comment.
   </Card>
 </CardGroup>
 
-## How it works
+---
 
-```text
-Workspace event  →  Automation rule matches  →  Inbox item created  →  Dispatcher wakes agent  →  Agent processes work
-```
+## Creating an automation rule
 
 <Steps>
-  <Step title="Create a rule">
-    Go to Automations and define when the rule should fire (trigger type + conditions).
+  <Step title="Open Automations">
+    Go to **Settings → Automations** in the left sidebar. You'll see a list of existing rules (empty on a fresh install).
   </Step>
-  <Step title="Assign an agent">
-    Pick which agent should handle the work when the rule fires.
+  <Step title="Click New rule">
+    Click the **+ New rule** button in the top right.
   </Step>
-  <Step title="Agent works in the background">
-    The dispatcher wakes the agent, which claims the inbox item and processes it from its runtime.
+  <Step title="Set the trigger">
+    Pick a trigger type from the dropdown. For CRM triggers (contact created, status changed, fields updated), you can optionally add conditions:
+
+    - **Pipeline stage** — only fire when the contact is in a specific stage
+    - **Field value** — only fire when a specific field matches a value
+
+    Leave conditions empty to fire on every event of that type.
+  </Step>
+  <Step title="Choose the agent">
+    Pick which agent should receive the work. Only agents with status `ready` (not paused or over budget) will actually be woken.
+  </Step>
+  <Step title="Write a summary">
+    Add a short note describing what the agent should do. This becomes part of the inbox item that wakes the agent:
+
+    > "New contact from demo form. Research their company and draft a personalized intro."
+
+    The agent sees this note alongside the event data (contact record, task details, etc.).
+  </Step>
+  <Step title="Save and activate">
+    Click **Save**. The rule is active immediately — the next matching event will trigger it.
   </Step>
 </Steps>
 
-<Tip>
-  Automations are great for repetitive work: enriching new contacts, drafting follow-ups when a deal moves stages, or notifying an agent when it's mentioned in a comment.
-</Tip>
+---
+
+## Example rules
+
+<AccordionGroup>
+  <Accordion title="Enrich new contacts automatically">
+    **Trigger:** Contact created  
+    **Agent:** crm-researcher  
+    **Summary:** "New contact added. Research their LinkedIn, company, and recent news. Update the contact record with findings."
+
+    Every time a contact lands in your CRM, the researcher wakes up, browses the web, and fills in the missing context.
+  </Accordion>
+
+  <Accordion title="Draft follow-ups when a deal moves stages">
+    **Trigger:** Contact status changed  
+    **Condition:** New stage = "Proposal sent"  
+    **Agent:** sales-copywriter  
+    **Summary:** "Contact moved to Proposal Sent. Draft a follow-up email for 3 days from now and save it as a draft."
+
+    Stage moves automatically trigger the agent to prep the next touchpoint.
+  </Accordion>
+
+  <Accordion title="Respond to @-mentions in comments">
+    **Trigger:** Agent mentioned  
+    **Agent:** assistant  
+    **Summary:** (the mention text is passed automatically)
+
+    When anyone types `@assistant` in a task or document comment, the assistant wakes up and responds in-thread.
+  </Accordion>
+
+  <Accordion title="Notify an agent when assigned a task">
+    **Trigger:** Task assigned  
+    **Agent:** chief-of-staff  
+    **Summary:** "A new task has been assigned to you. Review it, break it into subtasks if needed, and begin work."
+
+    Task assignment becomes a wake signal, not just a database change.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## How the agent receives the work
+
+When a rule fires, HQ creates an `agent_inbox_items` row containing:
+
+- The trigger event type
+- A summary (your rule note + event context)
+- The related record (contact ID, task ID, etc.)
+
+The **inbox dispatcher** wakes the agent within seconds via `openclaw agent --message "[inbox] ..."`. The agent reads its inbox, finds the item, and processes it using its skills.
+
+The agent marks items done as it goes. You can see inbox history in **Settings → System → Inbox**.
+
+---
+
+## Pausing and deleting rules
+
+- **Pause a rule:** toggle the rule off. Existing inbox items are unaffected.
+- **Delete a rule:** click the trash icon. Events that already created inbox items will still be processed.
+
+---
+
+## Troubleshooting automations
+
+**Rule fired but agent never responded:**
+1. Check the agent status — it must be `ready`, not paused or over budget
+2. Check the dispatcher logs: `docker compose logs -f dispatcher`
+3. Check inbox history: Settings → System → Inbox — find the item and check its status
+
+**Rule is not firing:**
+1. Confirm the trigger type matches the event you're testing
+2. Check that conditions are correct (wrong stage name, etc.)
+3. Verify the rule is enabled (toggle should be on)
+
+**Agent responded but work is wrong:**
+Edit the rule summary to be more specific. The summary is the agent's instruction — treat it like a short task description.

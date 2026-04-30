@@ -1,49 +1,111 @@
 ---
 title: "Supabase setup"
-description: "Create the Supabase project and apply HQ migrations."
+description: "Create and configure the Supabase project that stores your HQ workspace."
 ---
 
-HQ uses your Supabase project as the database, auth system, realtime event stream, and storage backbone.
+HQ uses your own Supabase project as its database, auth system, real-time event stream, and storage backbone. You own this project — HQ never touches a shared backend.
 
 <Info>
-  You own this Supabase project. HQ does not use a hosted YourHQ backend for your workspace data.
+  Supabase has a generous free tier that covers personal use. You only need to upgrade to Pro ($25/month) if you hit the free tier's row or bandwidth limits.
 </Info>
 
-## Setup steps
+---
+
+## Create the project
 
 <Steps>
-  <Step title="Create the project">
-    Sign in to [supabase.com](https://supabase.com), create a new project, and wait for provisioning to finish.
+  <Step title="Sign up and create a project">
+    Go to [supabase.com](https://supabase.com), create an account, and click **New project**. Choose a name, a strong database password (save it somewhere), and the region closest to you. Provisioning takes about 2 minutes.
   </Step>
   <Step title="Run the migrations">
-    Open SQL Editor and run every file in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) in filename order.
+    HQ needs 21 SQL migration files applied in order. Open **SQL Editor** in your Supabase dashboard.
 
-    The migration files are split by domain. Do not only run the first file.
+    The cleanest approach is to run each file individually:
+
+    1. Browse to [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) on GitHub
+    2. Open `001_extensions.sql`, copy the SQL
+    3. Paste into the SQL Editor, click **Run**
+    4. Repeat for `002`, `003` ... through `021`
+
+    <Tip>
+      If you've already run the HQ installer or opened the onboarding screen, the wizard offers a **Copy all SQL** button that concatenates all 21 files into one blob you can paste and run at once.
+    </Tip>
+
+    <Warning>
+      Run the files **in order**. Later migrations reference tables created by earlier ones.
+    </Warning>
   </Step>
   <Step title="Create an auth user">
-    Open Authentication → Users → Add user. For a personal install, auto-confirm the user so you can sign in immediately.
-  </Step>
-  <Step title="Copy API values">
-    Open Project Settings → API and copy:
+    Go to **Authentication → Users** and click **Add user → Create new user**. Enter an email and password — this is your HQ login. Check **Auto Confirm User** so you can sign in without email verification.
 
-    - Project URL
-    - Anon key
-    - Service role key
+    <Info>
+      This is a Supabase auth user, not a Supabase account. Your Supabase account is how you manage the project; this user is how you log in to HQ itself.
+    </Info>
   </Step>
   <Step title="Disable public signup">
-    HQ grants broad access to authenticated users. Disable public email signup unless you intentionally want every signed-up user to have admin-level HQ access.
+    Go to **Authentication → Providers → Email** and toggle off **Enable email signup**.
+
+    HQ grants authenticated users full access to all workspace data. Leaving signup open means anyone who can reach your HQ URL can create an account and see everything.
+  </Step>
+  <Step title="Copy your API keys">
+    Go to **Project Settings → API** (gear icon → API in the left sidebar). You need three values:
+
+    <CardGroup cols={3}>
+      <Card title="Project URL" icon="link">
+        Looks like `https://xxxx.supabase.co`. This is how HQ finds your project.
+      </Card>
+      <Card title="Anon public key" icon="key">
+        A long JWT string under "Project API keys". Safe to use in the browser.
+      </Card>
+      <Card title="Service role key" icon="shield-halved">
+        Another JWT under "Project API keys" — marked "secret". Gives full database access. Treat like a password.
+      </Card>
+    </CardGroup>
+
+    Keep this page open while you complete the HQ onboarding screen.
   </Step>
 </Steps>
 
-## What HQ stores in Supabase
+---
+
+## What HQ stores in your project
 
 <CardGroup cols={2}>
   <Card title="Workspace data" icon="table">
-    Contacts, organizations, tasks, documents, assets, automations, activity, and notifications.
+    Contacts, organizations, tasks, documents, assets, automations, notifications, and audit log.
   </Card>
   <Card title="Agent coordination" icon="arrows-rotate">
-    Agent commands, inbox items, gateway heartbeats, usage records, budgets, and status.
+    Agent definitions, commands, inbox items, heartbeats, and gateway registrations.
+  </Card>
+  <Card title="Usage and budgets" icon="gauge-high">
+    Per-agent LLM token usage, cost estimates, and monthly budget rollups.
+  </Card>
+  <Card title="Auth" icon="lock">
+    User sessions and JWTs. HQ's auth is Supabase auth — no separate account system.
   </Card>
 </CardGroup>
 
-Continue with [Installation](/self-host/installation).
+---
+
+## Multiple projects
+
+One HQ UI can manage multiple Supabase projects. This is useful for keeping client workspaces, personal projects, or staging environments completely separate.
+
+Switch projects from the **project picker** in the top navigation. Each project is fully isolated — separate agents, data, gateways, and auth users.
+
+To add a second project: **Settings → Projects → Add project** and paste the creds for the new Supabase project.
+
+---
+
+## Supabase free tier limits
+
+The free tier is sufficient for personal use. If you hit limits, you'll see errors in the UI.
+
+| Limit | Free tier | When you might hit it |
+|---|---|---|
+| Database size | 500 MB | Large document or CRM datasets |
+| Bandwidth | 5 GB / month | Heavy file storage or large exports |
+| Realtime messages | 2 million / month | Very active agent fleets |
+| Auth users | Unlimited | Never an issue for single-user HQ |
+
+Continue with [Installation →](/self-host/installation)

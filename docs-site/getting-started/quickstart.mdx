@@ -1,82 +1,201 @@
 ---
 title: "Quickstart"
-description: "Install Your HQ, connect Supabase, and create your first agent."
+description: "Get HQ running in about 15 minutes. You need Docker, a free Supabase account, and a model API key."
 ---
 
-This quickstart gets Your HQ running on a Docker host with your own Supabase project.
-
 <Info>
-  If you are not technical, the important idea is simple: HQ runs on your computer or server, and Supabase stores your workspace data.
+  **Not technical?** That's fine. The install is one command in a terminal and a few steps in your browser. You don't need to edit code or understand Docker to get started.
 </Info>
 
-## What you need
+## Before you begin
 
-<CardGroup cols={2}>
+You need three things. All are free to start.
+
+<CardGroup cols={3}>
   <Card title="Docker" icon="docker">
-    Runs the HQ UI and gateway containers.
+    Runs everything locally. [Download Docker Desktop](https://docs.docker.com/desktop/) for Mac or Windows. On Linux, the installer handles it.
   </Card>
-  <Card title="Supabase" icon="database">
-    Stores your workspace, auth, tasks, agents, and command queues.
+  <Card title="Supabase account" icon="database">
+    Free at [supabase.com](https://supabase.com). This is where your workspace data lives — on your own account.
   </Card>
-  <Card title="Model provider" icon="plug">
-    Any provider — OpenAI, Anthropic, Gemini, Ollama, or 25+ others. HQ is model-agnostic.
-  </Card>
-  <Card title="Optional: Tailscale" icon="network-wired">
-    Private remote access from your phone, laptop, or another machine.
+  <Card title="Model API key" icon="plug">
+    Any provider works. OpenAI and Anthropic are the most common. You'll add this after HQ is running.
   </Card>
 </CardGroup>
 
-## Quickstart steps
+<Tip>
+  Want to access HQ from your phone or another laptop? Sign up for [Tailscale](https://tailscale.com) (free) before installing and the installer will configure it for you.
+</Tip>
+
+---
+
+## Step 1 — Create a Supabase project
 
 <Steps>
-  <Step title="Create a Supabase project">
-    Create a free project at [supabase.com](https://supabase.com), then run every SQL file in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) in filename order.
+  <Step title="Create a project">
+    Go to [supabase.com](https://supabase.com), sign in, and create a new project. Choose any name and region. Wait about 2 minutes for it to provision.
   </Step>
-  <Step title="Start HQ">
-    On a Linux or macOS host with Docker:
+  <Step title="Run the migrations">
+    In your Supabase dashboard, click **SQL Editor** in the left sidebar. Then run every `.sql` file from [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) in filename order (001 through 021).
 
-    ```bash
-    curl -fsSL install.yourhq.ai | bash
-    ```
+    <Tip>
+      The easiest way: open each file, copy the SQL, paste it into the SQL Editor, and click **Run**. Repeat for each file in order. The onboarding wizard can also generate a single combined SQL blob for you.
+    </Tip>
+  </Step>
+  <Step title="Create an auth user">
+    Go to **Authentication → Users** in your Supabase dashboard. Click **Add user → Create new user**. Enter an email and password — this is what you'll use to log in to HQ. Check "Auto Confirm User" so you can sign in immediately.
+  </Step>
+  <Step title="Disable public signup">
+    Go to **Authentication → Providers → Email** and turn off "Enable email signup". This prevents anyone else from creating an account in your Supabase project.
+  </Step>
+  <Step title="Copy your API keys">
+    Go to **Project Settings → API** (gear icon in the left sidebar). You'll need three values — keep this tab open:
 
-    If you prefer to inspect the code first:
+    | Key | Where to find it | What it's for |
+    |---|---|---|
+    | **Project URL** | Top of the API page | How HQ finds your Supabase project |
+    | **Anon public key** | Under "Project API keys" | Browser-side auth |
+    | **Service role key** | Under "Project API keys" (secret — don't share) | Full database access for the gateway |
 
-    ```bash
-    git clone https://github.com/yourhq/yourhq.git
-    cd yourhq
-    cp .env.example .env
-    docker compose up -d
-    ```
-  </Step>
-  <Step title="Complete onboarding">
-    Open `http://localhost:3000`.
-
-    Paste your Supabase project URL, anon key, and service role key. Then sign in or create a Supabase auth user.
-  </Step>
-  <Step title="Set up the workspace">
-    Choose workspace details, owner profile, pipeline stages, fields, and task streams. You can change these later.
-  </Step>
-  <Step title="Connect a model provider">
-    Go to Settings → Connections. API-key providers can be added directly; interactive providers show the next step in the UI.
-  </Step>
-  <Step title="Create your first agent">
-    Go to Agents → New Agent. Pick a template, name the agent, choose a messaging channel (Telegram, Discord, Slack, or None), enter the channel credentials, and complete any pairing step.
+    <Warning>
+      The service role key bypasses all security policies and has full access to your database. Treat it like a password.
+    </Warning>
   </Step>
 </Steps>
 
-## What to read next
+---
+
+## Step 2 — Install HQ
+
+Open a terminal on your Mac or Linux machine (on Windows, use WSL) and run:
+
+```bash
+curl -fsSL install.yourhq.ai | bash
+```
+
+The installer will ask you a few questions:
+
+1. **Networking mode** — choose **Local-only** for now. You can switch to Tailscale later.
+2. **GitHub sync** — skip this for now (press Enter).
+
+It pulls Docker images (~1.5 GB on first run — this takes a few minutes), starts the stack, and opens your browser.
+
+<Tip>
+  Prefer to inspect the code first? Clone the repo and run it manually:
+  ```bash
+  git clone https://github.com/yourhq/yourhq.git
+  cd yourhq
+  cp .env.example .env
+  docker compose up -d
+  ```
+</Tip>
+
+---
+
+## Step 3 — Connect Supabase
+
+Your browser will open to `http://localhost:3000`. You'll see the **Connect Supabase** screen.
+
+Paste the three values you copied in Step 1:
+- Project URL
+- Anon public key
+- Service role key
+
+Click **Connect**. HQ validates your connection and runs a quick schema check. If it passes, you'll be taken to the login page.
+
+<Info>
+  If you see a "table does not exist" error, you missed some migration files. Go back to the SQL Editor and run any files you skipped.
+</Info>
+
+Sign in with the email and password you created in Step 1.
+
+---
+
+## Step 4 — Finish the workspace wizard
+
+After signing in you'll see the **Workspace Setup** wizard. This takes about 2 minutes.
+
+- **Workspace name** — what to call your workspace (e.g. your name or company)
+- **Preset** — choose a starting template. "Personal ops" is a good default if you're unsure. You can change everything later.
+- **Owner profile** — your name, preferred name, and timezone. Agents use this to address you correctly.
+- **Pipeline stages, fields, streams** — leave these at the defaults for now.
+
+Click **Complete Setup**.
+
+---
+
+## Step 5 — Connect a model provider
+
+Go to **Settings → Connections**.
+
+<Tabs>
+  <Tab title="OpenAI (recommended for first try)">
+    1. Go to [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+    2. Create a new key
+    3. Back in HQ: click **Add connection → OpenAI → API key**
+    4. Paste your key and click **Connect**
+
+    Cost: ~$0.01–0.10 per agent conversation depending on the model.
+  </Tab>
+  <Tab title="Anthropic">
+    1. Go to [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
+    2. Create a new key
+    3. Back in HQ: click **Add connection → Anthropic → API key**
+    4. Paste your key and click **Connect**
+  </Tab>
+  <Tab title="Ollama (free, local)">
+    1. Install Ollama from [ollama.com](https://ollama.com) and pull a model: `ollama pull llama3.2`
+    2. In HQ: click **Add connection → Ollama → Local URL**
+    3. Enter `http://host.docker.internal:11434` (this is how Docker reaches your machine)
+    4. Click **Connect**
+
+    This runs entirely on your machine — no API costs.
+  </Tab>
+</Tabs>
+
+---
+
+## Step 6 — Create your first agent
+
+Go to **Agents → New Agent**.
+
+<Steps>
+  <Step title="Pick a template">
+    Choose a role. If you're not sure, **Assistant** is a good general-purpose starting point. Each template comes pre-loaded with skills and a personality.
+  </Step>
+  <Step title="Set identity">
+    Give your agent a name. The slug (URL-friendly ID) is auto-generated. You can also set an emoji and description.
+  </Step>
+  <Step title="Choose a channel">
+    This is how you'll talk to your agent:
+    - **Telegram** — easiest to set up. Create a bot at [@BotFather](https://t.me/botfather) and paste the token.
+    - **None** — skip for now and interact through tasks and automations instead.
+  </Step>
+  <Step title="Create">
+    Click **Create Agent**. HQ provisions the agent on your gateway — this takes about 60 seconds.
+  </Step>
+  <Step title="Pair your channel (Telegram / Discord only)">
+    Send a DM to your bot. It replies with a 6-digit pairing code. Paste that code in the agent's detail page → **Pairing Code** field → click **Approve**. Your next message triggers the agent.
+  </Step>
+</Steps>
+
+---
+
+## You're set up
+
+Your HQ is running. Here's what to explore next:
 
 <CardGroup cols={2}>
-  <Card title="Full installation guide" icon="download" href="/self-host/installation">
-    More setup paths, updates, and install troubleshooting.
-  </Card>
   <Card title="Understand agents" icon="robot" href="/concepts/agents">
-    How templates, memory, channels, boot docs, and delegation work.
+    Memory, files, skills, org chart, and how agents actually work.
   </Card>
-  <Card title="Add another gateway" icon="server" href="/self-host/add-gateway">
-    Run agents on a second machine.
+  <Card title="Set usage budgets" icon="gauge-high" href="/guides/usage-budgets">
+    Avoid surprise API bills with per-agent monthly limits.
+  </Card>
+  <Card title="Access from other devices" icon="network-wired" href="/self-host/networking">
+    Set up Tailscale so your phone and laptop can reach HQ.
   </Card>
   <Card title="Troubleshooting" icon="wrench" href="/troubleshooting/common-issues">
-    Fix common setup, Supabase, gateway, and agent issues.
+    Something didn't work? Common fixes are here.
   </Card>
 </CardGroup>
