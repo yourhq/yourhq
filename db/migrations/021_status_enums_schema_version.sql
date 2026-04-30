@@ -5,22 +5,13 @@
 -- _schema_version: tracks applied schema version for migration tooling
 
 -- ── Recreate agent_status enum ─────────────────────────────────────
--- Postgres doesn't support renaming or removing enum values, so we
--- recreate the type. This requires updating all columns that use it.
+-- Postgres can't use newly added enum values in the same transaction,
+-- so we convert to text first, migrate data, then create the new enum.
 
--- Step 1: Add the new values to the existing enum (so we can migrate data)
-ALTER TYPE agent_status ADD VALUE IF NOT EXISTS 'ready';
-ALTER TYPE agent_status ADD VALUE IF NOT EXISTS 'provisioning';
-ALTER TYPE agent_status ADD VALUE IF NOT EXISTS 'hibernating';
-
--- Step 2: Migrate existing data
+ALTER TABLE agents ALTER COLUMN status DROP DEFAULT;
+ALTER TABLE agents ALTER COLUMN status TYPE text USING status::text;
 UPDATE agents SET status = 'ready' WHERE status = 'online';
 UPDATE agents SET status = 'error' WHERE status = 'offline';
-
--- Step 3: Replace enum (drop old, create new with only valid values)
--- We need to use a temp column approach since Postgres can't drop enum values.
-
-ALTER TABLE agents ALTER COLUMN status TYPE text USING status::text;
 DROP TYPE IF EXISTS agent_status;
 CREATE TYPE agent_status AS ENUM ('ready', 'error', 'paused', 'provisioning', 'hibernating');
 ALTER TABLE agents ALTER COLUMN status TYPE agent_status USING status::agent_status;
