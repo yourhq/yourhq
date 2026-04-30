@@ -80,7 +80,6 @@ export async function saveFile(
   path: string,
   content: string,
   sha: string,
-  _message?: string
 ): Promise<string> {
   const data = await request<{ path: string; sha: string }>(
     "PUT",
@@ -94,7 +93,6 @@ export async function createFile(
   branch: string,
   path: string,
   content: string,
-  _message?: string
 ): Promise<string> {
   const data = await request<{ path: string; sha: string }>(
     "POST",
@@ -108,7 +106,6 @@ export async function deleteFile(
   branch: string,
   path: string,
   sha: string,
-  _message?: string
 ): Promise<void> {
   await request<{ ok: true }>(
     "DELETE",
@@ -130,10 +127,7 @@ export async function branchExists(branch: string): Promise<boolean> {
   }
 }
 
-export async function createBranch(
-  _branch: string,
-  _from?: string
-): Promise<void> {
+export async function createBranch(): Promise<void> {
   throw new Error(
     "Branch creation via the UI is not supported in gateway mode; " +
       "agents are provisioned through the Create Agent wizard which " +

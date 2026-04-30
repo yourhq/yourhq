@@ -23,7 +23,6 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   AtSign,
-  Bot,
   CheckSquare,
   ExternalLink,
   MessageSquare,

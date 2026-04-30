@@ -28,7 +28,6 @@ export function AgentRailModelSection({ gatewayId }: { gatewayId: string }) {
   }, [load]);
 
   const healthy = (connections ?? []).filter((c) => c.status === "ok");
-  const defaultConn = (connections ?? []).find((c) => c.isDefault);
 
   const onSetDefault = useCallback(
     async (c: Connection) => {

@@ -6,7 +6,6 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   SortingState,
-  VisibilityState,
   useReactTable,
 } from "@tanstack/react-table";
 import { Contact } from "@/lib/crm/types";

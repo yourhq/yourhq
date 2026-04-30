@@ -215,11 +215,6 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
   const stepIndex = STEP_ORDER.indexOf(step);
 
   const tokenLooksValid = BOTFATHER_TOKEN_RE.test(token.trim());
-  const hasChannelConfig =
-    channel === "telegram" ? token.trim().length > 0
-    : channel === "discord" ? discordToken.trim().length > 0
-    : channel === "slack" ? slackAppToken.trim().length > 0 && slackBotToken.trim().length > 0
-    : true; // "none" — always can proceed
 
   const canAdvanceFromTemplate = selectedTemplate !== null || isCustom;
   const canAdvanceFromIdentity = name.trim().length > 0 && slug.trim().length > 0;

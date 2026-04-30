@@ -3,7 +3,6 @@
 import { useDraggable } from "@dnd-kit/core";
 import type { Document } from "@/lib/documents/types";
 import { getBootTags, getBootLabel } from "@/lib/documents/boot-tags";
-import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

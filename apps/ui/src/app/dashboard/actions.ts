@@ -113,18 +113,16 @@ async function fetchAgentFleet(): Promise<AgentFleetItem[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("agents")
-    .select("id, name, slug, status, last_seen_at, avatar_url, meta")
+    .select("id, name, slug, status, last_seen_at, avatar_url")
     .limit(10);
 
   if (!data) return [];
 
-  return (data as Array<AgentFleetItem & { meta?: Record<string, unknown> }>)
-    .sort(
-      (a, b) =>
-        (AGENT_STATUS_ORDER[a.status] ?? 9) -
-        (AGENT_STATUS_ORDER[b.status] ?? 9)
-    )
-    .map(({ meta: _meta, ...rest }) => rest);
+  return (data as AgentFleetItem[]).sort(
+    (a, b) =>
+      (AGENT_STATUS_ORDER[a.status] ?? 9) -
+      (AGENT_STATUS_ORDER[b.status] ?? 9)
+  );
 }
 
 // ── Gateway stats ───────────────────────────────────────────────────

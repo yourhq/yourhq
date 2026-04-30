@@ -1,10 +1,8 @@
 "use client";
 
-import { DollarSign } from "lucide-react";
 import { useAgentBudget } from "@/hooks/use-agent-budget";
 import { BUDGET_STATUS_META } from "@/lib/usage/types";
 import { DetailSidebarSection } from "@/components/shared/detail-sidebar";
-import { cn } from "@/lib/utils";
 
 function fmtUsd(n: number): string {
   return n < 0.01 && n > 0

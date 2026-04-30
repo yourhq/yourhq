@@ -18,7 +18,6 @@ import { useAgentCommands } from "@/hooks/use-agent-commands";
 import { enqueueAgentCommand } from "@/app/dashboard/agents/actions";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
@@ -163,8 +162,6 @@ export function AgentProvisioning({ agent }: AgentProvisioningProps) {
   }, [agent.id, agent.slug]);
 
   const hasProvisionCommand = commands.some((c) => c.action === "provision");
-  const latestProvision = commands.find((c) => c.action === "provision");
-  const isProvisioned = latestProvision?.status === "done";
 
   return (
     <div>

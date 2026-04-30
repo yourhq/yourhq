@@ -24,8 +24,22 @@ export function useAgentBudget(agentId: string | null) {
   }, [supabase, agentId]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    let cancelled = false;
+    (async () => {
+      if (!agentId) return;
+      setLoading(true);
+      const { data } = await supabase
+        .from("agent_budgets")
+        .select("*")
+        .eq("agent_id", agentId)
+        .maybeSingle();
+      if (!cancelled) {
+        setBudget((data as AgentBudget | null) ?? null);
+        setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [supabase, agentId]);
 
   useRealtime({
     table: "agent_budgets",

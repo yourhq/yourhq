@@ -16,7 +16,6 @@ import {
   Zap,
   Bell,
   Settings,
-  Sparkles,
   Search,
   Keyboard,
 } from "lucide-react";

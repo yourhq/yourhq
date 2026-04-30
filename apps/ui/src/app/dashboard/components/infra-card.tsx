@@ -37,10 +37,12 @@ export function InfraCard({
   gateways,
   commandQueue,
   inboxQueue,
+  now,
 }: {
   gateways: GatewaySummary[];
   commandQueue: CommandQueueStats;
   inboxQueue: InboxQueueStats;
+  now: number;
 }) {
   const hasCommandStats =
     commandQueue.pending > 0 ||
@@ -76,7 +78,7 @@ export function InfraCard({
             const isStale =
               gw.status === "online" &&
               gw.last_seen_at &&
-              Date.now() - new Date(gw.last_seen_at).getTime() > STALE_MS;
+              now - new Date(gw.last_seen_at).getTime() > STALE_MS;
 
             return (
               <li

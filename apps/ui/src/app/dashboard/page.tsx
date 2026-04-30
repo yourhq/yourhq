@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [fetchedNow, setFetchedNow] = useState(0);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -30,6 +31,7 @@ export default function DashboardPage() {
     try {
       const data = await fetchDashboardStats();
       setStats(data);
+      setFetchedNow(Date.now());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to fetch stats");
     } finally {
@@ -108,6 +110,7 @@ export default function DashboardPage() {
                     gateways={stats.gateways}
                     commandQueue={stats.commandQueue}
                     inboxQueue={stats.inboxQueue}
+                    now={fetchedNow}
                   />
                 </div>
 
