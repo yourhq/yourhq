@@ -13,7 +13,6 @@ import {
   Globe,
   KeyRound,
   Lock,
-  Zap,
   Play,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -448,17 +447,19 @@ export function StepSupabase({
         <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight">
           Setting up your workspace.
         </h1>
-        <p className="text-[14px] leading-relaxed text-muted-foreground">
+        <p className="max-w-[48ch] text-[14px] leading-relaxed text-muted-foreground">
           {install.status === "awaiting" && install.oneClick
-            ? "Ready to install. Click below when you're ready."
-            : "This usually takes 5–10 seconds."}
+            ? "We've verified your connection. When you're ready, click below to create HQ's tables in your database."
+            : install.status === "awaiting" && install.install
+              ? "We need to create HQ's tables in your database. Follow the steps below to run the migration."
+              : "Connecting to your Supabase project and preparing your workspace."}
         </p>
       </div>
 
       <div className="space-y-2 rounded-xl border border-border/60 bg-card/40 p-2">
         <SubStepRow
           label="Connect to Supabase"
-          desc={`Verify ${resolved?.url ?? ""} and your keys.`}
+          desc={`Checking that your project URL and API keys can reach ${resolved?.projectRef ?? "your project"}.`}
           state={validate}
           onRetry={runAll}
           collisionAction={
@@ -475,8 +476,8 @@ export function StepSupabase({
           label="Install schema"
           desc={
             install.oneClick
-              ? "Apply migrations via direct database connection."
-              : "Run the migration in your Supabase SQL editor."
+              ? "Create tables, functions, and policies in your database via direct Postgres connection."
+              : "Create tables, functions, and policies by running the migration SQL in your Supabase SQL editor."
           }
           state={install}
           onRetry={install.oneClick ? () => setInstall({ status: "awaiting", oneClick: true }) : prepareInstall}
@@ -509,7 +510,7 @@ export function StepSupabase({
         />
         <SubStepRow
           label="Save workspace"
-          desc="Store credentials locally on this machine."
+          desc="Save your project URL and keys to this machine so HQ can reconnect on restart."
           state={save}
           onRetry={runSave}
         />
@@ -649,8 +650,6 @@ function KeysPhase({
   }) => void;
   onSubmit: () => void;
 }) {
-  const [showDbPassword, setShowDbPassword] = useState(!!dbPassword);
-
   return (
     <form
       onSubmit={(e) => {
@@ -739,64 +738,31 @@ function KeysPhase({
             Starts with <span className="font-mono">sb_secret_</span>. Lets HQ install the schema. Never leaves this machine.
           </p>
         </div>
-      </div>
 
-      {/* DB password — collapsible section */}
-      {!showDbPassword ? (
-        <button
-          type="button"
-          onClick={() => setShowDbPassword(true)}
-          className="group flex w-full items-center gap-2.5 rounded-lg border border-dashed border-border/50 px-3.5 py-3 text-left transition-all hover:border-border hover:bg-accent/30"
-        >
-          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent/60 text-muted-foreground transition-colors group-hover:text-foreground">
-            <Zap className="h-3.5 w-3.5" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <span className="text-[12px] font-medium text-muted-foreground transition-colors group-hover:text-foreground">
-              Enable one-click schema install
+        <div className="space-y-2.5 border-t border-border/40 pt-5">
+          <label className="flex items-center gap-2 text-[12px] font-medium text-muted-foreground">
+            <Database className="h-3.5 w-3.5" />
+            Database password
+            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground/50">
+              optional
             </span>
-            <p className="text-[11px] text-muted-foreground/50">
-              Add your database password to skip the manual SQL editor step.
-            </p>
-          </div>
-        </button>
-      ) : (
-        <div className="space-y-3 rounded-lg border border-border/50 bg-accent/[0.04] p-3.5">
-          <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 text-[12px] font-medium text-muted-foreground">
-              <Database className="h-3.5 w-3.5" />
-              Database password
-              <span className="rounded bg-accent/60 px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground/70">
-                optional
-              </span>
-            </label>
-            <button
-              type="button"
-              onClick={() => {
-                onChange({ dbPassword: "" });
-                setShowDbPassword(false);
-              }}
-              className="text-[11px] text-muted-foreground/50 hover:text-muted-foreground"
-            >
-              Remove
-            </button>
-          </div>
+          </label>
           <input
             type="password"
             value={dbPassword}
             onChange={(e) => onChange({ dbPassword: e.target.value })}
-            placeholder="The password you set when creating the project"
+            placeholder="The password you set when creating the Supabase project"
             spellCheck={false}
             autoComplete="off"
             className="w-full border-0 border-b border-border/60 bg-transparent pb-2 font-mono text-[13px] outline-none transition-colors placeholder:text-muted-foreground/30 focus:border-foreground"
           />
           <p className="text-[11px] text-muted-foreground/60">
             {isCloudHosted
-              ? "HQ will connect directly to Postgres and apply migrations automatically. Without this, you'll paste SQL in the Supabase editor."
-              : "HQ will connect directly to Postgres and apply migrations automatically."}
+              ? "If provided, HQ installs the schema for you automatically. Otherwise you'll paste SQL into the Supabase editor."
+              : "If provided, HQ installs the schema for you automatically via direct Postgres connection."}
           </p>
         </div>
-      )}
+      </div>
 
       {error && (
         <p className="text-[12px] text-destructive">{error}</p>
@@ -897,11 +863,17 @@ function SubStepRow({
 
           {/* One-click install: running */}
           {oneClickRunning && (
-            <div className="mt-2 flex items-center gap-2.5 rounded-md border border-border/60 bg-background/40 px-3 py-2.5">
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-foreground/70" />
-              <span className="text-[12px] text-muted-foreground">
-                Applying migrations — this takes a few seconds…
-              </span>
+            <div className="mt-2 space-y-2 rounded-md border border-border/60 bg-background/40 px-3 py-2.5">
+              <div className="flex items-center gap-2.5">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-foreground/70" />
+                <span className="text-[12px] font-medium text-foreground/80">
+                  Running migrations…
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Connecting to Postgres and applying schema files in order.
+                This usually finishes in under 10 seconds.
+              </p>
             </div>
           )}
 
@@ -969,14 +941,15 @@ function OneClickInstallPanel({
 }) {
   return (
     <div className="mt-2 space-y-3 rounded-md border border-border/60 bg-background/40 p-3">
-      <div className="space-y-1.5">
-        <p className="text-[12px] leading-relaxed text-muted-foreground">
-          HQ will connect to your database and create the tables, functions,
-          and policies it needs. This is safe to re-run.
-        </p>
-      </div>
+      <p className="text-[12px] leading-relaxed text-muted-foreground">
+        HQ will connect to your database on port 5432 using the password
+        you provided and run ~21 migration files. This creates all the
+        tables, RPC functions, and row-level security policies HQ needs.
+        Every statement is idempotent — safe to re-run if anything was
+        partially installed.
+      </p>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2.5">
         <button
           type="button"
           onClick={onInstall}
@@ -990,7 +963,7 @@ function OneClickInstallPanel({
           onClick={onSwitchToManual}
           className="text-[11px] text-muted-foreground hover:text-foreground"
         >
-          Use SQL editor instead
+          I&apos;d rather paste SQL manually
         </button>
       </div>
     </div>
