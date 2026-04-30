@@ -135,9 +135,18 @@ def api_patch(table, record_id, payload):
         return json.loads(r.read().decode())
 
 
-def log(msg):
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    print(f"[{ts}] {msg}", flush=True)
+def log(msg, level="info", **extra):
+    entry = {
+        "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "level": level,
+        "daemon": "command_runner",
+        "gateway_id": GATEWAY_ID if GATEWAY_ID else "unknown",
+        "tenant_id": TENANT_ID,
+        "msg": msg,
+    }
+    if extra:
+        entry.update(extra)
+    print(json.dumps(entry, default=str), flush=True)
 
 
 # ── Workspace slug (for resolving branch names) ───────────────────────
@@ -1304,18 +1313,54 @@ class CommandListener:
 # ── Gateway heartbeat ──────────────────────────────────────────────────
 
 
+GATEWAY_PAUSED = False
+
+HEARTBEAT_FILE = "/tmp/heartbeat.txt"
+
 def heartbeat_once():
-    """Upsert this gateway's row in the gateways table so the UI sees us as ready."""
+    """Upsert this gateway's row in the gateways table.
+    Preserves paused/hibernating status set by the UI — only writes 'ready'
+    when the gateway is not in a user- or system-paused state.
+    Also writes a local file for Docker healthcheck consumption."""
+    global GATEWAY_PAUSED
     try:
-        api_post_upsert("gateways", {
-            "slug": GATEWAY_ID,
-            "label": GATEWAY_LABEL,
-            "status": "ready",
-            "last_seen_at": now_iso(),
-            "tenant_id": TENANT_ID,
-        }, on_conflict="tenant_id,slug")
+        rows = api_get("gateways", {
+            "select": "status",
+            "slug": f"eq.{GATEWAY_ID}",
+            "limit": "1",
+        })
+        if rows and rows[0].get("status") in ("paused", "hibernating"):
+            GATEWAY_PAUSED = True
+            api_patch_by_slug("gateways", GATEWAY_ID, {"last_seen_at": now_iso()})
+        else:
+            GATEWAY_PAUSED = False
+            api_post_upsert("gateways", {
+                "slug": GATEWAY_ID,
+                "label": GATEWAY_LABEL,
+                "status": "ready",
+                "last_seen_at": now_iso(),
+                "tenant_id": TENANT_ID,
+            }, on_conflict="tenant_id,slug")
     except Exception as e:
         log(f"heartbeat failed: {e}")
+    try:
+        with open(HEARTBEAT_FILE, "w") as f:
+            f.write(now_iso())
+    except OSError:
+        pass
+
+
+def api_patch_by_slug(table, slug, payload):
+    url = SUPABASE_URL.rstrip("/") + f"/rest/v1/{table}?" + urllib.parse.urlencode({"slug": f"eq.{slug}"})
+    data = json.dumps(payload).encode()
+    req = urllib.request.Request(url, data=data, method="PATCH", headers={
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal",
+    })
+    with urllib.request.urlopen(req, timeout=15) as r:
+        return r.read()
 
 
 def start_heartbeat_loop():

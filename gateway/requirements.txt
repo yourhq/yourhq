@@ -1,0 +1,2 @@
+websocket-client==1.8.0
+websockify==0.12.0

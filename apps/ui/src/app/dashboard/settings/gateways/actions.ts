@@ -262,3 +262,21 @@ export async function updateReachableUrlOverrideAction(
   revalidatePath(`/dashboard/settings/gateways/${gatewayId}`);
   return { ok: true };
 }
+
+export async function toggleGatewayPauseAction(
+  gatewayId: string,
+  currentStatus: string,
+): Promise<GatewayActionResult<{ newStatus: string }>> {
+  const supabase = await createAdminClient();
+  const newStatus = currentStatus === "paused" ? "ready" : "paused";
+  const { error } = await supabase
+    .from("gateways")
+    .update({ status: newStatus })
+    .eq("id", gatewayId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/dashboard/settings/gateways");
+  revalidatePath(`/dashboard/settings/gateways/${gatewayId}`);
+  return { ok: true, data: { newStatus } };
+}

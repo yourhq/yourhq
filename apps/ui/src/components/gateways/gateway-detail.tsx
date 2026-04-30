@@ -5,15 +5,18 @@
 // scoreboard (status, properties, reachable URLs, version), tabs carry
 // the deeper surfaces (overview + commands).
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   AlertTriangle,
   ChevronDown,
   ChevronRight,
+  Download,
   ExternalLink,
   MoreHorizontal,
+  Pause,
+  Play,
   Server,
   Terminal,
   Trash2,
@@ -52,9 +55,11 @@ import {
 import {
   getGatewayAction,
   removeGatewayAction,
+  toggleGatewayPauseAction,
   updateGatewayLabelAction,
   updateReachableUrlOverrideAction,
 } from "@/app/dashboard/settings/gateways/actions";
+import { enqueueAgentCommand } from "@/app/dashboard/agents/actions";
 import {
   GATEWAY_STATUS,
   isHeartbeatFresh,
@@ -139,6 +144,7 @@ export function GatewayDetail({
             <GatewayRailContent
               gateway={gateway}
               onOpenDesktop={() => setDesktopOpen(true)}
+              onGatewayUpdated={refetch}
             />
           </DetailSidebarMobile>
         }
@@ -245,9 +251,11 @@ export function GatewayDetail({
 function GatewayRailContent({
   gateway,
   onOpenDesktop,
+  onGatewayUpdated,
 }: {
   gateway: Gateway;
   onOpenDesktop: () => void;
+  onGatewayUpdated?: () => void;
 }) {
   const fresh = isHeartbeatFresh(gateway.last_seen_at);
   const stale = gateway.status === "ready" && !fresh;
@@ -258,6 +266,37 @@ function GatewayRailContent({
     : "Never";
   const m = gateway.meta;
   const hasDesktop = Boolean(resolveNovncUrl(gateway));
+  const [togglingPause, setTogglingPause] = useState(false);
+  const [updatingAgents, setUpdatingAgents] = useState(false);
+
+  const handleUpdateAgents = useCallback(async () => {
+    setUpdatingAgents(true);
+    try {
+      await enqueueAgentCommand({ action: "update_all", gatewayId: gateway.id });
+      toast.success("Update all agents queued");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to queue update");
+    } finally {
+      setUpdatingAgents(false);
+    }
+  }, [gateway.id]);
+
+  const handleTogglePause = useCallback(async () => {
+    setTogglingPause(true);
+    try {
+      const r = await toggleGatewayPauseAction(gateway.id, gateway.status);
+      if (!r.ok) {
+        toast.error(r.error ?? "Failed to update status");
+        return;
+      }
+      toast.success(r.data?.newStatus === "paused" ? "Gateway paused" : "Gateway resumed");
+      onGatewayUpdated?.();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to update status");
+    } finally {
+      setTogglingPause(false);
+    }
+  }, [gateway.id, gateway.status, onGatewayUpdated]);
 
   return (
     <>
@@ -271,6 +310,18 @@ function GatewayRailContent({
 
       <DetailSidebarSection title="Properties">
         <DetailSidebarPropertyGrid>
+          <DetailSidebarProperty label="Heartbeat">
+            <span className={cn(
+              "inline-flex items-center gap-1 text-[12px]",
+              fresh ? "text-emerald-400" : "text-amber-400",
+            )}>
+              <span className={cn(
+                "h-1.5 w-1.5 rounded-full",
+                fresh ? "bg-emerald-400" : "bg-amber-400",
+              )} />
+              {fresh ? "Healthy" : stale ? "Stale" : "No signal"}
+            </span>
+          </DetailSidebarProperty>
           <DetailSidebarProperty label="Slug">
             <span className="font-mono text-foreground/80">{gateway.slug}</span>
           </DetailSidebarProperty>
@@ -319,6 +370,37 @@ function GatewayRailContent({
           >
             <Terminal className="mr-1.5 h-3 w-3" />
             Open desktop
+          </Button>
+          {(gateway.status === "ready" || gateway.status === "paused") && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 justify-start text-[12px]"
+              onClick={handleTogglePause}
+              disabled={togglingPause}
+            >
+              {gateway.status === "paused" ? (
+                <>
+                  <Play className="mr-1.5 h-3 w-3" />
+                  Resume gateway
+                </>
+              ) : (
+                <>
+                  <Pause className="mr-1.5 h-3 w-3" />
+                  Pause gateway
+                </>
+              )}
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 justify-start text-[12px]"
+            onClick={handleUpdateAgents}
+            disabled={updatingAgents}
+          >
+            <Download className="mr-1.5 h-3 w-3" />
+            Update agents
           </Button>
         </div>
         <p className="mt-1.5 text-[11px] text-muted-foreground/70">

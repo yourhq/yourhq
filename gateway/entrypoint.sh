@@ -25,6 +25,7 @@
 #     --provider openai-codex --set-default
 # =============================================================================
 set -euo pipefail
+[[ "${DEBUG:-}" == "1" ]] && set -x
 
 # Forward SIGTERM from tini to children
 trap 'kill -TERM $(jobs -p) 2>/dev/null || true; exit 0' TERM INT

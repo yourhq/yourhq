@@ -4,6 +4,8 @@ import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Bot,
+  Pause,
+  Play,
   Trash2,
   ExternalLink,
   FileText,
@@ -49,7 +51,7 @@ import { getGatewayDesktopUrlAction } from "@/app/dashboard/settings/gateways/ac
 import { AgentRailModelSection } from "@/components/connections/agent-rail-model-section";
 import { AgentUsageRail } from "./agent-usage-rail";
 import { AgentUsageTab } from "./agent-usage-tab";
-import { updateAgent } from "@/app/dashboard/agents/actions";
+import { updateAgent, toggleAgentPauseAction } from "@/app/dashboard/agents/actions";
 
 const agentStatusDotHex: Record<string, string> = {
   ready: "var(--status-success)",
@@ -295,6 +297,24 @@ function AgentRailContent({
 
   const [managerPickerOpen, setManagerPickerOpen] = useState(false);
   const [savingManager, setSavingManager] = useState(false);
+  const [togglingPause, setTogglingPause] = useState(false);
+
+  const handleTogglePause = useCallback(async () => {
+    setTogglingPause(true);
+    try {
+      const r = await toggleAgentPauseAction(agent.id, agent.status);
+      if (!r.ok) {
+        toast.error(r.error ?? "Failed to update status");
+        return;
+      }
+      toast.success(r.newStatus === "paused" ? "Agent paused" : "Agent resumed");
+      onAgentUpdated?.();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to update status");
+    } finally {
+      setTogglingPause(false);
+    }
+  }, [agent.id, agent.status, onAgentUpdated]);
 
   const handleManagerChange = useCallback(
     async (newManagerId: string | null) => {
@@ -460,6 +480,27 @@ function AgentRailContent({
                 <Terminal className="mr-1.5 h-3 w-3" />
                 Open desktop
               </Button>
+              {(agent.status === "ready" || agent.status === "paused") && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 justify-start text-[12px]"
+                  onClick={handleTogglePause}
+                  disabled={togglingPause}
+                >
+                  {agent.status === "paused" ? (
+                    <>
+                      <Play className="mr-1.5 h-3 w-3" />
+                      Resume agent
+                    </>
+                  ) : (
+                    <>
+                      <Pause className="mr-1.5 h-3 w-3" />
+                      Pause agent
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
             <p className="mt-1.5 text-[11px] text-muted-foreground/70">
               Shows the desktop of the machine this agent runs on.

@@ -290,3 +290,40 @@ export async function updateAgent(input: UpdateAgentInput): Promise<void> {
       : `Cleared manager of '${agent.slug}'`,
   });
 }
+
+export async function toggleAgentPauseAction(
+  agentId: string,
+  currentStatus: string,
+): Promise<{ ok: boolean; newStatus: string; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, newStatus: currentStatus, error: "Unauthorized" };
+
+  const newStatus = currentStatus === "paused" ? "ready" : "paused";
+  const { error } = await supabase
+    .from("agents")
+    .update({ status: newStatus })
+    .eq("id", agentId);
+
+  if (error) return { ok: false, newStatus: currentStatus, error: error.message };
+
+  const { data: agent } = await supabase
+    .from("agents")
+    .select("slug, name")
+    .eq("id", agentId)
+    .single();
+
+  await supabase.from("audit_log").insert({
+    actor_type: "human",
+    module: "agents",
+    entity_type: "agent",
+    entity_id: agentId,
+    action: "status_changed",
+    summary: `${newStatus === "paused" ? "Paused" : "Resumed"} agent '${agent?.name ?? agentId}'`,
+    changes: { status: { old: currentStatus, new: newStatus } },
+  });
+
+  return { ok: true, newStatus };
+}

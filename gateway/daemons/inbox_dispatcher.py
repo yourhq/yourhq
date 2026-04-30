@@ -102,9 +102,18 @@ def api_patch(table, record_id, payload):
         return json.loads(r.read().decode())
 
 
-def log(msg):
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    print(f"[{ts}] {msg}", flush=True)
+def log(msg, level="info", **extra):
+    entry = {
+        "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "level": level,
+        "daemon": "inbox_dispatcher",
+        "gateway_id": GATEWAY_ID,
+        "tenant_id": TENANT_ID,
+        "msg": msg,
+    }
+    if extra:
+        entry.update(extra)
+    print(json.dumps(entry, default=str), flush=True)
 
 
 def get_workspace_slug():
@@ -158,6 +167,18 @@ class WakeTracker:
             # Don't pile up wakes
             if self.wake_in_flight.get(agent_slug):
                 return False, "wake_in_flight"
+
+        # Skip paused or hibernating agents
+        try:
+            agent_rows = api_get("agents", {
+                "select": "status",
+                "id": f"eq.{agent_id}",
+                "limit": "1",
+            })
+            if agent_rows and agent_rows[0].get("status") in ("paused", "hibernating"):
+                return False, "agent_paused"
+        except Exception:
+            pass
 
         # Check if agent already has active leases (background processing in progress)
         try:
@@ -329,6 +350,21 @@ def start_reconciliation_loop(tracker):
     t = threading.Thread(target=loop, daemon=True)
     t.start()
     log(f"Reconciliation loop started (every {RECONCILE_INTERVAL}s)")
+
+
+HEARTBEAT_FILE = "/tmp/heartbeat.txt"
+
+def start_heartbeat_file_loop():
+    def loop():
+        while True:
+            try:
+                with open(HEARTBEAT_FILE, "w") as f:
+                    f.write(now_iso())
+            except OSError:
+                pass
+            time.sleep(HEARTBEAT_INTERVAL)
+    t = threading.Thread(target=loop, daemon=True)
+    t.start()
 
 
 # ── Realtime listener ──────────────────────────────────────────────────
@@ -520,6 +556,9 @@ def main():
 
     # Start periodic reconciliation
     start_reconciliation_loop(tracker)
+
+    # Start heartbeat file for Docker healthcheck
+    start_heartbeat_file_loop()
 
     # Start Realtime listener
     dispatcher = InboxDispatcher(tracker)

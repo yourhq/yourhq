@@ -26,6 +26,14 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm run lint
 
+  python-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/ruff-action@v3
+        with:
+          args: check gateway/daemons/ gateway/scripts/
+
   shellcheck:
     runs-on: ubuntu-latest
     steps:

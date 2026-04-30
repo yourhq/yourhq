@@ -624,3 +624,23 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
     fetchedAt: new Date().toISOString(),
   };
 }
+
+export const EXPECTED_SCHEMA_VERSION = 21;
+
+export async function getSchemaVersionAction(): Promise<{
+  current: number | null;
+  expected: number;
+}> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("_schema_version")
+    .select("version")
+    .order("version", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return {
+    current: data?.version ?? null,
+    expected: EXPECTED_SCHEMA_VERSION,
+  };
+}

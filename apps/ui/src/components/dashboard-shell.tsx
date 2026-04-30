@@ -23,6 +23,7 @@ import { useUnreadNotificationCount } from "@/hooks/use-notifications";
 import { cn } from "@/lib/utils";
 import { Kbd } from "@/components/ui/kbd";
 import { HeaderBar } from "@/components/shared/header-bar";
+import { SchemaVersionBanner } from "@/components/shared/schema-version-banner";
 import { CommandPalette } from "@/components/shared/command-palette";
 import { KeyboardShortcutsProvider, useShortcuts } from "@/components/shared/keyboard-shortcuts";
 import {
@@ -381,7 +382,10 @@ export function DashboardShell({
                 user={user}
                 onSignOut={handleSignOut}
               />
-              <main className="flex-1 overflow-auto">{children}</main>
+              <main className="flex-1 overflow-auto">
+                <SchemaVersionBanner />
+                {children}
+              </main>
             </div>
           </div>
 

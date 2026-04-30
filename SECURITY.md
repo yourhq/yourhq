@@ -46,9 +46,9 @@ The `runner` service mounts `/var/run/docker.sock` so it can execute `docker com
 
 A tighter future alternative is [docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy) with a narrowed action allowlist. Contributions welcome.
 
-### RLS is "authenticated full access"
+### RLS is tenant-scoped
 
-The Supabase migrations grant the `authenticated` role broad read/write access. HQ is designed as single-user admin software — if you have a Supabase account, you're an admin. **Make sure Supabase email signup is disabled or invite-only**, otherwise anyone who signs up for your Supabase project gets full HQ access. The project registry isolates workspaces by Supabase project; fine-grained per-role permissions are not implemented.
+The Supabase migrations enforce RLS via `tenant_id` — every row is scoped to the tenant whose ID is in the authenticated user's JWT `app_metadata.tenant_id`. In a self-hosted single-tenant deployment the default tenant UUID is used. **Make sure Supabase email signup is disabled or invite-only**, otherwise anyone who signs up for your Supabase project gets full HQ access within that tenant. The project registry isolates workspaces by Supabase project; fine-grained per-role permissions are not implemented.
 
 ### Default port bindings are loopback-only
 
@@ -111,6 +111,19 @@ services:
   ui:
     image: ghcr.io/yourhq/yourhq-ui:v0.1.0  # not :latest
 ```
+
+## Secrets rotation
+
+Rotate these credentials if they are ever exposed:
+
+1. **Supabase service-role key.** Dashboard → Project Settings → API → regenerate service key. Update `.env` on every gateway and the UI, then restart all services.
+2. **Supabase anon key.** Same location. Update `.env` and restart.
+3. **Database password.** Dashboard → Database → Settings → Reset database password. Update any direct-connect clients. Supabase services reconnect automatically.
+4. **Gateway registration tokens.** One-time tokens are hashed on consumption — no rotation needed. If you suspect the hash table is compromised, revoke tokens via the `gateway_tokens` table.
+5. **Tailscale auth key.** Revoke in the Tailscale admin console, generate a new one, update `.env`, and restart the gateway.
+6. **LLM API keys (OpenAI, Anthropic, etc.).** Revoke at the provider, re-authenticate via Settings → Connections.
+
+After rotating any secret, restart affected services: `docker compose up -d --force-recreate`.
 
 ## Hardening recommendations
 

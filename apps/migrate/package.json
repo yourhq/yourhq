@@ -1,0 +1,22 @@
+{
+  "name": "@yourhq/migrate",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "yourhq-migrate": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
