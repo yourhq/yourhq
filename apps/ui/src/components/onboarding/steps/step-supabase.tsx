@@ -13,6 +13,8 @@ import {
   Globe,
   KeyRound,
   Lock,
+  Zap,
+  Play,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -21,6 +23,7 @@ import {
   prepareSchemaInstallAction,
   confirmSchemaInstalledAction,
   saveProjectAction,
+  runOneClickMigrationAction,
 } from "@/app/onboarding/actions";
 
 export interface StepSupabaseProps {
@@ -29,29 +32,13 @@ export interface StepSupabaseProps {
     workspaceEmoji: string;
     authEmail: string;
   };
-  /**
-   * When the user revisits this step after already connecting a project,
-   * we render a summary card with an "Edit credentials" button instead
-   * of the full sub-flow. Clicking Edit invalidates downstream state
-   * (Account session, Gateway) — the wizard handles that via
-   * `onResetCredentials`.
-   */
   existing?: {
     url: string;
     projectId: string;
     workspaceLabel: string;
     workspaceEmoji: string;
   } | null;
-  /**
-   * Called when the user clicks "Continue" on the summary card —
-   * advances to the next step without re-running provisioning.
-   */
   onContinueExisting?: () => void;
-  /**
-   * Called when the user confirms "Edit credentials." The wizard should
-   * clear downstream state (auth session, gateway state) before letting
-   * the user re-enter the sub-flow.
-   */
   onResetCredentials?: () => void;
   onComplete: (data: {
     workspaceLabel: string;
@@ -68,6 +55,7 @@ interface ResolvedUrl {
   url: string;
   projectRef?: string;
   apiKeysUrl: string | null;
+  isCloudHosted: boolean;
 }
 
 type StepStatus = "idle" | "running" | "ok" | "error" | "skipped" | "awaiting";
@@ -77,13 +65,12 @@ interface SubStepState {
   hint?: string;
   sqlFallback?: string;
   collisionTables?: string[];
-  // For the install row, we store the prepared SQL + dashboard link so
-  // the user can open the SQL editor in a new tab and run the migration.
   install?: {
     sql: string;
     sqlEditorUrl: string;
     projectRef: string | null;
   };
+  oneClick?: boolean;
 }
 const INITIAL: SubStepState = { status: "idle" };
 
@@ -94,20 +81,11 @@ export function StepSupabase({
   onResetCredentials,
   onComplete,
 }: StepSupabaseProps) {
-  // Summary-card mode: user has already connected this Supabase project
-  // and is revisiting this step. We render a card with their info +
-  // explicit "Edit" / "Continue" affordances rather than the full flow.
-  // `editing` lets the user opt out of summary mode within this step
-  // without immediately invalidating downstream state — they can read
-  // the warning, then either confirm and proceed or cancel.
   const [editing, setEditing] = useState(false);
   const inSummary = existing != null && !editing;
 
   const [phase, setPhase] = useState<Phase>("brief");
 
-  // Workspace identity is captured earlier in the flow (StepWorkspace).
-  // We just thread the values through here so they end up in the
-  // saveProjectAction call + the onComplete payload.
   const workspaceLabel = defaults.workspaceLabel;
   const workspaceEmoji = defaults.workspaceEmoji;
 
@@ -120,6 +98,7 @@ export function StepSupabase({
   // Keys phase
   const [anonKey, setAnonKey] = useState("");
   const [serviceRoleKey, setServiceRoleKey] = useState("");
+  const [dbPassword, setDbPassword] = useState("");
   const [keysError, setKeysError] = useState<string | null>(null);
   const [forceInstall, setForceInstall] = useState(false);
 
@@ -128,10 +107,6 @@ export function StepSupabase({
   const [install, setInstall] = useState<SubStepState>(INITIAL);
   const [save, setSave] = useState<SubStepState>(INITIAL);
   const [copied, setCopied] = useState(false);
-
-  // ── Provisioning runners — declared up here (before any early return)
-  //    so the rules-of-hooks aren't violated. Each one runs an async
-  //    action and updates its sub-step's UI status.
 
   const creds = useMemo(
     () =>
@@ -175,9 +150,6 @@ export function StepSupabase({
     return r.schemaInstalled ? "ok" : "schemaMissing";
   }, [creds]);
 
-  // Two-step install: prepare loads the SQL + builds a deep-link to the
-  // user's SQL editor; awaiting tells the UI to render the "Open editor /
-  // I ran it ✓" panel; confirm re-probes the workspace table.
   const prepareInstall = useCallback(async (): Promise<boolean> => {
     setInstall({ status: "running" });
     const r = await prepareSchemaInstallAction(creds);
@@ -200,11 +172,30 @@ export function StepSupabase({
     return true;
   }, [creds]);
 
+  const runOneClickInstall = useCallback(async (): Promise<boolean> => {
+    setInstall({ status: "running", oneClick: true });
+    const r = await runOneClickMigrationAction({
+      url: creds.url,
+      serviceRoleKey: creds.serviceRoleKey,
+      dbPassword: dbPassword.trim(),
+    });
+    if (!r.ok) {
+      setInstall({
+        status: "error",
+        error: r.error ?? "Migration failed.",
+        hint: r.hint,
+        oneClick: true,
+      });
+      return false;
+    }
+    setInstall({ status: "ok", oneClick: true });
+    return true;
+  }, [creds, dbPassword]);
+
   const confirmInstall = useCallback(async (): Promise<boolean> => {
     setInstall((prev) => ({ ...prev, status: "running" }));
     const r = await confirmSchemaInstalledAction(creds);
     if (!r.ok) {
-      // Keep install payload around so user can retry without re-fetching.
       setInstall((prev) => ({
         ...prev,
         status: "awaiting",
@@ -239,38 +230,51 @@ export function StepSupabase({
     return true;
   }, [creds, workspaceLabel, workspaceEmoji, onComplete]);
 
+  // User-triggered one-click: run migrations then auto-advance to save.
+  const handleOneClickInstall = useCallback(async () => {
+    const ok = await runOneClickInstall();
+    if (ok) {
+      await runSave();
+    }
+  }, [runOneClickInstall, runSave]);
+
+  // User-triggered fallback: switch from one-click awaiting to manual flow.
+  const handleSwitchToManual = useCallback(async () => {
+    await prepareInstall();
+  }, [prepareInstall]);
+
   const runAll = useCallback(async () => {
     const v = await runValidate();
     if (v === "fail") return;
-    // Schema already installed → skip straight to save. (Re-running the
-    // idempotent migration would be safe but pointless and adds friction.)
     if (v === "ok") {
       setInstall({ status: "skipped" });
       await runSave();
       return;
     }
-    // Schema missing → prepare the deep-link, then wait for the user
-    // to click "I ran it ✓" before continuing to save.
+    // Schema missing — present the right install panel and wait for
+    // the user to explicitly trigger it.
+    if (dbPassword.trim()) {
+      setInstall({ status: "awaiting", oneClick: true });
+      return;
+    }
     await prepareInstall();
-  }, [runValidate, prepareInstall, runSave]);
+  }, [runValidate, prepareInstall, runSave, dbPassword]);
 
   const installAnyway = useCallback(async () => {
     setForceInstall(true);
     setValidate({ status: "ok" });
+    if (dbPassword.trim()) {
+      setInstall({ status: "awaiting", oneClick: true });
+      return;
+    }
     await prepareInstall();
-  }, [prepareInstall]);
+  }, [prepareInstall, dbPassword]);
 
-  // After the user clicks "I ran it ✓" and we successfully verify, kick
-  // the save step ourselves — the user shouldn't have to click again.
   const handleConfirmInstall = useCallback(async () => {
     const ok = await confirmInstall();
     if (ok) await runSave();
   }, [confirmInstall, runSave]);
 
-  // Kick off the sequence once when we land on `provision` phase.
-  // Deferred via setTimeout(0) so the initial setState calls inside
-  // runAll happen *after* this render commits, satisfying the
-  // react-hooks/set-state-in-effect rule.
   const startedRef = useRef(false);
   useEffect(() => {
     if (phase !== "provision") {
@@ -285,7 +289,7 @@ export function StepSupabase({
     return () => clearTimeout(t);
   }, [phase, runAll]);
 
-  // ── Summary card (when revisiting an already-connected step) ────────
+  // ── Summary card ────────────────────────────────────────────────────
 
   if (inSummary && existing) {
     return (
@@ -295,9 +299,6 @@ export function StepSupabase({
         workspaceEmoji={existing.workspaceEmoji}
         onContinue={() => onContinueExisting?.()}
         onEdit={() => {
-          // The wizard will clear downstream state (Account session,
-          // Gateway). We only flip into edit mode after that fires so
-          // the user is committed.
           onResetCredentials?.();
           setEditing(true);
         }}
@@ -324,9 +325,6 @@ export function StepSupabase({
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr]">
-          {/* Both tiles auto-advance to the URL phase. The "create" tile
-              also opens supabase.com in a new tab — the user comes back
-              to find us already on the next screen, ready to paste. */}
           <a
             href="https://supabase.com/dashboard/projects"
             target="_blank"
@@ -396,6 +394,7 @@ export function StepSupabase({
             url: r.url,
             projectRef: r.ref,
             apiKeysUrl: r.apiKeysUrl ?? null,
+            isCloudHosted: r.isCloudHosted ?? false,
           });
           setPhase("keys");
         }}
@@ -412,12 +411,15 @@ export function StepSupabase({
         apiKeysUrl={resolved.apiKeysUrl}
         anonKey={anonKey}
         serviceRoleKey={serviceRoleKey}
+        dbPassword={dbPassword}
+        isCloudHosted={resolved.isCloudHosted}
         error={keysError}
         onBack={() => setPhase("url")}
         onChange={(patch) => {
           if (patch.anonKey !== undefined) setAnonKey(patch.anonKey);
           if (patch.serviceRoleKey !== undefined)
             setServiceRoleKey(patch.serviceRoleKey);
+          if (patch.dbPassword !== undefined) setDbPassword(patch.dbPassword);
         }}
         onSubmit={() => {
           if (!anonKey.trim() || !serviceRoleKey.trim()) {
@@ -426,7 +428,6 @@ export function StepSupabase({
           }
           setKeysError(null);
           setForceInstall(false);
-          // Reset substep states for a fresh provision.
           setValidate(INITIAL);
           setInstall(INITIAL);
           setSave(INITIAL);
@@ -448,7 +449,9 @@ export function StepSupabase({
           Setting up your workspace.
         </h1>
         <p className="text-[14px] leading-relaxed text-muted-foreground">
-          This usually takes 5–10 seconds.
+          {install.status === "awaiting" && install.oneClick
+            ? "Ready to install. Click below when you're ready."
+            : "This usually takes 5–10 seconds."}
         </p>
       </div>
 
@@ -470,12 +473,22 @@ export function StepSupabase({
         />
         <SubStepRow
           label="Install schema"
-          desc="Run the migration in your Supabase SQL editor."
+          desc={
+            install.oneClick
+              ? "Apply migrations via direct database connection."
+              : "Run the migration in your Supabase SQL editor."
+          }
           state={install}
-          // If we hit a hard error (not awaiting), `prepareInstall`
-          // re-fetches the SQL + deep-link. Awaiting state has its own
-          // "I ran it / Check again" button inside the panel.
-          onRetry={prepareInstall}
+          onRetry={install.oneClick ? () => setInstall({ status: "awaiting", oneClick: true }) : prepareInstall}
+          oneClickInstall={
+            install.oneClick && install.status === "awaiting"
+              ? {
+                  onInstall: handleOneClickInstall,
+                  onSwitchToManual: handleSwitchToManual,
+                }
+              : undefined
+          }
+          oneClickRunning={install.oneClick && install.status === "running"}
           manualInstall={
             install.install
               ? {
@@ -489,8 +502,6 @@ export function StepSupabase({
                     install.status === "awaiting" ? install.error : undefined,
                   verifyHint:
                     install.status === "awaiting" ? install.hint : undefined,
-                  // Once we've tried verifying at least once, the button
-                  // becomes "Check again" rather than "I ran it".
                   hasAttempted: Boolean(install.error),
                 }
               : undefined
@@ -616,6 +627,8 @@ function KeysPhase({
   apiKeysUrl,
   anonKey,
   serviceRoleKey,
+  dbPassword,
+  isCloudHosted,
   error,
   onBack,
   onChange,
@@ -625,14 +638,19 @@ function KeysPhase({
   apiKeysUrl: string | null;
   anonKey: string;
   serviceRoleKey: string;
+  dbPassword: string;
+  isCloudHosted: boolean;
   error: string | null;
   onBack: () => void;
   onChange: (patch: {
     anonKey?: string;
     serviceRoleKey?: string;
+    dbPassword?: string;
   }) => void;
   onSubmit: () => void;
 }) {
+  const [showDbPassword, setShowDbPassword] = useState(!!dbPassword);
+
   return (
     <form
       onSubmit={(e) => {
@@ -723,6 +741,63 @@ function KeysPhase({
         </div>
       </div>
 
+      {/* DB password — collapsible section */}
+      {!showDbPassword ? (
+        <button
+          type="button"
+          onClick={() => setShowDbPassword(true)}
+          className="group flex w-full items-center gap-2.5 rounded-lg border border-dashed border-border/50 px-3.5 py-3 text-left transition-all hover:border-border hover:bg-accent/30"
+        >
+          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent/60 text-muted-foreground transition-colors group-hover:text-foreground">
+            <Zap className="h-3.5 w-3.5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <span className="text-[12px] font-medium text-muted-foreground transition-colors group-hover:text-foreground">
+              Enable one-click schema install
+            </span>
+            <p className="text-[11px] text-muted-foreground/50">
+              Add your database password to skip the manual SQL editor step.
+            </p>
+          </div>
+        </button>
+      ) : (
+        <div className="space-y-3 rounded-lg border border-border/50 bg-accent/[0.04] p-3.5">
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 text-[12px] font-medium text-muted-foreground">
+              <Database className="h-3.5 w-3.5" />
+              Database password
+              <span className="rounded bg-accent/60 px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground/70">
+                optional
+              </span>
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                onChange({ dbPassword: "" });
+                setShowDbPassword(false);
+              }}
+              className="text-[11px] text-muted-foreground/50 hover:text-muted-foreground"
+            >
+              Remove
+            </button>
+          </div>
+          <input
+            type="password"
+            value={dbPassword}
+            onChange={(e) => onChange({ dbPassword: e.target.value })}
+            placeholder="The password you set when creating the project"
+            spellCheck={false}
+            autoComplete="off"
+            className="w-full border-0 border-b border-border/60 bg-transparent pb-2 font-mono text-[13px] outline-none transition-colors placeholder:text-muted-foreground/30 focus:border-foreground"
+          />
+          <p className="text-[11px] text-muted-foreground/60">
+            {isCloudHosted
+              ? "HQ will connect directly to Postgres and apply migrations automatically. Without this, you'll paste SQL in the Supabase editor."
+              : "HQ will connect directly to Postgres and apply migrations automatically."}
+          </p>
+        </div>
+      )}
+
       {error && (
         <p className="text-[12px] text-destructive">{error}</p>
       )}
@@ -760,6 +835,8 @@ function SubStepRow({
   desc,
   state,
   onRetry,
+  oneClickInstall,
+  oneClickRunning,
   manualInstall,
   collisionAction,
 }: {
@@ -767,6 +844,11 @@ function SubStepRow({
   desc: string;
   state: SubStepState;
   onRetry?: () => void;
+  oneClickInstall?: {
+    onInstall: () => void;
+    onSwitchToManual: () => void;
+  };
+  oneClickRunning?: boolean;
   manualInstall?: {
     sqlEditorUrl: string;
     sql: string;
@@ -808,6 +890,22 @@ function SubStepRow({
           </div>
           <p className="text-[11px] text-muted-foreground">{desc}</p>
 
+          {/* One-click install: awaiting user action */}
+          {state.status === "awaiting" && oneClickInstall && (
+            <OneClickInstallPanel {...oneClickInstall} />
+          )}
+
+          {/* One-click install: running */}
+          {oneClickRunning && (
+            <div className="mt-2 flex items-center gap-2.5 rounded-md border border-border/60 bg-background/40 px-3 py-2.5">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-foreground/70" />
+              <span className="text-[12px] text-muted-foreground">
+                Applying migrations — this takes a few seconds…
+              </span>
+            </div>
+          )}
+
+          {/* Manual install panel */}
           {state.status === "awaiting" && manualInstall && (
             <ManualInstallPanel {...manualInstall} />
           )}
@@ -859,6 +957,47 @@ function SubStepRow({
     </div>
   );
 }
+
+/* -------- One-click install panel (Linear/Notion-inspired) -------- */
+
+function OneClickInstallPanel({
+  onInstall,
+  onSwitchToManual,
+}: {
+  onInstall: () => void;
+  onSwitchToManual: () => void;
+}) {
+  return (
+    <div className="mt-2 space-y-3 rounded-md border border-border/60 bg-background/40 p-3">
+      <div className="space-y-1.5">
+        <p className="text-[12px] leading-relaxed text-muted-foreground">
+          HQ will connect to your database and create the tables, functions,
+          and policies it needs. This is safe to re-run.
+        </p>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onInstall}
+          className="group inline-flex items-center gap-2 rounded-md bg-foreground px-3.5 py-2 text-[12px] font-medium text-background transition-colors hover:bg-foreground/90"
+        >
+          <Play className="h-3 w-3" />
+          Install schema
+        </button>
+        <button
+          type="button"
+          onClick={onSwitchToManual}
+          className="text-[11px] text-muted-foreground hover:text-foreground"
+        >
+          Use SQL editor instead
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* -------- Manual install panel -------- */
 
 function ManualInstallPanel({
   sqlEditorUrl,
@@ -1024,7 +1163,6 @@ function SummaryView({
   onContinue: () => void;
   onEdit: () => void;
 }) {
-  // Parse out a short host fragment for display (xxxxx.supabase.co)
   let host = url;
   try {
     host = new URL(url).host;
@@ -1047,7 +1185,6 @@ function SummaryView({
         </p>
       </div>
 
-      {/* Connection card */}
       <div className="space-y-3 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.03] p-5">
         <div className="flex items-start gap-3">
           <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">

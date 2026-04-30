@@ -369,6 +369,93 @@ export async function prepareSchemaInstallAction(
   }
 }
 
+// ── One-click migration via direct Postgres connection ──────────────
+
+const oneClickSchema = z.object({
+  url: z.string().url(),
+  serviceRoleKey: z.string().min(20),
+  dbPassword: z.string().min(1),
+});
+
+export interface OneClickMigrationResult extends ActionResult {
+  applied?: number;
+  skipped?: number;
+}
+
+export async function runOneClickMigrationAction(
+  input: z.infer<typeof oneClickSchema>,
+): Promise<OneClickMigrationResult> {
+  const parsed = oneClickSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "Missing database password or credentials." };
+  }
+
+  let projectRef: string | null = null;
+  try {
+    const u = new URL(parsed.data.url);
+    const m = u.hostname.match(/^([a-z0-9]{20})\.supabase\.co$/i);
+    projectRef = m ? m[1] : null;
+  } catch {}
+
+  let connectionString: string;
+  if (projectRef) {
+    connectionString = `postgres://postgres:${encodeURIComponent(parsed.data.dbPassword)}@db.${projectRef}.supabase.co:5432/postgres`;
+  } else {
+    try {
+      const u = new URL(parsed.data.url);
+      connectionString = `postgres://postgres:${encodeURIComponent(parsed.data.dbPassword)}@${u.hostname}:5432/postgres`;
+    } catch {
+      return { ok: false, error: "Could not parse database host from URL." };
+    }
+  }
+
+  try {
+    const { runMigrations, discoverMigrations } = await import(
+      "@/lib/projects/run-migrations"
+    );
+
+    const result = await runMigrations({
+      connectionString,
+      onProgress: (msg) => console.log(`[one-click] ${msg}`),
+    });
+
+    if (result.errors.length > 0) {
+      const first = result.errors[0];
+      return {
+        ok: false,
+        error: `Migration failed on ${first.name}: ${first.error}`,
+        applied: result.applied.length,
+        skipped: result.skipped.length,
+      };
+    }
+
+    return {
+      ok: true,
+      applied: result.applied.length,
+      skipped: result.skipped.length,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("ECONNREFUSED") || msg.includes("timeout")) {
+      return {
+        ok: false,
+        error: "Could not connect to the database.",
+        hint:
+          "Cloud Supabase may block direct connections on port 5432 if your plan doesn't support it, " +
+          "or the password may be incorrect. You can skip this and use the SQL editor instead.",
+      };
+    }
+    if (msg.includes("password authentication failed")) {
+      return {
+        ok: false,
+        error: "Incorrect database password.",
+        hint: "This is the password you set when creating the Supabase project, not your Supabase account password.",
+      };
+    }
+    return { ok: false, error: msg };
+  }
+}
+
 /**
  * Step 2b — confirm the user actually ran the SQL.
  *
