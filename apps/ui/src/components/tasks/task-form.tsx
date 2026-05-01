@@ -41,6 +41,7 @@ import {
   RecurrenceScopeDialog,
   type EditScope,
 } from "./recurrence-scope-dialog";
+import { TaskModelOverride } from "./task-model-override";
 import { useTaskSeries } from "@/hooks/use-task-series";
 import { browserTimezone, getWorkspaceTimezone } from "@/lib/workspace/timezone";
 import { shortCadenceLabel } from "@/lib/tasks/cadence";
@@ -107,6 +108,8 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive }: 
   const [savedTaskId, setSavedTaskId] = useState<string | null>(editingTask?.id ?? null);
   const [recurrence, setRecurrence] = useState<RecurrenceValue>(DEFAULT_RECURRENCE);
   const [tz, setTz] = useState<string>(browserTimezone());
+  const [modelOverride, setModelOverride] = useState<string | null>(editingTask?.model_override ?? null);
+  const [thinkingOverride, setThinkingOverride] = useState<string | null>(editingTask?.thinking_override ?? null);
   const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
   const { actions: seriesActions } = useTaskSeries();
   const editingSeriesId = editingTask?.series_id ?? null;
@@ -168,6 +171,8 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive }: 
       assignee_agent_id:
         assignee !== "me" && assignee !== "none" ? assignee : null,
       due_date: dueDate || null,
+      model_override: modelOverride,
+      thinking_override: thinkingOverride,
     };
   }
 
@@ -203,6 +208,8 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive }: 
       ends_on: null,
       ends_after_count: null,
       missed_policy: "auto_skip" as const,
+      model_override: modelOverride,
+      thinking_override: thinkingOverride,
     };
   }
 
@@ -446,6 +453,18 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive }: 
 
           {/* Recurrence */}
           <RecurrencePicker value={recurrence} onChange={setRecurrence} timezone={tz} />
+
+          {/* Model override — only show when assigned to an agent */}
+          {assignee !== "none" && assignee !== "me" && (
+            <TaskModelOverride
+              modelOverride={modelOverride}
+              thinkingOverride={thinkingOverride}
+              onModelChange={setModelOverride}
+              onThinkingChange={setThinkingOverride}
+              agentId={assignee}
+              agents={agents}
+            />
+          )}
         </div>
 
         {/* Attachments section */}

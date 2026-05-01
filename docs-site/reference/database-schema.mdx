@@ -53,7 +53,7 @@ Disable public email signup in Supabase unless you intentionally want every sign
 
 ### Agents and Gateways
 
-- `agents` — agent metadata, slug, status, gateway assignment, manager assignment, and template metadata.
+- `agents` — agent metadata, slug, status, gateway assignment, manager assignment, model/thinking configuration, and template metadata.
 - `gateways` — registered gateway hosts, heartbeat state, labels, and reachable URLs.
 - `gateway_registration_tokens` — short-lived hashed tokens used by Settings → Gateways → Add Gateway.
 - `agent_commands` — command queue consumed by the runner daemon.
@@ -83,13 +83,13 @@ The `agent_usage_rollup` trigger updates `agent_budgets` after each usage row. B
 
 ### Tasks
 
-- `tasks` — operator and agent work items.
+- `tasks` — operator and agent work items. Supports `model_override` and `thinking_override` columns for per-task model selection when assigned to an agent.
 - `streams` — task grouping and workflow lanes.
-- `task_series` — recurring task definitions.
+- `task_series` — recurring task definitions. Series-level `model_override` and `thinking_override` propagate to spawned instances.
 - `comments` — polymorphic comments with mention support.
 - `task_attachments` — links from tasks to documents/assets/files.
 
-Task assignment and comment mention triggers enqueue `agent_inbox_items` for affected agents.
+Task assignment and comment mention triggers enqueue `agent_inbox_items` for affected agents. When a task has model/thinking overrides, they are included in the inbox item's `context` JSONB and passed to the agent's session at wake time.
 
 ### Documents and Assets
 

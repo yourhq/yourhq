@@ -48,7 +48,7 @@ import { AgentFileBrowser } from "./agent-file-browser";
 import { TriggersSection } from "./triggers-section";
 import { OpenDesktopModal } from "@/components/gateways/open-desktop-modal";
 import { getGatewayDesktopUrlAction } from "@/app/dashboard/settings/gateways/actions";
-import { AgentRailModelSection } from "@/components/connections/agent-rail-model-section";
+import { AgentModelSection } from "@/components/agents/agent-model-section";
 import { AgentUsageRail } from "./agent-usage-rail";
 import { AgentUsageTab } from "./agent-usage-tab";
 import { updateAgent, toggleAgentPauseAction } from "@/app/dashboard/agents/actions";
@@ -521,7 +521,12 @@ function AgentRailContent({
           </DetailSidebarSection>
 
           <DetailSidebarSection title="Model">
-            <AgentRailModelSection gatewayId={agent.gateway_id} />
+            <AgentModelSection
+              agentId={agent.id}
+              gatewayId={agent.gateway_id}
+              currentModel={agent.model}
+              currentThinking={agent.thinking}
+            />
           </DetailSidebarSection>
         </>
       )}

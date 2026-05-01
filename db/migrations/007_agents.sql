@@ -26,6 +26,8 @@ ALTER TABLE agents ADD COLUMN IF NOT EXISTS capabilities text[];
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS config jsonb NOT NULL DEFAULT '{}';
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS meta jsonb NOT NULL DEFAULT '{}';
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS gateway_id uuid REFERENCES gateways(id);
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS model text;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS thinking text;
 
 -- Backfill existing agents to the default gateway.
 UPDATE agents

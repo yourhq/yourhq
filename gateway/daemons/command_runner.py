@@ -236,6 +236,7 @@ def build_command(action, agent_slug, payload):
             ("--name", "name"),
             ("--description", "description"),
             ("--emoji", "emoji"),
+            ("--model", "model"),
             ("--owner-name", "owner_name"),
             ("--owner-preferred-name", "owner_preferred_name"),
             ("--owner-timezone", "owner_timezone"),
@@ -478,7 +479,23 @@ PROVIDER_DEFAULT_MODELS = {
 
 
 def _set_default_model_for_provider(provider):
-    """Best-effort: set openclaw's global default model after connecting a provider."""
+    """Best-effort: set openclaw's global default model after connecting a provider.
+    Only sets the default if no model is currently configured (first connection).
+    """
+    try:
+        probe = subprocess.run(
+            ["openclaw", "models", "status", "--json"],
+            capture_output=True, text=True, timeout=15,
+            env={**os.environ, "HOME": HOME},
+        )
+        if probe.returncode == 0 and probe.stdout.strip():
+            status = json.loads(probe.stdout)
+            if status.get("defaultModel"):
+                log(f"Default model already set to {status['defaultModel']}, skipping")
+                return
+    except Exception:
+        pass
+
     model = PROVIDER_DEFAULT_MODELS.get(provider)
     if not model:
         model = f"{provider}/default"
@@ -489,7 +506,7 @@ def _set_default_model_for_provider(provider):
             env={**os.environ, "HOME": HOME},
         )
         if result.returncode == 0:
-            log(f"Set default model to {model} after connecting {provider}")
+            log(f"Set default model to {model} (first provider connected)")
         else:
             log(f"Failed to set default model to {model}: {result.stderr[:200]}")
     except Exception as e:
@@ -1146,6 +1163,127 @@ def sync_to_shared_auth():
             log(f"Failed to link auth to {agent_dir}: {e}")
 
 
+def handle_set_agent_model(cmd_id, payload):
+    """Set per-agent model and/or thinking level in openclaw.json.
+
+    payload: { agent_slug: str, model?: str, thinking?: str }
+    """
+    agent_slug = (payload.get("agent_slug") or "").strip()
+    model = payload.get("model")
+    thinking = payload.get("thinking")
+
+    if not agent_slug:
+        api_rpc("fail_command", {
+            "p_command_id": cmd_id, "p_exit_code": None,
+            "p_stdout": None, "p_stderr": None,
+            "p_error": "Missing agent_slug",
+        })
+        return
+
+    try:
+        api_rpc("start_command", {"p_command_id": cmd_id})
+    except Exception:
+        pass
+
+    openclaw_home = os.environ.get("OPENCLAW_HOME", os.path.join(HOME, ".openclaw"))
+    config_path = os.path.join(openclaw_home, "openclaw.json")
+
+    try:
+        with open(config_path, "r") as f:
+            config = json.load(f)
+
+        agents_list = config.get("agents", {}).get("list", [])
+        found = False
+        for entry in agents_list:
+            eid = entry.get("id", "")
+            if eid == agent_slug or eid.endswith("/" + agent_slug):
+                if model is not None:
+                    if model:
+                        entry["model"] = model
+                    else:
+                        entry.pop("model", None)
+                if thinking is not None:
+                    if thinking:
+                        entry["thinkingDefault"] = thinking
+                    else:
+                        entry.pop("thinkingDefault", None)
+                found = True
+                break
+
+        if not found:
+            api_rpc("fail_command", {
+                "p_command_id": cmd_id, "p_exit_code": None,
+                "p_stdout": None, "p_stderr": None,
+                "p_error": f"Agent '{agent_slug}' not found in openclaw.json agents.list",
+            })
+            return
+
+        tmp = config_path + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(config, f, indent=2)
+        os.replace(tmp, config_path)
+
+        parts = []
+        if model is not None:
+            parts.append(f"model={model or '(gateway default)'}")
+        if thinking is not None:
+            parts.append(f"thinking={thinking or '(gateway default)'}")
+        summary = ", ".join(parts)
+        log(f"Set {summary} for agent {agent_slug}")
+
+        api_rpc("complete_command", {
+            "p_command_id": cmd_id, "p_exit_code": 0,
+            "p_stdout": f"Updated {summary}", "p_stderr": None,
+        })
+    except Exception as e:
+        api_rpc("fail_command", {
+            "p_command_id": cmd_id, "p_exit_code": None,
+            "p_stdout": None, "p_stderr": None, "p_error": str(e),
+        })
+
+
+def handle_list_models(cmd_id, payload):
+    """List available models from openclaw. Returns JSON to stdout.
+
+    payload: { provider?: str }
+    """
+    try:
+        api_rpc("start_command", {"p_command_id": cmd_id})
+    except Exception:
+        pass
+
+    provider = (payload.get("provider") or "").strip()
+    args = ["openclaw", "models", "list", "--json"]
+    if provider:
+        args += ["--provider", provider]
+    else:
+        args.append("--all")
+
+    try:
+        result = subprocess.run(
+            args, capture_output=True, text=True, timeout=30,
+            env={**os.environ, "HOME": HOME},
+        )
+        if result.returncode == 0:
+            api_rpc("complete_command", {
+                "p_command_id": cmd_id, "p_exit_code": 0,
+                "p_stdout": (result.stdout or "")[-8000:],
+                "p_stderr": (result.stderr or "")[-2000:],
+            })
+        else:
+            api_rpc("fail_command", {
+                "p_command_id": cmd_id, "p_exit_code": result.returncode,
+                "p_stdout": (result.stdout or "")[-2000:],
+                "p_stderr": (result.stderr or "")[-2000:],
+                "p_error": f"openclaw exit {result.returncode}",
+            })
+    except Exception as e:
+        api_rpc("fail_command", {
+            "p_command_id": cmd_id, "p_exit_code": None,
+            "p_stdout": None, "p_stderr": None, "p_error": str(e),
+        })
+
+
 CONNECTION_HANDLERS = {
     "auth_set_api_key": handle_auth_set_api_key,
     "auth_start": handle_auth_start,
@@ -1154,6 +1292,8 @@ CONNECTION_HANDLERS = {
     "auth_remove": handle_auth_remove,
     "auth_refresh": handle_auth_refresh,
     "auth_set_default": handle_auth_set_default,
+    "set_agent_model": handle_set_agent_model,
+    "list_models": handle_list_models,
 }
 
 # auth_start blocks for up to 5 minutes waiting for the user to paste back.

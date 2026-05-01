@@ -22,7 +22,16 @@ Templates are role-specific starting points for agents. They live in [`templates
 
 When you create an agent, HQ forks the selected template branch into the agent's personal branch, then patches identity fields (`slug`, `name`, `emoji`, `channel`).
 
-The `model` field is optional — agents use the default provider configured in Settings → Connections unless overridden per-agent from the agent detail page.
+### Model resolution at provision time
+
+The model field in `agent.json` is optional. At provision time, `add-agent.sh` resolves the agent's model using this cascade:
+
+1. **CLI argument** — if the `provision` command payload includes `model`, use it
+2. **Template's `agent.json`** — if the template specifies a model, use it
+3. **Gateway default** — the workspace default from Settings → Connections
+4. **First connected model** — detected from `openclaw models status`
+
+After provisioning, you can change the model at any time from the agent detail page → Model section. Changes take effect on the next session without a gateway restart.
 
 <Tip>
   To create a custom template, copy `templates/default/` to `templates/your-role/`, edit the identity files, add role-specific skills, and rebuild the templates index. See [Agents → Writing a new template](/concepts/agents#writing-a-new-template) for the full walkthrough.

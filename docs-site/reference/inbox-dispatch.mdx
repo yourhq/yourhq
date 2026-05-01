@@ -14,8 +14,10 @@ The dispatcher does **not** process work. It only wakes agents. The agent's back
 When the dispatcher decides an agent needs waking, it calls:
 
 ```bash
-openclaw agent --agent <workspace-slug>/<agent-slug> --message "<inbox message>"
+openclaw agent --agent <workspace-slug>/<agent-slug> [--model <model-id>] [--thinking <level>] --message "<inbox message>"
 ```
+
+The `--model` and `--thinking` flags are included when the inbox item's `context` JSONB contains `model_override` or `thinking_override` fields. This happens automatically for task assignments where the task specifies per-task model overrides. When absent, the agent uses its configured default model.
 
 The message is always:
 

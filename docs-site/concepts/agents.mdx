@@ -198,6 +198,17 @@ When an agent has a manager or direct reports, the HQ bootstrap plugin injects a
 
 Cycle prevention is handled before saving manager changes: an agent cannot report to itself, and the UI checks the manager chain so loops cannot be created accidentally.
 
+## Model and thinking configuration
+
+Each agent has an optional `model` and `thinking` setting persisted on the `agents` table. These control which LLM and reasoning depth the agent uses by default.
+
+- **Model** — a full model ID like `anthropic/claude-sonnet-4-6` or `openai-codex/gpt-5.4`. The prefix determines which provider connection is used for billing/auth.
+- **Thinking** — `none`, `low`, `medium`, or `high`. Controls extended reasoning for models that support it.
+
+Both can be set from the agent detail sidebar (Model section in the right rail). Changes take effect on the next wake — no gateway restart needed.
+
+For one-off tasks that need different reasoning depth, set the override on the task itself. The dispatcher passes task-level overrides as `--model` / `--thinking` flags to `openclaw agent`, which takes precedence over the agent's default for that session only.
+
 ## Usage budgets
 
 HQ records model usage for each agent in `agent_usage` and keeps a current-period rollup in `agent_budgets`.

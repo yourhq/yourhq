@@ -22,6 +22,8 @@ export interface Agent {
   domains: string[];
   capabilities: string[] | null;
   heartbeat_cron: string | null;
+  model: string | null;
+  thinking: string | null;
   config: Record<string, unknown>;
   meta: Record<string, unknown>;
 }
@@ -125,7 +127,9 @@ export type CommandAction =
   | "auth_remove"
   | "auth_refresh"
   | "auth_set_default"
-  | "update_gateway";
+  | "update_gateway"
+  | "set_agent_model"
+  | "list_models";
 
 export type CommandStatus = "pending" | "leased" | "running" | "done" | "failed";
 
@@ -180,6 +184,8 @@ export const COMMAND_ACTION_LABELS: Record<CommandAction, string> = {
   auth_refresh: "Probe connection",
   auth_set_default: "Set default model",
   update_gateway: "Update Gateway",
+  set_agent_model: "Set agent model",
+  list_models: "List models",
 };
 
 export const COMMAND_STATUS_COLORS: Record<CommandStatus, string> = {

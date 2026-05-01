@@ -52,8 +52,8 @@ The **UI** is where you manage everything: agents, tasks, CRM, documents, automa
     Laptop, Mac mini, Raspberry Pi, VPS, or multiple hosts.
   
 
-  - **Connect any model**: 
-    OpenAI, Anthropic, Gemini, Ollama, and 25+ providers.
+  - **Pick models per agent**: 
+    Different model and thinking level per agent. Per-task overrides for one-off reasoning. Mix providers freely.
   
 
   - **Control spend**: 
@@ -367,6 +367,10 @@ Go to **Agents → New Agent**.
 ## You're set up
 
 Your HQ is running. Here's what to explore next:
+
+  - **Pick a model per agent**: 
+    Assign different models and thinking levels to each agent. Mix cheap and expensive models across your fleet.
+  
 
   - **Understand agents**: 
     Memory, files, skills, org chart, and how agents actually work.
@@ -2474,6 +2478,10 @@ Source: https://docs.yourhq.ai/guides/create-agent
 > 
   Slack agents are active immediately after provisioning — no pairing step needed. For agents with no channel, you can still interact via task assignments, comment mentions, and automations.
 
+## After creation: set a model
+
+New agents use the workspace's default model. To change it, open the agent's detail page → **Model** section in the right rail → pick a model and thinking level. See [Connect a model provider → Per-agent model overrides](/guides/connect-model-provider#per-agent-model-overrides) for details.
+
 See [Agents](/concepts/agents) for the full agent model, templates, memory, and delegation.
 
 ---
@@ -2521,10 +2529,16 @@ HQ is model-agnostic. There is no required or default provider — you connect w
 
     | Provider | Notes |
     |---|---|
-    | **OpenAI Codex** | OAuth flow — HQ shows a URL, you complete login in browser |
+    | **OpenAI** (Subscription) | OAuth flow — log in with your OpenAI account. Uses your ChatGPT/Codex subscription credits. Same models as the API key, different billing path |
     | **GitHub Copilot** | Device-code flow — HQ shows a code, you enter it on GitHub |
 
     For these providers, HQ opens an interactive auth flow in the Connections UI. Follow the on-screen prompts.
+
+    
+> 
+      **OpenAI API key vs subscription:** Both serve the same models (GPT-5.4, GPT-5.5, o3, etc.). The API key bills per-token to your OpenAI platform account. The subscription route uses your ChatGPT Plus/Pro/Team credits — "free at the margin" if you already pay for a subscription. If you connect both, the model picker shows each model with "Subscription" and "API" labels so you can choose. Codex Mini is subscription-exclusive and only appears when the subscription connection is active.
+    
+
   
   
     Run models on your own machine — no API costs, fully private.
@@ -2644,9 +2658,38 @@ LM Studio is a Mac/Windows/Linux app with a GUI for downloading and running loca
 
 ## Per-agent model overrides
 
-Each agent can use a different provider and model. This lets you run a cheap local model for a background researcher while a cofounder agent uses GPT-4o.
+Each agent can use a different provider and model. This lets you run a cheap local model for a background researcher while a cofounder agent uses Claude Opus.
 
-To override for one agent: open the agent's detail page → look for the **Model** selector in the right rail → pick provider and model.
+To override for one agent: open the agent's detail page → look for the **Model** section in the right rail → pick a model and thinking level.
+
+### Model selection
+
+The model picker shows models grouped by provider, filtered to only providers you've connected. If you have multiple connections that serve the same models (e.g. an OpenAI API key and an OpenAI subscription), the picker shows one unified "OpenAI" group that routes through whichever connection you have. If both are connected, each model appears with "Subscription" and "API" route labels so you can choose which billing path to use.
+
+### Thinking level
+
+For models that support extended thinking (Claude, o-series), you can set a thinking level per agent:
+
+| Level | Behavior |
+|---|---|
+| None | No extended thinking (fastest, cheapest) |
+| Low | Brief internal reasoning |
+| Medium | Moderate reasoning depth |
+| High | Maximum reasoning depth (most capable, highest cost) |
+
+### Per-task overrides
+
+When creating or editing a task assigned to an agent, you can override the thinking level for that specific task. This is useful for one-off complex tasks that need deeper reasoning without changing the agent's default.
+
+Task-level overrides are passed to the agent session at wake time via the inbox dispatch mechanism.
+
+### Resolution order
+
+The model used for any given agent session follows this cascade:
+
+1. **Per-task override** (if the wake was triggered by a task with `model_override` or `thinking_override`)
+2. **Agent default** (set in the agent detail sidebar)
+3. **Gateway default** (the first connected model, or the workspace default from Settings → Connections)
 
 > 
   Mix and match freely. A common setup: one expensive model for agents doing complex reasoning, a cheap/fast model for agents doing simple lookups, and Ollama for agents that handle private data.
@@ -3002,6 +3045,16 @@ If an agent hits its hard cutoff mid-month, you can:
 
 ---
 
+## Model selection and cost
+
+Different models have very different costs per token. Per-agent model selection lets you optimize spend across your fleet:
+
+- Assign expensive reasoning models (Claude Opus, GPT-5.5 with high thinking) only to agents doing complex work
+- Use cheaper fast models (Gemini Flash, Haiku, o4-mini) for agents doing simple lookups or repetitive tasks
+- Use per-task thinking overrides to temporarily boost reasoning for one-off complex tasks without increasing the agent's baseline cost
+
+Combined with budgets, this gives you precise control: set a generous budget for an agent running an expensive model, and a tight budget for agents on cheap models that shouldn't be doing much work.
+
 ## Checking spend across all agents
 
 Go to **Settings → System → Usage** to see a summary table of all agents with their current-period spend, monthly limit, and how close each one is to its threshold.
@@ -3024,6 +3077,10 @@ This page is the product tour. For system internals, read [Architecture](/concep
 
   - **Agents**: 
     Long-lived workers with memory, browser profiles, templates, messaging channels, and tools.
+  
+
+  - **Model selection**: 
+    Per-agent and per-task model + thinking level. Mix providers freely across your fleet.
   
 
   - **Workspace**: 
@@ -3109,8 +3166,8 @@ An HQ agent is a long-lived workspace — not a chat wrapper.
     Telegram, Discord, Slack, or none. Each agent gets its own channel binding.
   
 
-  - **Runtime session**: 
-    OpenClaw handles prompt assembly, tool calls, and conversation state.
+  - **Model + thinking**: 
+    Per-agent model and reasoning depth. Override per-task for one-off complex work.
   
 
   - **Org chart**: 
@@ -3126,6 +3183,7 @@ Agents are created from templates under `templates/`. The creation wizard lets y
 The agent detail page includes:
 
 - Overview, status, capabilities, and activity.
+- **Model and thinking level** — pick any connected model and reasoning depth from the right rail. Changes take effect on the next wake, no restart needed.
 - Boot context documents.
 - Direct reports and manager assignment.
 - Trigger and inbox history.
@@ -3133,7 +3191,6 @@ The agent detail page includes:
 - Operations and command history.
 - Usage and budget controls.
 - Remote desktop access through the assigned gateway.
-- Inline default model/provider selection.
 
 ## Agent Templates
 
@@ -3226,11 +3283,12 @@ Tasks support:
 - Statuses such as todo, in progress, blocked, done, cancelled, and missed.
 - Priorities and due dates.
 - Recurrence rules.
+- **Per-task model and thinking overrides** — when assigned to an agent, override the model or reasoning depth for this specific execution without changing the agent's default.
 - Comments and mentions.
 - Attachments.
 - Agent inbox wakeups on assignment and reassignment.
 
-Mentioning an agent in a comment creates an inbox item for that agent. Assigning a task to an agent does the same.
+Mentioning an agent in a comment creates an inbox item for that agent. Assigning a task to an agent does the same. Per-task model overrides are carried through the inbox item's context and passed to the agent session at wake time.
 
 ## Documents and Assets
 
@@ -3285,11 +3343,56 @@ HQ is model-agnostic. Agents work with whatever provider you connect — there i
 
   - **API key**: OpenAI, Anthropic, Gemini, DeepSeek, Mistral, and more.
 
-  - **OAuth / device code**: OpenAI Codex, GitHub Copilot, and interactive flows.
+  - **OAuth / device code**: OpenAI subscription, GitHub Copilot, and interactive flows.
 
   - **Local models**: Ollama, LM Studio, vLLM, and OpenAI-compatible servers.
 
-Model provider auth is managed from Settings → Connections and from the agent rail. The command runner handles auth flows through `agent_commands`. Agents can have default providers/models selected inline from their detail page.
+Model provider auth is managed from Settings → Connections and from the agent rail. The command runner handles auth flows through `agent_commands`.
+
+When the same models are available through multiple connections (e.g. OpenAI API key and OpenAI subscription), HQ unifies them into a single provider group. If both are connected, models appear with route labels ("Subscription" / "API") so you can choose which billing path to use. Subscription-only models like Codex Mini only appear when that connection is active.
+
+## Model Selection
+
+Every agent can run a different model and thinking level — no gateway restart needed, no global config change. This is a core design choice: a fleet of agents should be able to mix expensive reasoning models for complex work with fast cheap models for simple lookups.
+
+  - **Per-agent defaults**: 
+    Set from the agent detail sidebar. Persists across sessions. The agent always wakes with this model unless a task override says otherwise.
+  
+
+  - **Per-task overrides**: 
+    Override the thinking level (or model) for a specific task. Useful for one-off complex reasoning without changing an agent's default. Passed at wake time through the inbox dispatch mechanism.
+  
+
+### How it works
+
+| Layer | What it controls | Set from |
+|---|---|---|
+| **Workspace default** | Fallback when no agent-level or task-level override exists | Settings → Connections (first connected model) |
+| **Agent default** | The model and thinking level this agent uses by default | Agent detail page → Model section (right rail) |
+| **Task override** | Overrides the agent's default for one specific task execution | Task form → Model override (when assigned to an agent) |
+
+Resolution is bottom-up: task override wins over agent default, which wins over workspace default.
+
+### Thinking levels
+
+For models that support extended reasoning (Claude, o-series), HQ exposes a thinking level selector:
+
+| Level | Behavior |
+|---|---|
+| **None** | No extended thinking — fastest and cheapest |
+| **Low** | Brief internal reasoning |
+| **Medium** | Moderate reasoning depth |
+| **High** | Maximum reasoning depth — most capable, highest token cost |
+
+### Multi-route providers
+
+Some providers serve the same models through different billing paths. OpenAI models (GPT-5.4, GPT-5.5, o3, o4-mini) are available both via API key (pay-per-token) and via ChatGPT subscription (included in your plan). HQ handles this transparently:
+
+- **One connection:** Models appear under "OpenAI" with no qualifier.
+- **Both connections:** Each model appears twice with "Subscription" (preferred) and "API" route labels. Choose which billing path each agent uses.
+- **Exclusive models:** Codex Mini is subscription-only and only appears when that connection is active.
+
+See [Connect a model provider](/guides/connect-model-provider) for setup and [Inbox dispatch](/reference/inbox-dispatch) for how overrides reach the agent runtime.
 
 ## Networking
 
@@ -3436,6 +3539,7 @@ This is the most "I see how it all fits" path through the system. Everything els
    - Creates the agent's branch off the template (or `default`) inside the bare repo at `$HOME/.openclaw/repo.git`.
    - Checks out the branch as a `git worktree` at `$HOME/.openclaw/workspace-`.
    - Patches `agent.json` with the wizard inputs via `jq`.
+   - Resolves the agent's model (CLI arg → `agent.json` → gateway config → first connected model) and writes it to the agent config.
    - Fills `USER.md` placeholder tokens (`USER_NAME_HERE`, `PREFERRED_NAME_HERE`, `TIMEZONE_HERE`) from the owner profile.
    - Rewrites `IDENTITY.md` `## Name` and `## Emoji` sections.
    - Swaps `BROWSER_PROFILE_HERE` in `TOOLS.md` for the agent's slug.
@@ -3571,7 +3675,7 @@ Supabase is the backbone. Every piece of coordination — commands, inbox items,
 
 The structures to know:
 
-- **`agent_commands`** — command queue consumed by the runner. Schema in [`014_agent_commands.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/014_agent_commands.sql). Action enum covers `provision`, `update`, `remove`, `approve_pairing`, `restart_gateway`, `restart_dispatcher`, `update_all`, `update_gateway`, and the `auth_*` connection actions. `lease_command(p_lease_seconds, p_gateway_slug)` is the atomic claim; `start_command`, `complete_command`, `fail_command` report back. Rows persist forever (with `stdout`/`stderr`) for the command-history UI.
+- **`agent_commands`** — command queue consumed by the runner. Schema in [`014_agent_commands.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/014_agent_commands.sql). Action enum covers `provision`, `update`, `remove`, `approve_pairing`, `restart_gateway`, `restart_dispatcher`, `update_all`, `update_gateway`, `set_agent_model`, `list_models`, and the `auth_*` connection actions. `lease_command(p_lease_seconds, p_gateway_slug)` is the atomic claim; `start_command`, `complete_command`, `fail_command` report back. Rows persist forever (with `stdout`/`stderr`) for the command-history UI.
 - **`agent_inbox_items`** — background-work queue consumed by agents, not the runner. Inserted by Postgres triggers on `tasks` (task assignment / reassignment), `comments` (@-mentions), and `contacts` (via `automation_rules`). The dispatcher wakes agents; the agent's own session claims work via `lease_inbox_item(p_agent_id, p_lease_seconds)` (see [`013_agent_inbox.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/013_agent_inbox.sql)) and reports via `complete_inbox_item` / `fail_inbox_item`. `dedup_key` + unique constraint prevents duplicates. `attempt_count < max_attempts` bounds retries before dead-lettering.
 - **`gateways`** — registry of known gateway hosts. Each row has `slug`, `label`, `status`, `last_seen_at`, and `meta.reachable_urls`. Seeded with a `default` row so single-gateway installs work without setup.
 - **`gateway_registration_tokens`** — single-use token records minted by the UI when adding a gateway. The plaintext token is shown once in the installer command; the database stores only the hash and expiry metadata.
@@ -3813,6 +3917,17 @@ When an agent has a manager or direct reports, the HQ bootstrap plugin injects a
 
 Cycle prevention is handled before saving manager changes: an agent cannot report to itself, and the UI checks the manager chain so loops cannot be created accidentally.
 
+## Model and thinking configuration
+
+Each agent has an optional `model` and `thinking` setting persisted on the `agents` table. These control which LLM and reasoning depth the agent uses by default.
+
+- **Model** — a full model ID like `anthropic/claude-sonnet-4-6` or `openai-codex/gpt-5.4`. The prefix determines which provider connection is used for billing/auth.
+- **Thinking** — `none`, `low`, `medium`, or `high`. Controls extended reasoning for models that support it.
+
+Both can be set from the agent detail sidebar (Model section in the right rail). Changes take effect on the next wake — no gateway restart needed.
+
+For one-off tasks that need different reasoning depth, set the override on the task itself. The dispatcher passes task-level overrides as `--model` / `--thinking` flags to `openclaw agent`, which takes precedence over the agent's default for that session only.
+
 ## Usage budgets
 
 HQ records model usage for each agent in `agent_usage` and keeps a current-period rollup in `agent_budgets`.
@@ -3988,8 +4103,10 @@ Both queues use atomic leasing so parallel daemons on different gateways never s
 When a new inbox item arrives (via Realtime or the periodic reconciliation sweep), the dispatcher calls:
 
 ```bash
-openclaw agent --agent / --message "[inbox]  ..."
+openclaw agent --agent / [--model ] [--thinking ] --message "[inbox]  ..."
 ```
+
+The `--model` and `--thinking` flags are included when the inbox item's `context` contains per-task overrides. This lets individual tasks run with different reasoning depth without changing the agent's default configuration.
 
 This is fire-and-forget — the dispatcher doesn't wait for the agent to respond. Before waking, the dispatcher checks:
 
@@ -4416,7 +4533,7 @@ Disable public email signup in Supabase unless you intentionally want every sign
 
 ### Agents and Gateways
 
-- `agents` — agent metadata, slug, status, gateway assignment, manager assignment, and template metadata.
+- `agents` — agent metadata, slug, status, gateway assignment, manager assignment, model/thinking configuration, and template metadata.
 - `gateways` — registered gateway hosts, heartbeat state, labels, and reachable URLs.
 - `gateway_registration_tokens` — short-lived hashed tokens used by Settings → Gateways → Add Gateway.
 - `agent_commands` — command queue consumed by the runner daemon.
@@ -4446,13 +4563,13 @@ The `agent_usage_rollup` trigger updates `agent_budgets` after each usage row. B
 
 ### Tasks
 
-- `tasks` — operator and agent work items.
+- `tasks` — operator and agent work items. Supports `model_override` and `thinking_override` columns for per-task model selection when assigned to an agent.
 - `streams` — task grouping and workflow lanes.
-- `task_series` — recurring task definitions.
+- `task_series` — recurring task definitions. Series-level `model_override` and `thinking_override` propagate to spawned instances.
 - `comments` — polymorphic comments with mention support.
 - `task_attachments` — links from tasks to documents/assets/files.
 
-Task assignment and comment mention triggers enqueue `agent_inbox_items` for affected agents.
+Task assignment and comment mention triggers enqueue `agent_inbox_items` for affected agents. When a task has model/thinking overrides, they are included in the inbox item's `context` JSONB and passed to the agent's session at wake time.
 
 ### Documents and Assets
 
@@ -4615,7 +4732,16 @@ Templates are role-specific starting points for agents. They live in [`templates
 
 When you create an agent, HQ forks the selected template branch into the agent's personal branch, then patches identity fields (`slug`, `name`, `emoji`, `channel`).
 
-The `model` field is optional — agents use the default provider configured in Settings → Connections unless overridden per-agent from the agent detail page.
+### Model resolution at provision time
+
+The model field in `agent.json` is optional. At provision time, `add-agent.sh` resolves the agent's model using this cascade:
+
+1. **CLI argument** — if the `provision` command payload includes `model`, use it
+2. **Template's `agent.json`** — if the template specifies a model, use it
+3. **Gateway default** — the workspace default from Settings → Connections
+4. **First connected model** — detected from `openclaw models status`
+
+After provisioning, you can change the model at any time from the agent detail page → Model section. Changes take effect on the next session without a gateway restart.
 
 > 
   To create a custom template, copy `templates/default/` to `templates/your-role/`, edit the identity files, add role-specific skills, and rebuild the templates index. See [Agents → Writing a new template](/concepts/agents#writing-a-new-template) for the full walkthrough.
@@ -4841,6 +4967,7 @@ Create a new agent: runs `~/add-agent.sh` which creates a git branch, checks out
 | `discord_user_id` | string | No | Discord user ID for DM fallback |
 | `slack_app_token` | string | If `channel=slack` | App-level token (`xapp-...`) |
 | `slack_bot_token` | string | If `channel=slack` | Bot token (`xoxb-...`) |
+| `model` | string | No | Full model ID (e.g. `anthropic/claude-sonnet-4-6`). Sets the agent's default model at provision time |
 | `source_template` | string | No | Git branch name to copy from (e.g. `template/researcher`) |
 | `name` | string | No | Display name |
 | `description` | string | No | Short description |
@@ -4924,6 +5051,30 @@ Pull and restart the full gateway stack. Behavior depends on `RUNTIME_MODE`:
 | `systemd` | `cd ~ && git pull && ./install.sh --update` |
 
 No payload fields.
+
+---
+
+### `set_agent_model`
+
+Change an agent's default model and/or thinking level at runtime. Updates the agent's OpenClaw config without a full gateway restart.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `agent_slug` | string | Yes | The agent's slug |
+| `model` | string | No | Full model ID (e.g. `anthropic/claude-sonnet-4-6`, `openai-codex/gpt-5.4`) |
+| `thinking` | string | No | Thinking level: `none`, `low`, `medium`, `high` |
+
+At least one of `model` or `thinking` must be provided. The runner updates the agent's `agent.json` config and reloads the session.
+
+---
+
+### `list_models`
+
+Query available models from connected providers. The runner calls `openclaw models status --json` and writes the result to `stdout`.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `provider` | string | No | Filter to one provider. If omitted, all connected providers are listed |
 
 ---
 
@@ -5065,8 +5216,10 @@ The dispatcher does **not** process work. It only wakes agents. The agent's back
 When the dispatcher decides an agent needs waking, it calls:
 
 ```bash
-openclaw agent --agent / --message ""
+openclaw agent --agent / [--model ] [--thinking ] --message ""
 ```
+
+The `--model` and `--thinking` flags are included when the inbox item's `context` JSONB contains `model_override` or `thinking_override` fields. This happens automatically for task assignments where the task specifies per-task model overrides. When absent, the agent uses its configured default model.
 
 The message is always:
 

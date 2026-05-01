@@ -232,7 +232,7 @@ class WakeTracker:
                 self.last_wake[agent_slug] = time.time()
 
 
-def wake_agent(agent_slug, agent_id, reason, tracker):
+def wake_agent(agent_slug, agent_id, reason, tracker, context=None):
     """Wake an agent's background inbox session via OpenClaw."""
     should, skip_reason = tracker.should_wake(agent_slug, agent_id)
     if not should:
@@ -256,6 +256,14 @@ def wake_agent(agent_slug, agent_id, reason, tracker):
             "--agent", openclaw_agent_id,
             "--message", message,
         ]
+        ctx = context or {}
+        model_override = ctx.get("model_override")
+        thinking_override = ctx.get("thinking_override")
+        if model_override:
+            cmd += ["--model", model_override]
+        if thinking_override:
+            cmd += ["--thinking", thinking_override]
+
         # Fire and forget — don't block the dispatcher waiting for the agent to finish
         subprocess.Popen(
             cmd,
@@ -263,7 +271,15 @@ def wake_agent(agent_slug, agent_id, reason, tracker):
             stderr=subprocess.DEVNULL,
         )
         tracker.record_wake_done(agent_slug, True)
-        log(f"Woke {agent_slug}: {reason}")
+        extra = ""
+        if model_override or thinking_override:
+            parts = []
+            if model_override:
+                parts.append(f"model={model_override}")
+            if thinking_override:
+                parts.append(f"thinking={thinking_override}")
+            extra = f" [{', '.join(parts)}]"
+        log(f"Woke {agent_slug}: {reason}{extra}")
         return True
     except Exception as e:
         tracker.record_wake_done(agent_slug, False)
@@ -459,7 +475,8 @@ class InboxDispatcher:
         except Exception:
             pass
 
-        success = wake_agent(agent_slug, agent_id, f"New: {summary}", self.tracker)
+        context = record.get("context")
+        success = wake_agent(agent_slug, agent_id, f"New: {summary}", self.tracker, context=context)
 
         if success:
             try:

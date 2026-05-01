@@ -13,6 +13,9 @@ This page is the product tour. For system internals, read [Architecture](/concep
   <Card title="Agents" icon="robot" href="#agents">
     Long-lived workers with memory, browser profiles, templates, messaging channels, and tools.
   </Card>
+  <Card title="Model selection" icon="sliders" href="#model-selection">
+    Per-agent and per-task model + thinking level. Mix providers freely across your fleet.
+  </Card>
   <Card title="Workspace" icon="briefcase" href="#workspace">
     CRM, tasks, documents, assets, automations, notifications, and activity.
   </Card>
@@ -91,8 +94,8 @@ An HQ agent is a long-lived workspace — not a chat wrapper.
   <Card title="Messaging channel" icon="message">
     Telegram, Discord, Slack, or none. Each agent gets its own channel binding.
   </Card>
-  <Card title="Runtime session" icon="play">
-    OpenClaw handles prompt assembly, tool calls, and conversation state.
+  <Card title="Model + thinking" icon="sliders">
+    Per-agent model and reasoning depth. Override per-task for one-off complex work.
   </Card>
   <Card title="Org chart" icon="sitemap">
     Optional manager/direct-report relationships for delegation.
@@ -107,6 +110,7 @@ Agents are created from templates under `templates/`. The creation wizard lets y
 The agent detail page includes:
 
 - Overview, status, capabilities, and activity.
+- **Model and thinking level** — pick any connected model and reasoning depth from the right rail. Changes take effect on the next wake, no restart needed.
 - Boot context documents.
 - Direct reports and manager assignment.
 - Trigger and inbox history.
@@ -114,7 +118,6 @@ The agent detail page includes:
 - Operations and command history.
 - Usage and budget controls.
 - Remote desktop access through the assigned gateway.
-- Inline default model/provider selection.
 
 ## Agent Templates
 
@@ -207,11 +210,12 @@ Tasks support:
 - Statuses such as todo, in progress, blocked, done, cancelled, and missed.
 - Priorities and due dates.
 - Recurrence rules.
+- **Per-task model and thinking overrides** — when assigned to an agent, override the model or reasoning depth for this specific execution without changing the agent's default.
 - Comments and mentions.
 - Attachments.
 - Agent inbox wakeups on assignment and reassignment.
 
-Mentioning an agent in a comment creates an inbox item for that agent. Assigning a task to an agent does the same.
+Mentioning an agent in a comment creates an inbox item for that agent. Assigning a task to an agent does the same. Per-task model overrides are carried through the inbox item's context and passed to the agent session at wake time.
 
 ## Documents and Assets
 
@@ -266,11 +270,57 @@ HQ is model-agnostic. Agents work with whatever provider you connect — there i
 
 <CardGroup cols={3}>
   <Card title="API key" icon="key">OpenAI, Anthropic, Gemini, DeepSeek, Mistral, and more.</Card>
-  <Card title="OAuth / device code" icon="right-to-bracket">OpenAI Codex, GitHub Copilot, and interactive flows.</Card>
+  <Card title="OAuth / device code" icon="right-to-bracket">OpenAI subscription, GitHub Copilot, and interactive flows.</Card>
   <Card title="Local models" icon="server">Ollama, LM Studio, vLLM, and OpenAI-compatible servers.</Card>
 </CardGroup>
 
-Model provider auth is managed from Settings → Connections and from the agent rail. The command runner handles auth flows through `agent_commands`. Agents can have default providers/models selected inline from their detail page.
+Model provider auth is managed from Settings → Connections and from the agent rail. The command runner handles auth flows through `agent_commands`.
+
+When the same models are available through multiple connections (e.g. OpenAI API key and OpenAI subscription), HQ unifies them into a single provider group. If both are connected, models appear with route labels ("Subscription" / "API") so you can choose which billing path to use. Subscription-only models like Codex Mini only appear when that connection is active.
+
+## Model Selection
+
+Every agent can run a different model and thinking level — no gateway restart needed, no global config change. This is a core design choice: a fleet of agents should be able to mix expensive reasoning models for complex work with fast cheap models for simple lookups.
+
+<CardGroup cols={2}>
+  <Card title="Per-agent defaults" icon="robot">
+    Set from the agent detail sidebar. Persists across sessions. The agent always wakes with this model unless a task override says otherwise.
+  </Card>
+  <Card title="Per-task overrides" icon="list-check">
+    Override the thinking level (or model) for a specific task. Useful for one-off complex reasoning without changing an agent's default. Passed at wake time through the inbox dispatch mechanism.
+  </Card>
+</CardGroup>
+
+### How it works
+
+| Layer | What it controls | Set from |
+|---|---|---|
+| **Workspace default** | Fallback when no agent-level or task-level override exists | Settings → Connections (first connected model) |
+| **Agent default** | The model and thinking level this agent uses by default | Agent detail page → Model section (right rail) |
+| **Task override** | Overrides the agent's default for one specific task execution | Task form → Model override (when assigned to an agent) |
+
+Resolution is bottom-up: task override wins over agent default, which wins over workspace default.
+
+### Thinking levels
+
+For models that support extended reasoning (Claude, o-series), HQ exposes a thinking level selector:
+
+| Level | Behavior |
+|---|---|
+| **None** | No extended thinking — fastest and cheapest |
+| **Low** | Brief internal reasoning |
+| **Medium** | Moderate reasoning depth |
+| **High** | Maximum reasoning depth — most capable, highest token cost |
+
+### Multi-route providers
+
+Some providers serve the same models through different billing paths. OpenAI models (GPT-5.4, GPT-5.5, o3, o4-mini) are available both via API key (pay-per-token) and via ChatGPT subscription (included in your plan). HQ handles this transparently:
+
+- **One connection:** Models appear under "OpenAI" with no qualifier.
+- **Both connections:** Each model appears twice with "Subscription" (preferred) and "API" route labels. Choose which billing path each agent uses.
+- **Exclusive models:** Codex Mini is subscription-only and only appears when that connection is active.
+
+See [Connect a model provider](/guides/connect-model-provider) for setup and [Inbox dispatch](/reference/inbox-dispatch) for how overrides reach the agent runtime.
 
 ## Networking
 

@@ -126,21 +126,34 @@ AS $$
 DECLARE
   v_agent_slug text;
   v_dedup_key text;
+  v_context jsonb;
 BEGIN
   IF NEW.assignee_agent_id IS NULL THEN RETURN NEW; END IF;
 
   SELECT slug INTO v_agent_slug FROM public.agents WHERE id = NEW.assignee_agent_id;
   IF v_agent_slug IS NULL THEN RETURN NEW; END IF;
 
+  v_context := jsonb_build_object(
+    'task_title', NEW.title,
+    'task_status', NEW.status,
+    'task_priority', NEW.priority
+  );
+  IF NEW.model_override IS NOT NULL THEN
+    v_context := v_context || jsonb_build_object('model_override', NEW.model_override);
+  END IF;
+  IF NEW.thinking_override IS NOT NULL THEN
+    v_context := v_context || jsonb_build_object('thinking_override', NEW.thinking_override);
+  END IF;
+
   IF TG_OP = 'INSERT' OR OLD.assignee_agent_id IS NULL OR OLD.assignee_agent_id != NEW.assignee_agent_id THEN
     IF OLD IS NOT NULL AND OLD.assignee_agent_id IS NOT NULL AND OLD.assignee_agent_id != NEW.assignee_agent_id THEN
       v_dedup_key := 'task_reassignment:' || NEW.id || ':' || NEW.assignee_agent_id;
+      v_context := v_context || jsonb_build_object('previous_agent_id', OLD.assignee_agent_id);
       INSERT INTO public.agent_inbox_items (agent_id, agent_slug, event_type, task_id, summary, dedup_key, context)
       VALUES (
         NEW.assignee_agent_id, v_agent_slug, 'task_reassignment', NEW.id,
         'Task reassigned: ' || COALESCE(NEW.title, 'Untitled'), v_dedup_key,
-        jsonb_build_object('task_title', NEW.title, 'task_status', NEW.status,
-          'task_priority', NEW.priority, 'previous_agent_id', OLD.assignee_agent_id)
+        v_context
       ) ON CONFLICT (dedup_key) DO NOTHING;
     ELSE
       v_dedup_key := 'task_assignment:' || NEW.id || ':' || NEW.assignee_agent_id;
@@ -148,7 +161,7 @@ BEGIN
       VALUES (
         NEW.assignee_agent_id, v_agent_slug, 'task_assignment', NEW.id,
         'Task assigned: ' || COALESCE(NEW.title, 'Untitled'), v_dedup_key,
-        jsonb_build_object('task_title', NEW.title, 'task_status', NEW.status, 'task_priority', NEW.priority)
+        v_context
       ) ON CONFLICT (dedup_key) DO NOTHING;
     END IF;
   END IF;

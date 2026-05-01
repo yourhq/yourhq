@@ -97,6 +97,7 @@ This is the most "I see how it all fits" path through the system. Everything els
    - Creates the agent's branch off the template (or `default`) inside the bare repo at `$HOME/.openclaw/repo.git`.
    - Checks out the branch as a `git worktree` at `$HOME/.openclaw/workspace-<branch>`.
    - Patches `agent.json` with the wizard inputs via `jq`.
+   - Resolves the agent's model (CLI arg → `agent.json` → gateway config → first connected model) and writes it to the agent config.
    - Fills `USER.md` placeholder tokens (`USER_NAME_HERE`, `PREFERRED_NAME_HERE`, `TIMEZONE_HERE`) from the owner profile.
    - Rewrites `IDENTITY.md` `## Name` and `## Emoji` sections.
    - Swaps `BROWSER_PROFILE_HERE` in `TOOLS.md` for the agent's slug.
@@ -232,7 +233,7 @@ Supabase is the backbone. Every piece of coordination — commands, inbox items,
 
 The structures to know:
 
-- **`agent_commands`** — command queue consumed by the runner. Schema in [`014_agent_commands.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/014_agent_commands.sql). Action enum covers `provision`, `update`, `remove`, `approve_pairing`, `restart_gateway`, `restart_dispatcher`, `update_all`, `update_gateway`, and the `auth_*` connection actions. `lease_command(p_lease_seconds, p_gateway_slug)` is the atomic claim; `start_command`, `complete_command`, `fail_command` report back. Rows persist forever (with `stdout`/`stderr`) for the command-history UI.
+- **`agent_commands`** — command queue consumed by the runner. Schema in [`014_agent_commands.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/014_agent_commands.sql). Action enum covers `provision`, `update`, `remove`, `approve_pairing`, `restart_gateway`, `restart_dispatcher`, `update_all`, `update_gateway`, `set_agent_model`, `list_models`, and the `auth_*` connection actions. `lease_command(p_lease_seconds, p_gateway_slug)` is the atomic claim; `start_command`, `complete_command`, `fail_command` report back. Rows persist forever (with `stdout`/`stderr`) for the command-history UI.
 - **`agent_inbox_items`** — background-work queue consumed by agents, not the runner. Inserted by Postgres triggers on `tasks` (task assignment / reassignment), `comments` (@-mentions), and `contacts` (via `automation_rules`). The dispatcher wakes agents; the agent's own session claims work via `lease_inbox_item(p_agent_id, p_lease_seconds)` (see [`013_agent_inbox.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/013_agent_inbox.sql)) and reports via `complete_inbox_item` / `fail_inbox_item`. `dedup_key` + unique constraint prevents duplicates. `attempt_count < max_attempts` bounds retries before dead-lettering.
 - **`gateways`** — registry of known gateway hosts. Each row has `slug`, `label`, `status`, `last_seen_at`, and `meta.reachable_urls`. Seeded with a `default` row so single-gateway installs work without setup.
 - **`gateway_registration_tokens`** — single-use token records minted by the UI when adding a gateway. The plaintext token is shown once in the installer command; the database stores only the hash and expiry metadata.

@@ -44,6 +44,8 @@ export interface Task {
   linked_entity_id: string | null;
   archived_at: string | null;
   meta: Record<string, unknown>;
+  model_override: string | null;
+  thinking_override: string | null;
   series_id: string | null;
   series_occurrence_at: string | null;
   // Joined
@@ -68,6 +70,8 @@ export interface TaskSeries {
   tags: string[];
   linked_entity_type: string | null;
   linked_entity_id: string | null;
+  model_override: string | null;
+  thinking_override: string | null;
   meta: Record<string, unknown>;
   cadence_type: CadenceType;
   interval_n: number;

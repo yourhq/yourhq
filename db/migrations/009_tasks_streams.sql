@@ -67,6 +67,8 @@ ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recurrence_rule text;
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS last_completed_at timestamptz;
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS archived_at timestamptz;
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assignee_type actor_type;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS model_override text;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS thinking_override text;
 
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
@@ -155,9 +157,41 @@ CREATE INDEX IF NOT EXISTS idx_task_series_next_due
 CREATE INDEX IF NOT EXISTS idx_task_series_stream ON task_series(stream_id);
 CREATE INDEX IF NOT EXISTS idx_task_series_assignee ON task_series(assignee_agent_id);
 
+ALTER TABLE task_series ADD COLUMN IF NOT EXISTS model_override text;
+ALTER TABLE task_series ADD COLUMN IF NOT EXISTS thinking_override text;
+
 DROP TRIGGER IF EXISTS task_series_updated_at ON task_series;
 CREATE TRIGGER task_series_updated_at
   BEFORE UPDATE ON task_series FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- Propagate model overrides from series template to spawned tasks.
+CREATE OR REPLACE FUNCTION propagate_series_model_overrides()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  IF NEW.series_id IS NOT NULL AND NEW.model_override IS NULL AND NEW.thinking_override IS NULL THEN
+    UPDATE public.tasks t SET
+      model_override = s.model_override,
+      thinking_override = s.thinking_override
+    FROM public.task_series s
+    WHERE s.id = NEW.series_id
+      AND t.id = NEW.id
+      AND (s.model_override IS NOT NULL OR s.thinking_override IS NOT NULL);
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tasks_propagate_series_model ON tasks;
+CREATE TRIGGER tasks_propagate_series_model
+  AFTER INSERT ON tasks
+  FOR EACH ROW
+  WHEN (NEW.series_id IS NOT NULL)
+  EXECUTE FUNCTION propagate_series_model_overrides();
+
+GRANT EXECUTE ON FUNCTION propagate_series_model_overrides() TO authenticated, service_role;
 
 -- Attach the deferred FK from tasks.series_id → task_series.id
 DO $$ BEGIN

@@ -33,8 +33,10 @@ Both queues use atomic leasing so parallel daemons on different gateways never s
 When a new inbox item arrives (via Realtime or the periodic reconciliation sweep), the dispatcher calls:
 
 ```bash
-openclaw agent --agent <workspace>/<agent-slug> --message "[inbox] <reason> ..."
+openclaw agent --agent <workspace>/<agent-slug> [--model <model-id>] [--thinking <level>] --message "[inbox] <reason> ..."
 ```
+
+The `--model` and `--thinking` flags are included when the inbox item's `context` contains per-task overrides. This lets individual tasks run with different reasoning depth without changing the agent's default configuration.
 
 This is fire-and-forget — the dispatcher doesn't wait for the agent to respond. Before waking, the dispatcher checks:
 

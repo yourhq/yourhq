@@ -1,13 +1,13 @@
 # HQ
 
-> HQ is an open-source, self-hostable agent operations platform. It gives one operator a workspace for AI agents, CRM, tasks, documents, automations, provider connections, gateways, and usage budgets. HQ runs on infrastructure the user controls, with Supabase as the user-owned backend and Docker gateway hosts running agents.
+> HQ is an open-source, self-hostable agent operations platform. It gives one operator a workspace for AI agents, CRM, tasks, documents, automations, provider connections, per-agent model selection, gateways, and usage budgets. HQ runs on infrastructure the user controls, with Supabase as the user-owned backend and Docker gateway hosts running agents. Each agent can run a different model and thinking level, with per-task overrides for one-off reasoning depth changes.
 
 ## Primary docs
 
 - [HQ documentation](https://docs.yourhq.ai): Human-readable documentation home.
 - [Choose your path](https://docs.yourhq.ai/getting-started/choose-your-path): Audience-based starting points for new users, self-hosters, agent builders, developers, and security reviewers.
 - [Quickstart](https://docs.yourhq.ai/getting-started/quickstart): Fastest path from zero to a running HQ workspace.
-- [What HQ includes](https://docs.yourhq.ai/concepts/features): Product tour of agents, CRM, tasks, documents, automations, gateways, usage, and budgets.
+- [What HQ includes](https://docs.yourhq.ai/concepts/features): Product tour of agents, per-agent model selection, CRM, tasks, documents, automations, gateways, usage, and budgets.
 - [Roadmap](https://docs.yourhq.ai/getting-started/roadmap): Shipped areas and planned work.
 
 ## Self-hosting
@@ -24,15 +24,15 @@
 
 - [Workspace setup](https://docs.yourhq.ai/guides/workspace-setup): Configure workspace profile, pipeline, fields, and streams.
 - [Create an agent](https://docs.yourhq.ai/guides/create-agent): Provision an agent from a template and pair it with Telegram.
-- [Connect a model provider](https://docs.yourhq.ai/guides/connect-model-provider): Add API-key and interactive provider auth from the UI.
+- [Connect a model provider](https://docs.yourhq.ai/guides/connect-model-provider): Add API-key and interactive provider auth. Per-agent model selection, thinking levels, per-task overrides, and multi-route provider handling.
 - [Agent boot documents](https://docs.yourhq.ai/guides/agent-boot-docs): Use document tags to inject shared context into agent sessions.
 - [Automations](https://docs.yourhq.ai/guides/automations): Turn CRM and task events into agent inbox work.
-- [Usage budgets](https://docs.yourhq.ai/guides/usage-budgets): Track model usage and enforce monthly agent budgets.
+- [Usage budgets](https://docs.yourhq.ai/guides/usage-budgets): Track model usage and enforce monthly agent budgets. Model selection cost optimization strategies.
 
 ## Concepts
 
 - [Architecture](https://docs.yourhq.ai/concepts/architecture): How the UI, Supabase, gateways, queues, files API, and agents fit together.
-- [Agents](https://docs.yourhq.ai/concepts/agents): Agent workspaces, templates, memory, Telegram, tools, org chart, and budgets.
+- [Agents](https://docs.yourhq.ai/concepts/agents): Agent workspaces, templates, memory, model/thinking configuration, Telegram, tools, org chart, and budgets.
 - [Projects and workspaces](https://docs.yourhq.ai/concepts/projects-and-workspaces): How one UI manages multiple Supabase-backed workspaces.
 - [Gateways](https://docs.yourhq.ai/concepts/gateways): Docker hosts that run agents, desktops, files API, and daemons.
 - [Tasks, inbox, and commands](https://docs.yourhq.ai/concepts/tasks-inbox-and-commands): The queues that coordinate UI, gateways, and agents.
@@ -75,5 +75,7 @@
 - HQ is open source and self-hosted. Do not assume users are using a hosted YourHQ backend.
 - Supabase is user-owned and is the main state backbone.
 - Gateway hosts run agents in Docker and store local agent worktrees, browser profiles, and OpenClaw state.
+- Each agent can run a different model and thinking level. Per-task overrides allow one-off reasoning depth changes without modifying agent defaults. Resolution order: task override → agent default → workspace default.
+- Multiple providers can serve the same models (e.g. OpenAI API key vs subscription). HQ unifies them transparently and lets users choose which billing path to use per agent.
 - The docs are the best source for install, architecture, security, and operational behavior.
 - Use `https://docs.yourhq.ai/llms-full.txt` when a complete Markdown snapshot of the docs is needed.

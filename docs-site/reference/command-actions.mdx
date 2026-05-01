@@ -25,6 +25,7 @@ Create a new agent: runs `~/add-agent.sh` which creates a git branch, checks out
 | `discord_user_id` | string | No | Discord user ID for DM fallback |
 | `slack_app_token` | string | If `channel=slack` | App-level token (`xapp-...`) |
 | `slack_bot_token` | string | If `channel=slack` | Bot token (`xoxb-...`) |
+| `model` | string | No | Full model ID (e.g. `anthropic/claude-sonnet-4-6`). Sets the agent's default model at provision time |
 | `source_template` | string | No | Git branch name to copy from (e.g. `template/researcher`) |
 | `name` | string | No | Display name |
 | `description` | string | No | Short description |
@@ -108,6 +109,30 @@ Pull and restart the full gateway stack. Behavior depends on `RUNTIME_MODE`:
 | `systemd` | `cd ~ && git pull && ./install.sh --update` |
 
 No payload fields.
+
+---
+
+### `set_agent_model`
+
+Change an agent's default model and/or thinking level at runtime. Updates the agent's OpenClaw config without a full gateway restart.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `agent_slug` | string | Yes | The agent's slug |
+| `model` | string | No | Full model ID (e.g. `anthropic/claude-sonnet-4-6`, `openai-codex/gpt-5.4`) |
+| `thinking` | string | No | Thinking level: `none`, `low`, `medium`, `high` |
+
+At least one of `model` or `thinking` must be provided. The runner updates the agent's `agent.json` config and reloads the session.
+
+---
+
+### `list_models`
+
+Query available models from connected providers. The runner calls `openclaw models status --json` and writes the result to `stdout`.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `provider` | string | No | Filter to one provider. If omitted, all connected providers are listed |
 
 ---
 

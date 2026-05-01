@@ -13,6 +13,8 @@ export interface CreateAgentInput {
   templateBranch: string | null;
   reportsToId?: string | null;
   gatewayId?: string;
+  model?: string | null;
+  thinking?: string | null;
   channel?: AgentChannel;
   telegramToken?: string;
   discordToken?: string;
@@ -124,6 +126,8 @@ export async function createAgentWithBranch(
       capabilities: templateMeta?.capabilities ?? [],
       reports_to_id: input.reportsToId ?? null,
       gateway_id: gatewayId,
+      model: input.model ?? null,
+      thinking: input.thinking ?? null,
       meta,
     })
     .select("id")
@@ -247,6 +251,8 @@ export interface UpdateAgentInput {
   agentId: string;
   reportsToId?: string | null;
   heartbeatCron?: string | null;
+  model?: string | null;
+  thinking?: string | null;
 }
 
 export async function updateAgent(input: UpdateAgentInput): Promise<void> {
@@ -267,6 +273,14 @@ export async function updateAgent(input: UpdateAgentInput): Promise<void> {
 
   if (input.heartbeatCron !== undefined) {
     updates.heartbeat_cron = input.heartbeatCron;
+  }
+
+  if (input.model !== undefined) {
+    updates.model = input.model;
+  }
+
+  if (input.thinking !== undefined) {
+    updates.thinking = input.thinking;
   }
 
   if (input.reportsToId !== undefined) {
@@ -326,6 +340,22 @@ export async function updateAgent(input: UpdateAgentInput): Promise<void> {
     );
   }
 
+  if (input.model !== undefined) {
+    summaryParts.push(
+      input.model
+        ? `Set model of '${agent.slug}' to ${input.model}`
+        : `Cleared model for '${agent.slug}'`,
+    );
+  }
+
+  if (input.thinking !== undefined) {
+    summaryParts.push(
+      input.thinking
+        ? `Set thinking of '${agent.slug}' to ${input.thinking}`
+        : `Cleared thinking for '${agent.slug}'`,
+    );
+  }
+
   if (summaryParts.length > 0) {
     await supabase.from("audit_log").insert({
       actor_type: "human",
@@ -373,4 +403,57 @@ export async function toggleAgentPauseAction(
   });
 
   return { ok: true, newStatus };
+}
+
+// ── Set Agent Model + Thinking ─────────────────────────────────────────
+
+export async function setAgentModelAction(
+  agentId: string,
+  model: string | null,
+  thinking: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Unauthorized" };
+
+  const { data: agent } = await supabase
+    .from("agents")
+    .select("id, slug, gateway_id, model, thinking")
+    .eq("id", agentId)
+    .single();
+  if (!agent) return { ok: false, error: "Agent not found" };
+
+  const updates: Record<string, unknown> = {};
+  if (model !== undefined) updates.model = model;
+  if (thinking !== undefined) updates.thinking = thinking;
+
+  if (Object.keys(updates).length > 0) {
+    const { error } = await supabase
+      .from("agents")
+      .update(updates)
+      .eq("id", agentId);
+    if (error) return { ok: false, error: error.message };
+  }
+
+  if (agent.gateway_id) {
+    await supabase.from("agent_commands").insert({
+      agent_id: agentId,
+      agent_slug: agent.slug,
+      gateway_id: agent.gateway_id,
+      action: "set_agent_model",
+      payload: { agent_slug: agent.slug, model, thinking },
+      requested_by: user.id,
+    });
+  }
+
+  await supabase.from("audit_log").insert({
+    actor_type: "human",
+    module: "agents",
+    entity_type: "agent",
+    entity_id: agentId,
+    action: "updated",
+    summary: `Updated model config for '${agent.slug}'${model ? ` → ${model}` : ""}${thinking ? ` (thinking: ${thinking})` : ""}`,
+  });
+
+  return { ok: true };
 }

@@ -46,6 +46,7 @@ AGENT_SLUG=""
 AGENT_DISPLAY_NAME=""
 AGENT_DESCRIPTION=""
 AGENT_EMOJI=""
+AGENT_MODEL_ARG=""
 OWNER_NAME=""
 OWNER_PREFERRED_NAME=""
 OWNER_TIMEZONE=""
@@ -67,6 +68,7 @@ while [[ $# -gt 0 ]]; do
     --emoji)                 AGENT_EMOJI="$2"; shift 2 ;;
     --owner-name)            OWNER_NAME="$2"; shift 2 ;;
     --owner-preferred-name)  OWNER_PREFERRED_NAME="$2"; shift 2 ;;
+    --model)                 AGENT_MODEL_ARG="$2"; shift 2 ;;
     --owner-timezone)        OWNER_TIMEZONE="$2"; shift 2 ;;
     --help|-h)
       sed -n '2,35p' "$0"
@@ -235,7 +237,19 @@ fi
 
 # ── 6. Read the patched manifest for downstream config ─────────────────
 AGENT_NAME_DISPLAY=$(jq -r '.name // empty' "$AGENT_JSON")
-AGENT_MODEL=$(jq -r '.model // "openai-codex/gpt-5.4"' "$AGENT_JSON")
+AGENT_MODEL=""
+if [ -n "$AGENT_MODEL_ARG" ]; then
+  AGENT_MODEL="$AGENT_MODEL_ARG"
+fi
+if [ -z "$AGENT_MODEL" ]; then
+  AGENT_MODEL=$(jq -r '.model // empty' "$AGENT_JSON")
+fi
+if [ -z "$AGENT_MODEL" ]; then
+  AGENT_MODEL=$(jq -r '.models.default // empty' "$CONFIG" 2>/dev/null)
+fi
+if [ -z "$AGENT_MODEL" ]; then
+  AGENT_MODEL=$(openclaw models status --json 2>/dev/null | jq -r '.[0].id // empty' 2>/dev/null || true)
+fi
 # Browser profile name is the bare agent slug — no workspace prefix, so
 # it's filesystem-safe (used as a dir name, openclaw config key, and
 # Desktop filename). Color comes from agent.json's browser_profile_color
