@@ -617,15 +617,8 @@ find "$HOME/.openclaw/browser" -maxdepth 3 -name "Singleton*" -delete 2>/dev/nul
 # ─────────────────────────────────────────────────────────────
 
 log "Starting openclaw gateway (foreground) ..."
-# `openclaw gateway start` expects systemd; `openclaw gateway run` is the
-# foreground command for containers.
-#
 # Export the X11/XDG environment so openclaw's managed browser launcher
-# (which inherits process.env of the gateway) spawns Chrome into our
-# Xtigervnc display. Without these, Chrome-in-container can't find a
-# display and the wrapper reports "CDP websocket not reachable after
-# start" even though the process briefly exists. The XFCE subshell
-# above sets them locally; here we re-export for the openclaw process.
+# spawns Chrome into our Xtigervnc display.
 export DISPLAY=:1
 XDG_RUNTIME_DIR="/tmp/runtime-$(id -u)"
 export XDG_RUNTIME_DIR
