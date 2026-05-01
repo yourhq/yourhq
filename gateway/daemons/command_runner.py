@@ -1101,8 +1101,6 @@ def sync_to_shared_auth():
         real_shared = os.path.realpath(shared_path)
         if real_target == real_shared:
             continue
-        if real_target == best:
-            continue
         try:
             if os.path.islink(target):
                 os.unlink(target)
