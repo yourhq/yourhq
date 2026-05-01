@@ -30,6 +30,12 @@ set -euo pipefail
 # Forward SIGTERM from tini to children
 trap 'kill -TERM $(jobs -p) 2>/dev/null || true; exit 0' TERM INT
 
+# RUNTIME_MODE controls which subsystems the entrypoint starts.
+#   docker   — default. Runs inside docker-compose; daemons are separate containers.
+#   systemd  — bare-metal / VM installs where systemd manages the process.
+#   e2b      — E2B sandbox. Daemons run in-process; no Docker socket; no registry polling.
+RUNTIME_MODE="${RUNTIME_MODE:-docker}"
+
 OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
 CONFIG="$OPENCLAW_HOME/openclaw.json"
 REPO_DIR="$OPENCLAW_HOME/repo.git"
@@ -120,7 +126,12 @@ fi
 REGISTRY_HELPER="/opt/yourhq/registry_config.py"
 [ -f "$REGISTRY_HELPER" ] || REGISTRY_HELPER="/app/registry_config.py"
 
-if [ ! -f "$REGISTRY_HELPER" ]; then
+if [ "$RUNTIME_MODE" = "e2b" ]; then
+  if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
+    log "RUNTIME_MODE=e2b but SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set. Aborting."
+    exit 1
+  fi
+elif [ ! -f "$REGISTRY_HELPER" ]; then
   log "WARNING: registry_config.py not found — registry fallback disabled."
 elif [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
   log "Supabase env not set; waiting for project registry at /config ..."
@@ -340,7 +351,7 @@ if [ ! -f "$HOME/.vnc/passwd" ]; then
     || echo "$VNC_PW" | vncpasswd -f > "$HOME/.vnc/passwd"
   chmod 600 "$HOME/.vnc/passwd"
   echo "$VNC_PW" > "$OPENCLAW_HOME/.vnc-password"
-  log "  VNC password written to $OPENCLAW_HOME/.vnc-password"
+  log "  VNC password written"
 fi
 
 # Clear stale X locks from a crashed previous run.
@@ -508,11 +519,17 @@ if [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
   #   tailscale -> http://<host-tailscale-ip>
   #   public    -> https://<user-domain>
   # The gateway/UI use this to build files-API and noVNC URLs.
+  # Read VNC password so we can include it in the registration metadata.
+  VNC_PW_FILE="$OPENCLAW_HOME/.vnc-password"
+  export REG_VNC_PW=""
+  [ -f "$VNC_PW_FILE" ] && export REG_VNC_PW="$(cat "$VNC_PW_FILE")"
+
   REACHABLE_JSON=$(python3 - << PYEOF
 import json, os
 base = os.environ.get("HOST_REACHABLE_URL", "http://localhost").rstrip("/")
 files_port = os.environ.get("FILES_API_PORT", "18790")
 novnc_port = "6901"
+vnc_pw = os.environ.get("REG_VNC_PW", "")
 meta = {
     "reachable_urls": {
         "base": base,
@@ -522,6 +539,8 @@ meta = {
     "networking_mode": os.environ.get("NETWORKING_MODE", "local"),
     "version": os.environ.get("OPENCLAW_VERSION", ""),
 }
+if vnc_pw:
+    meta["vnc_password"] = vnc_pw
 print(json.dumps(meta))
 PYEOF
   )

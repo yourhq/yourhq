@@ -28,7 +28,7 @@ export default function RootError({
 
   // Detect the stale-project case so we can offer project-specific recovery.
   const looksLikeProjectIssue =
-    /supabase|project|registry|config|getUser|fetch failed|ENOTFOUND/i.test(
+    /supabase|project|registry|config|getUser|fetch failed|ENOTFOUND|database/i.test(
       error.message ?? "",
     );
 
@@ -45,7 +45,7 @@ export default function RootError({
           </h1>
           <p className="text-[13px] text-muted-foreground">
             {looksLikeProjectIssue
-              ? "We couldn't reach the Supabase project you're currently on. " +
+              ? "We couldn't reach your workspace's database. " +
                 "It may have been deleted, paused, or its keys rotated."
               : error.message || "An unexpected error occurred."}
           </p>

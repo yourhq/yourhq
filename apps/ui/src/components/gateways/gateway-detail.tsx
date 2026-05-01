@@ -479,7 +479,7 @@ function ReachableUrlsSection({ gateway }: { gateway: Gateway }) {
           )}
           {novnc && (
             <>
-              <span className="py-0.5 text-muted-foreground">noVNC</span>
+              <span className="py-0.5 text-muted-foreground">Desktop</span>
               <span className="min-w-0 py-0.5">
                 <UrlBadge url={novnc} />
               </span>
@@ -812,23 +812,41 @@ function InlineAlert({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Resolve the gateway's noVNC URL, applying the user's base-URL
-// override if set. Mirrors the server-side
-// getGatewayDesktopUrlAction so client + server agree.
 function resolveNovncUrl(gateway: Gateway): string | null {
   const novnc = gateway.meta.reachable_urls?.novnc ?? null;
   if (!novnc) return null;
   const overrideBase = gateway.meta.reachable_urls_override?.base?.trim();
-  if (!overrideBase) return novnc;
-  try {
-    const u = new URL(novnc);
-    const o = new URL(overrideBase);
-    u.protocol = o.protocol;
-    u.hostname = o.hostname;
-    if (o.port) u.port = o.port;
-    return u.toString();
-  } catch {
-    return novnc;
+  const vncPw = (gateway.meta as Record<string, unknown>).vnc_password as string | undefined;
+
+  if (overrideBase) {
+    try {
+      const u = new URL(novnc);
+      const o = new URL(overrideBase);
+      u.protocol = o.protocol;
+      u.hostname = o.hostname;
+      if (o.port) u.port = o.port;
+      let url = u.toString();
+      if (vncPw) {
+        const sep = url.includes("?") ? "&" : "?";
+        url = `${url}${sep}password=${encodeURIComponent(vncPw)}`;
+      }
+      return url;
+    } catch {
+      return novnc;
+    }
   }
+
+  // Co-located gateway: route through the /desktop/ rewrite proxy.
+  if ((gateway.meta.networking_mode ?? "local") === "local") {
+    const pw = vncPw ? `&password=${encodeURIComponent(vncPw)}` : "";
+    return `/desktop/vnc.html?autoconnect=1&resize=remote&path=desktop/websockify${pw}`;
+  }
+
+  if (vncPw) {
+    const sep = novnc.includes("?") ? "&" : "?";
+    return `${novnc}${sep}password=${encodeURIComponent(vncPw)}`;
+  }
+
+  return novnc;
 }
 

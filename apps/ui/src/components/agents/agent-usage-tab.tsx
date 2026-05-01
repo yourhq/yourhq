@@ -25,6 +25,7 @@ import {
 import { useAgentBudget } from "@/hooks/use-agent-budget";
 import { BUDGET_STATUS_META } from "@/lib/usage/types";
 import type { AgentUsageSummary, AgentUsageRow } from "@/lib/usage/types";
+import { getModelDisplayName, SUBSCRIPTION_PROVIDERS } from "@/lib/models/catalog";
 import { AgentBudgetEditDialog } from "./agent-budget-edit-dialog";
 
 function fmtUsd(n: number): string {
@@ -250,11 +251,16 @@ export function AgentUsageTab({ agentId }: { agentId: string }) {
               <tbody>
                 {byModel.map((m) => (
                   <tr
-                    key={m.model}
+                    key={`${m.provider}/${m.model}`}
                     className="border-b border-border/30 last:border-0"
                   >
-                    <td className="px-3 py-2 font-mono text-foreground">
-                      {m.model}
+                    <td className="px-3 py-2 text-foreground">
+                      <span>{getModelDisplayName(`${m.provider}/${m.model}`)}</span>
+                      {m.subscription && (
+                        <span className="ml-1.5 inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                          Subscription
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
                       {m.calls}
@@ -263,7 +269,7 @@ export function AgentUsageTab({ agentId }: { agentId: string }) {
                       {fmtTokens(m.tokens)}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums text-foreground">
-                      {m.spend_usd != null ? fmtUsd(m.spend_usd) : "—"}
+                      {m.subscription ? "—" : m.spend_usd != null ? fmtUsd(m.spend_usd) : "—"}
                     </td>
                   </tr>
                 ))}
@@ -375,17 +381,27 @@ function RecentRow({ row }: { row: AgentUsageRow }) {
     }
   })();
 
+  const isSubscription = !!(row.meta?.subscription);
+  const displayModel = getModelDisplayName(`${row.provider}/${row.model}`);
+
   return (
     <tr className="border-b border-border/30 last:border-0">
       <td className="px-3 py-1.5 tabular-nums text-muted-foreground">
         {time}
       </td>
-      <td className="px-3 py-1.5 font-mono text-foreground">{row.model}</td>
+      <td className="px-3 py-1.5 text-foreground">
+        {displayModel}
+        {isSubscription && (
+          <span className="ml-1.5 inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+            Sub
+          </span>
+        )}
+      </td>
       <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">
         {fmtTokens(row.input_tokens)} / {fmtTokens(row.output_tokens)}
       </td>
       <td className="px-3 py-1.5 text-right tabular-nums text-foreground">
-        {row.cost_total_usd != null ? fmtUsd(row.cost_total_usd) : "—"}
+        {isSubscription ? "—" : row.cost_total_usd != null ? fmtUsd(row.cost_total_usd) : "—"}
       </td>
     </tr>
   );

@@ -1,50 +1,54 @@
-import type { ModelEntry, ModelCatalogGroup } from "./types";
+import type { ModelEntry, ModelCatalogGroup, ModelPricing } from "./types";
 
 // ── Canonical model definitions ──────────────────────────────────────
 // Each model appears once. The `provider` field is the canonical route
 // used internally. When the user has multiple connections that serve the
 // same model (e.g. openai API key AND openai-codex OAuth), the picker
 // resolves which provider prefix to use at selection time.
+//
+// Pricing: per-million-token costs for budget tracking. The gateway
+// plugin uses the runtime pricing function first and falls back to
+// these values when unavailable.
 
 const CURATED_MODELS: ModelEntry[] = [
   // Anthropic
-  { id: "anthropic/claude-opus-4-6", displayName: "Claude Opus 4.6", provider: "anthropic", providerDisplayName: "Anthropic" },
-  { id: "anthropic/claude-sonnet-4-6", displayName: "Claude Sonnet 4.6", provider: "anthropic", providerDisplayName: "Anthropic" },
-  { id: "anthropic/claude-haiku-4-5-20251001", displayName: "Claude Haiku 4.5", provider: "anthropic", providerDisplayName: "Anthropic" },
+  { id: "anthropic/claude-opus-4-6", displayName: "Claude Opus 4.6", provider: "anthropic", providerDisplayName: "Anthropic", pricing: { inputCostPerMillion: 15, outputCostPerMillion: 75, cacheReadCostPerMillion: 1.5, cacheWriteCostPerMillion: 18.75 } },
+  { id: "anthropic/claude-sonnet-4-6", displayName: "Claude Sonnet 4.6", provider: "anthropic", providerDisplayName: "Anthropic", pricing: { inputCostPerMillion: 3, outputCostPerMillion: 15, cacheReadCostPerMillion: 0.3, cacheWriteCostPerMillion: 3.75 } },
+  { id: "anthropic/claude-haiku-4-5-20251001", displayName: "Claude Haiku 4.5", provider: "anthropic", providerDisplayName: "Anthropic", pricing: { inputCostPerMillion: 0.8, outputCostPerMillion: 4, cacheReadCostPerMillion: 0.08, cacheWriteCostPerMillion: 1 } },
 
   // OpenAI — canonical entries use "openai/" prefix. The picker remaps
   // to "openai-codex/" when that's the only available connection.
   // Both paths serve the same model weights; the prefix is auth/billing only.
-  { id: "openai/gpt-5.4", displayName: "GPT-5.4", provider: "openai", providerDisplayName: "OpenAI" },
-  { id: "openai/gpt-5.5", displayName: "GPT-5.5", provider: "openai", providerDisplayName: "OpenAI" },
-  { id: "openai/o3", displayName: "o3", provider: "openai", providerDisplayName: "OpenAI" },
-  { id: "openai/o4-mini", displayName: "o4-mini", provider: "openai", providerDisplayName: "OpenAI" },
+  { id: "openai/gpt-5.4", displayName: "GPT-5.4", provider: "openai", providerDisplayName: "OpenAI", pricing: { inputCostPerMillion: 2.5, outputCostPerMillion: 10, cacheReadCostPerMillion: 0.625 } },
+  { id: "openai/gpt-5.5", displayName: "GPT-5.5", provider: "openai", providerDisplayName: "OpenAI", pricing: { inputCostPerMillion: 5, outputCostPerMillion: 15, cacheReadCostPerMillion: 1.25 } },
+  { id: "openai/o3", displayName: "o3", provider: "openai", providerDisplayName: "OpenAI", pricing: { inputCostPerMillion: 10, outputCostPerMillion: 40, cacheReadCostPerMillion: 2.5 } },
+  { id: "openai/o4-mini", displayName: "o4-mini", provider: "openai", providerDisplayName: "OpenAI", pricing: { inputCostPerMillion: 1.1, outputCostPerMillion: 4.4, cacheReadCostPerMillion: 0.275 } },
   // codex-mini: subscription-exclusive (optimized for agentic code tasks)
-  { id: "openai-codex/codex-mini-latest", displayName: "Codex Mini", provider: "openai-codex", providerDisplayName: "OpenAI", exclusive: true },
+  { id: "openai-codex/codex-mini-latest", displayName: "Codex Mini", provider: "openai-codex", providerDisplayName: "OpenAI", exclusive: true, billing: "subscription" },
 
   // Google
-  { id: "google/gemini-2.5-pro", displayName: "Gemini 2.5 Pro", provider: "google", providerDisplayName: "Google" },
-  { id: "google/gemini-2.5-flash", displayName: "Gemini 2.5 Flash", provider: "google", providerDisplayName: "Google" },
+  { id: "google/gemini-2.5-pro", displayName: "Gemini 2.5 Pro", provider: "google", providerDisplayName: "Google", pricing: { inputCostPerMillion: 1.25, outputCostPerMillion: 10 } },
+  { id: "google/gemini-2.5-flash", displayName: "Gemini 2.5 Flash", provider: "google", providerDisplayName: "Google", pricing: { inputCostPerMillion: 0.15, outputCostPerMillion: 3.5 } },
 
   // DeepSeek
-  { id: "deepseek/deepseek-chat", displayName: "DeepSeek V3", provider: "deepseek", providerDisplayName: "DeepSeek" },
-  { id: "deepseek/deepseek-reasoner", displayName: "DeepSeek R1", provider: "deepseek", providerDisplayName: "DeepSeek" },
+  { id: "deepseek/deepseek-chat", displayName: "DeepSeek V3", provider: "deepseek", providerDisplayName: "DeepSeek", pricing: { inputCostPerMillion: 0.27, outputCostPerMillion: 1.1, cacheReadCostPerMillion: 0.07 } },
+  { id: "deepseek/deepseek-reasoner", displayName: "DeepSeek R1", provider: "deepseek", providerDisplayName: "DeepSeek", pricing: { inputCostPerMillion: 0.55, outputCostPerMillion: 2.19, cacheReadCostPerMillion: 0.14 } },
 
   // Mistral
-  { id: "mistral/mistral-large-latest", displayName: "Mistral Large", provider: "mistral", providerDisplayName: "Mistral" },
-  { id: "mistral/codestral-latest", displayName: "Codestral", provider: "mistral", providerDisplayName: "Mistral" },
+  { id: "mistral/mistral-large-latest", displayName: "Mistral Large", provider: "mistral", providerDisplayName: "Mistral", pricing: { inputCostPerMillion: 2, outputCostPerMillion: 6 } },
+  { id: "mistral/codestral-latest", displayName: "Codestral", provider: "mistral", providerDisplayName: "Mistral", pricing: { inputCostPerMillion: 0.3, outputCostPerMillion: 0.9 } },
 
   // xAI
-  { id: "xai/grok-3", displayName: "Grok 3", provider: "xai", providerDisplayName: "xAI" },
-  { id: "xai/grok-3-mini", displayName: "Grok 3 Mini", provider: "xai", providerDisplayName: "xAI" },
+  { id: "xai/grok-3", displayName: "Grok 3", provider: "xai", providerDisplayName: "xAI", pricing: { inputCostPerMillion: 3, outputCostPerMillion: 15 } },
+  { id: "xai/grok-3-mini", displayName: "Grok 3 Mini", provider: "xai", providerDisplayName: "xAI", pricing: { inputCostPerMillion: 0.3, outputCostPerMillion: 0.5 } },
 
   // Groq
-  { id: "groq/llama-4-scout-17b-16e-instruct", displayName: "Llama 4 Scout", provider: "groq", providerDisplayName: "Groq" },
-  { id: "groq/llama-4-maverick-17b-128e-instruct", displayName: "Llama 4 Maverick", provider: "groq", providerDisplayName: "Groq" },
+  { id: "groq/llama-4-scout-17b-16e-instruct", displayName: "Llama 4 Scout", provider: "groq", providerDisplayName: "Groq", pricing: { inputCostPerMillion: 0.11, outputCostPerMillion: 0.34 } },
+  { id: "groq/llama-4-maverick-17b-128e-instruct", displayName: "Llama 4 Maverick", provider: "groq", providerDisplayName: "Groq", pricing: { inputCostPerMillion: 0.5, outputCostPerMillion: 0.77 } },
 
   // GitHub Copilot — separate group; distinct subscription + rate limits.
-  { id: "github-copilot/gpt-5.4", displayName: "GPT-5.4", provider: "github-copilot", providerDisplayName: "GitHub Copilot" },
-  { id: "github-copilot/claude-sonnet-4-6", displayName: "Claude Sonnet 4.6", provider: "github-copilot", providerDisplayName: "GitHub Copilot" },
+  { id: "github-copilot/gpt-5.4", displayName: "GPT-5.4", provider: "github-copilot", providerDisplayName: "GitHub Copilot", billing: "subscription" },
+  { id: "github-copilot/claude-sonnet-4-6", displayName: "Claude Sonnet 4.6", provider: "github-copilot", providerDisplayName: "GitHub Copilot", billing: "subscription" },
 ];
 
 const MODEL_INDEX = new Map<string, ModelEntry>();
@@ -222,6 +226,8 @@ export function makeCustomModelEntry(modelId: string): ModelEntry {
     providerDisplayName: provider,
   };
 }
+
+export const SUBSCRIPTION_PROVIDERS = new Set(["openai-codex", "github-copilot"]);
 
 export const AGGREGATOR_PROVIDERS = new Set([
   "openrouter", "together", "fireworks", "huggingface", "deepinfra",

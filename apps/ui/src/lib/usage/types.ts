@@ -48,9 +48,11 @@ export interface AgentUsageSummary {
   daily: { day: string; spend_usd: number | null; tokens: number }[];
   by_model: {
     model: string;
+    provider: string;
     calls: number;
     tokens: number;
     spend_usd: number | null;
+    subscription: boolean;
   }[];
   recent_turns: AgentUsageRow[];
 }

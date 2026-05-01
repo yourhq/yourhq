@@ -245,7 +245,7 @@ function PickPhase({ onPick }: { onPick: (p: ProviderCatalogEntry) => void }) {
         {groups.all.length > 0 && (
           <ProviderGroup
             title="Everything else"
-            description="Other providers openclaw supports."
+            description="Other supported providers."
             providers={groups.all}
             onPick={onPick}
           />
@@ -940,7 +940,7 @@ function InteractivePhase({
         {state.stage === "starting" && (
           <div className="flex items-center gap-2 py-6 text-[12px] text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Asking openclaw to start the sign-in flow…
+            Starting the sign-in flow…
           </div>
         )}
 

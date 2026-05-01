@@ -83,25 +83,39 @@ export async function getGatewayDesktopUrlAction(
   const meta = (data.meta ?? {}) as {
     reachable_urls?: { novnc?: string };
     reachable_urls_override?: { base: string };
+    networking_mode?: string;
+    vnc_password?: string;
   };
 
-  // If the user set an override base URL, swap it into the noVNC URL
-  // path (preserving the query string the gateway wrote).
   let novncUrl: string | null = meta.reachable_urls?.novnc ?? null;
   const overrideBase = meta.reachable_urls_override?.base?.trim();
+
   if (overrideBase && novncUrl) {
     try {
       const u = new URL(novncUrl);
       const o = new URL(overrideBase);
       u.protocol = o.protocol;
       u.hostname = o.hostname;
-      // Preserve port from override unless override has none, in
-      // which case keep the noVNC port (6901).
       if (o.port) u.port = o.port;
       novncUrl = u.toString();
     } catch {
       // Override didn't parse; fall through to the auto URL.
     }
+  }
+
+  // Co-located gateways (local networking mode, no override): route
+  // through the /desktop/ rewrite proxy instead of hitting port 6901
+  // directly — that port is no longer exposed to the host.
+  if (
+    novncUrl &&
+    !overrideBase &&
+    (meta.networking_mode ?? "local") === "local"
+  ) {
+    const pw = meta.vnc_password ? `&password=${encodeURIComponent(meta.vnc_password)}` : "";
+    novncUrl = `/desktop/vnc.html?autoconnect=1&resize=remote&path=desktop/websockify${pw}`;
+  } else if (novncUrl && meta.vnc_password) {
+    const sep = novncUrl.includes("?") ? "&" : "?";
+    novncUrl = `${novncUrl}${sep}password=${encodeURIComponent(meta.vnc_password)}`;
   }
 
   return {

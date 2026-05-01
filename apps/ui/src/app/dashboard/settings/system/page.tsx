@@ -260,7 +260,7 @@ const SYSTEM_ACTIONS: {
   {
     action: "restart_gateway",
     label: "Restart Gateway",
-    description: "Restart the OpenClaw gateway daemon. All agents will briefly disconnect.",
+    description: "Restart the agent runtime. All agents will briefly disconnect.",
     icon: Power,
   },
   {

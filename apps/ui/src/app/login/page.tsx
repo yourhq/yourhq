@@ -24,7 +24,7 @@ export default function LoginPage() {
     try {
       supabase = createClient();
     } catch {
-      setError("Supabase client not ready — complete onboarding first.");
+      setError("Workspace not configured — complete setup first.");
       setLoading(false);
       return;
     }

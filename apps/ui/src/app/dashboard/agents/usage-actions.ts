@@ -66,7 +66,7 @@ export async function fetchAgentUsage(
 
     supabase
       .from("agent_usage")
-      .select("model, cost_total_usd, total_tokens")
+      .select("provider, model, cost_total_usd, total_tokens, meta")
       .eq("agent_id", agentId)
       .order("occurred_at", { ascending: false }),
 
@@ -106,9 +106,11 @@ export async function fetchAgentUsage(
 
   const by_model = buildModelBreakdown(
     (modelRes.data ?? []) as Array<{
+      provider: string;
       model: string;
       cost_total_usd: number | null;
       total_tokens: number;
+      meta: Record<string, unknown>;
     }>,
   );
 
@@ -190,41 +192,46 @@ function buildDailyFromRows(
 
 function buildModelBreakdown(
   rows: Array<{
+    provider: string;
     model: string;
     cost_total_usd: number | null;
     total_tokens: number;
+    meta: Record<string, unknown>;
   }>,
 ): {
   model: string;
+  provider: string;
   calls: number;
   tokens: number;
   spend_usd: number | null;
+  subscription: boolean;
 }[] {
-  const byModel = new Map<
+  const byKey = new Map<
     string,
-    { calls: number; tokens: number; spend: number | null }
+    { provider: string; model: string; calls: number; tokens: number; spend_usd: number | null; subscription: boolean }
   >();
   for (const row of rows) {
-    const prev = byModel.get(row.model) ?? {
+    const key = `${row.provider}/${row.model}`;
+    const isSubscription = !!(row.meta?.subscription);
+    const prev = byKey.get(key) ?? {
+      provider: row.provider,
+      model: row.model,
       calls: 0,
       tokens: 0,
-      spend: null,
+      spend_usd: null,
+      subscription: isSubscription,
     };
-    byModel.set(row.model, {
+    byKey.set(key, {
+      ...prev,
       calls: prev.calls + 1,
       tokens: prev.tokens + row.total_tokens,
-      spend:
+      spend_usd:
         row.cost_total_usd != null
-          ? (prev.spend ?? 0) + row.cost_total_usd
-          : prev.spend,
+          ? (prev.spend_usd ?? 0) + row.cost_total_usd
+          : prev.spend_usd,
+      subscription: prev.subscription || isSubscription,
     });
   }
-  return Array.from(byModel.entries())
-    .sort(([, a], [, b]) => (b.spend ?? 0) - (a.spend ?? 0))
-    .map(([model, v]) => ({
-      model,
-      calls: v.calls,
-      tokens: v.tokens,
-      spend_usd: v.spend,
-    }));
+  return Array.from(byKey.values())
+    .sort((a, b) => (b.spend_usd ?? 0) - (a.spend_usd ?? 0));
 }

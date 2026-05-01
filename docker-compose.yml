@@ -130,13 +130,11 @@ services:
       # in the browser.
       - ui-config:/config:ro
     ports:
-      # Both ports default to loopback-only so a bare `docker compose up` on
-      # a cloud VM doesn't silently expose noVNC or the files-API. The
-      # installer flips these to 0.0.0.0 when the user picks Tailscale or
-      # Public mode. noVNC only has a generated VNC password as its auth
-      # gate and must never be on 0.0.0.0 without either a tight network
-      # (Tailscale) or a reverse proxy with its own auth.
-      - "${NOVNC_HOST_PORT:-127.0.0.1:6901}:6901"
+      # Files-API defaults to loopback-only so a bare `docker compose up` on
+      # a cloud VM doesn't silently expose it. The installer flips this to
+      # 0.0.0.0 when the user picks Tailscale or Public mode.
+      # noVNC is no longer exposed to the host — the UI proxies it through
+      # /api/novnc on the Docker internal network (gateway:6901).
       - "${FILES_API_HOST_PORT:-127.0.0.1:18790}:18790"
 
   dispatcher:

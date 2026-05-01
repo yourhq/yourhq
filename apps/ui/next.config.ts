@@ -26,13 +26,22 @@ const nextConfig: NextConfig = {
       ],
     },
   },
+  async rewrites() {
+    return [
+      {
+        source: "/desktop/:path*",
+        destination: `${process.env.GATEWAY_NOVNC_URL || "http://gateway:6901"}/:path*`,
+      },
+    ];
+  },
   async headers() {
     return [
       {
-        source: "/:path*",
+        source: "/((?!desktop/).*)",
         headers: [
           // Prevent clickjacking and embedded-iframe attacks. HQ never
-          // needs to be iframed into another origin.
+          // needs to be iframed into another origin. Excluded from
+          // /desktop/* so the noVNC iframe can load through the proxy.
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
           // Block MIME sniffing.

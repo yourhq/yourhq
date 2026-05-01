@@ -24,33 +24,23 @@ ENV DEBIAN_FRONTEND=noninteractive \
     DISPLAY=:1 \
     HOME=/home/openclaw \
     OPENCLAW_VERSION=v2026.4.12 \
+    CHROME_VERSION="137.*" \
     NOVNC_VERSION=1.5.0 \
     TARGETARCH=amd64
 
 ARG TARGETARCH
 
-# ── Base packages ────────────────────────────────────────────
+# ── Base packages + XFCE desktop ─────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl wget gnupg jq git openssh-client unzip tini \
       python3 python3-pip \
-      xvfb x11-utils x11-xkb-utils xkb-data dbus-x11 \
+      x11-utils x11-xkb-utils xkb-data dbus-x11 \
       net-tools iproute2 iptables iputils-ping \
       fonts-liberation libatk-bridge2.0-0 libatk1.0-0 libcups2 \
       libdrm2 libgbm1 libgtk-3-0 libnspr4 libnss3 \
       libxcomposite1 libxdamage1 libxrandr2 xdg-utils \
       libxss1 libasound2t64 \
-    && rm -rf /var/lib/apt/lists/*
-
-# ── XFCE desktop environment + modern look ───────────────────
-# A real desktop: panel, menu, file manager, terminal, settings,
-# wallpaper. xfce4-goodies ships xfce4-whiskermenu-plugin (the
-# searchable app menu we wire up below). yaru-theme-* provides the
-# current Ubuntu GTK + icon theme. papirus-icon-theme adds a cleaner
-# icon set.
-#
-# ~500 MB for xfce + ~50 MB for themes. Well worth the headroom for
-# a usable experience.
-RUN apt-get update && apt-get install -y --no-install-recommends \
+      xdotool scrot \
       xfce4 xfce4-goodies xfce4-terminal \
       xfce4-whiskermenu-plugin \
       thunar xdg-user-dirs \
@@ -76,7 +66,7 @@ RUN if [ "$TARGETARCH" = "amd64" ]; then \
       && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" \
         > /etc/apt/sources.list.d/google-chrome.list \
       && apt-get update \
-      && apt-get install -y --no-install-recommends google-chrome-stable \
+      && apt-get install -y --no-install-recommends google-chrome-stable=${CHROME_VERSION} \
       && ln -sf /usr/bin/google-chrome-stable /usr/bin/google-chrome \
       && ln -sf /usr/bin/google-chrome-stable /usr/local/bin/chromium; \
     else \
@@ -107,7 +97,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN mkdir -p /tmp/.X11-unix /tmp/.ICE-unix \
     && chmod 1777 /tmp/.X11-unix /tmp/.ICE-unix
 
-RUN pip3 install --no-cache-dir --break-system-packages websockify==0.12.0
+COPY requirements.txt /tmp/requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements.txt
 
 RUN mkdir -p /usr/share/novnc \
     && curl -fsSL "https://github.com/novnc/noVNC/archive/v${NOVNC_VERSION}.tar.gz" \
@@ -200,5 +191,8 @@ EXPOSE 18789
 
 USER openclaw
 WORKDIR /home/openclaw
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=60s \
+  CMD wget -qO- http://localhost:18790/healthz || exit 1
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]

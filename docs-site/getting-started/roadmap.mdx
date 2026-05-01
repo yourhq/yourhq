@@ -1,20 +1,31 @@
 # Roadmap
 
-This doc captures where HQ is now and what remains. Older phase labels are historical context only; several items that used to be described as Phase 2 or Phase 3 are now implemented.
+Where HQ is now, what ships in v0.1, and what comes after.
 
 ## Shipped
 
-### Foundations
+### Core platform
 
-- One repo (`yourhq/yourhq`) for UI, gateway, dispatcher, runner, templates, migrations, and installers
-- `docker-compose.yml` stack with four services
+- One repo (`yourhq/yourhq`) for UI, gateway, dispatcher, runner, templates, migrations, installer, and docs
+- `docker-compose.yml` stack with four services and Docker healthchecks on all of them
 - Interactive `installer/install.sh` with local, Tailscale, and public networking modes
-- Gateway runtime with OpenClaw, Chrome/Chromium, Xtigervnc, XFCE, noVNC, and files API
-- Agent templates bundled into the image
+- Gateway runtime with OpenClaw, Chrome/Chromium, Xtigervnc, XFCE desktop, noVNC, and files API
+- `RUNTIME_MODE` env var (`docker` | `systemd` | `e2b`) for portable entrypoint behavior
+- Agent templates bundled into the gateway image (16 templates, each with a README)
 - Multi-arch GHCR images for amd64 and arm64
-- Multi-gateway database model with `gateways` and `agents.gateway_id`
-- Gateway file browser/editor through the files API
+- Multi-gateway database model with `gateways` table and `agents.gateway_id`
 - Tailscale as a host-level dependency, not a container dependency
+
+### Multi-tenant schema
+
+- `tenants` table with a fixed default UUID for single-tenant OSS installs
+- `tenant_id` foreign key on all ~30 tenant-owned tables with cascade deletes
+- Tenant-scoped unique constraints (e.g. `gateways(tenant_id, slug)` instead of `gateways(slug)`)
+- RLS policies scoped by `tenant_id` extracted from JWT `app_metadata`
+- All RPCs and triggers updated for tenant-aware leasing and filtering
+- Status enum unification: `ready`, `error`, `paused`, `provisioning`, `hibernating` for both agents and gateways
+- `_schema_version` tracking table (currently at v22)
+- `last_heartbeat_at` on both `gateways` and `agents` tables
 
 ### Workspace and onboarding
 
@@ -23,71 +34,88 @@ This doc captures where HQ is now and what remains. Older phase labels are histo
 - Runtime Supabase config injection with no `NEXT_PUBLIC_*` rebuild requirement
 - Project switcher and project settings
 - Supabase validation during onboarding
-- Account creation/sign-in flow
+- Account creation and sign-in flow
 - Workspace setup wizard with presets for owner profile, pipeline, fields, and streams
 - CRM, tasks, documents, assets, automations, notifications, activity, and settings pages
 
 ### Gateway and provider operations
 
-- Settings -> Gateways UI
-- Single-use gateway registration tokens
-- Generated gateway installer command
-- Gateway health, stale heartbeat status, label editing, and URL override support
-- noVNC desktop modal from the UI
-- Settings -> Connections UI
-- API-key, OAuth-paste, device-code, CLI-reuse, and local URL provider auth flows through the command runner
+- Settings → Gateways UI with health indicators, stale heartbeat detection, and label editing
+- Single-use gateway registration tokens and generated installer command
+- URL override support for custom domains and reverse proxies
+- Desktop modal proxied through the UI — no exposed VNC port, auto-connects with the gateway's password
+- Desktop label in the UI (not "noVNC")
+- Pause and resume controls for both gateways and agents
+- Settings → Connections UI
+- API-key, OAuth-paste, device-code, CLI-reuse, and local URL provider auth flows
 - Provider list, removal, refresh, and default-model command support
+- Template update propagation ("Update agents" button dispatches `update_all` to the gateway)
 
 ### Agent operations
 
 - Agent creation wizard from templates
 - Multi-channel support (Telegram, Discord, Slack, None) with per-channel credential provisioning and pairing
-- Agent file browser/editor
+- Agent file browser and editor
 - Agent operations and command history
 - Agent boot-context documents through `boot:all` and `boot:<agent-slug>` tags
 - Agent triggers and inbox history
-- Inline model/provider default selection
+- Per-agent heartbeat scheduling with cron presets (15 min to daily) via pg_cron
+- Inline model and provider default selection
 - Agent org chart through `reports_to_id`
 - Runtime delegation context for managers and direct reports
 - Per-agent LLM usage tracking and monthly budgets
-- Budget warning/exceeded notifications and hard cutoff enforcement
+- Budget warning, exceeded notifications, and hard cutoff enforcement
 
-### Observability and gateway management
+### Observability and operations
 
-- Gateway update from UI (pull images, restart) with confirmation dialog
 - System page with Commands, Inbox, and Audit Log tabs
 - Status, module, action, and actor filters across all log views
 - Realtime subscriptions and pagination on all log views
+- Structured JSON logging in both daemons (gateway_id and tenant_id in every line)
+- Schema version banner ("Update available") in the dashboard shell
+- `scripts/diagnostic-bundle.sh` for support triage
 
-## Next
+### Docs and migration tooling
 
-These are the most useful near-term areas for contributors.
+- Docs site at `docs.yourhq.ai` (Mintlify) with self-host, concepts, and reference sections
+- Public deployment guide covering Tailscale Serve, Tailscale Funnel, Cloudflare Tunnel, and classic reverse proxies
+- Security hardening guide (Supabase auth gates, RLS, noVNC exposure, gateway auth tokens)
+- Per-template READMEs explaining intended role, tools, and first tasks
+- Migration runner CLI (`apps/migrate/`) with one-click and SQL editor fallback modes
 
-- **Migration runner** — replace copy/paste SQL instructions with a guided migration command or UI flow.
+## Remaining for v0.1
+
+Small items to address before tagging. None are blockers, but they'd be good to ship.
+
+- **End-to-end install test** — fresh VPS, Codespaces, and M-series Mac. Manual checklist is fine for v0.1; automated test suite can follow.
+
+## Next (post-v0.1)
+
+- **Sentry (env-gated)** — `sentry-sdk` in daemons, `@sentry/nextjs` in UI. Only active when `SENTRY_DSN` is set. Ships alongside other hosted integrations.
 - **Templates source UI** — switch between bundled templates and a custom git URL per project.
-- **Public deployment guide** — reverse proxy, Cloudflare Tunnel, TLS, and auth hardening examples.
-- **Pretty tailnet URLs** — optional Tailscale Serve setup for users who want `http://hq` instead of ported URLs.
-- **Richer budget pricing** — broader model pricing map and clearer treatment of unmetered providers.
-- **Template docs** — per-template READMEs that explain intended role, tools, and first tasks.
-- **Docs site** — render this repository's markdown docs at `docs.yourhq.ai`.
+- **Pretty tailnet URLs** — optional Tailscale Serve automation in the installer for `http://hq` instead of ported URLs.
 
 ## Hosted Offering
 
-`yourhq.ai` signup flow for users who do not want to self-host. This is a business-layer addition, not a product change; the self-hosted code should stay usable on its own.
+`yourhq.ai` signup flow for users who do not want to self-host. Same monorepo, same images, controlled by `DEPLOYMENT_MODE=hosted` env var. Self-hosted code stays usable on its own.
 
-- Account management service
-- Signup and billing
-- Automated Supabase project provisioning per tenant
-- Automated gateway provisioning on managed hosts
-- Registry source swap: hosted UI reads project registry from account infrastructure instead of `/config/projects.json`
+- Worker service (`apps/worker/`) for provisioning, billing, and sandbox lifecycle
+- Per-user Supabase project provisioning via Management API
+- E2B sandbox hosting (gateway Dockerfile runs on E2B with `RUNTIME_MODE=e2b`)
+- Stripe billing ($30/month per workspace, self-serve add/cancel)
+- Magic link authentication
+- Hosted registry backed by a master Supabase accounts database
+- noVNC proxy with E2B access token injection (extends the `/desktop/` proxy already in OSS)
+- Onboarding flow that skips Supabase and gateway setup steps
 
 ## Longer-Term Ideas
 
-- Per-agent view in the Open Desktop modal with pause, takeover, and resume
+- Free hosted tier with shared Supabase and tenant data portability (export → bundle → import)
+- Per-agent view in the desktop modal with pause, takeover, and resume
 - Agent-to-agent workflow builder
-- Native apps such as macOS menu bar and iOS Shortcuts integration
-- Marketplace for community templates
-- MCP-first integrations where they can replace direct plugins cleanly
+- Native apps (macOS menu bar, iOS Shortcuts)
+- Community template marketplace
+- MCP-first integrations where they can replace direct plugins
 - Stronger per-agent isolation for operators who need stricter security boundaries
 
 ## How To Influence The Roadmap

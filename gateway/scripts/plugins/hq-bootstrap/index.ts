@@ -8,6 +8,31 @@ const execFileAsync = promisify(execFile);
 const MAX_RETRIES = 3;
 const STALE_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+const SUBSCRIPTION_PROVIDERS = new Set(["openai-codex", "github-copilot"]);
+
+// Fallback per-million-token pricing when the runtime pricing function
+// returns null. Keyed by bare model name (no provider prefix).
+// Keep in sync with apps/ui/src/lib/models/catalog.ts.
+const FALLBACK_PRICING: Record<string, { input_cost_per_million: number; output_cost_per_million: number; cache_read_cost_per_million?: number; cache_write_cost_per_million?: number }> = {
+  "claude-opus-4-6":                      { input_cost_per_million: 15,    output_cost_per_million: 75,   cache_read_cost_per_million: 1.5,   cache_write_cost_per_million: 18.75 },
+  "claude-sonnet-4-6":                    { input_cost_per_million: 3,     output_cost_per_million: 15,   cache_read_cost_per_million: 0.3,   cache_write_cost_per_million: 3.75 },
+  "claude-haiku-4-5-20251001":            { input_cost_per_million: 0.8,   output_cost_per_million: 4,    cache_read_cost_per_million: 0.08,  cache_write_cost_per_million: 1 },
+  "gpt-5.4":                              { input_cost_per_million: 2.5,   output_cost_per_million: 10,   cache_read_cost_per_million: 0.625 },
+  "gpt-5.5":                              { input_cost_per_million: 5,     output_cost_per_million: 15,   cache_read_cost_per_million: 1.25 },
+  "o3":                                   { input_cost_per_million: 10,    output_cost_per_million: 40,   cache_read_cost_per_million: 2.5 },
+  "o4-mini":                              { input_cost_per_million: 1.1,   output_cost_per_million: 4.4,  cache_read_cost_per_million: 0.275 },
+  "gemini-2.5-pro":                       { input_cost_per_million: 1.25,  output_cost_per_million: 10 },
+  "gemini-2.5-flash":                     { input_cost_per_million: 0.15,  output_cost_per_million: 3.5 },
+  "deepseek-chat":                        { input_cost_per_million: 0.27,  output_cost_per_million: 1.1,  cache_read_cost_per_million: 0.07 },
+  "deepseek-reasoner":                    { input_cost_per_million: 0.55,  output_cost_per_million: 2.19, cache_read_cost_per_million: 0.14 },
+  "mistral-large-latest":                 { input_cost_per_million: 2,     output_cost_per_million: 6 },
+  "codestral-latest":                     { input_cost_per_million: 0.3,   output_cost_per_million: 0.9 },
+  "grok-3":                               { input_cost_per_million: 3,     output_cost_per_million: 15 },
+  "grok-3-mini":                          { input_cost_per_million: 0.3,   output_cost_per_million: 0.5 },
+  "llama-4-scout-17b-16e-instruct":       { input_cost_per_million: 0.11,  output_cost_per_million: 0.34 },
+  "llama-4-maverick-17b-128e-instruct":   { input_cost_per_million: 0.5,   output_cost_per_million: 0.77 },
+};
+
 // ── Supabase REST helpers ──────────────────────────────────────
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
@@ -291,6 +316,7 @@ export default definePluginEntry({
       const usage = event.usage ?? {};
       const model = event.model ?? "unknown";
       const provider = event.provider ?? "unknown";
+      const isSubscription = SUBSCRIPTION_PROVIDERS.has(provider);
 
       const inputTokens = usage.input_tokens ?? usage.prompt_tokens ?? 0;
       const outputTokens = usage.output_tokens ?? usage.completion_tokens ?? 0;
@@ -304,19 +330,28 @@ export default definePluginEntry({
       let costCacheWrite: number | null = null;
       let costTotal: number | null = null;
 
-      try {
-        const pricing = typeof (globalThis as any).getCachedGatewayModelPricing === "function"
-          ? (globalThis as any).getCachedGatewayModelPricing(model)
-          : null;
-        if (pricing) {
-          costInput = (inputTokens / 1_000_000) * (pricing.input_cost_per_million ?? 0);
-          costOutput = (outputTokens / 1_000_000) * (pricing.output_cost_per_million ?? 0);
-          costCacheRead = (cacheRead / 1_000_000) * (pricing.cache_read_cost_per_million ?? pricing.input_cost_per_million ?? 0);
-          costCacheWrite = (cacheWrite / 1_000_000) * (pricing.cache_write_cost_per_million ?? pricing.input_cost_per_million ?? 0);
-          costTotal = costInput + costOutput + costCacheRead + costCacheWrite;
+      if (isSubscription) {
+        costInput = 0;
+        costOutput = 0;
+        costCacheRead = 0;
+        costCacheWrite = 0;
+        costTotal = 0;
+      } else {
+        try {
+          let pricing = typeof (globalThis as any).getCachedGatewayModelPricing === "function"
+            ? (globalThis as any).getCachedGatewayModelPricing(model)
+            : null;
+          if (!pricing) pricing = FALLBACK_PRICING[model] ?? null;
+          if (pricing) {
+            costInput = (inputTokens / 1_000_000) * (pricing.input_cost_per_million ?? 0);
+            costOutput = (outputTokens / 1_000_000) * (pricing.output_cost_per_million ?? 0);
+            costCacheRead = (cacheRead / 1_000_000) * (pricing.cache_read_cost_per_million ?? pricing.input_cost_per_million ?? 0);
+            costCacheWrite = (cacheWrite / 1_000_000) * (pricing.cache_write_cost_per_million ?? pricing.input_cost_per_million ?? 0);
+            costTotal = costInput + costOutput + costCacheRead + costCacheWrite;
+          }
+        } catch {
+          // unmetered — cost stays null
         }
-      } catch {
-        // unmetered — cost stays null
       }
 
       const sessionId = ctx.sessionId ?? "";
@@ -342,7 +377,7 @@ export default definePluginEntry({
         cost_cache_read_usd: costCacheRead,
         cost_cache_write_usd: costCacheWrite,
         cost_total_usd: costTotal,
-        meta: costTotal != null ? {} : { unmetered: true },
+        meta: isSubscription ? { subscription: true } : (costTotal != null ? {} : { unmetered: true }),
       });
 
       invalidateBudgetCache(agentId);

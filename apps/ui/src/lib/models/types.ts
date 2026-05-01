@@ -1,5 +1,14 @@
 export type ThinkingLevel = "off" | "low" | "medium" | "high" | "xhigh" | "max";
 
+export interface ModelPricing {
+  inputCostPerMillion: number;
+  outputCostPerMillion: number;
+  cacheReadCostPerMillion?: number;
+  cacheWriteCostPerMillion?: number;
+}
+
+export type BillingType = "per_token" | "subscription";
+
 export interface ModelEntry {
   id: string;
   displayName: string;
@@ -9,6 +18,8 @@ export interface ModelEntry {
   viaLabel?: string;
   /** If true, model is only available through its specific provider — not remappable */
   exclusive?: boolean;
+  billing?: BillingType;
+  pricing?: ModelPricing;
 }
 
 export interface ModelCatalogGroup {
