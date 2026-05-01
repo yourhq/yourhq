@@ -20,7 +20,14 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
-    const supabase = createClient();
+    let supabase;
+    try {
+      supabase = createClient();
+    } catch {
+      setError("Supabase client not ready — complete onboarding first.");
+      setLoading(false);
+      return;
+    }
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,

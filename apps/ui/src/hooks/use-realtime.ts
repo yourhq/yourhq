@@ -36,7 +36,13 @@ export function useRealtime({
   onPayload,
   enabled = true,
 }: UseRealtimeOptions) {
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = useMemo(() => {
+    try {
+      return createClient();
+    } catch {
+      return null;
+    }
+  }, []);
   const instanceId = useId();
   const onPayloadRef = useRef(onPayload);
 
@@ -45,7 +51,7 @@ export function useRealtime({
   }, [onPayload]);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !supabase) return;
 
     // Channel names must be unique per hook instance. Two components subscribing
     // to the same table with the same filter would otherwise collide and Supabase

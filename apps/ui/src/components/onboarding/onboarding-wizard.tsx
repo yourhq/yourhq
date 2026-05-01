@@ -166,6 +166,19 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
       supabaseAnonKey: result.anonKey,
       projectId: result.projectId,
     });
+    // The root layout's HqConfigScript ran before the project existed, so
+    // window.__HQ_CONFIG__ is null. Patch it now so client-side code
+    // (useRealtime, createClient, AddConnectionDialog) works on subsequent
+    // steps without a full page reload.
+    if (typeof window !== "undefined") {
+      window.__HQ_CONFIG__ = {
+        projectId: result.projectId,
+        url: result.url,
+        anonKey: result.anonKey,
+        label: result.workspaceLabel,
+        emoji: result.workspaceEmoji,
+      };
+    }
     go("account");
   };
 
