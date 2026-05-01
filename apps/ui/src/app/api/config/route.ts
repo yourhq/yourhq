@@ -1,16 +1,12 @@
 // Public, unauthed read of the active project's browser-safe config.
 //
-// Returns the same fields that the root layout already injects via
-// `window.__HQ_CONFIG__` — so this endpoint never exposes anything the
-// HTML response doesn't. Service role keys live in /config/secrets.json
-// and never appear here.
+// Returns the same fields the HqConfigProvider passes to client
+// components. Service role keys live in /config/secrets.json and
+// never appear here.
 //
-// Why this exists: the middleware allows `/api/config` to be reached
-// without a configured project (it's in NO_PROJECT_OK_PATHS), so the
-// browser can probe whether the server has a project yet. Once we
-// support project-switch-without-reload, the client can call this
-// endpoint to refresh `window.__HQ_CONFIG__` instead of forcing a
-// hard reload.
+// The middleware allows `/api/config` to be reached without a
+// configured project (it's in NO_PROJECT_OK_PATHS), so the browser
+// can probe whether the server has a project yet.
 
 import { NextResponse } from "next/server";
 import { getActiveProject } from "@/lib/projects/registry";

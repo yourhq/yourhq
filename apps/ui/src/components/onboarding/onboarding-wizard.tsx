@@ -28,6 +28,7 @@ import { StepWorkspace } from "./steps/step-workspace";
 import { StepDone } from "./steps/step-done";
 import { StepRail, StepRailMobile, type StepRailItem } from "./step-rail";
 import { useWizardNavigation } from "./use-wizard-navigation";
+import { setHqConfig } from "@/lib/projects/hq-config-provider";
 
 export interface WizardInitialState {
   step: OnboardingStep;
@@ -166,19 +167,17 @@ export function OnboardingWizard({ initial }: { initial: WizardInitialState }) {
       supabaseAnonKey: result.anonKey,
       projectId: result.projectId,
     });
-    // The root layout's HqConfigScript ran before the project existed, so
-    // window.__HQ_CONFIG__ is null. Patch it now so client-side code
+    // The root layout rendered before the project existed, so the config
+    // provider has null. Update the module-level store so client-side code
     // (useRealtime, createClient, AddConnectionDialog) works on subsequent
     // steps without a full page reload.
-    if (typeof window !== "undefined") {
-      window.__HQ_CONFIG__ = {
-        projectId: result.projectId,
-        url: result.url,
-        anonKey: result.anonKey,
-        label: result.workspaceLabel,
-        emoji: result.workspaceEmoji,
-      };
-    }
+    setHqConfig({
+      projectId: result.projectId,
+      url: result.url,
+      anonKey: result.anonKey,
+      label: result.workspaceLabel,
+      emoji: result.workspaceEmoji,
+    });
     go("account");
   };
 

@@ -102,7 +102,7 @@ export type SecretsFile = z.infer<typeof secretsFileSchema>;
 // service role key (gateway provisioning, command enqueue with elevated
 // privileges, etc.). Never serialize a ProjectWithSecrets to anything
 // that reaches the browser — TypeScript catches accidental leaks at
-// compile time because /api/config and window.__HQ_CONFIG__ are typed
+// compile time because /api/config and HqConfigProvider are typed
 // to PublicProject.
 
 export type ProjectWithSecrets = PublicProject & ProjectSecrets;

@@ -39,9 +39,9 @@ export async function updateSession(request: NextRequest) {
 
   // Clear a stale cookie: cookie pointed at a project id that no longer
   // exists, but getActiveProject fell through to another project. Without
-  // this, the client's window.__HQ_CONFIG__ reflects one project while
-  // the cookie still says another — next request flips back. Overwrite
-  // the cookie with whatever we actually resolved to.
+  // this, the client's config reflects one project while the cookie still
+  // says another — next request flips back. Overwrite the cookie with
+  // whatever we actually resolved to.
   if (activeIdHint && activeIdHint !== project.id) {
     supabaseResponse.cookies.set(ACTIVE_PROJECT_COOKIE, project.id, {
       path: "/",

@@ -54,7 +54,7 @@ def register_agent() -> dict:
         "description": agent_meta.get("description"),
         "domains": agent_meta.get("domains", []),
         "capabilities": agent_meta.get("capabilities", []),
-        "status": "online",
+        "status": "ready",
         "last_seen_at": now_iso(),
     }
     if existing:

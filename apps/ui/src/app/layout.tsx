@@ -2,7 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
-import { HqConfigScript } from "@/lib/projects/inject-config";
+import { HqConfigProvider } from "@/lib/projects/hq-config-provider";
+import { readActiveProjectPublic } from "@/lib/projects/server";
+import { getOrCreateGatewayAuthToken } from "@/lib/projects/gateway-auth-token";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -39,26 +41,37 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  void getOrCreateGatewayAuthToken().catch((err) => {
+    console.warn("[gateway-auth-token] init failed:", (err as Error).message);
+  });
+
+  const project = await readActiveProjectPublic();
+  const hqConfig = project
+    ? {
+        projectId: project.id,
+        url: project.url,
+        anonKey: project.anonKey,
+        label: project.label,
+        emoji: project.emoji,
+      }
+    : null;
+
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        {/* Injects window.__HQ_CONFIG__ with the active project's public
-            Supabase config. Must render in <head> before any client
-            component tries to read it. Server-component — safe. */}
-        <HqConfigScript />
-      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-          <Toaster />
-        </ThemeProvider>
+        <HqConfigProvider config={hqConfig}>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            {children}
+            <Toaster />
+          </ThemeProvider>
+        </HqConfigProvider>
       </body>
     </html>
   );

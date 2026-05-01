@@ -469,6 +469,33 @@ def cleanup_auth_flow(cmd_id, sock=None):
             pass
 
 
+PROVIDER_DEFAULT_MODELS = {
+    "openai-codex": "openai-codex/gpt-5.4",
+    "openai": "openai/gpt-5.4",
+    "anthropic": "anthropic/claude-sonnet-4-5-20250514",
+    "google": "google/gemini-2.5-pro",
+}
+
+
+def _set_default_model_for_provider(provider):
+    """Best-effort: set openclaw's global default model after connecting a provider."""
+    model = PROVIDER_DEFAULT_MODELS.get(provider)
+    if not model:
+        model = f"{provider}/default"
+    try:
+        result = subprocess.run(
+            ["openclaw", "models", "set", model],
+            capture_output=True, text=True, timeout=15,
+            env={**os.environ, "HOME": HOME},
+        )
+        if result.returncode == 0:
+            log(f"Set default model to {model} after connecting {provider}")
+        else:
+            log(f"Failed to set default model to {model}: {result.stderr[:200]}")
+    except Exception as e:
+        log(f"Failed to set default model: {e}")
+
+
 def handle_auth_set_api_key(cmd_id, payload):
     """Single-shot path for api_key shape — no interactivity required.
 
@@ -531,6 +558,7 @@ def handle_auth_set_api_key(cmd_id, payload):
 
         if result.returncode == 0:
             sync_to_shared_auth()
+            _set_default_model_for_provider(provider)
 
         # Scrub the API key from the row immediately on completion.
         scrubbed = {k: v for k, v in payload.items() if k not in ("api_key", "base_url")}
@@ -743,6 +771,7 @@ def handle_auth_start(cmd_id, payload):
     if rc == 0:
         profile_id = f"{provider}:{profile_name}"
         sync_to_shared_auth()
+        _set_default_model_for_provider(provider)
         patch_command_payload(cmd_id, {
             "connection_state": {"stage": "completed", "profileId": profile_id},
         })

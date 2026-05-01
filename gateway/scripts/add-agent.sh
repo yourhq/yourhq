@@ -235,7 +235,7 @@ fi
 
 # ── 6. Read the patched manifest for downstream config ─────────────────
 AGENT_NAME_DISPLAY=$(jq -r '.name // empty' "$AGENT_JSON")
-AGENT_MODEL=$(jq -r '.model // "openai-codex/gpt-4o"' "$AGENT_JSON")
+AGENT_MODEL=$(jq -r '.model // "openai-codex/gpt-5.4"' "$AGENT_JSON")
 # Browser profile name is the bare agent slug — no workspace prefix, so
 # it's filesystem-safe (used as a dir name, openclaw config key, and
 # Desktop filename). Color comes from agent.json's browser_profile_color
