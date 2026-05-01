@@ -135,11 +135,11 @@ BEGIN
   UPDATE public.agent_budgets SET
     status =
       CASE
-        WHEN monthly_limit_usd IS NULL                                            THEN 'ok'
-        WHEN current_period_metered_calls = 0 AND current_period_unmetered_calls > 0 THEN 'unmetered'
-        WHEN current_period_spend_usd >= monthly_limit_usd                        THEN 'exceeded'
-        WHEN current_period_spend_usd >= monthly_limit_usd * soft_threshold_pct / 100.0 THEN 'warned'
-        ELSE 'ok'
+        WHEN monthly_limit_usd IS NULL                                            THEN 'ok'::public.budget_status
+        WHEN current_period_metered_calls = 0 AND current_period_unmetered_calls > 0 THEN 'unmetered'::public.budget_status
+        WHEN current_period_spend_usd >= monthly_limit_usd                        THEN 'exceeded'::public.budget_status
+        WHEN current_period_spend_usd >= monthly_limit_usd * soft_threshold_pct / 100.0 THEN 'warned'::public.budget_status
+        ELSE 'ok'::public.budget_status
       END,
     warned_at   = CASE
                     WHEN current_period_spend_usd >= coalesce(monthly_limit_usd, 'Infinity'::numeric)
@@ -151,7 +151,7 @@ BEGIN
   WHERE agent_id = NEW.agent_id
   RETURNING status INTO v_new_status;
 
-  IF v_old_status IS DISTINCT FROM 'warned' AND v_new_status = 'warned' THEN
+  IF v_old_status IS DISTINCT FROM 'warned'::public.budget_status AND v_new_status = 'warned'::public.budget_status THEN
     INSERT INTO public.notifications (type, title, body, entity_type, entity_id, actor_type, meta)
     SELECT 'budget.warned',
            'Agent ' || a.name || ' near monthly budget',
@@ -169,7 +169,7 @@ BEGIN
     WHERE b.agent_id = NEW.agent_id
     ON CONFLICT DO NOTHING;
 
-  ELSIF v_old_status IS DISTINCT FROM 'exceeded' AND v_new_status = 'exceeded' THEN
+  ELSIF v_old_status IS DISTINCT FROM 'exceeded'::public.budget_status AND v_new_status = 'exceeded'::public.budget_status THEN
     INSERT INTO public.notifications (type, title, body, entity_type, entity_id, actor_type, meta)
     SELECT 'budget.exceeded',
            'Agent ' || a.name || ' exceeded monthly budget',
@@ -241,11 +241,11 @@ BEGIN
     last_usage_at                  = agg.last_at,
     status =
       CASE
-        WHEN b.monthly_limit_usd IS NULL THEN 'ok'
-        WHEN agg.metered = 0 AND agg.unmetered > 0 THEN 'unmetered'
-        WHEN agg.spend >= b.monthly_limit_usd THEN 'exceeded'
-        WHEN agg.spend >= b.monthly_limit_usd * b.soft_threshold_pct / 100.0 THEN 'warned'
-        ELSE 'ok'
+        WHEN b.monthly_limit_usd IS NULL THEN 'ok'::public.budget_status
+        WHEN agg.metered = 0 AND agg.unmetered > 0 THEN 'unmetered'::public.budget_status
+        WHEN agg.spend >= b.monthly_limit_usd THEN 'exceeded'::public.budget_status
+        WHEN agg.spend >= b.monthly_limit_usd * b.soft_threshold_pct / 100.0 THEN 'warned'::public.budget_status
+        ELSE 'ok'::public.budget_status
       END,
     warned_at   = CASE WHEN agg.spend < coalesce(b.monthly_limit_usd, 'Infinity'::numeric)
                                        * b.soft_threshold_pct / 100.0
