@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mintGatewayToken, checkTokenConsumed } from "@/lib/gateways/mint-token";
 import { buildGatewayOneLiner } from "@/lib/gateways/one-liner";
-import { getActiveProjectWithSecrets } from "@/lib/projects/registry";
+import { getActiveProjectWithSecrets } from "@/lib/projects";
 import type { Gateway } from "@/lib/gateways/types";
 
 export interface GatewayMintInput {

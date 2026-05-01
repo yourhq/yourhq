@@ -196,6 +196,34 @@ services:
       # restart_dispatcher, update_self actions).
       - /var/run/docker.sock:/var/run/docker.sock
 
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    container_name: ${COMPOSE_PROJECT:-yourhq}-worker
+    restart: unless-stopped
+    profiles: [hosted]
+    environment:
+      PORT: "3001"
+      MASTER_SUPABASE_URL: ${MASTER_SUPABASE_URL}
+      MASTER_SUPABASE_SERVICE_ROLE_KEY: ${MASTER_SUPABASE_SERVICE_ROLE_KEY}
+      SUPABASE_MANAGEMENT_API_TOKEN: ${SUPABASE_MANAGEMENT_API_TOKEN}
+      SUPABASE_ORG_ID: ${SUPABASE_ORG_ID}
+      SUPABASE_REGION: ${SUPABASE_REGION:-us-east-1}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      E2B_API_KEY: ${E2B_API_KEY}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    ports:
+      - "${WORKER_HOST_PORT:-127.0.0.1:3001}:3001"
+
 volumes:
   ui-config:
     name: ${COMPOSE_PROJECT:-yourhq}-ui-config

@@ -524,19 +524,34 @@ if [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
   export REG_VNC_PW=""
   [ -f "$VNC_PW_FILE" ] && export REG_VNC_PW="$(cat "$VNC_PW_FILE")"
 
+  # SANDBOX_HOST: when set (e2b mode), the worker passes the sandbox's
+  # public hostname. E2B exposes ports as https://<port>-<sandbox-id>.e2b.app.
   REACHABLE_JSON=$(python3 - << PYEOF
 import json, os
-base = os.environ.get("HOST_REACHABLE_URL", "http://localhost").rstrip("/")
-files_port = os.environ.get("FILES_API_PORT", "18790")
-novnc_port = "6901"
-vnc_pw = os.environ.get("REG_VNC_PW", "")
-meta = {
-    "reachable_urls": {
+sandbox_host = os.environ.get("SANDBOX_HOST", "").strip()
+if sandbox_host:
+    base = sandbox_host.rstrip("/")
+    if not base.startswith("http"):
+        base = f"https://{base}"
+    meta_urls = {
+        "base": base,
+        "files_api": base.replace("https://", "https://18790-", 1),
+        "novnc": base.replace("https://", "https://6901-", 1) + "/vnc.html?autoconnect=1&resize=remote",
+    }
+    networking_mode = "e2b"
+else:
+    base = os.environ.get("HOST_REACHABLE_URL", "http://localhost").rstrip("/")
+    files_port = os.environ.get("FILES_API_PORT", "18790")
+    meta_urls = {
         "base": base,
         "files_api": f"{base}:{files_port}",
-        "novnc": f"{base}:{novnc_port}/vnc.html?autoconnect=1&resize=remote",
-    },
-    "networking_mode": os.environ.get("NETWORKING_MODE", "local"),
+        "novnc": f"{base}:6901/vnc.html?autoconnect=1&resize=remote",
+    }
+    networking_mode = os.environ.get("NETWORKING_MODE", "local")
+vnc_pw = os.environ.get("REG_VNC_PW", "")
+meta = {
+    "reachable_urls": meta_urls,
+    "networking_mode": networking_mode,
     "version": os.environ.get("OPENCLAW_VERSION", ""),
 }
 if vnc_pw:
@@ -613,10 +628,32 @@ log "Clearing stale Chrome Singleton* locks in all agent profiles ..."
 find "$HOME/.openclaw/browser" -maxdepth 3 -name "Singleton*" -delete 2>/dev/null || true
 
 # ─────────────────────────────────────────────────────────────
-# 12. Launch OpenClaw gateway as PID 1 (well, exec'd under tini)
+# 12. In e2b mode, start daemons in-process.
+#     In docker mode they run as separate containers (dispatcher,
+#     runner in docker-compose.yml). In e2b there's one sandbox
+#     process tree — everything runs here.
 # ─────────────────────────────────────────────────────────────
 
-log "Starting openclaw gateway (foreground) ..."
+if [ "$RUNTIME_MODE" = "e2b" ]; then
+  DAEMON_DIR="/opt/yourhq/daemons"
+  [ -d "$DAEMON_DIR" ] || DAEMON_DIR="$(dirname "$(readlink -f "$0")")/daemons"
+
+  if [ -f "$DAEMON_DIR/inbox_dispatcher.py" ]; then
+    log "Starting inbox_dispatcher (in-process, e2b mode) ..."
+    python3 "$DAEMON_DIR/inbox_dispatcher.py" > "$HOME/inbox-dispatcher.log" 2>&1 &
+  fi
+
+  if [ -f "$DAEMON_DIR/command_runner.py" ]; then
+    log "Starting command_runner (in-process, e2b mode) ..."
+    python3 "$DAEMON_DIR/command_runner.py" > "$HOME/command-runner.log" 2>&1 &
+  fi
+fi
+
+# ─────────────────────────────────────────────────────────────
+# 13. Launch OpenClaw gateway as PID 1 (well, exec'd under tini)
+# ─────────────────────────────────────────────────────────────
+
+log "Starting openclaw gateway (foreground) ...
 # Export the X11/XDG environment so openclaw's managed browser launcher
 # spawns Chrome into our Xtigervnc display.
 export DISPLAY=:1

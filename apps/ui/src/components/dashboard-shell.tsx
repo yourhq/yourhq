@@ -18,6 +18,7 @@ import {
   Settings,
   Search,
   Keyboard,
+  CreditCard,
 } from "lucide-react";
 import { useUnreadNotificationCount } from "@/hooks/use-notifications";
 import { cn } from "@/lib/utils";
@@ -56,44 +57,51 @@ type NavGroup = {
   items: NavItem[];
 };
 
-const navGroups: NavGroup[] = [
-  {
-    label: "Workspace",
-    items: [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    ],
-  },
-  {
-    label: "CRM",
-    items: [
-      { href: "/dashboard/crm", label: "Contacts", icon: Users },
-      { href: "/dashboard/organizations", label: "Organizations", icon: Building2 },
-    ],
-  },
-  {
-    label: "Work",
-    items: [
-      { href: "/dashboard/tasks", label: "Tasks", icon: CheckSquare },
-      { href: "/dashboard/agents", label: "Agents", icon: Bot },
-      { href: "/dashboard/automations", label: "Automations", icon: Zap },
-    ],
-  },
-  {
-    label: "Knowledge",
-    items: [
-      { href: "/dashboard/documents", label: "Documents", icon: FileText },
-      { href: "/dashboard/assets", label: "Assets", icon: FolderOpen },
-    ],
-  },
-  {
-    label: "System",
-    items: [
-      { href: "/dashboard/activity", label: "Activity", icon: Activity },
-      { href: "/dashboard/notifications", label: "Notifications", icon: Bell },
-      { href: "/dashboard/settings", label: "Settings", icon: Settings },
-    ],
-  },
-];
+function buildNavGroups(isHosted: boolean): NavGroup[] {
+  const systemItems: NavItem[] = [
+    { href: "/dashboard/activity", label: "Activity", icon: Activity },
+    { href: "/dashboard/notifications", label: "Notifications", icon: Bell },
+    { href: "/dashboard/settings", label: "Settings", icon: Settings },
+  ];
+  if (isHosted) {
+    systemItems.push({ href: "/dashboard/account", label: "Account", icon: CreditCard });
+  }
+
+  return [
+    {
+      label: "Workspace",
+      items: [
+        { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      ],
+    },
+    {
+      label: "CRM",
+      items: [
+        { href: "/dashboard/crm", label: "Contacts", icon: Users },
+        { href: "/dashboard/organizations", label: "Organizations", icon: Building2 },
+      ],
+    },
+    {
+      label: "Work",
+      items: [
+        { href: "/dashboard/tasks", label: "Tasks", icon: CheckSquare },
+        { href: "/dashboard/agents", label: "Agents", icon: Bot },
+        { href: "/dashboard/automations", label: "Automations", icon: Zap },
+      ],
+    },
+    {
+      label: "Knowledge",
+      items: [
+        { href: "/dashboard/documents", label: "Documents", icon: FileText },
+        { href: "/dashboard/assets", label: "Assets", icon: FolderOpen },
+      ],
+    },
+    {
+      label: "System",
+      items: systemItems,
+    },
+  ];
+}
 
 const SidebarContext = React.createContext<{
   collapsed: boolean;
@@ -110,15 +118,18 @@ function SidebarInner({
   onLinkClick,
   activeProjectId,
   projects,
+  isHosted,
 }: {
   showLabels: boolean;
   pathname: string;
   onLinkClick?: () => void;
   activeProjectId: string | null;
   projects: SwitcherProject[];
+  isHosted: boolean;
 }) {
   const { count: unreadCount } = useUnreadNotificationCount();
   const { showHelp } = useShortcuts();
+  const navGroups = React.useMemo(() => buildNavGroups(isHosted), [isHosted]);
 
   const isItemActive = (href: string) =>
     href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
@@ -265,11 +276,13 @@ export function DashboardShell({
   children,
   activeProjectId,
   projects,
+  isHosted = false,
 }: {
   user: User;
   children: React.ReactNode;
   activeProjectId: string | null;
   projects: SwitcherProject[];
+  isHosted?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -355,6 +368,7 @@ export function DashboardShell({
                     onLinkClick={handleMobileClose}
                     activeProjectId={activeProjectId}
                     projects={projects}
+                    isHosted={isHosted}
                   />
                 </div>
               </SheetContent>
@@ -372,6 +386,7 @@ export function DashboardShell({
                 pathname={pathname}
                 activeProjectId={activeProjectId}
                 projects={projects}
+                isHosted={isHosted}
               />
             </aside>
 
