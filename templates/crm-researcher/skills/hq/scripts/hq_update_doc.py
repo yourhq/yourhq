@@ -9,7 +9,8 @@ import os
 sys.path.insert(0, os.path.dirname(__file__))
 from hq_base import (
     check_env, api_get, api_patch, audit, get_agent_id,
-    generate_embedding, build_embedding_input, AGENT_SLUG, output,
+    generate_embedding, build_embedding_input, embedding_source_hash, EMBEDDING_MODEL,
+    AGENT_SLUG, output,
 )
 
 check_env()
@@ -42,11 +43,30 @@ merged_content = changes.get("content", current.get("content", ""))
 merged_tags = changes.get("tags", current.get("tags", []))
 
 try:
-    emb = generate_embedding(build_embedding_input(merged_title, merged_content, merged_tags))
+    embedding_input = build_embedding_input(merged_title, merged_content, merged_tags)
+    emb = generate_embedding(embedding_input)
     if emb:
         changes["embedding"] = emb
+        changes["embedding_model"] = EMBEDDING_MODEL
+        changes["embedding_dimensions"] = len(emb)
+        changes["embedding_status"] = "indexed"
+        changes["embedding_source_hash"] = embedding_source_hash(embedding_input)
+        changes["embedding_error"] = None
+    else:
+        changes["embedding"] = None
+        changes["embedding_status"] = "pending"
+        changes["embedding_model"] = None
+        changes["embedding_dimensions"] = None
+        changes["embedding_source_hash"] = None
+        changes["embedding_error"] = None
 except Exception as e:
     print(f"[embed] warning: {e}", file=sys.stderr)
+    changes["embedding"] = None
+    changes["embedding_status"] = "pending"
+    changes["embedding_model"] = None
+    changes["embedding_dimensions"] = None
+    changes["embedding_source_hash"] = None
+    changes["embedding_error"] = None
 
 result = api_patch("documents", args.doc_id, changes)
 audit("documents", "document", args.doc_id, "updated",

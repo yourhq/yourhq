@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Search documents by natural language query (semantic + text fallback)."""
+"""Search documents by natural language query (semantic + full-text fallback)."""
 
 import argparse
 import sys
@@ -32,22 +32,30 @@ try:
         output({"method": "semantic", "count": len(results), "results": results})
         sys.exit(0)
 except Exception as e:
-    print(f"[search] semantic search failed, falling back to text: {e}", file=sys.stderr)
+    print(f"[search] semantic search failed, falling back to full-text: {e}", file=sys.stderr)
 
-# Text fallback
-words = args.query.split()
-ilike_parts = []
-for w in words:
-    ilike_parts.append(f"title.ilike.%{w}%")
-    ilike_parts.append(f"content.ilike.%{w}%")
+try:
+    results = api_rpc("search_documents_text", {
+        "query_text": args.query,
+        "match_count": args.limit,
+        "filter_tags": filter_tags,
+        "filter_folder_id": args.folder_id,
+    })
+    output({"method": "full_text_fallback", "count": len(results), "results": results})
+except Exception as e:
+    print(f"[search] text RPC failed, falling back to title/tag scan: {e}", file=sys.stderr)
+    words = args.query.split()
+    ilike_parts = []
+    for w in words:
+        ilike_parts.append(f"title.ilike.%{w}%")
 
-params = {
-    "select": "id,title,content,tags,folder_id,updated_at",
-    "or": f"({','.join(ilike_parts)})",
-    "limit": str(args.limit),
-}
-if args.folder_id:
-    params["folder_id"] = f"eq.{args.folder_id}"
+    params = {
+        "select": "id,title,content,tags,folder_id,updated_at",
+        "or": f"({','.join(ilike_parts)})",
+        "limit": str(args.limit),
+    }
+    if args.folder_id:
+        params["folder_id"] = f"eq.{args.folder_id}"
 
-results = api_get("documents", params)
-output({"method": "text_fallback", "count": len(results), "results": results})
+    results = api_get("documents", params)
+    output({"method": "title_fallback", "count": len(results), "results": results})

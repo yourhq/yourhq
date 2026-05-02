@@ -6,6 +6,7 @@ import { getBootTags, getBootLabel } from "@/lib/documents/boot-tags";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmbeddingStatus } from "./embedding-status";
 import { FileText, Pin, Archive, RotateCcw, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
@@ -167,6 +168,7 @@ function DocumentCard({
 
         {/* Footer: tags + timestamp */}
         <div className="flex items-center gap-1.5 mt-2">
+          <EmbeddingStatus document={doc} />
           {bootTags.length > 0 && (
             <>
               {bootTags.slice(0, 2).map((tag) => (

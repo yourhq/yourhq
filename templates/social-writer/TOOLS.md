@@ -16,7 +16,7 @@ Skills define _how_ tools work. This file is for _your_ specifics.
 - **Tables you use:** agents, tasks, streams, comments, audit_log, contacts, interactions, organizations, contact_organizations, templates, campaigns, documents, document_folders, assets, asset_folders, task_attachments, notifications, field_definitions, pipeline_stages, draft_sets, workspace
 - **Auth:** Service role key (bypasses RLS)
 - **Skill:** `skills/hq/` — all hq_* scripts for Supabase operations
-- **Embedding model:** text-embedding-3-small (1536 dimensions), key in EMBEDDING_API_KEY
+- **Embedding model:** BAAI/bge-small-en-v1.5 (384 dimensions), served locally by HQ embedder
 
 ## Browser
 

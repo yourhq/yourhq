@@ -40,7 +40,6 @@ Shared context (product overview, conventions, playbooks) lives in **Supabase do
 ```
 SUPABASE_URL=https://xxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
-EMBEDDING_API_KEY=sk-...
 AGENT_SLUG=agent-slug
 ```
 

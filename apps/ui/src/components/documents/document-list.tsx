@@ -7,6 +7,7 @@ import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmbeddingStatus } from "./embedding-status";
 import { FileText, Pin, Archive, RotateCcw, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
@@ -119,6 +120,7 @@ function DocumentRow({
             {doc.pinned && (
               <Pin className="h-3 w-3 text-muted-foreground shrink-0" />
             )}
+            <EmbeddingStatus document={doc} />
             <span className="text-[11px] text-muted-foreground shrink-0">
               {formatDistanceToNow(new Date(doc.updated_at), { addSuffix: true })}
             </span>

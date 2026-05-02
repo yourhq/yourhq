@@ -160,6 +160,7 @@ export function useDocuments() {
         title,
         folder_id: folderId || null,
         content: "",
+        embedding_status: "pending",
       })
       .select()
       .single();
@@ -186,6 +187,7 @@ export function useDocuments() {
       title: item.title,
       content: item.content,
       folder_id: folderId || null,
+      embedding_status: "pending",
     }));
 
     const { data, error } = await supabase

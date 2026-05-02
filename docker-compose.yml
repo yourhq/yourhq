@@ -1,5 +1,5 @@
 # =============================================================================
-# HQ — main Compose stack (UI + gateway + dispatcher + runner).
+# HQ — main Compose stack (UI + gateway + dispatcher + runner + embedder).
 #
 # The installer only starts `ui` by default (~200 MB). Gateway services
 # move to the `gateway` profile so they only pull + run on machines that
@@ -17,7 +17,7 @@
 #
 # Explicit service list (anywhere):
 #   docker compose up -d ui
-#   docker compose up -d gateway dispatcher runner
+#   docker compose up -d gateway dispatcher runner embedder
 # =============================================================================
 
 name: ${COMPOSE_PROJECT:-yourhq}
@@ -25,7 +25,8 @@ name: ${COMPOSE_PROJECT:-yourhq}
 x-gateway-env: &gateway-env
   SUPABASE_URL: ${SUPABASE_URL}
   SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
-  EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+  EMBEDDER_URL: ${EMBEDDER_URL:-http://embedder:18801}
+  EMBEDDER_MODEL: ${EMBEDDER_MODEL:-BAAI/bge-small-en-v1.5}
   WORKSPACE_SLUG: ${WORKSPACE_SLUG:-}
   GATEWAY_ID: ${GATEWAY_ID:-default}
   GATEWAY_LABEL: ${GATEWAY_LABEL:-Primary gateway}
@@ -200,6 +201,31 @@ services:
       # restart_dispatcher, update_self actions).
       - /var/run/docker.sock:/var/run/docker.sock
 
+  embedder:
+    image: ${EMBEDDER_IMAGE:-ghcr.io/yourhq/yourhq-embedder:latest}
+    build:
+      context: .
+      dockerfile: gateway/embedder/Dockerfile
+    container_name: ${COMPOSE_PROJECT:-yourhq}-embedder
+    restart: unless-stopped
+    profiles: [gateway]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:18801/healthz', timeout=5).read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    environment:
+      <<: *gateway-env
+      EMBEDDER_HOST: 0.0.0.0
+      EMBEDDER_PORT: 18801
+      EMBEDDER_CACHE_DIR: /models
+      EMBEDDER_POLL_INTERVAL: ${EMBEDDER_POLL_INTERVAL:-10}
+      EMBEDDER_BATCH_SIZE: ${EMBEDDER_BATCH_SIZE:-8}
+    volumes:
+      - gateway-embedding-cache:/models
+      - ui-config:/config:ro
+
   worker:
     build:
       context: .
@@ -237,3 +263,5 @@ volumes:
     name: ${COMPOSE_PROJECT:-yourhq}-gateway-state
   gateway-chrome-profile:
     name: ${COMPOSE_PROJECT:-yourhq}-gateway-chrome-profile
+  gateway-embedding-cache:
+    name: ${COMPOSE_PROJECT:-yourhq}-gateway-embedding-cache

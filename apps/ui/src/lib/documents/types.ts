@@ -26,6 +26,14 @@ export interface Document {
   archived_at: string | null;
   last_edited_by: string | null;
   embedding: number[] | null;
+  embedding_model: string | null;
+  embedding_dimensions: number | null;
+  embedding_status: "pending" | "indexed" | "failed" | null;
+  embedding_source_hash: string | null;
+  embedding_updated_at: string | null;
+  embedding_error: string | null;
+  embedding_leased_by: string | null;
+  embedding_leased_until: string | null;
   // Joined
   folder?: DocumentFolder | null;
 }

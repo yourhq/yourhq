@@ -483,7 +483,7 @@ Where HQ is now, what ships in v0.1, and what comes after.
 ### Core platform
 
 - One repo (`yourhq/yourhq`) for UI, gateway, dispatcher, runner, templates, migrations, installer, and docs
-- `docker-compose.yml` stack with four services and Docker healthchecks on all of them
+- `docker-compose.yml` stack with five services and Docker healthchecks on all of them
 - Interactive `installer/install.sh` with local, Tailscale, and public networking modes
 - Gateway runtime with OpenClaw, Chrome/Chromium, Xtigervnc, XFCE desktop, noVNC, and files API
 - `RUNTIME_MODE` env var (`docker` | `systemd` | `e2b`) for portable entrypoint behavior
@@ -2350,7 +2350,7 @@ When you create a new agent, HQ asks which gateway it should run on. The agent's
 The runner daemon has likely stopped. Check: `docker compose logs -f runner | tail -50`. Restart: `docker compose restart runner`.
 
 **Gateway registered but agents won't provision:**
-The `dispatcher` or `runner` may not be running. Check all four services: `docker compose ps`. If any show `Restarting`, tail their logs.
+The `dispatcher` or `runner` may not be running. Check all five services: `docker compose ps`. If any show `Restarting`, tail their logs.
 
 **Token expired before you ran the command:**
 Close the Add Gateway dialog and open it again — this generates a fresh token with a new 10-minute window.
@@ -2674,7 +2674,7 @@ docker compose logs -f runner
 docker compose logs -f dispatcher
 ```
 
-All four services should show `Status: Up`. If a container is in `Restarting` state, tail its logs to find the error.
+All five services should show `Status: Up`. If a container is in `Restarting` state, tail its logs to find the error.
 
 ### Gateway heartbeat
 
@@ -3948,9 +3948,9 @@ This is a **single-user** design. RLS on Supabase is "authenticated full access"
 
 Every arrow on the left of the diagram is a Supabase API call. The only direct UI↔gateway link is the files-API (right side), which is an authenticated HTTP request from the UI's server process into each gateway's `files_api.py`. Nothing is peer-to-peer; there is no central control plane outside Supabase.
 
-## 3. The four services
+## 3. The five services
 
-All four services live in the same monorepo ([`docker-compose.yml`](https://github.com/yourhq/yourhq/blob/main/docker-compose.yml)). The UI ships as one container and the three gateway services ship as three more, all bundled in a single Compose project by default. Larger installs can run the UI and gateway services on separate hosts against the same Supabase project.
+All five services live in the same monorepo ([`docker-compose.yml`](https://github.com/yourhq/yourhq/blob/main/docker-compose.yml)). The UI ships as one container and the gateway profile ships the agent runtime, dispatcher, runner, and embedder, all bundled in a single Compose project by default. Larger installs can run the UI and gateway services on separate hosts against the same Supabase project.
 
 | Service | Role | Key files | Ports | Reads from Supabase | Writes to Supabase |
 |---|---|---|---|---|---|
@@ -3958,8 +3958,9 @@ All four services live in the same monorepo ([`docker-compose.yml`](https://gith
 | `gateway` | The container that hosts the agents. Runs Xtigervnc + XFCE + Chrome + OpenClaw gateway + the files-API. Exposes a remote desktop (noVNC) and a file browser (`files-api`). | [`gateway/entrypoint.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/entrypoint.sh), [`gateway/files_api.py`](https://github.com/yourhq/yourhq/tree/main/gateway/files_api.py), [`gateway/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/Dockerfile) | `6901` (noVNC), `18790` (files-API) | `workspace.slug` at boot to prefix branches | `gateways` row upsert at boot with reachable URLs |
 | `dispatcher` | Python daemon. Subscribes to `agent_inbox_items` INSERT events and wakes the owning agent via `openclaw agent --agent …`. Only wakes agents bound to this gateway. | [`gateway/daemons/inbox_dispatcher.py`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/inbox_dispatcher.py), [`gateway/dispatcher/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/dispatcher/Dockerfile) | none | `agent_inbox_items`, `agents`, `gateways`, `workspace` | `agent_inbox_items.last_wake_*` |
 | `runner` | Python daemon. Subscribes to `agent_commands` INSERT events, leases via `lease_command(gateway_slug=…)`, executes `add-agent.sh` / `update-agent.sh` / `docker compose restart …`, reports back stdout/stderr/exit code. | [`gateway/daemons/command_runner.py`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/command_runner.py), [`gateway/runner/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/runner/Dockerfile), [`gateway/scripts/add-agent.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/scripts/add-agent.sh) | none | `agent_commands`, `workspace`, `gateways` | `agent_commands.status/stdout/stderr`, `gateways.last_seen_at` (30 s heartbeat) |
+| `embedder` | Python daemon. Eagerly downloads/loads the local BGE model, serves embeddings over an internal HTTP endpoint, and indexes pending documents for semantic search. | [`gateway/embedder/`](https://github.com/yourhq/yourhq/tree/main/gateway/embedder) | none | `documents` via embedding lease RPCs | `documents.embedding`, embedding status metadata |
 
-The `gateway`, `dispatcher`, and `runner` containers all share the Docker volume `gateway-state` (mounted at `/home/openclaw/.openclaw`). That volume is where OpenClaw's config, the bare git repo, per-agent worktrees, browser profiles, and the VNC state live. The runner additionally mounts `/var/run/docker.sock` so it can restart sibling containers.
+The `gateway`, `dispatcher`, and `runner` containers all share the Docker volume `gateway-state` (mounted at `/home/openclaw/.openclaw`). That volume is where OpenClaw's config, the bare git repo, per-agent worktrees, browser profiles, and the VNC state live. The `embedder` uses `gateway-embedding-cache` for downloaded local embedding models. The runner additionally mounts `/var/run/docker.sock` so it can restart sibling containers.
 
 ## 4. Data flow: creating an agent end-to-end
 
@@ -4654,7 +4655,9 @@ Use (1) only as an override — e.g. a remote gateway that must always point at 
 
 - **`SUPABASE_SERVICE_ROLE_KEY`** — **Optional override, secret**. No default. If set, takes precedence over the registry.
 
-- **`EMBEDDING_API_KEY`** — **Optional**. Empty. OpenAI API key used by the gateway to embed documents when the knowledge-base vector search is enabled. Override to enable embeddings; leave empty to disable.
+- **`EMBEDDER_URL`** — Optional. Defaults to `http://embedder:18801` inside Compose. Agent scripts use this local HTTP endpoint for query/document embeddings.
+
+- **`EMBEDDER_MODEL`** — Optional. Defaults to `BAAI/bge-small-en-v1.5`. The gateway-profile embedder service downloads/loads this local FastEmbed model on boot and uses it for document vector search.
 
 **Where the real creds live**: the project registry files (`/config/projects.json` for URL + anon key, `/config/secrets.json` for service role key). Don't edit these by hand — use the onboarding screen on first boot, or Settings → Projects afterward.
 
@@ -4944,7 +4947,7 @@ HQ stores shared state in one Supabase project per workspace. The SQL source of 
 | `008_interactions.sql` | Contact interaction timeline and sync triggers |
 | `009_tasks_streams.sql` | Streams, tasks, recurring task series, and scheduling |
 | `010_comments_attachments.sql` | Polymorphic comments and task attachments |
-| `011_assets_documents.sql` | Assets, documents, semantic search, and draft sets |
+| `011_assets_documents.sql` | Assets, documents, semantic/full-text search, and draft sets |
 | `012_audit_notifications.sql` | Audit log and notification tables |
 | `013_agent_inbox.sql` | Agent inbox queue, inbox triggers, and automation rules |
 | `014_agent_commands.sql` | Command queue for agent lifecycle and system operations |
@@ -5202,7 +5205,7 @@ Source: https://docs.yourhq.ai/reference/docker-services
 
 > The containers in the HQ Compose stack and what each one does.
 
-HQ's default Compose stack has four services that work together.
+HQ's default Compose stack has five services that work together.
 
   - **ui**: 
     **Next.js dashboard.** Renders the workspace — agents, CRM, tasks, documents, settings — and writes to Supabase through server actions. Port `3000`.
@@ -5220,14 +5223,18 @@ HQ's default Compose stack has four services that work together.
     **Command daemon.** Watches `agent_commands`, leases commands for the local gateway, executes lifecycle and auth operations, and reports results back to Supabase.
   
 
+  - **embedder**: 
+    **Document indexing daemon.** Runs FastEmbed locally, starts downloading/loading the BGE model on boot, serves `/embed` inside Docker, and indexes pending documents for semantic search.
+  
+
 ## Shared state
 
-The `gateway`, `dispatcher`, and `runner` containers share the `gateway-state` Docker volume (mounted at `/home/openclaw/.openclaw`). This volume holds OpenClaw config, the bare git repo, agent worktrees, browser profiles, and auth state.
+The `gateway`, `dispatcher`, and `runner` containers share the `gateway-state` Docker volume (mounted at `/home/openclaw/.openclaw`). This volume holds OpenClaw config, the bare git repo, agent worktrees, browser profiles, and auth state. The `embedder` uses `gateway-embedding-cache` for downloaded local embedding models, so restarts reuse the cached BGE files.
 
 The `runner` additionally mounts `/var/run/docker.sock` so it can restart sibling containers when needed.
 
 > 
-  For single-host installs, all four services run together via `docker compose up -d`. For multi-host setups, run `ui` separately from the gateway services. See [Add a gateway](/self-host/add-gateway).
+  For single-host installs, all five services run together via `docker compose up -d`. For multi-host setups, run `ui` separately from the gateway services. See [Add a gateway](/self-host/add-gateway).
 
 ---
 

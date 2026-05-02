@@ -30,7 +30,9 @@ import {
 } from "@/components/ui/select";
 import { TagInput } from "@/components/ui/tag-input";
 import { BootTagManager } from "./boot-tag-manager";
+import { EmbeddingStatus } from "./embedding-status";
 import { getBootTags, getRegularTags } from "@/lib/documents/boot-tags";
+import { shouldReembedDocument, withPendingEmbedding } from "@/lib/documents/embedding";
 import { convertMarkdownContent } from "@/lib/documents/markdown-to-tiptap";
 import { downloadDocumentAsMarkdown } from "@/lib/documents/export-markdown";
 import { buildFolderTree, flattenFolderTree, getFolderPath } from "@/lib/documents/tree";
@@ -73,9 +75,12 @@ export function DocumentEditor({ document: doc, folders, agents }: DocumentEdito
   const save = useCallback(
     async (updates: Record<string, unknown>) => {
       setSaving(true);
+      const payload = shouldReembedDocument(updates)
+        ? withPendingEmbedding(updates)
+        : updates;
       await supabase
         .from("documents")
-        .update(updates)
+        .update(payload)
         .eq("id", doc.id);
       logAudit(supabase, {
         module: "documents",
@@ -200,6 +205,8 @@ export function DocumentEditor({ document: doc, folders, agents }: DocumentEdito
         </span>
 
         <div className="ml-auto flex items-center gap-1">
+          <EmbeddingStatus document={doc} />
+
           {/* Save status */}
           <span className="text-[11px] text-muted-foreground mr-2">
             {saving ? (

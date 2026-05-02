@@ -14,7 +14,6 @@ These must be set in your environment:
 - `SUPABASE_URL` — Supabase project URL
 - `SUPABASE_SERVICE_ROLE_KEY` — service role key (bypasses RLS)
 - `AGENT_SLUG` — your unique identifier (matches your git branch)
-- `EMBEDDING_API_KEY` — for document vector search only (do NOT use for anything else)
 
 ## Session Startup
 
@@ -97,13 +96,13 @@ python3 skills/hq/scripts/hq_update_extended.py organizations ORG_ID \
 
 ## Documents
 
-### Search documents (semantic)
+### Search documents (semantic + full-text fallback)
 ```bash
 python3 skills/hq/scripts/hq_search_docs.py "your natural language query"
 ```
 Optional flags: `--tags tag1,tag2` `--folder-id UUID` `--limit 5`
 
-Falls back to text search if embeddings aren't available.
+Falls back to indexed PostgreSQL full-text search if embeddings are not available.
 
 ### Get a specific document
 ```bash
@@ -121,13 +120,13 @@ python3 skills/hq/scripts/hq_create_doc.py --title "Title" --content "Content he
 ```
 Optional: `--folder-id UUID`
 
-Automatically generates an embedding on creation.
+Automatically requests a local HQ embedding on creation; the background embedder indexes it if unavailable.
 
 ### Update a document
 ```bash
 python3 skills/hq/scripts/hq_update_doc.py DOCUMENT_ID --title "New title" --content "New content" --tags tag1,tag2
 ```
-Automatically re-generates the embedding.
+Automatically requests a local HQ embedding; the background embedder reindexes it if unavailable.
 
 ## Tasks
 
@@ -287,7 +286,7 @@ Sets task to `blocked`, posts a comment mentioning @prajoth, sends Telegram noti
 ## Rules
 
 - **Every write must be audited.** Use the audited helpers, not raw Supabase queries.
-- **Use `EMBEDDING_API_KEY` only for document embeddings.** Never for anything else.
+- **Document embeddings are local.** Use the HQ document scripts; no embedding API key is required.
 - **Search documents before asking.** Your knowledge base is in Supabase.
 - **Discover fields before writing.** Fetch `field_definitions` to know what extended fields exist and what they mean.
 - **Use valid pipeline stages.** Fetch `pipeline_stages` before setting a contact's status.

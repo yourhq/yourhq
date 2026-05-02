@@ -1,4 +1,4 @@
--- 011_assets_documents.sql — Assets, documents, semantic search, and draft sets.
+-- 011_assets_documents.sql — Assets, documents, semantic/full-text search, and draft sets.
 
 -- ── Assets ──────────────────────────────────────────────────────
 
@@ -73,20 +73,61 @@ CREATE TABLE IF NOT EXISTS documents (
   tags        text[] NOT NULL DEFAULT '{}',
   pinned      boolean DEFAULT false,
   meta        jsonb NOT NULL DEFAULT '{}',
-  embedding   extensions.vector(1536),
+  embedding   extensions.vector(384),
+  embedding_model text,
+  embedding_dimensions integer,
+  embedding_status text NOT NULL DEFAULT 'pending'
+    CHECK (embedding_status IN ('pending', 'indexed', 'failed')),
+  embedding_source_hash text,
+  embedding_updated_at timestamptz,
+  embedding_error text,
+  embedding_leased_by text,
+  embedding_leased_until timestamptz,
+  search_vector tsvector GENERATED ALWAYS AS (
+    to_tsvector(
+      'english'::regconfig,
+      coalesce(title, '') || ' ' ||
+      coalesce(content::text, '') || ' ' ||
+      coalesce(array_to_string(tags, ' '), '')
+    )
+  ) STORED,
   archived_at timestamptz
 );
 
 -- Column reconciliation for documents
-ALTER TABLE documents ADD COLUMN IF NOT EXISTS embedding extensions.vector(1536);
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS embedding extensions.vector(384);
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS pinned boolean DEFAULT false;
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS meta jsonb NOT NULL DEFAULT '{}';
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS embedding_model text;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS embedding_dimensions integer;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS embedding_status text NOT NULL DEFAULT 'pending';
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS embedding_source_hash text;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS embedding_updated_at timestamptz;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS embedding_error text;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS embedding_leased_by text;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS embedding_leased_until timestamptz;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS search_vector tsvector GENERATED ALWAYS AS (
+  to_tsvector(
+    'english'::regconfig,
+    coalesce(title, '') || ' ' ||
+    coalesce(content::text, '') || ' ' ||
+    coalesce(array_to_string(tags, ' '), '')
+  )
+) STORED;
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS archived_at timestamptz;
+
+DO $$ BEGIN
+  ALTER TABLE documents ADD CONSTRAINT documents_embedding_status_check
+    CHECK (embedding_status IN ('pending', 'indexed', 'failed'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 CREATE INDEX IF NOT EXISTS idx_documents_folder ON documents(folder_id);
 CREATE INDEX IF NOT EXISTS idx_documents_tags ON documents USING gin(tags);
 CREATE INDEX IF NOT EXISTS idx_documents_pinned ON documents(pinned) WHERE pinned = true;
 CREATE INDEX IF NOT EXISTS idx_documents_active ON documents(created_at DESC) WHERE archived_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_documents_embedding_status ON documents(embedding_status, embedding_leased_until)
+  WHERE archived_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_documents_search_vector ON documents USING gin(search_vector);
 CREATE INDEX IF NOT EXISTS idx_documents_embedding ON documents
   USING ivfflat (embedding extensions.vector_cosine_ops) WITH (lists = 10);
 
@@ -97,7 +138,7 @@ CREATE TRIGGER documents_updated_at
 -- Semantic search function (DROP first — return type may have changed)
 DROP FUNCTION IF EXISTS search_documents(extensions.vector, integer, text[], uuid);
 CREATE OR REPLACE FUNCTION search_documents(
-  query_embedding extensions.vector(1536),
+  query_embedding extensions.vector(384),
   match_count integer DEFAULT 5,
   filter_tags text[] DEFAULT NULL,
   filter_folder_id uuid DEFAULT NULL
@@ -124,6 +165,163 @@ BEGIN
   LIMIT match_count;
 END;
 $$;
+
+DROP FUNCTION IF EXISTS search_documents_text(text, integer, text[], uuid);
+CREATE OR REPLACE FUNCTION search_documents_text(
+  query_text text,
+  match_count integer DEFAULT 5,
+  filter_tags text[] DEFAULT NULL,
+  filter_folder_id uuid DEFAULT NULL
+)
+RETURNS TABLE (
+  id uuid, title text, content jsonb, tags text[], folder_id uuid,
+  updated_at timestamptz, meta jsonb, similarity float
+)
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+DECLARE
+  normalized_query text := btrim(coalesce(query_text, ''));
+BEGIN
+  IF normalized_query = '' THEN
+    RETURN QUERY
+    SELECT
+      d.id, d.title, d.content, d.tags, d.folder_id,
+      d.updated_at, d.meta,
+      0::float AS similarity
+    FROM public.documents d
+    WHERE d.archived_at IS NULL
+      AND (filter_tags IS NULL OR d.tags && filter_tags)
+      AND (filter_folder_id IS NULL OR d.folder_id = filter_folder_id)
+    ORDER BY d.updated_at DESC
+    LIMIT match_count;
+    RETURN;
+  END IF;
+
+  RETURN QUERY
+  WITH query AS (
+    SELECT websearch_to_tsquery('english'::regconfig, normalized_query) AS tsquery
+  )
+  SELECT
+    d.id, d.title, d.content, d.tags, d.folder_id,
+    d.updated_at, d.meta,
+    ts_rank_cd(d.search_vector, query.tsquery)::float AS similarity
+  FROM public.documents d
+  CROSS JOIN query
+  WHERE d.archived_at IS NULL
+    AND (filter_tags IS NULL OR d.tags && filter_tags)
+    AND (filter_folder_id IS NULL OR d.folder_id = filter_folder_id)
+    AND d.search_vector @@ query.tsquery
+  ORDER BY ts_rank_cd(d.search_vector, query.tsquery) DESC, d.updated_at DESC
+  LIMIT match_count;
+END;
+$$;
+
+DROP FUNCTION IF EXISTS lease_documents_for_embedding(text, integer, integer);
+CREATE OR REPLACE FUNCTION lease_documents_for_embedding(
+  p_gateway_slug text,
+  p_limit integer DEFAULT 10,
+  p_lease_seconds integer DEFAULT 300
+)
+RETURNS TABLE (
+  id uuid, title text, content jsonb, tags text[],
+  updated_at timestamptz, embedding_source_hash text
+)
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  RETURN QUERY
+  UPDATE public.documents d
+  SET
+    embedding_status = 'pending',
+    embedding_leased_by = p_gateway_slug,
+    embedding_leased_until = now() + (p_lease_seconds || ' seconds')::interval,
+    embedding_error = NULL,
+    updated_at = d.updated_at
+  WHERE d.id IN (
+    SELECT candidate.id
+    FROM public.documents candidate
+    WHERE candidate.archived_at IS NULL
+      AND (
+        candidate.embedding IS NULL
+        OR candidate.embedding_status IS NULL
+        OR candidate.embedding_status = 'pending'
+        OR (
+          candidate.embedding_status = 'failed'
+          AND (
+            candidate.embedding_leased_until IS NULL
+            OR candidate.embedding_leased_until < now()
+          )
+        )
+      )
+      AND (
+        candidate.embedding_leased_until IS NULL
+        OR candidate.embedding_leased_until < now()
+      )
+    ORDER BY candidate.updated_at ASC
+    LIMIT GREATEST(1, p_limit)
+    FOR UPDATE SKIP LOCKED
+  )
+  RETURNING d.id, d.title, d.content, d.tags, d.updated_at, d.embedding_source_hash;
+END;
+$$;
+
+DROP FUNCTION IF EXISTS mark_document_embedding_indexed(uuid, extensions.vector, text, integer, text);
+CREATE OR REPLACE FUNCTION mark_document_embedding_indexed(
+  p_document_id uuid,
+  p_embedding extensions.vector(384),
+  p_embedding_model text,
+  p_embedding_dimensions integer,
+  p_source_hash text
+)
+RETURNS void
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  UPDATE public.documents
+  SET
+    embedding = p_embedding,
+    embedding_model = p_embedding_model,
+    embedding_dimensions = p_embedding_dimensions,
+    embedding_status = 'indexed',
+    embedding_source_hash = p_source_hash,
+    embedding_updated_at = now(),
+    embedding_error = NULL,
+    embedding_leased_by = NULL,
+    embedding_leased_until = NULL,
+    updated_at = updated_at
+  WHERE id = p_document_id;
+END;
+$$;
+
+DROP FUNCTION IF EXISTS mark_document_embedding_failed(uuid, text);
+CREATE OR REPLACE FUNCTION mark_document_embedding_failed(
+  p_document_id uuid,
+  p_error text
+)
+RETURNS void
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  UPDATE public.documents
+  SET
+    embedding_status = 'failed',
+    embedding_error = left(p_error, 1000),
+    embedding_leased_by = NULL,
+    embedding_leased_until = NULL,
+    updated_at = updated_at
+  WHERE id = p_document_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.search_documents(extensions.vector, integer, text[], uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.search_documents_text(text, integer, text[], uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.lease_documents_for_embedding(text, integer, integer) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.mark_document_embedding_indexed(uuid, extensions.vector, text, integer, text) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.mark_document_embedding_failed(uuid, text) TO authenticated, service_role;
 
 -- ── Draft sets ──────────────────────────────────────────────────
 

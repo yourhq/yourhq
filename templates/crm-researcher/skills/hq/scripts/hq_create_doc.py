@@ -8,7 +8,8 @@ import os
 sys.path.insert(0, os.path.dirname(__file__))
 from hq_base import (
     check_env, api_post, audit, get_agent_id,
-    generate_embedding, build_embedding_input, AGENT_SLUG, output,
+    generate_embedding, build_embedding_input, embedding_source_hash, EMBEDDING_MODEL,
+    AGENT_SLUG, output,
 )
 
 check_env()
@@ -28,13 +29,20 @@ payload = {
     "tags": tags,
     "folder_id": args.folder_id,
     "last_edited_by": f"agent:{AGENT_SLUG}",
+    "embedding_status": "pending",
 }
 
 # Generate embedding
 try:
-    emb = generate_embedding(build_embedding_input(args.title, args.content, tags))
+    embedding_input = build_embedding_input(args.title, args.content, tags)
+    emb = generate_embedding(embedding_input)
     if emb:
         payload["embedding"] = emb
+        payload["embedding_model"] = EMBEDDING_MODEL
+        payload["embedding_dimensions"] = len(emb)
+        payload["embedding_status"] = "indexed"
+        payload["embedding_source_hash"] = embedding_source_hash(embedding_input)
+        payload["embedding_error"] = None
 except Exception as e:
     print(f"[embed] warning: {e}", file=sys.stderr)
 
