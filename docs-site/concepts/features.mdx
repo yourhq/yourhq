@@ -1,9 +1,9 @@
 ---
 title: "What HQ includes"
-description: "A practical tour of HQ's workspace, agents, gateways, automations, knowledge, CRM, and budgets."
+description: "A practical tour of HQ's workspace, agents, gateways, routines, knowledge, CRM, and budgets."
 ---
 
-HQ is an agent operations system, not just an agent chat UI. It gives one operator a workspace for CRM, tasks, knowledge, automations, and a fleet of long-lived AI agents that run on infrastructure the operator controls.
+HQ is an agent operations system, not just an agent chat UI. It gives one operator a workspace for CRM, tasks, knowledge, routines, collections, and a fleet of long-lived AI agents that run on infrastructure the operator controls.
 
 This page is the product tour. For system internals, read [Architecture](/concepts/architecture). For installation, read [Installation](/self-host/installation).
 
@@ -17,13 +17,13 @@ This page is the product tour. For system internals, read [Architecture](/concep
     Per-agent and per-task model + thinking level. Mix providers freely across your fleet.
   </Card>
   <Card title="Workspace" icon="briefcase" href="#workspace">
-    CRM, tasks, knowledge, automations, notifications, and activity.
+    CRM, tasks, knowledge, routines, collections, notifications, and activity.
   </Card>
   <Card title="Gateways" icon="server" href="#gateways">
     Docker hosts that run agents on infrastructure you control.
   </Card>
-  <Card title="Automations" icon="bolt" href="#automations-and-inbox">
-    Convert CRM, task, and comment events into agent work.
+  <Card title="Routines" icon="bolt" href="#routines-and-inbox">
+    Convert CRM, task, and comment events into agent work via schedule and event triggers.
   </Card>
   <Card title="Usage budgets" icon="gauge-high" href="#usage-tracking-and-budgets">
     Track model spend and stop agents when they exceed limits.
@@ -35,7 +35,7 @@ This page is the product tour. For system internals, read [Architecture](/concep
 
 ## Workspace
 
-Every HQ install connects to one or more Supabase projects. A project contains the workspace data: agents, tasks, CRM records, knowledge, settings, gateway registrations, command history, and usage data.
+Every HQ install connects to one or more Supabase projects. A project contains the workspace data: agents, tasks, CRM records, knowledge, routines, collections, settings, gateway registrations, command history, and usage data.
 
 The first boot flow is intentionally config-light:
 
@@ -111,7 +111,7 @@ The agent detail page includes:
 
 - Overview, status, capabilities, and activity.
 - **Model and thinking level** — pick any connected model and reasoning depth from the right rail. Changes take effect on the next wake, no restart needed.
-- Boot context documents.
+- Knowledge items (workspace pinned + agent-scoped boot context).
 - Direct reports and manager assignment.
 - Trigger and inbox history.
 - File browser/editor for the agent branch.
@@ -195,7 +195,7 @@ Core capabilities include:
 - Pipeline stages and kanban views.
 - Import wizard with mapping and duplicate handling.
 - Campaign and draft workflows.
-- Automation triggers that can assign work to agents.
+- Routine triggers that can assign work to agents.
 
 CRM records are regular Supabase rows. Agents can read and update them through the bundled HQ skills.
 
@@ -235,11 +235,11 @@ Agent boot context is controlled by **scope** and **pinning**:
 
 See [Knowledge system](/concepts/knowledge) for the full architecture and [Knowledge and agent context](/guides/agent-boot-docs) for the practical guide.
 
-## Automations and Inbox
+## Routines and Inbox
 
-Automations convert workspace events into agent work.
+Routines convert workspace events and schedules into agent work. Each routine has a trigger (event-based or schedule-based) and an assigned agent.
 
-Supported patterns include:
+Supported event triggers include:
 
 - Contact created.
 - Contact status changed.
@@ -247,7 +247,9 @@ Supported patterns include:
 - Task assigned or reassigned.
 - Agent mentioned in a comment.
 
-Automations create `agent_inbox_items`. The gateway dispatcher leases pending inbox items, checks whether the target agent belongs to that gateway, verifies budget status, and wakes the agent through OpenClaw.
+Schedule triggers run on a cron schedule (e.g. every 15 minutes, hourly, daily) and wake the assigned agent at each interval.
+
+Routines create `agent_inbox_items`. The gateway dispatcher leases pending inbox items, checks whether the target agent belongs to that gateway, verifies budget status, and wakes the agent through OpenClaw.
 
 Inbox items have retry state, attempt counts, lease fields, done/failed/dead-letter statuses, and deduplication keys.
 
@@ -357,7 +359,7 @@ Most customization does not require changing code:
 
 - Add templates under `templates/`.
 - Add skills to templates.
-- Configure fields, pipeline stages, streams, and automation rules in the UI.
+- Configure fields, pipeline stages, streams, and routines in the UI.
 - Add model providers through connections.
 - Add gateways through Settings.
 
@@ -365,6 +367,6 @@ Code extension points include:
 
 - New UI pages under `apps/ui/src/app`.
 - New gateway command actions in `gateway/daemons/command_runner.py`.
-- New automation behavior in database functions/triggers.
+- New routine behavior in database functions/triggers.
 - New agent skills under template `skills/`.
 - New OpenClaw plugins in `gateway/scripts/plugins/`.

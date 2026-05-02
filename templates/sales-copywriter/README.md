@@ -21,11 +21,11 @@ Default starting point for every OpenClaw agent branch. Fork this into a new bra
 
 ## Shared Knowledge
 
-Shared context (product overview, conventions, playbooks) lives in **Supabase knowledge items**, not git. Tag items for agent targeting:
+Shared context (product overview, conventions, playbooks) lives in **Supabase knowledge items**, not git. Knowledge items are scoped to workspace (all agents) or agent (specific agents):
 
-- `boot:all` — loaded by every agent at startup
-- `boot:{agent-slug}` — loaded by a specific agent only
-- No boot tag — available on demand via `hq_search_docs.py`
+- scope='workspace', pinned=true — loaded by every agent at startup
+- scope='agent' with agent junction — loaded by a specific agent only
+- Not pinned — available on demand via `hq_search_docs.py`
 
 ## Setup a New Agent
 

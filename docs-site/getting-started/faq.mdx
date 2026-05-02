@@ -25,7 +25,7 @@ description: "Common questions about HQ — what it is, how it works, and how to
   </Accordion>
 
   <Accordion title="Do I need to know how to code?">
-    No. The install is a single `curl | bash` command. Everything else — Supabase setup, agent creation, automations — is done through the UI. You don't need to edit any code or understand Docker internals to get started.
+    No. The install is a single `curl | bash` command. Everything else — Supabase setup, agent creation, routines — is done through the UI. You don't need to edit any code or understand Docker internals to get started.
 
     If you want to customize agent templates, build your own, or contribute to the project, coding knowledge helps — but it's entirely optional.
   </Accordion>
@@ -37,7 +37,7 @@ description: "Common questions about HQ — what it is, how it works, and how to
   </Accordion>
 
   <Accordion title="Why self-host instead of using hosted?">
-    - **Your data stays on your machine.** No third party has access to your CRM, documents, or agent outputs.
+    - **Your data stays on your machine.** No third party has access to your CRM, knowledge, or agent outputs.
     - **Free.** You only pay for your own infrastructure and model API costs.
     - **Open source.** Fork it, customize it, ship your own version.
     - **Offline-capable.** Gateways can run on a laptop or home server with no cloud dependency.
@@ -94,14 +94,14 @@ description: "Common questions about HQ — what it is, how it works, and how to
   </Accordion>
 
   <Accordion title="Can agents see each other and collaborate?">
-    Yes — agents share the same Supabase database, so tasks, contacts, documents, and comments are all visible across agents.
+    Yes — agents share the same Supabase database, so tasks, contacts, knowledge items, and comments are all visible across agents.
 
     Collaboration patterns:
-    - **@-mentions**: type `@agent-slug` in any task or document comment to wake that agent
-    - **Automations**: set a rule so agent A's output (a status change, new task, etc.) triggers agent B
+    - **@-mentions**: type `@agent-slug` in any task comment to wake that agent
+    - **Routines**: set a routine so agent A's output (a status change, new task, etc.) triggers agent B
     - **Org chart**: agents can be arranged into a manager/direct-report hierarchy. That hierarchy is injected into agent boot context and gives agents a clear delegation model
 
-    See [Automations →](/guides/automations)
+    See [Routines →](/guides/automations)
   </Accordion>
 
   <Accordion title="What happens when an agent hits its budget limit?">
@@ -213,7 +213,7 @@ description: "Common questions about HQ — what it is, how it works, and how to
   <Accordion title="How do I back up my data?">
     Three things to back up:
 
-    1. **Supabase** — your contacts, tasks, agents, documents, audit log. Use Supabase built-in backups (Pro tier) or `pg_dump` to a file. See [Operations →](/self-host/operations)
+    1. **Supabase** — your contacts, tasks, agents, knowledge items, audit log. Use Supabase built-in backups (Pro tier) or `pg_dump` to a file. See [Operations →](/self-host/operations)
     2. **Gateway state volume** — per-agent git branches, Chrome profiles, OpenClaw config. Back up with `docker run --rm -v yourhq-gateway-state:/src -v $(pwd):/dst alpine tar -czf /dst/gateway-state.tar.gz -C /src .`
     3. **`.env`** — contains secrets. Store in a password manager or encrypted disk.
 
@@ -298,10 +298,10 @@ description: "Common questions about HQ — what it is, how it works, and how to
     See [Templates reference →](/reference/templates)
   </Accordion>
 
-  <Accordion title="Can I add custom automations or triggers?">
-    The automation trigger types are defined in the UI and matched in the inbox dispatcher. Adding a new trigger type requires:
+  <Accordion title="Can I add custom routines or triggers?">
+    The routine trigger types are defined in the UI and matched in the inbox dispatcher. Adding a new trigger type requires:
 
-    1. A new entry in the `automation_trigger_type` enum (via a migration)
+    1. A new entry in the routine trigger type enum (via a migration)
     2. A place in the UI or a backend hook that creates the `agent_inbox_items` row
     3. The dispatcher handles it automatically — it dispatches any actionable inbox item
 

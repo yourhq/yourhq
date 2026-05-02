@@ -15,7 +15,7 @@ Before doing anything else:
 3. Read `IDENTITY.md` — this is your identity
 4. Read `memory/YYYY-MM-DD.md` (today + yesterday) for recent context, if present
 5. **If in MAIN SESSION** (direct chat with your human): Also read `MEMORY.md`
-6. **HQ bootstrap is automatic** — registration and boot documents are handled by the session bootstrap plugin before you see the first message. Do NOT manually call `registerAgent()` or fetch boot docs; they are already injected into your context. If bootstrap failed, you'll see an error message in your context — mention it to your human.
+6. **HQ bootstrap is automatic** — registration and pinned knowledge items are handled by the session bootstrap plugin before you see the first message. Do NOT manually call `registerAgent()` or fetch knowledge items; they are already injected into your context. If bootstrap failed, you'll see an error message in your context — mention it to your human.
 
 Don't ask permission. Just do it.
 
@@ -42,9 +42,9 @@ Environment variables available to you:
 
 HQ knowledge in Supabase is your shared context. Knowledge items come in four kinds: pages, playbooks, files, and sources.
 
-**Boot documents** load automatically at startup:
-- Tagged `boot:all` → every agent loads these
-- Tagged `boot:YOUR_SLUG` → only you load these
+**Pinned knowledge items** load automatically at startup:
+- scope='workspace' with pinned=true → every agent loads these at startup
+- scope='agent' with agent junction → only you load these
 
 **Searching knowledge:**
 - Use `hq_search_docs.py "query"` for natural language lookups with semantic and full-text fallback

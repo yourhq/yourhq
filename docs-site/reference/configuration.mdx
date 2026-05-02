@@ -233,7 +233,7 @@ A lot of yourhq's configuration is runtime-configurable via the UI, not via envi
 
 - **`/setup`** — the six-step workspace setup wizard. Seeds `workspace` (name, slug, owner profile), `pipeline_stages`, `field_definitions`, and initial `streams` in one RPC call. New workspaces are redirected here automatically until `workspace.initialized = true`.
 
-- **`/dashboard/settings`** — add or edit pipeline stages, custom field definitions, streams, automations, and agent identities after the initial setup. Most per-workspace behavior lives here, not in `.env`.
+- **`/dashboard/settings`** — add or edit pipeline stages, custom field definitions, streams, and agent identities after the initial setup. Routines are managed from `/dashboard/routines`. Most per-workspace behavior lives here, not in `.env`.
 
 - **`/dashboard/agents`** — the agent creation wizard (three steps: template → identity → Telegram). See [Agents](/concepts/agents) for agent-specific configuration (each agent has its own `agent.json` committed to its git branch).
 

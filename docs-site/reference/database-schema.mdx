@@ -18,16 +18,16 @@ HQ stores shared state in one Supabase project per workspace. The SQL source of 
 | `010_comments_attachments.sql` | Polymorphic comments |
 | `011_assets_documents.sql` | Knowledge items, chunks, semantic/full-text search, and draft sets |
 | `012_audit_notifications.sql` | Audit log and notification tables |
-| `013_agent_inbox.sql` | Agent inbox queue, inbox triggers, and automation rules |
+| `013_agent_inbox.sql` | Agent inbox queue, inbox triggers, and routines |
 | `014_agent_commands.sql` | Command queue for agent lifecycle and system operations |
 | `015_usage_budgets.sql` | LLM usage logging, per-agent budgets, and enforcement |
 | `016_rls_realtime_storage.sql` | Row-level security, Realtime subscriptions, Storage buckets |
 | `017_setup_wizard.sql` | `complete_setup()` RPC for the first-run wizard |
 | `018_tenants.sql` | Tenant registry, `tenant_id` column on all tenant-owned tables, tenant-scoped RLS policies |
 | `019_rls_tenant_scoped.sql` | Tenant-scoped RLS policies and JWT helper |
-| `020_rpc_tenant_scoped.sql` | Tenant-scoped RPCs: `lease_command`, `consume_gateway_token`, `spawn_due_task_instances`, `complete_setup`, `recompute_agent_budget` |
+| `020_rpc_tenant_scoped.sql` | Tenant-scoped RPCs: `lease_command`, `consume_gateway_token`, `spawn_due_task_instances`, `complete_setup`, `recompute_agent_budget`, `spawn_routine_schedule_items` |
 | `021_status_enums_schema_version.sql` | `agent_status` and `gateway_status` enum migration, `_schema_version` table |
-| `022_agent_heartbeat_cron.sql` | Agent heartbeat cron job |
+| `022_agent_heartbeat_cron.sql` | Agent schedule routines cron job |
 | `023_entity_links.sql` | Universal polymorphic entity linking table |
 | `025_routines.sql` | Routines (scheduled agent workflows) |
 | `026_collections.sql` | Custom collections and records |
@@ -125,12 +125,12 @@ Important RPCs:
 
 Entity links replace the earlier task-specific attachments with a generalized model. When an agent claims a task, it receives all linked entities as context.
 
-### Automations
+### Routines
 
-- `automation_rules` — event-driven rules that turn CRM/task/comment changes into agent inbox items.
+- `routines` — event-driven and schedule-driven rules that turn CRM/task/comment changes or cron ticks into agent inbox items.
 - `agent_inbox_items` — stores the resulting work items, lease state, retry counters, dedup keys, and failure state.
 
-Contact automation rules are evaluated by database functions on contact insert/update.
+Event routines are evaluated by the `process_routine_event` database function on contact insert/update. Schedule routines use `spawn_routine_schedule_items` via pg_cron to create inbox items at defined intervals.
 
 ### Configuration Tables
 

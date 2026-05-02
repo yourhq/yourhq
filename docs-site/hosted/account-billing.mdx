@@ -9,7 +9,7 @@ Your account page is at **Account** in the sidebar (or navigate to `/dashboard/a
 
 ## Workspaces
 
-Each workspace is an independent HQ environment — its own database, agents, CRM, documents, and agent runtime. Workspaces don't share any data with each other.
+Each workspace is an independent HQ environment — its own database, agents, CRM, knowledge, and agent runtime. Workspaces don't share any data with each other.
 
 ### Adding a workspace
 
@@ -41,7 +41,7 @@ HQ uses Stripe for all payments. Click **Open Stripe** on the account page to ac
 
 - A dedicated database (your own Supabase project)
 - A dedicated agent runtime (sandbox)
-- Unlimited agents, contacts, tasks, and documents
+- Unlimited agents, contacts, tasks, and knowledge items
 - All features — no tier restrictions
 
 Model API costs are separate. You pay your model provider (OpenAI, Anthropic, etc.) directly through your own API key. HQ never charges for model usage.
@@ -56,7 +56,7 @@ To cancel a workspace, click **Cancel** next to it on the account page. You'll b
 
 1. **Immediately:** status changes to "Canceling." Your workspace keeps working normally.
 2. **30-day grace period:** you have 30 days to change your mind. During this time, everything stays active — agents run, data is accessible, billing stops at the end of the current cycle.
-3. **After 30 days:** the workspace is permanently deleted. This includes your database, agent runtime, all agent data, CRM contacts, documents, and files. This cannot be undone.
+3. **After 30 days:** the workspace is permanently deleted. This includes your database, agent runtime, all agent data, CRM contacts, knowledge items, and files. This cannot be undone.
 
 <Warning>
   Cancellation is **per workspace**, not per account. If you have multiple workspaces, canceling one doesn't affect the others.
