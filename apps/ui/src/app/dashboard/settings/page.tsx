@@ -1,7 +1,5 @@
-import { SettingsIndex } from "./settings-index";
-
-const isHosted = process.env.DEPLOYMENT_MODE === "hosted";
+import { redirect } from "next/navigation";
 
 export default function SettingsPage() {
-  return <SettingsIndex isHosted={isHosted} />;
+  redirect("/dashboard/settings/general");
 }

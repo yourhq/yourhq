@@ -1,6 +1,7 @@
 "use client";
 
-import { FileText, BookOpen, Upload, Plus } from "lucide-react";
+import Link from "next/link";
+import { FileText, BookOpen, Upload, Plus, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -49,6 +50,13 @@ export function KnowledgeCreateMenu({
         <DropdownMenuItem onClick={onUploadFiles} className="gap-2">
           <Upload className="h-4 w-4 text-amber-400" />
           <div className="text-sm">Upload files</div>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild className="gap-2">
+          <Link href="/dashboard/settings/sources">
+            <Globe className="h-4 w-4 text-teal-400" />
+            <div className="text-sm">Connect source</div>
+          </Link>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

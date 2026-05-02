@@ -2,12 +2,14 @@
 
 import { Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { Users } from "lucide-react";
+import Link from "next/link";
+import { Users, Settings2 } from "lucide-react";
 import { ContactsTab } from "@/components/crm/contacts-tab";
 import { TemplatesTab } from "@/components/crm/templates-tab";
 import { CampaignsTab } from "@/components/crm/campaigns-tab";
 import { PageHeader } from "@/components/shared/page-header";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 
 const tabs = [
   { key: "contacts", label: "Contacts" },
@@ -41,6 +43,13 @@ function CrmContent() {
           icon={<Users className="h-4 w-4" />}
           title="CRM"
           description="People, campaigns, and outreach templates."
+          secondaryActions={
+            <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+              <Link href="/dashboard/settings/pipeline" title="CRM settings">
+                <Settings2 className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          }
           tabs={
             <TabsList variant="line" className="h-10">
               {tabs.map((tab) => (

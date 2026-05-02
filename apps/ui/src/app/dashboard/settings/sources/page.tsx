@@ -5,7 +5,7 @@ import { useSourceConnections } from "@/hooks/use-source-connections";
 import { SourceConnectionsPanel } from "@/components/sources/source-connections-panel";
 import { PageHeader } from "@/components/shared/page-header";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
-import { BookOpen } from "lucide-react";
+import { Globe } from "lucide-react";
 
 function SourcesContent() {
   const sc = useSourceConnections();
@@ -13,8 +13,8 @@ function SourcesContent() {
   return (
     <>
       <PageHeader
-        title="Knowledge Sources"
-        icon={<BookOpen className="h-5 w-5" />}
+        title="Sources"
+        icon={<Globe className="h-4 w-4" />}
         description="Connect external services to sync content into Knowledge."
       />
       <div className="p-4 max-w-2xl mx-auto">
