@@ -28,9 +28,10 @@ function entityHref(entityType: string, entityId: string): string | null {
     case "agent":
       return `/dashboard/agents/${entityId}`;
     case "document":
-      return `/dashboard/documents?doc=${entityId}`;
+    case "knowledge_item":
+      return `/dashboard/knowledge/${entityId}`;
     case "asset":
-      return `/dashboard/assets?asset=${entityId}`;
+      return `/dashboard/knowledge/${entityId}`;
     default:
       return null;
   }

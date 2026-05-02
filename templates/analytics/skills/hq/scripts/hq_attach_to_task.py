@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Attach a document, asset, or URL to a task."""
+"""Link a knowledge item or URL to a task via entity_links."""
 
 import argparse
 import sys
@@ -12,24 +12,25 @@ check_env()
 
 ap = argparse.ArgumentParser()
 ap.add_argument("task_id")
-ap.add_argument("--type", required=True, choices=["document", "asset", "url"])
+ap.add_argument("--type", required=True, choices=["knowledge_item", "url", "contact", "organization", "collection_record"])
 ap.add_argument("--entity-id", default=None)
 ap.add_argument("--url", default=None)
 ap.add_argument("--label", default=None)
 args = ap.parse_args()
 
 payload = {
-    "task_id": args.task_id,
-    "entity_type": args.type,
-    "entity_id": args.entity_id,
-    "url": args.url,
+    "owner_type": "task",
+    "owner_id": args.task_id,
+    "target_type": args.type,
+    "target_id": args.entity_id,
+    "url": args.url if args.type == "url" else None,
     "label": args.label,
 }
 
-result = api_post("task_attachments", payload)
-att = result[0] if isinstance(result, list) else result
+result = api_post("entity_links", payload)
+link = result[0] if isinstance(result, list) else result
 
-audit("tasks", "task_attachment", att["id"], "created",
-      summary=f"Agent '{AGENT_SLUG}' attached {args.type} to task")
+audit("tasks", "entity_link", link["id"], "created",
+      summary=f"Agent '{AGENT_SLUG}' linked {args.type} to task")
 
-output({"status": "attached", "attachment_id": att["id"], "task_id": args.task_id, "type": args.type})
+output({"status": "linked", "link_id": link["id"], "task_id": args.task_id, "type": args.type})

@@ -229,6 +229,22 @@ services:
       - gateway-embedding-cache:/models
       - ui-config:/config:ro
 
+  file-processor:
+    image: ${FILE_PROCESSOR_IMAGE:-ghcr.io/yourhq/yourhq-file-processor:latest}
+    build:
+      context: .
+      dockerfile: gateway/file-processor/Dockerfile
+    container_name: ${COMPOSE_PROJECT:-yourhq}-file-processor
+    restart: unless-stopped
+    profiles: [gateway]
+    environment:
+      <<: *gateway-env
+      FILE_PROCESS_INTERVAL: ${FILE_PROCESS_INTERVAL:-30}
+      FILE_PROCESS_BATCH_SIZE: ${FILE_PROCESS_BATCH_SIZE:-5}
+      FILE_PROCESS_LEASE_SEC: ${FILE_PROCESS_LEASE_SEC:-300}
+    volumes:
+      - ui-config:/config:ro
+
   worker:
     build:
       context: .

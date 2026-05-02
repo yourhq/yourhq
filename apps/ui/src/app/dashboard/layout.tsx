@@ -37,12 +37,22 @@ export default async function DashboardLayout({
   const { activeProjectId, projects } = await listSwitcherProjects();
   const isHosted = process.env.DEPLOYMENT_MODE === "hosted";
 
+  const { data: ws } = await supabase
+    .from("workspace")
+    .select("settings")
+    .limit(1)
+    .maybeSingle();
+  const modules = (ws?.settings as Record<string, unknown>)?.modules as
+    | Record<string, boolean>
+    | undefined;
+
   return (
     <DashboardShell
       user={user}
       activeProjectId={activeProjectId}
       projects={projects}
       isHosted={isHosted}
+      modules={modules}
     >
       {children}
     </DashboardShell>

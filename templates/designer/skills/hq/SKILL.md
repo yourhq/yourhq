@@ -1,6 +1,6 @@
 ---
 name: hq
-description: Connect to the HQ via Supabase. Use when you need to register yourself, search HQ knowledge, read/create/update documents, claim tasks, post comments, manage contacts and organizations, log interactions, or query the audit trail. Also use at session startup to register and load boot documents.
+description: Connect to the HQ via Supabase. Use when you need to register yourself, search knowledge, create/update pages and playbooks, claim tasks, post comments, manage contacts and organizations, log interactions, or query the audit trail. Also use at session startup to register and load boot documents.
 ---
 
 # HQ
@@ -94,52 +94,39 @@ python3 skills/hq/scripts/hq_update_extended.py organizations ORG_ID \
   --data '{"deal_value": 50000}'
 ```
 
-## Knowledge & Documents
+## Knowledge
 
-### Search HQ knowledge (semantic chunks + full-text fallback)
+### Search knowledge (semantic + full-text fallback)
 ```bash
 python3 skills/hq/scripts/hq_search_docs.py "your natural language query"
 ```
-Optional flags: `--tags tag1,tag2` `--folder-id UUID` `--source-type document` `--limit 5`
+Optional flags: `--tags tag1,tag2` `--folder-id UUID` `--kind page` `--limit 5`
 
-Returns grouped sources with matched chunks/snippets. It uses local BGE semantic search when the embedder is available and indexed PostgreSQL full-text chunk search as the fallback.
+Kind filter: `page`, `playbook`, `file`, `source`. Returns matched knowledge items ranked by similarity.
 
-### Get an indexed knowledge source
-```bash
-python3 skills/hq/scripts/hq_get_knowledge_source.py SOURCE_ID
-```
-Use the `knowledge_source_id` returned by search or task attachments.
-
-### Get chunks for a knowledge source
-```bash
-python3 skills/hq/scripts/hq_get_knowledge_chunks.py SOURCE_ID
-python3 skills/hq/scripts/hq_get_knowledge_chunks.py SOURCE_ID --query "specific topic"
-```
-Use this when a task or search result references a long document and you need more surrounding sections without loading the full native document.
-
-### Get a specific document
-```bash
-python3 skills/hq/scripts/hq_get_doc.py DOCUMENT_ID
-```
-
-### Get documents by tag
-```bash
-python3 skills/hq/scripts/hq_get_docs_by_tag.py TAG_NAME
-```
-
-### Create a document
+### Create a knowledge item
 ```bash
 python3 skills/hq/scripts/hq_create_doc.py --title "Title" --content "Content here" --tags tag1,tag2
 ```
-Optional: `--folder-id UUID`
+Optional: `--kind playbook` (default: page), `--scope agent` (default: workspace), `--folder-id UUID`
 
-Automatically requests a local HQ embedding on creation; the background embedder indexes it if unavailable.
+Automatically requests a local embedding on creation.
 
-### Update a document
+### Update a knowledge item
 ```bash
-python3 skills/hq/scripts/hq_update_doc.py DOCUMENT_ID --title "New title" --content "New content" --tags tag1,tag2
+python3 skills/hq/scripts/hq_update_doc.py ITEM_ID --title "New title" --content "New content" --tags tag1,tag2
 ```
-Automatically requests a local HQ embedding; the background embedder reindexes it if unavailable.
+Automatically re-embeds on update.
+
+### Get a specific knowledge item
+```bash
+python3 skills/hq/scripts/hq_get_doc.py ITEM_ID
+```
+
+### Get knowledge items by tag
+```bash
+python3 skills/hq/scripts/hq_get_docs_by_tag.py TAG_NAME
+```
 
 ## Tasks
 
@@ -299,11 +286,11 @@ Sets task to `blocked`, posts a comment mentioning @prajoth, sends Telegram noti
 ## Rules
 
 - **Every write must be audited.** Use the audited helpers, not raw Supabase queries.
-- **Document embeddings are local.** Use the HQ document scripts; no embedding API key is required.
-- **Search HQ knowledge before asking.** The knowledge base is in Supabase and search returns exact matched sections when available.
+- **Embeddings are local.** Use the knowledge scripts; no embedding API key is required.
+- **Search knowledge before asking.** The knowledge base is in Supabase and search returns matched items ranked by similarity.
 - **Discover fields before writing.** Fetch `field_definitions` to know what extended fields exist and what they mean.
 - **Use valid pipeline stages.** Fetch `pipeline_stages` before setting a contact's status.
 - **When you claim a task, read its attachments.** They're fetched automatically.
-- **Create documents for reusable knowledge.** Don't hoard context in chat.
+- **Create knowledge items for reusable info.** Use `--kind playbook` for SOPs and instructions, `--kind page` for general notes.
 - **Process your inbox without babysitting.** When woken, work through items before going idle.
 - **Escalate to unblock.** Don't sit on a stuck item — escalate and move to the next one.

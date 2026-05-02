@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Search HQ knowledge by natural language query.
 
-Uses semantic chunk search first, then indexed full-text chunk search if local
-embeddings are unavailable. Results are grouped by source/document and include
-the matched snippets agents should use for context.
+Uses semantic search first (vector similarity on knowledge_items), then
+full-text search if local embeddings are unavailable, then title scan
+as a last resort.
 """
 
 import argparse
@@ -19,84 +19,49 @@ ap = argparse.ArgumentParser()
 ap.add_argument("query")
 ap.add_argument("--tags", default=None, help="Comma-separated tags to filter by")
 ap.add_argument("--folder-id", default=None)
-ap.add_argument("--source-type", default=None, help="Filter to document, asset, or future external source type")
+ap.add_argument("--kind", default=None, help="Filter by kind: page, playbook, file, source")
 ap.add_argument("--limit", type=int, default=5)
 args = ap.parse_args()
 
 filter_tags = args.tags.split(",") if args.tags else None
 
-
-def group_results(rows):
-    grouped = []
-    by_source = {}
-    for row in rows or []:
-        key = row["knowledge_source_id"]
-        if key not in by_source:
-            item = {
-                "knowledge_source_id": row["knowledge_source_id"],
-                "source_type": row["source_type"],
-                "source_entity_id": row["source_entity_id"],
-                "document_id": row.get("document_id"),
-                "asset_id": row.get("asset_id"),
-                "title": row["title"],
-                "tags": row.get("tags") or [],
-                "folder_id": row.get("folder_id"),
-                "source_uri": row.get("source_uri"),
-                "best_similarity": row.get("similarity"),
-                "chunks": [],
-            }
-            by_source[key] = item
-            grouped.append(item)
-        by_source[key]["chunks"].append({
-            "chunk_id": row["chunk_id"],
-            "chunk_index": row["chunk_index"],
-            "content": row["content"],
-            "char_start": row.get("char_start"),
-            "char_end": row.get("char_end"),
-            "page_number": row.get("page_number"),
-            "section_path": row.get("section_path"),
-            "similarity": row.get("similarity"),
-            "meta": row.get("meta") or {},
-        })
-    return grouped[: args.limit]
-
-
 try:
     embedding = generate_embedding(args.query)
     if embedding:
-        rows = api_rpc("search_knowledge_chunks", {
+        rows = api_rpc("search_knowledge_items", {
             "query_embedding": embedding,
-            "match_count": args.limit * 3,
+            "match_count": args.limit,
             "filter_tags": filter_tags,
             "filter_folder_id": args.folder_id,
-            "filter_source_type": args.source_type,
-            "filter_source_id": None,
+            "filter_kind": args.kind,
         })
-        output({"method": "semantic_chunks", "count": len(rows or []), "results": group_results(rows)})
+        output({"method": "semantic", "count": len(rows or []), "results": rows or []})
         sys.exit(0)
 except Exception as e:
-    print(f"[search] semantic chunk search failed, falling back to full-text: {e}", file=sys.stderr)
+    print(f"[search] semantic search failed, falling back to full-text: {e}", file=sys.stderr)
 
 try:
-    rows = api_rpc("search_knowledge_chunks_text", {
+    rows = api_rpc("search_knowledge_items_text", {
         "query_text": args.query,
-        "match_count": args.limit * 3,
+        "match_count": args.limit,
         "filter_tags": filter_tags,
         "filter_folder_id": args.folder_id,
-        "filter_source_type": args.source_type,
-        "filter_source_id": None,
+        "filter_kind": args.kind,
     })
-    output({"method": "full_text_chunks", "count": len(rows or []), "results": group_results(rows)})
+    output({"method": "full_text", "count": len(rows or []), "results": rows or []})
 except Exception as e:
-    print(f"[search] chunk text RPC failed, falling back to document title/tag scan: {e}", file=sys.stderr)
+    print(f"[search] text RPC failed, falling back to title scan: {e}", file=sys.stderr)
     words = args.query.split()
     ilike_parts = [f"title.ilike.%{w}%" for w in words]
     params = {
-        "select": "id,title,content,tags,folder_id,updated_at",
+        "select": "id,title,kind,scope,tags,folder_id,updated_at",
         "or": f"({','.join(ilike_parts)})",
+        "archived_at": "is.null",
         "limit": str(args.limit),
     }
     if args.folder_id:
         params["folder_id"] = f"eq.{args.folder_id}"
-    results = api_get("documents", params)
+    if args.kind:
+        params["kind"] = f"eq.{args.kind}"
+    results = api_get("knowledge_items", params)
     output({"method": "title_fallback", "count": len(results), "results": results})

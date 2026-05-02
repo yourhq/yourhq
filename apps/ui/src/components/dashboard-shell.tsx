@@ -9,8 +9,7 @@ import {
   Users,
   Building2,
   CheckSquare,
-  FolderOpen,
-  FileText,
+  BookOpen,
   Activity,
   Bot,
   Zap,
@@ -19,6 +18,7 @@ import {
   Search,
   Keyboard,
   CreditCard,
+  Database,
 } from "lucide-react";
 import { useUnreadNotificationCount } from "@/hooks/use-notifications";
 import { cn } from "@/lib/utils";
@@ -57,7 +57,10 @@ type NavGroup = {
   items: NavItem[];
 };
 
-function buildNavGroups(isHosted: boolean): NavGroup[] {
+function buildNavGroups(
+  isHosted: boolean,
+  modules?: Record<string, boolean>,
+): NavGroup[] {
   const systemItems: NavItem[] = [
     { href: "/dashboard/activity", label: "Activity", icon: Activity },
     { href: "/dashboard/notifications", label: "Notifications", icon: Bell },
@@ -67,40 +70,48 @@ function buildNavGroups(isHosted: boolean): NavGroup[] {
     systemItems.push({ href: "/dashboard/account", label: "Account", icon: CreditCard });
   }
 
-  return [
+  const groups: NavGroup[] = [
     {
       label: "Workspace",
       items: [
         { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       ],
     },
-    {
+  ];
+
+  if (modules?.crm !== false) {
+    groups.push({
       label: "CRM",
       items: [
         { href: "/dashboard/crm", label: "Contacts", icon: Users },
         { href: "/dashboard/organizations", label: "Organizations", icon: Building2 },
       ],
-    },
+    });
+  }
+
+  groups.push(
     {
       label: "Work",
       items: [
         { href: "/dashboard/tasks", label: "Tasks", icon: CheckSquare },
         { href: "/dashboard/agents", label: "Agents", icon: Bot },
-        { href: "/dashboard/automations", label: "Automations", icon: Zap },
+        { href: "/dashboard/collections", label: "Collections", icon: Database },
+        { href: "/dashboard/routines", label: "Routines", icon: Zap },
       ],
     },
     {
       label: "Knowledge",
       items: [
-        { href: "/dashboard/documents", label: "Documents", icon: FileText },
-        { href: "/dashboard/assets", label: "Assets", icon: FolderOpen },
+        { href: "/dashboard/knowledge", label: "Knowledge", icon: BookOpen },
       ],
     },
     {
       label: "System",
       items: systemItems,
     },
-  ];
+  );
+
+  return groups;
 }
 
 const SidebarContext = React.createContext<{
@@ -119,6 +130,7 @@ function SidebarInner({
   activeProjectId,
   projects,
   isHosted,
+  modules,
 }: {
   showLabels: boolean;
   pathname: string;
@@ -126,10 +138,11 @@ function SidebarInner({
   activeProjectId: string | null;
   projects: SwitcherProject[];
   isHosted: boolean;
+  modules?: Record<string, boolean>;
 }) {
   const { count: unreadCount } = useUnreadNotificationCount();
   const { showHelp } = useShortcuts();
-  const navGroups = React.useMemo(() => buildNavGroups(isHosted), [isHosted]);
+  const navGroups = React.useMemo(() => buildNavGroups(isHosted, modules), [isHosted, modules]);
 
   const isItemActive = (href: string) =>
     href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
@@ -277,12 +290,14 @@ export function DashboardShell({
   activeProjectId,
   projects,
   isHosted = false,
+  modules,
 }: {
   user: User;
   children: React.ReactNode;
   activeProjectId: string | null;
   projects: SwitcherProject[];
   isHosted?: boolean;
+  modules?: Record<string, boolean>;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -369,6 +384,7 @@ export function DashboardShell({
                     activeProjectId={activeProjectId}
                     projects={projects}
                     isHosted={isHosted}
+                    modules={modules}
                   />
                 </div>
               </SheetContent>
@@ -387,6 +403,7 @@ export function DashboardShell({
                 activeProjectId={activeProjectId}
                 projects={projects}
                 isHosted={isHosted}
+                modules={modules}
               />
             </aside>
 

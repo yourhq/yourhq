@@ -23,7 +23,7 @@ import {
   SelectTrigger,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { TaskAttachments } from "./task-attachments";
+import { EntityLinkList } from "@/components/shared/entity-link-list";
 import { CommentThread } from "./comment-thread";
 import { useComments } from "@/hooks/use-comments";
 import {
@@ -467,10 +467,10 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive }: 
           )}
         </div>
 
-        {/* Attachments section */}
+        {/* Links section */}
         {savedTaskId ? (
           <div className="border-t border-border/50 px-4 py-2.5">
-            <TaskAttachments taskId={savedTaskId} />
+            <EntityLinkList ownerType="task" ownerId={savedTaskId} />
           </div>
         ) : (
           <div className="border-t border-border/50 px-4 py-2">
@@ -481,7 +481,7 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive }: 
               className="flex items-center gap-1 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors disabled:opacity-50"
             >
               <Paperclip className="h-3 w-3" />
-              Attach (saves task first)
+              Link (saves task first)
             </button>
           </div>
         )}

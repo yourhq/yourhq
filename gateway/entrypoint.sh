@@ -657,6 +657,16 @@ if [ "$RUNTIME_MODE" = "e2b" ]; then
     log "Starting command_runner (in-process, e2b mode) ..."
     python3 "$DAEMON_DIR/command_runner.py" > "$HOME/command-runner.log" 2>&1 &
   fi
+
+  if [ -f "$DAEMON_DIR/file_processor.py" ]; then
+    log "Starting file_processor (in-process, e2b mode) ..."
+    python3 "$DAEMON_DIR/file_processor.py" > "$HOME/file-processor.log" 2>&1 &
+  fi
+
+  if [ -f "$DAEMON_DIR/source_sync.py" ]; then
+    log "Starting source_sync (in-process, e2b mode) ..."
+    python3 "$DAEMON_DIR/source_sync.py" > "$HOME/source-sync.log" 2>&1 &
+  fi
 fi
 
 # ─────────────────────────────────────────────────────────────

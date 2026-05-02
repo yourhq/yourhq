@@ -24,6 +24,7 @@ import {
   Plus,
   Upload,
   UserPlus,
+  Database,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -31,7 +32,8 @@ const NAV_ITEMS = [
   { label: "CRM", href: "/dashboard/crm", icon: Users },
   { label: "Organizations", href: "/dashboard/organizations", icon: Building2 },
   { label: "Tasks", href: "/dashboard/tasks", icon: CheckSquare },
-  { label: "Assets", href: "/dashboard/assets", icon: FolderOpen },
+  { label: "Knowledge", href: "/dashboard/knowledge", icon: FolderOpen },
+  { label: "Collections", href: "/dashboard/collections", icon: Database },
   { label: "Activity", href: "/dashboard/activity", icon: Activity },
   { label: "Agents", href: "/dashboard/agents", icon: Bot },
   { label: "Notifications", href: "/dashboard/notifications", icon: Bell },
@@ -42,7 +44,7 @@ const QUICK_ACTIONS = [
   { label: "Create Task", href: "/dashboard/tasks?action=create", icon: Plus },
   { label: "Add Contact", href: "/dashboard/crm?action=create", icon: UserPlus },
   { label: "Create Organization", href: "/dashboard/organizations?action=create", icon: Building2 },
-  { label: "Upload Asset", href: "/dashboard/assets?action=upload", icon: Upload },
+  { label: "Create Knowledge", href: "/dashboard/knowledge", icon: Upload },
   { label: "Register Agent", href: "/dashboard/agents?action=create", icon: Bot },
 ];
 

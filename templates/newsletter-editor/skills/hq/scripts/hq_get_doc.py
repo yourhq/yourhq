@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch a single document by ID."""
+"""Fetch a single knowledge item by ID."""
 
 import sys
 import os
@@ -10,14 +10,14 @@ from hq_base import check_env, api_get, output
 check_env()
 
 if len(sys.argv) < 2:
-    print("Usage: hq_get_doc.py DOCUMENT_ID", file=sys.stderr)
+    print("Usage: hq_get_doc.py ITEM_ID", file=sys.stderr)
     sys.exit(1)
 
-doc_id = sys.argv[1]
-rows = api_get("documents", {"select": "*", "id": f"eq.{doc_id}", "limit": "1"})
+item_id = sys.argv[1]
+rows = api_get("knowledge_items", {"select": "*", "id": f"eq.{item_id}", "limit": "1"})
 
 if not rows:
-    output({"error": "not_found", "id": doc_id})
+    output({"error": "not_found", "id": item_id})
     sys.exit(1)
 
 output(rows[0])

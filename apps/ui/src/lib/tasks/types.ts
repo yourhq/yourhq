@@ -92,25 +92,6 @@ export interface TaskSeries {
   assignee_agent?: { id: string; name: string; slug: string; avatar_url: string | null } | null;
 }
 
-// Attachment types
-
-export type AttachmentEntityType = "document" | "asset" | "url";
-
-export interface TaskAttachment {
-  id: string;
-  created_at: string;
-  task_id: string;
-  entity_type: AttachmentEntityType;
-  entity_id: string | null;
-  url: string | null;
-  label: string | null;
-  added_by: string;
-  // Resolved from joined entity
-  resolved_name?: string;
-  resolved_icon?: string;
-  resolved_asset_type?: string;
-}
-
 export interface Comment {
   id: string;
   created_at: string;
@@ -128,9 +109,8 @@ export interface Comment {
   replies?: Comment[];
 }
 
-// Comment attachment reference (stored in comment.meta.attachments)
 export interface CommentAttachmentRef {
-  entity_type: AttachmentEntityType;
+  entity_type: "document" | "asset" | "url";
   entity_id?: string;
   url?: string;
   label: string;

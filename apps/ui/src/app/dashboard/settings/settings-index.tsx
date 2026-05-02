@@ -10,6 +10,8 @@ import {
   FolderKanban,
   ChevronRight,
   Globe,
+  BookOpen,
+  Puzzle,
   Settings as SettingsIcon,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
@@ -36,6 +38,12 @@ const SECTIONS: SettingsSection[] = [
     title: "Projects",
     description: "Connect, edit, and switch between database projects.",
     ossOnly: true,
+  },
+  {
+    href: "/dashboard/settings/modules",
+    icon: Puzzle,
+    title: "Modules",
+    description: "Enable or disable workspace features like CRM.",
   },
   {
     href: "/dashboard/settings/pipeline",
@@ -69,6 +77,12 @@ const SECTIONS: SettingsSection[] = [
     title: "Connections",
     description:
       "AI providers your agents use — Claude, GPT, Gemini, and more.",
+  },
+  {
+    href: "/dashboard/settings/sources",
+    icon: BookOpen,
+    title: "Knowledge Sources",
+    description: "Connect Notion or Google Drive to sync content into Knowledge.",
   },
   {
     href: "/dashboard/settings/system",

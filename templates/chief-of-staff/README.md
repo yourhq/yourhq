@@ -21,7 +21,7 @@ Default starting point for every OpenClaw agent branch. Fork this into a new bra
 
 ## Shared Knowledge
 
-Shared context (product overview, conventions, playbooks) lives in **Supabase documents**, not git. Tag documents for agent targeting:
+Shared context (product overview, conventions, playbooks) lives in **Supabase knowledge items**, not git. Tag items for agent targeting:
 
 - `boot:all` — loaded by every agent at startup
 - `boot:{agent-slug}` — loaded by a specific agent only
@@ -69,10 +69,10 @@ Current team values in use:
 ## Supabase Dependencies
 
 ### Tables Used
-agents, tasks, streams, comments, audit_log, contacts, interactions, organizations, contact_organizations, templates, campaigns, documents, document_folders, knowledge_sources, knowledge_chunks, assets, asset_folders, task_attachments, notifications, field_definitions, pipeline_stages, draft_sets
+agents, tasks, streams, comments, audit_log, contacts, interactions, organizations, contact_organizations, templates, campaigns, knowledge_items, knowledge_folders, knowledge_chunks, collection_definitions, collection_fields, collection_records, entity_links, routines, notifications, field_definitions, pipeline_stages, draft_sets
 
 ### Required Migrations
-- `011_assets_documents.sql` — documents, assets, local embeddings, knowledge sources/chunks, and search RPCs
+- `024_knowledge.sql` — knowledge items, folders, embeddings, and search RPCs
 - `016_rls_realtime_storage.sql` — grants, RLS, realtime, and storage
 - `018_tenants.sql` — tenant IDs and tenant-scoped knowledge source uniqueness
 - `019_rls_tenant_scoped.sql` — tenant-scoped RLS policies
