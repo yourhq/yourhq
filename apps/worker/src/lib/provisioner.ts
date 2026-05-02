@@ -5,19 +5,11 @@ import {
   logSandboxEvent,
 } from "./master-supabase.js";
 import { resolvePreset } from "./setup-templates.js";
+import { applyMigrations } from "./schema-runner.js";
+import { sendProvisioningComplete } from "./email.js";
+import { SUPABASE_MGMT_URL, mgmtHeaders } from "./supabase-mgmt.js";
 import type { SandboxProvider } from "../providers/types.js";
 import { randomBytes } from "node:crypto";
-
-const SUPABASE_MGMT_URL = "https://api.supabase.com";
-
-function mgmtHeaders(): Record<string, string> {
-  const token = process.env.SUPABASE_MANAGEMENT_API_TOKEN;
-  if (!token) throw new Error("SUPABASE_MANAGEMENT_API_TOKEN required");
-  return {
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-  };
-}
 
 async function setStage(workspaceId: string, stage: string) {
   await updateWorkspace(workspaceId, { provision_stage: stage } as any);
@@ -105,11 +97,20 @@ export async function provisionWorkspace(
       supabase_db_password_enc: dbPassword, // TODO: encrypt with pgsodium
     } as any);
 
+    // ── 3b. Configure auth settings (site URL + redirect allowlist) ──
+    const publicSiteUrl = process.env.PUBLIC_SITE_URL ?? "http://localhost:3000";
+    await fetch(`${SUPABASE_MGMT_URL}/v1/projects/${projectRef}/config/auth`, {
+      method: "PATCH",
+      headers: mgmtHeaders(),
+      body: JSON.stringify({
+        SITE_URL: publicSiteUrl,
+        URI_ALLOW_LIST: `${publicSiteUrl}/auth/callback`,
+      }),
+    });
+
     // ── 4. Apply schema migrations ──
     await setStage(workspaceId, "applying_schema");
-    // TODO: run apps/migrate schema-runner against the tenant project
-    // For now, log that this step needs implementation
-    console.log(`[provisioner] TODO: apply schema to ${projectRef}`);
+    await applyMigrations(projectRef);
 
     // ── 5. Create auth user in tenant Supabase ──
     await setStage(workspaceId, "creating_user");
@@ -199,6 +200,11 @@ export async function provisionWorkspace(
       supabase_ref: projectRef,
       sandbox_id: sandbox.sandboxId,
     });
+
+    const siteUrl = process.env.PUBLIC_SITE_URL ?? "http://localhost:3000";
+    sendProvisioningComplete(email, workspace.label, `${siteUrl}/login`).catch(
+      (err) => console.error("[provisioner] Failed to send provisioning email:", err),
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[provisioner] Failed for workspace ${workspaceId}:`, message);

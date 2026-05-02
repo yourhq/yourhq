@@ -1,4 +1,5 @@
 import { getMasterSupabase, logSandboxEvent } from "../lib/master-supabase.js";
+import { deleteSupabaseProject } from "../lib/supabase-mgmt.js";
 import type { SandboxProvider } from "../providers/types.js";
 
 const CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000; // Check every 6 hours
@@ -7,7 +8,6 @@ export function startCleanupLoop(provider: SandboxProvider): NodeJS.Timeout {
   async function cleanup() {
     const db = getMasterSupabase();
 
-    // Find workspaces past their 30-day grace period
     const { data: expired } = await db
       .from("hosted_workspaces")
       .select("id, e2b_sandbox_id, supabase_project_ref")
@@ -19,7 +19,6 @@ export function startCleanupLoop(provider: SandboxProvider): NodeJS.Timeout {
     for (const ws of expired) {
       console.log(`[cleanup] Destroying workspace ${ws.id}`);
 
-      // Destroy sandbox
       if (ws.e2b_sandbox_id) {
         try {
           await provider.destroy(ws.e2b_sandbox_id);
@@ -28,9 +27,13 @@ export function startCleanupLoop(provider: SandboxProvider): NodeJS.Timeout {
         }
       }
 
-      // TODO: delete Supabase project via Management API
       if (ws.supabase_project_ref) {
-        console.log(`[cleanup] TODO: delete Supabase project ${ws.supabase_project_ref}`);
+        try {
+          await deleteSupabaseProject(ws.supabase_project_ref);
+          console.log(`[cleanup] Deleted Supabase project ${ws.supabase_project_ref}`);
+        } catch (err) {
+          console.error(`[cleanup] Failed to delete Supabase project ${ws.supabase_project_ref}:`, err);
+        }
       }
 
       await db
@@ -39,11 +42,17 @@ export function startCleanupLoop(provider: SandboxProvider): NodeJS.Timeout {
           subscription_status: "canceled",
           e2b_sandbox_id: null,
           e2b_sandbox_status: "none",
+          supabase_project_ref: null,
+          supabase_url: null,
+          supabase_anon_key: null,
+          supabase_service_role_key_enc: null,
+          supabase_db_password_enc: null,
         })
         .eq("id", ws.id);
 
       await logSandboxEvent(ws.id, "destroyed", {
         reason: "cancellation_grace_expired",
+        supabase_project_deleted: !!ws.supabase_project_ref,
       });
     }
   }

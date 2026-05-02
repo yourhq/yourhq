@@ -1,8 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-
-const WORKER_URL = process.env.WORKER_URL ?? "http://worker:3001";
+import { WORKER_URL, workerHeaders } from "@/lib/worker-client";
 
 interface WorkspaceInfo {
   id: string;
@@ -30,6 +29,7 @@ export async function listWorkspacesAction(): Promise<{
 
   const res = await fetch(
     `${WORKER_URL}/workspaces/${session.workspaceId}/siblings`,
+    { headers: workerHeaders() },
   );
   if (!res.ok) {
     return { ok: false, error: "Failed to fetch workspaces." };
@@ -44,7 +44,7 @@ export async function cancelWorkspaceAction(workspaceId: string): Promise<{
 }> {
   const res = await fetch(
     `${WORKER_URL}/workspaces/${workspaceId}/cancel`,
-    { method: "POST" },
+    { method: "POST", headers: workerHeaders() },
   );
   if (!res.ok) {
     const body = await res.text();
@@ -71,7 +71,7 @@ export async function getBillingPortalAction(): Promise<{
 
   const res = await fetch(
     `${WORKER_URL}/workspaces/${session.workspaceId}/billing-portal`,
-    { method: "POST" },
+    { method: "POST", headers: workerHeaders() },
   );
   if (!res.ok) {
     return { ok: false, error: "Failed to create billing portal session." };

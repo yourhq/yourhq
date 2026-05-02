@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { lookupUserWorkspaces } from "@/lib/projects/hosted-registry";
 
@@ -20,8 +20,16 @@ export async function hostedLoginAction(email: string): Promise<{
     return { ok: false, error: "Workspace is still being set up." };
   }
 
+  const hdrs = await headers();
+  const host = hdrs.get("host") ?? "localhost:3000";
+  const proto = hdrs.get("x-forwarded-proto") ?? "http";
+  const siteUrl = `${proto}://${host}`;
+
   const supabase = createSupabaseClient(ws.supabase_url, ws.supabase_anon_key);
-  const { error } = await supabase.auth.signInWithOtp({ email });
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: `${siteUrl}/auth/callback` },
+  });
 
   if (error) {
     return { ok: false, error: error.message };
@@ -34,9 +42,11 @@ export async function hostedLoginAction(email: string): Promise<{
     supabaseAnonKey: ws.supabase_anon_key,
     serviceRoleKey: ws.supabase_service_role_key ?? "",
   };
+  const isSecure = proto === "https";
   jar.set("hq_workspace_session", Buffer.from(JSON.stringify(session)).toString("base64url"), {
     path: "/",
     httpOnly: true,
+    secure: isSecure,
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 30,
   });

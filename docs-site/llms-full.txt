@@ -14,14 +14,18 @@ Source: https://docs.yourhq.ai
 
 > Open-source AI operations HQ — self-hosted agents, CRM, tasks, documents, and automations on infrastructure you control.
 
-**HQ is an open-source workspace for running AI agents on infrastructure you control.** You bring a Docker host and a Supabase project. HQ gives you the UI, the agent runtime, 15 role templates, and the full stack to manage them.
+**HQ is an AI operations workspace — agents, CRM, tasks, documents, and automations.** Run it on your own infrastructure or let us host it for you.
 
-  - **Get started in 15 minutes**: 
-    Install HQ, connect Supabase, connect a model, and create your first agent.
+  - **Hosted — ready in 2 min**: 
+    Sign up at yourhq.ai. We handle infrastructure, you create agents.
+  
+
+  - **Self-host in 15 min**: 
+    Install on your own machine. Full control, completely free.
   
 
   - **Not sure where to start?**: 
-    Pick a path based on what you want to do — try it, self-host it, build agents, fork it, or review security.
+    Pick a path based on what you want to do.
   
 
 ---
@@ -69,7 +73,7 @@ The **UI** is where you manage everything: agents, tasks, CRM, documents, automa
 ## Who HQ is for
 
   - **Non-technical operators**: 
-    Use the installer and browser UI. No coding required to install, create agents, and manage your workspace.
+    Sign up for hosted or use the installer. No coding required to create agents and manage your workspace.
   
 
   - **Technical self-hosters**: 
@@ -86,9 +90,9 @@ The **UI** is where you manage everything: agents, tasks, CRM, documents, automa
 
 ---
 
-## Open source by design
+## Open source at the core
 
-HQ is not a hosted product with a self-hosted checkbox — the repo is the product. The docs include UI paths, manual paths, operational notes, security risks, and extension points so you can run it yourself or build your own version.
+HQ is open source — the same codebase powers both the self-hosted version and the hosted service. The docs include UI paths, manual paths, operational notes, security risks, and extension points so you can run it yourself, use our hosted version, or build your own.
 
   - **Architecture**: 
     Runtime, queues, daemons, files API, and full data flow.
@@ -107,12 +111,12 @@ Source: https://docs.yourhq.ai/getting-started/choose-your-path
 
 HQ is useful to different people for different reasons. Start with the path that matches what you are trying to do today.
 
-  - **I want to try HQ**: 
-    Get the fastest path from zero to a running workspace, then create your first agent.
+  - **I want HQ without managing infrastructure**: 
+    Sign up at yourhq.ai. We handle the database, runtime, and updates — you just create agents. Ready in 2 minutes.
   
 
-  - **I want to self-host it properly**: 
-    Review requirements, Supabase setup, networking, backups, updates, and gateway operations.
+  - **I want to self-host it**: 
+    Install on your own machine. Full control, completely free. Takes about 15 minutes.
   
 
   - **I want to understand the product**: 
@@ -158,237 +162,6 @@ HQ is useful to different people for different reasons. Start with the path that
 
 ---
 
-# Quickstart
-
-Source: https://docs.yourhq.ai/getting-started/quickstart
-
-> Get HQ running in about 15 minutes. You need Docker, a free Supabase account, and a model API key.
-
-> 
-  **Not technical?** That's fine. The install is one command in a terminal and a few steps in your browser. You don't need to edit code or understand Docker to get started.
-
-## Before you begin
-
-You need three things. All are free to start.
-
-  - **Docker**: 
-    Runs everything locally. [Download Docker Desktop](https://docs.docker.com/desktop/) for Mac or Windows. On Linux, the installer handles it.
-  
-
-  - **Supabase account**: 
-    Free at [supabase.com](https://supabase.com). This is where your workspace data lives — on your own account.
-  
-
-  - **Model API key**: 
-    Any provider works. OpenAI and Anthropic are the most common. You'll add this after HQ is running.
-  
-
-> 
-  Want to access HQ from your phone or another laptop? Sign up for [Tailscale](https://tailscale.com) (free) before installing and the installer will configure it for you.
-
----
-
-## Step 1 — Create a Supabase project
-
-  
-### Create a project
-
-    Go to [supabase.com](https://supabase.com), sign in, and create a new project. Choose any name and region. Wait about 2 minutes for it to provision.
-  
-
-  
-### Run the migrations
-
-    In your Supabase dashboard, click **SQL Editor** in the left sidebar. Then run every `.sql` file from [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) in filename order (001 through 021).
-
-    
-> 
-      The easiest way: open each file, copy the SQL, paste it into the SQL Editor, and click **Run**. Repeat for each file in order. The onboarding wizard can also generate a single combined SQL blob for you.
-    
-
-  
-
-  
-### Create an auth user
-
-    Go to **Authentication → Users** in your Supabase dashboard. Click **Add user → Create new user**. Enter an email and password — this is what you'll use to log in to HQ. Check "Auto Confirm User" so you can sign in immediately.
-  
-
-  
-### Disable public signup
-
-    Go to **Authentication → Providers → Email** and turn off "Enable email signup". This prevents anyone else from creating an account in your Supabase project.
-  
-
-  
-### Copy your API keys
-
-    Go to **Project Settings → API** (gear icon in the left sidebar). You'll need three values — keep this tab open:
-
-    | Key | Where to find it | What it's for |
-    |---|---|---|
-    | **Project URL** | Top of the API page | How HQ finds your Supabase project |
-    | **Anon public key** | Under "Project API keys" | Browser-side auth |
-    | **Service role key** | Under "Project API keys" (secret — don't share) | Full database access for the gateway |
-
-    
-> 
-      The service role key bypasses all security policies and has full access to your database. Treat it like a password.
-    
-
-  
-
----
-
-## Step 2 — Install HQ
-
-Open a terminal on your Mac or Linux machine (on Windows, use WSL) and run:
-
-```bash
-curl -fsSL install.yourhq.ai | bash
-```
-
-The installer will ask you a few questions:
-
-1. **Networking mode** — choose **Local-only** for now. You can switch to Tailscale later.
-2. **GitHub sync** — skip this for now (press Enter).
-
-It pulls Docker images (~1.5 GB on first run — this takes a few minutes), starts the stack, and opens your browser.
-
-> 
-  Prefer to inspect the code first? Clone the repo and run it manually:
-  ```bash
-  git clone https://github.com/yourhq/yourhq.git
-  cd yourhq
-  cp .env.example .env
-  docker compose up -d
-  ```
-
----
-
-## Step 3 — Connect Supabase
-
-Your browser will open to `http://localhost:3000`. You'll see the **Connect Supabase** screen.
-
-Paste the three values you copied in Step 1:
-- Project URL
-- Anon public key
-- Service role key
-
-Click **Connect**. HQ validates your connection and runs a quick schema check. If it passes, you'll be taken to the login page.
-
-> 
-  If you see a "table does not exist" error, you missed some migration files. Go back to the SQL Editor and run any files you skipped.
-
-Sign in with the email and password you created in Step 1.
-
----
-
-## Step 4 — Finish the workspace wizard
-
-After signing in you'll see the **Workspace Setup** wizard. This takes about 2 minutes.
-
-- **Workspace name** — what to call your workspace (e.g. your name or company)
-- **Preset** — choose a starting template. "Personal ops" is a good default if you're unsure. You can change everything later.
-- **Owner profile** — your name, preferred name, and timezone. Agents use this to address you correctly.
-- **Pipeline stages, fields, streams** — leave these at the defaults for now.
-
-Click **Complete Setup**.
-
----
-
-## Step 5 — Connect a model provider
-
-Go to **Settings → Connections**.
-
-  
-    1. Go to [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
-    2. Create a new key
-    3. Back in HQ: click **Add connection → OpenAI → API key**
-    4. Paste your key and click **Connect**
-
-    Cost: ~$0.01–0.10 per agent conversation depending on the model.
-  
-  
-    1. Go to [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
-    2. Create a new key
-    3. Back in HQ: click **Add connection → Anthropic → API key**
-    4. Paste your key and click **Connect**
-  
-  
-    1. Install Ollama from [ollama.com](https://ollama.com) and pull a model: `ollama pull llama3.2`
-    2. In HQ: click **Add connection → Ollama → Local URL**
-    3. Enter `http://host.docker.internal:11434` (this is how Docker reaches your machine)
-    4. Click **Connect**
-
-    This runs entirely on your machine — no API costs.
-  
-
----
-
-## Step 6 — Create your first agent
-
-Go to **Agents → New Agent**.
-
-  
-### Pick a template
-
-    Choose a role. If you're not sure, **Assistant** is a good general-purpose starting point. Each template comes pre-loaded with skills and a personality.
-  
-
-  
-### Set identity
-
-    Give your agent a name. The slug (URL-friendly ID) is auto-generated. You can also set an emoji and description.
-  
-
-  
-### Choose a channel
-
-    This is how you'll talk to your agent:
-    - **Telegram** — easiest to set up. Create a bot at [@BotFather](https://t.me/botfather) and paste the token.
-    - **None** — skip for now and interact through tasks and automations instead.
-  
-
-  
-### Create
-
-    Click **Create Agent**. HQ provisions the agent on your gateway — this takes about 60 seconds.
-  
-
-  
-### Pair your channel (Telegram / Discord only)
-
-    Send a DM to your bot. It replies with a 6-digit pairing code. Paste that code in the agent's detail page → **Pairing Code** field → click **Approve**. Your next message triggers the agent.
-  
-
----
-
-## You're set up
-
-Your HQ is running. Here's what to explore next:
-
-  - **Pick a model per agent**: 
-    Assign different models and thinking levels to each agent. Mix cheap and expensive models across your fleet.
-  
-
-  - **Understand agents**: 
-    Memory, files, skills, org chart, and how agents actually work.
-  
-
-  - **Set usage budgets**: 
-    Avoid surprise API bills with per-agent monthly limits.
-  
-
-  - **Access from other devices**: 
-    Set up Tailscale so your phone and laptop can reach HQ.
-  
-
-  - **Troubleshooting**: 
-    Something didn't work? Common fixes are here.
-
----
-
 # FAQ
 
 Source: https://docs.yourhq.ai/getting-started/faq
@@ -418,18 +191,19 @@ HQ is an open-source platform for running AI agents on your own infrastructure. 
   
 
   
-    Not yet. A hosted offering at `yourhq.ai` is on the roadmap — you'd sign up and skip the self-hosting entirely. Until then, everyone self-hosts.
+    Yes. Sign up at [yourhq.ai](https://yourhq.ai) and skip the self-hosting entirely — we handle the database, agent runtime, and updates. $30/month per workspace, ready in under 2 minutes.
 
-    See [Roadmap →](/getting-started/roadmap)
+    See [Hosted getting started →](/hosted/getting-started)
   
 
   
     - **Your data stays on your machine.** No third party has access to your CRM, documents, or agent outputs.
-    - **No per-seat pricing.** Run as many agents as your hardware can handle.
+    - **Free.** You only pay for your own infrastructure and model API costs.
     - **Open source.** Fork it, customize it, ship your own version.
     - **Offline-capable.** Gateways can run on a laptop or home server with no cloud dependency.
+    - **Full template control.** Modify agent templates directly on the filesystem.
 
-    The trade-off: you're responsible for updates, backups, and debugging. If that's unappealing, wait for the hosted offering.
+    The trade-off: you're responsible for updates, backups, and debugging. If that's unappealing, [try the hosted version](/hosted/getting-started).
   
 
   
@@ -702,21 +476,32 @@ Source: https://docs.yourhq.ai/getting-started/roadmap
 
 # Roadmap
 
-This doc captures where HQ is now and what remains. Older phase labels are historical context only; several items that used to be described as Phase 2 or Phase 3 are now implemented.
+Where HQ is now, what ships in v0.1, and what comes after.
 
 ## Shipped
 
-### Foundations
+### Core platform
 
-- One repo (`yourhq/yourhq`) for UI, gateway, dispatcher, runner, templates, migrations, and installers
-- `docker-compose.yml` stack with four services
+- One repo (`yourhq/yourhq`) for UI, gateway, dispatcher, runner, templates, migrations, installer, and docs
+- `docker-compose.yml` stack with four services and Docker healthchecks on all of them
 - Interactive `installer/install.sh` with local, Tailscale, and public networking modes
-- Gateway runtime with OpenClaw, Chrome/Chromium, Xtigervnc, XFCE, noVNC, and files API
-- Agent templates bundled into the image
+- Gateway runtime with OpenClaw, Chrome/Chromium, Xtigervnc, XFCE desktop, noVNC, and files API
+- `RUNTIME_MODE` env var (`docker` | `systemd` | `e2b`) for portable entrypoint behavior
+- Agent templates bundled into the gateway image (16 templates, each with a README)
 - Multi-arch GHCR images for amd64 and arm64
-- Multi-gateway database model with `gateways` and `agents.gateway_id`
-- Gateway file browser/editor through the files API
+- Multi-gateway database model with `gateways` table and `agents.gateway_id`
 - Tailscale as a host-level dependency, not a container dependency
+
+### Multi-tenant schema
+
+- `tenants` table with a fixed default UUID for single-tenant OSS installs
+- `tenant_id` foreign key on all ~30 tenant-owned tables with cascade deletes
+- Tenant-scoped unique constraints (e.g. `gateways(tenant_id, slug)` instead of `gateways(slug)`)
+- RLS policies scoped by `tenant_id` extracted from JWT `app_metadata`
+- All RPCs and triggers updated for tenant-aware leasing and filtering
+- Status enum unification: `ready`, `error`, `paused`, `provisioning`, `hibernating` for both agents and gateways
+- `_schema_version` tracking table (currently at v22)
+- `last_heartbeat_at` on both `gateways` and `agents` tables
 
 ### Workspace and onboarding
 
@@ -725,71 +510,88 @@ This doc captures where HQ is now and what remains. Older phase labels are histo
 - Runtime Supabase config injection with no `NEXT_PUBLIC_*` rebuild requirement
 - Project switcher and project settings
 - Supabase validation during onboarding
-- Account creation/sign-in flow
+- Account creation and sign-in flow
 - Workspace setup wizard with presets for owner profile, pipeline, fields, and streams
 - CRM, tasks, documents, assets, automations, notifications, activity, and settings pages
 
 ### Gateway and provider operations
 
-- Settings -> Gateways UI
-- Single-use gateway registration tokens
-- Generated gateway installer command
-- Gateway health, stale heartbeat status, label editing, and URL override support
-- noVNC desktop modal from the UI
-- Settings -> Connections UI
-- API-key, OAuth-paste, device-code, CLI-reuse, and local URL provider auth flows through the command runner
+- Settings → Gateways UI with health indicators, stale heartbeat detection, and label editing
+- Single-use gateway registration tokens and generated installer command
+- URL override support for custom domains and reverse proxies
+- Desktop modal proxied through the UI — no exposed VNC port, auto-connects with the gateway's password
+- Desktop label in the UI (not "noVNC")
+- Pause and resume controls for both gateways and agents
+- Settings → Connections UI
+- API-key, OAuth-paste, device-code, CLI-reuse, and local URL provider auth flows
 - Provider list, removal, refresh, and default-model command support
+- Template update propagation ("Update agents" button dispatches `update_all` to the gateway)
 
 ### Agent operations
 
 - Agent creation wizard from templates
 - Multi-channel support (Telegram, Discord, Slack, None) with per-channel credential provisioning and pairing
-- Agent file browser/editor
+- Agent file browser and editor
 - Agent operations and command history
 - Agent boot-context documents through `boot:all` and `boot:` tags
 - Agent triggers and inbox history
-- Inline model/provider default selection
+- Per-agent heartbeat scheduling with cron presets (15 min to daily) via pg_cron
+- Inline model and provider default selection
 - Agent org chart through `reports_to_id`
 - Runtime delegation context for managers and direct reports
 - Per-agent LLM usage tracking and monthly budgets
-- Budget warning/exceeded notifications and hard cutoff enforcement
+- Budget warning, exceeded notifications, and hard cutoff enforcement
 
-### Observability and gateway management
+### Observability and operations
 
-- Gateway update from UI (pull images, restart) with confirmation dialog
 - System page with Commands, Inbox, and Audit Log tabs
 - Status, module, action, and actor filters across all log views
 - Realtime subscriptions and pagination on all log views
+- Structured JSON logging in both daemons (gateway_id and tenant_id in every line)
+- Schema version banner ("Update available") in the dashboard shell
+- `scripts/diagnostic-bundle.sh` for support triage
 
-## Next
+### Docs and migration tooling
 
-These are the most useful near-term areas for contributors.
+- Docs site at `docs.yourhq.ai` (Mintlify) with self-host, concepts, and reference sections
+- Public deployment guide covering Tailscale Serve, Tailscale Funnel, Cloudflare Tunnel, and classic reverse proxies
+- Security hardening guide (Supabase auth gates, RLS, noVNC exposure, gateway auth tokens)
+- Per-template READMEs explaining intended role, tools, and first tasks
+- Migration runner CLI (`apps/migrate/`) with one-click and SQL editor fallback modes
 
-- **Migration runner** — replace copy/paste SQL instructions with a guided migration command or UI flow.
+## Remaining for v0.1
+
+Small items to address before tagging. None are blockers, but they'd be good to ship.
+
+- **End-to-end install test** — fresh VPS, Codespaces, and M-series Mac. Manual checklist is fine for v0.1; automated test suite can follow.
+
+## Next (post-v0.1)
+
+- **Sentry (env-gated)** — `sentry-sdk` in daemons, `@sentry/nextjs` in UI. Only active when `SENTRY_DSN` is set. Ships alongside other hosted integrations.
 - **Templates source UI** — switch between bundled templates and a custom git URL per project.
-- **Public deployment guide** — reverse proxy, Cloudflare Tunnel, TLS, and auth hardening examples.
-- **Pretty tailnet URLs** — optional Tailscale Serve setup for users who want `http://hq` instead of ported URLs.
-- **Richer budget pricing** — broader model pricing map and clearer treatment of unmetered providers.
-- **Template docs** — per-template READMEs that explain intended role, tools, and first tasks.
-- **Docs site** — render this repository's markdown docs at `docs.yourhq.ai`.
+- **Pretty tailnet URLs** — optional Tailscale Serve automation in the installer for `http://hq` instead of ported URLs.
 
 ## Hosted Offering
 
-`yourhq.ai` signup flow for users who do not want to self-host. This is a business-layer addition, not a product change; the self-hosted code should stay usable on its own.
+`yourhq.ai` signup flow for users who do not want to self-host. Same monorepo, same images, controlled by `DEPLOYMENT_MODE=hosted` env var. Self-hosted code stays usable on its own.
 
-- Account management service
-- Signup and billing
-- Automated Supabase project provisioning per tenant
-- Automated gateway provisioning on managed hosts
-- Registry source swap: hosted UI reads project registry from account infrastructure instead of `/config/projects.json`
+- Worker service (`apps/worker/`) for provisioning, billing, and sandbox lifecycle
+- Per-user Supabase project provisioning via Management API
+- E2B sandbox hosting (gateway Dockerfile runs on E2B with `RUNTIME_MODE=e2b`)
+- Stripe billing ($30/month per workspace, self-serve add/cancel)
+- Magic link authentication
+- Hosted registry backed by a master Supabase accounts database
+- noVNC proxy with E2B access token injection (extends the `/desktop/` proxy already in OSS)
+- Onboarding flow that skips Supabase and gateway setup steps
 
 ## Longer-Term Ideas
 
-- Per-agent view in the Open Desktop modal with pause, takeover, and resume
+- Free hosted tier with shared Supabase and tenant data portability (export → bundle → import)
+- Per-agent view in the desktop modal with pause, takeover, and resume
 - Agent-to-agent workflow builder
-- Native apps such as macOS menu bar and iOS Shortcuts integration
-- Marketplace for community templates
-- MCP-first integrations where they can replace direct plugins cleanly
+- Native apps (macOS menu bar, iOS Shortcuts)
+- Community template marketplace
+- MCP-first integrations where they can replace direct plugins
 - Stronger per-agent isolation for operators who need stricter security boundaries
 
 ## How To Influence The Roadmap
@@ -798,6 +600,651 @@ These are the most useful near-term areas for contributors.
 - Start discussions in `github.com/yourhq/yourhq/discussions`.
 - Send PRs for docs, templates, UI polish, gateway hardening, or well-scoped integrations.
 - For large architecture changes, open an issue first so the design can be discussed before implementation.
+
+---
+
+# Getting started with HQ
+
+Source: https://docs.yourhq.ai/hosted/getting-started
+
+> Sign up, set up your workspace, and create your first agent — all from your browser.
+
+HQ hosted gives you the full platform without managing any infrastructure. You sign up, we provision a workspace, and you're ready to create agents in under two minutes.
+
+> 
+  This guide is for the hosted version at [yourhq.ai](https://yourhq.ai). If you want to self-host HQ on your own machine, see the [self-host quickstart](/getting-started/quickstart) instead.
+
+---
+
+## What you need
+
+  - **An email address**: 
+    Used for sign-in (magic link — no password to remember).
+  
+
+  - **A model API key**: 
+    Any provider: OpenAI, Anthropic, Gemini, Ollama, and more. You'll add this after your workspace is ready.
+  
+
+---
+
+## Step 1 — Sign up
+
+  
+### Go to yourhq.ai and click Get started
+
+    You'll see a short onboarding flow — three screens.
+  
+
+  
+### Enter your details
+
+    - **Your name** — how agents will address you
+    - **Workspace name** — whatever you'd like to call it (e.g. your company or project name)
+    - **Context** — pick the preset that best matches what you'll use HQ for. This seeds your pipeline stages, fields, and streams. You can change everything later.
+
+    Presets: Growth, Sales, Recruiting, Clients, Personal, Other.
+  
+
+  
+### Confirm and pay
+
+    Review your workspace details and proceed to checkout. HQ is **$30/month per workspace**, billed through Stripe.
+  
+
+---
+
+## Step 2 — Watch your workspace come online
+
+After payment, you'll see a live provisioning screen. Each step checks off as it completes:
+
+1. **Creating database** — a dedicated Supabase project, just for you
+2. **Applying schema** — tables, functions, and security policies
+3. **Setting up your workspace** — your account, pipeline, and fields
+4. **Starting agent runtime** — a sandboxed environment where your agents run
+5. **Connecting gateway** — the runtime registers with your workspace
+
+This usually takes about a minute. When it's done, you'll see **"Your workspace is ready"** and a button to sign in.
+
+---
+
+## Step 3 — Sign in
+
+Check your email for a sign-in link. Click it — you'll land directly in your dashboard. No password needed; HQ uses magic links.
+
+> 
+  The link expires after 1 hour. If it's gone, go to [yourhq.ai/login](https://yourhq.ai/login) and request a new one.
+
+---
+
+## Step 4 — Connect a model provider
+
+Go to **Settings → Connections** and add a provider. Your agents need a model to think with.
+
+  
+    1. Go to [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+    2. Create a new key
+    3. Back in HQ: click **Add connection → OpenAI → API key**
+    4. Paste your key and click **Connect**
+
+    Cost: ~$0.01–0.10 per agent conversation depending on the model.
+  
+  
+    1. Go to [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
+    2. Create a new key
+    3. Back in HQ: click **Add connection → Anthropic → API key**
+    4. Paste your key and click **Connect**
+  
+  
+    HQ supports 15+ providers: Gemini, DeepSeek, Mistral, Groq, OpenRouter, and more. Click **Add connection** to see the full list.
+  
+
+> 
+  HQ never touches your API keys for billing. You pay the model provider directly — HQ just routes calls through your key.
+
+---
+
+## Step 5 — Create your first agent
+
+Go to **Agents → New Agent**.
+
+  
+### Pick a template
+
+    Choose a role. **Assistant** is a good general-purpose starting point. Each template comes with pre-loaded skills, memory structure, and a personality.
+  
+
+  
+### Set identity
+
+    Give your agent a name. The slug is auto-generated. You can add an emoji and description.
+  
+
+  
+### Choose a channel
+
+    How you'll talk to your agent:
+    - **Telegram** — easiest. Create a bot at [@BotFather](https://t.me/botfather) and paste the token.
+    - **Discord** — create a bot in the [Discord Developer Portal](https://discord.com/developers/applications) and paste the token.
+    - **None** — skip channels and interact through tasks, automations, and the remote desktop.
+  
+
+  
+### Create
+
+    Click **Create Agent**. HQ provisions the agent on your runtime — this takes about 60 seconds.
+  
+
+  
+### Pair your channel (Telegram / Discord only)
+
+    Send a DM to your bot. It replies with a 6-digit pairing code. Paste that code in the agent's detail page → **Pairing Code** → click **Approve**. Your next message triggers the agent.
+  
+
+---
+
+## You're set up
+
+Your hosted HQ is running. Here's what to explore next:
+
+  - **Pick a model per agent**: 
+    Assign different models and thinking levels to each agent.
+  
+
+  - **Understand agents**: 
+    Memory, files, skills, org chart, and how agents actually work.
+  
+
+  - **Set usage budgets**: 
+    Avoid surprise API bills with per-agent monthly limits.
+  
+
+  - **Manage your account**: 
+    Add workspaces, manage billing, or cancel.
+
+---
+
+# Account & billing
+
+Source: https://docs.yourhq.ai/hosted/account-billing
+
+> Manage workspaces, update your payment method, and understand how cancellation works.
+
+Your account page is at **Account** in the sidebar (or navigate to `/dashboard/account`). From here you can see all your workspaces, manage billing, and sign out.
+
+---
+
+## Workspaces
+
+Each workspace is an independent HQ environment — its own database, agents, CRM, documents, and agent runtime. Workspaces don't share any data with each other.
+
+### Adding a workspace
+
+Click **Add workspace** on the account page. You'll go through the same flow as your initial signup: pick a name, choose a context preset, and confirm payment. Each workspace is billed separately at **$30/month**.
+
+### Workspace status
+
+| Status | Meaning |
+|---|---|
+| **Active** | Workspace is running. Agents, CRM, and all features work normally. |
+| **Setting up** | Provisioning is in progress. Usually takes about a minute. |
+| **Canceling** | You've requested cancellation. Workspace stays active for 30 days. |
+| **Canceled** | Grace period expired. Workspace and all its data have been deleted. |
+| **Pending** | Payment hasn't been confirmed yet. |
+
+---
+
+## Billing
+
+HQ uses Stripe for all payments. Click **Open Stripe** on the account page to access the Stripe Customer Portal, where you can:
+
+- Update your payment method (card, bank account)
+- View and download invoices
+- See your next billing date
+
+### Pricing
+
+**$30/month per workspace.** This includes:
+
+- A dedicated database (your own Supabase project)
+- A dedicated agent runtime (sandbox)
+- Unlimited agents, contacts, tasks, and documents
+- All features — no tier restrictions
+
+Model API costs are separate. You pay your model provider (OpenAI, Anthropic, etc.) directly through your own API key. HQ never charges for model usage.
+
+---
+
+## Cancellation
+
+To cancel a workspace, click **Cancel** next to it on the account page. You'll be asked to confirm.
+
+### What happens when you cancel
+
+1. **Immediately:** status changes to "Canceling." Your workspace keeps working normally.
+2. **30-day grace period:** you have 30 days to change your mind. During this time, everything stays active — agents run, data is accessible, billing stops at the end of the current cycle.
+3. **After 30 days:** the workspace is permanently deleted. This includes your database, agent runtime, all agent data, CRM contacts, documents, and files. This cannot be undone.
+
+> 
+  Cancellation is **per workspace**, not per account. If you have multiple workspaces, canceling one doesn't affect the others.
+
+### Reactivating
+
+During the 30-day grace period, contact `support@yourhq.ai` to reactivate your workspace.
+
+---
+
+## Signing in
+
+HQ uses **magic links** — no passwords. Enter your email at [yourhq.ai/login](https://yourhq.ai/login) and check your inbox for a sign-in link.
+
+- Links expire after **1 hour**
+- Each link is single-use
+- If you have multiple workspaces, you'll be signed into the one you used most recently
+
+### Signing out
+
+Click **Sign out** at the bottom of the account page, or in the sidebar.
+
+---
+
+## Multiple workspaces
+
+If you have more than one workspace, you can switch between them from the sidebar. Each workspace has its own set of agents, data, and settings. Signing in always takes you to your most recently active workspace.
+
+---
+
+## Data and privacy
+
+- **Your data is yours.** Each workspace gets a dedicated Supabase project. We don't share data between workspaces or customers.
+- **API keys are stored in your workspace's database**, not in a shared system. They're only used to route model calls on your behalf.
+- **We can't see your agent conversations.** Agent memory, messages, and tool outputs live in your dedicated database.
+
+For more on the security model, see [Security](/concepts/security-model).
+
+---
+
+# Hosted FAQ
+
+Source: https://docs.yourhq.ai/hosted/faq
+
+> Common questions about HQ's hosted offering — pricing, data, cancellation, and differences from self-hosting.
+
+HQ hosted is the managed version of HQ at [yourhq.ai](https://yourhq.ai). You get the same platform as the open-source self-hosted version — agents, CRM, tasks, documents, automations — without managing Docker, Supabase, or any infrastructure.
+
+    You sign up, we provision a dedicated workspace (database + agent runtime), and you're ready to create agents in under two minutes.
+  
+
+  
+    **$30/month per workspace.** This includes:
+
+    - Dedicated database (your own Supabase project)
+    - Dedicated agent runtime (sandbox)
+    - Unlimited agents, contacts, tasks, and documents
+    - All features — no tier restrictions
+
+    **Model API costs are separate.** You bring your own API key (OpenAI, Anthropic, etc.) and pay your provider directly. HQ never charges for model usage.
+  
+
+  
+    Everything. The hosted version runs the same codebase as the open-source version. The only difference is who manages the infrastructure:
+
+    | | Self-hosted | Hosted |
+    |---|---|---|
+    | **You manage** | Docker, Supabase, networking, updates | Nothing |
+    | **We manage** | Nothing | Database, agent runtime, updates |
+    | **Features** | All | All |
+    | **Agents** | Unlimited | Unlimited |
+    | **Data location** | Your machine | Dedicated Supabase project (US East by default) |
+    | **Cost** | Infrastructure + model API | $30/mo + model API |
+
+    Self-hosted is free (you pay for your own infrastructure). Hosted is $30/mo and we handle infrastructure.
+  
+
+  
+    Not currently — there's no free trial or free tier. If you want to evaluate HQ without paying, the [self-hosted version](/getting-started/quickstart) is free and identical in features.
+  
+
+---
+
+## Data and security
+
+  
+    Each workspace gets a **dedicated Supabase project** — your database is not shared with other customers. By default, projects are provisioned in US East (us-east-1).
+
+    Your agent runtime runs in a dedicated sandbox. Agent memory, files, Chrome profiles, and conversation history live in that sandbox.
+  
+
+  
+    We have administrative access to the Supabase Management API (needed to provision and manage your project), but we do not access your workspace data in normal operations. Your agent conversations, CRM contacts, documents, and API keys live in your dedicated project.
+
+    HQ is open source — you can audit exactly what the hosted version runs.
+  
+
+  
+    Your model provider API keys (OpenAI, Anthropic, etc.) are stored in your workspace's dedicated Supabase project. They're used only to route model calls on your behalf. They're never stored in or accessible from a shared system.
+  
+
+  
+    Data portability is on the roadmap. The goal is to let you export your full workspace and import it into a self-hosted HQ instance (or vice versa) with a single command. The database schema is identical between hosted and self-hosted.
+
+    In the meantime, your Supabase project uses standard Postgres — all your data is in standard tables with documented schemas.
+  
+
+---
+
+## Account management
+
+  
+    Yes. Each workspace is independent — separate database, agents, CRM, and billing. Add a workspace from the **Account** page. Each is billed at $30/month.
+  
+
+  
+    Go to **Account** → click **Cancel** next to the workspace. Your workspace stays active for 30 days (grace period), then it's permanently deleted. Canceling one workspace doesn't affect others.
+
+    See [Account & billing](/hosted/account-billing) for details.
+  
+
+  
+    During the 30-day grace period: everything stays active. After 30 days: the agent runtime is destroyed, the Supabase project is deleted, and all data is permanently removed. This cannot be undone.
+  
+
+  
+    Data migration between hosted and self-hosted is on the roadmap. The schema is identical, so the migration is technically straightforward — we're building a one-click tool for it.
+
+    Until then, you'd need to manually export/import your Postgres data.
+  
+
+  
+    Go to **Account** → **Open Stripe**. The Stripe Customer Portal lets you update your card, view invoices, and see your next billing date.
+  
+
+---
+
+## Agents and features
+
+  
+    All of them — the same as self-hosted. HQ is model-agnostic:
+
+    - **API key providers**: OpenAI, Anthropic, Gemini, DeepSeek, Mistral, Groq, OpenRouter, and 15+ more
+    - **OAuth providers**: OpenAI Codex, GitHub Copilot
+
+    Each agent can use a different model. You pay the provider directly through your own API key.
+
+    
+> 
+      Local models (Ollama, LM Studio) require a publicly reachable URL since the agent runtime runs in a cloud sandbox, not on your machine.
+    
+
+  
+
+  
+    Yes. Channel setup works exactly the same as self-hosted:
+
+    - **Telegram**: create a bot at [@BotFather](https://t.me/botfather), paste the token
+    - **Discord**: create a bot in the Developer Portal, paste the token
+    - **Slack**: OAuth flow through HQ's settings
+
+    Webhooks from messaging platforms route directly to your agent runtime.
+  
+
+  
+    There's no hard limit on the number of agents. In practice, the runtime handles 5–10 active agents comfortably. If you need more, contact us.
+  
+
+  
+    No. We handle all infrastructure updates — database migrations, runtime updates, and security patches. Your workspace is always on the latest version.
+  
+
+  
+    Not directly in the hosted version (you don't have filesystem access to the runtime). You can customize each agent's identity, memory, skills, and behavior through the UI after creation.
+
+    If you need full template customization, the self-hosted version gives you complete filesystem access.
+  
+
+---
+
+## Support
+
+  
+    - **Email**: support@yourhq.ai
+    - **GitHub Issues**: [github.com/yourhq/yourhq/issues](https://github.com/yourhq/yourhq/issues) for bugs
+    - **GitHub Discussions**: [github.com/yourhq/yourhq/discussions](https://github.com/yourhq/yourhq/discussions) for questions and ideas
+  
+
+  
+    Email `security@yourhq.ai`. Do not open a public GitHub issue for security vulnerabilities.
+
+---
+
+# Quickstart
+
+Source: https://docs.yourhq.ai/getting-started/quickstart
+
+> Get HQ running in about 15 minutes. You need Docker, a free Supabase account, and a model API key.
+
+> 
+  **Not technical?** That's fine. The install is one command in a terminal and a few steps in your browser. You don't need to edit code or understand Docker to get started. Or skip infrastructure entirely with [HQ hosted](/hosted/getting-started).
+
+## Before you begin
+
+You need three things. All are free to start.
+
+  - **Docker**: 
+    Runs everything locally. [Download Docker Desktop](https://docs.docker.com/desktop/) for Mac or Windows. On Linux, the installer handles it.
+  
+
+  - **Supabase account**: 
+    Free at [supabase.com](https://supabase.com). This is where your workspace data lives — on your own account.
+  
+
+  - **Model API key**: 
+    Any provider works. OpenAI and Anthropic are the most common. You'll add this after HQ is running.
+  
+
+> 
+  Want to access HQ from your phone or another laptop? Sign up for [Tailscale](https://tailscale.com) (free) before installing and the installer will configure it for you.
+
+---
+
+## Step 1 — Create a Supabase project
+
+  
+### Create a project
+
+    Go to [supabase.com](https://supabase.com), sign in, and create a new project. Choose any name and region. Wait about 2 minutes for it to provision.
+  
+
+  
+### Run the migrations
+
+    In your Supabase dashboard, click **SQL Editor** in the left sidebar. Then run every `.sql` file from [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) in filename order (001 through 021).
+
+    
+> 
+      The easiest way: open each file, copy the SQL, paste it into the SQL Editor, and click **Run**. Repeat for each file in order. The onboarding wizard can also generate a single combined SQL blob for you.
+    
+
+  
+
+  
+### Create an auth user
+
+    Go to **Authentication → Users** in your Supabase dashboard. Click **Add user → Create new user**. Enter an email and password — this is what you'll use to log in to HQ. Check "Auto Confirm User" so you can sign in immediately.
+  
+
+  
+### Disable public signup
+
+    Go to **Authentication → Providers → Email** and turn off "Enable email signup". This prevents anyone else from creating an account in your Supabase project.
+  
+
+  
+### Copy your API keys
+
+    Go to **Project Settings → API** (gear icon in the left sidebar). You'll need three values — keep this tab open:
+
+    | Key | Where to find it | What it's for |
+    |---|---|---|
+    | **Project URL** | Top of the API page | How HQ finds your Supabase project |
+    | **Anon public key** | Under "Project API keys" | Browser-side auth |
+    | **Service role key** | Under "Project API keys" (secret — don't share) | Full database access for the gateway |
+
+    
+> 
+      The service role key bypasses all security policies and has full access to your database. Treat it like a password.
+    
+
+  
+
+---
+
+## Step 2 — Install HQ
+
+Open a terminal on your Mac or Linux machine (on Windows, use WSL) and run:
+
+```bash
+curl -fsSL install.yourhq.ai | bash
+```
+
+The installer will ask you a few questions:
+
+1. **Networking mode** — choose **Local-only** for now. You can switch to Tailscale later.
+2. **GitHub sync** — skip this for now (press Enter).
+
+It pulls Docker images (~1.5 GB on first run — this takes a few minutes), starts the stack, and opens your browser.
+
+> 
+  Prefer to inspect the code first? Clone the repo and run it manually:
+  ```bash
+  git clone https://github.com/yourhq/yourhq.git
+  cd yourhq
+  cp .env.example .env
+  docker compose up -d
+  ```
+
+---
+
+## Step 3 — Connect Supabase
+
+Your browser will open to `http://localhost:3000`. You'll see the **Connect Supabase** screen.
+
+Paste the three values you copied in Step 1:
+- Project URL
+- Anon public key
+- Service role key
+
+Click **Connect**. HQ validates your connection and runs a quick schema check. If it passes, you'll be taken to the login page.
+
+> 
+  If you see a "table does not exist" error, you missed some migration files. Go back to the SQL Editor and run any files you skipped.
+
+Sign in with the email and password you created in Step 1.
+
+---
+
+## Step 4 — Finish the workspace wizard
+
+After signing in you'll see the **Workspace Setup** wizard. This takes about 2 minutes.
+
+- **Workspace name** — what to call your workspace (e.g. your name or company)
+- **Preset** — choose a starting template. "Personal ops" is a good default if you're unsure. You can change everything later.
+- **Owner profile** — your name, preferred name, and timezone. Agents use this to address you correctly.
+- **Pipeline stages, fields, streams** — leave these at the defaults for now.
+
+Click **Complete Setup**.
+
+---
+
+## Step 5 — Connect a model provider
+
+Go to **Settings → Connections**.
+
+  
+    1. Go to [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+    2. Create a new key
+    3. Back in HQ: click **Add connection → OpenAI → API key**
+    4. Paste your key and click **Connect**
+
+    Cost: ~$0.01–0.10 per agent conversation depending on the model.
+  
+  
+    1. Go to [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
+    2. Create a new key
+    3. Back in HQ: click **Add connection → Anthropic → API key**
+    4. Paste your key and click **Connect**
+  
+  
+    1. Install Ollama from [ollama.com](https://ollama.com) and pull a model: `ollama pull llama3.2`
+    2. In HQ: click **Add connection → Ollama → Local URL**
+    3. Enter `http://host.docker.internal:11434` (this is how Docker reaches your machine)
+    4. Click **Connect**
+
+    This runs entirely on your machine — no API costs.
+  
+
+---
+
+## Step 6 — Create your first agent
+
+Go to **Agents → New Agent**.
+
+  
+### Pick a template
+
+    Choose a role. If you're not sure, **Assistant** is a good general-purpose starting point. Each template comes pre-loaded with skills and a personality.
+  
+
+  
+### Set identity
+
+    Give your agent a name. The slug (URL-friendly ID) is auto-generated. You can also set an emoji and description.
+  
+
+  
+### Choose a channel
+
+    This is how you'll talk to your agent:
+    - **Telegram** — easiest to set up. Create a bot at [@BotFather](https://t.me/botfather) and paste the token.
+    - **None** — skip for now and interact through tasks and automations instead.
+  
+
+  
+### Create
+
+    Click **Create Agent**. HQ provisions the agent on your gateway — this takes about 60 seconds.
+  
+
+  
+### Pair your channel (Telegram / Discord only)
+
+    Send a DM to your bot. It replies with a 6-digit pairing code. Paste that code in the agent's detail page → **Pairing Code** field → click **Approve**. Your next message triggers the agent.
+  
+
+---
+
+## You're set up
+
+Your HQ is running. Here's what to explore next:
+
+  - **Pick a model per agent**: 
+    Assign different models and thinking levels to each agent. Mix cheap and expensive models across your fleet.
+  
+
+  - **Understand agents**: 
+    Memory, files, skills, org chart, and how agents actually work.
+  
+
+  - **Set usage budgets**: 
+    Avoid surprise API bills with per-agent monthly limits.
+  
+
+  - **Access from other devices**: 
+    Set up Tailscale so your phone and laptop can reach HQ.
+  
+
+  - **Troubleshooting**: 
+    Something didn't work? Common fixes are here.
 
 ---
 
@@ -810,7 +1257,7 @@ Source: https://docs.yourhq.ai/self-host/requirements
 HQ is self-hosted software. The minimum setup is one machine that can run Docker and one Supabase project.
 
 > 
-  For a first install, use a laptop or small VPS. You can add more gateways later after the workspace is working.
+  Don't want to manage infrastructure? [HQ hosted](/hosted/getting-started) handles all of this for you — sign up and start creating agents in 2 minutes.
 
 ## Required pieces
 
@@ -876,7 +1323,7 @@ Source: https://docs.yourhq.ai/self-host/supabase
 HQ uses your own Supabase project as its database, auth system, real-time event stream, and storage backbone. You own this project — HQ never touches a shared backend.
 
 > 
-  Supabase has a generous free tier that covers personal use. You only need to upgrade to Pro ($25/month) if you hit the free tier's row or bandwidth limits.
+  Supabase has a generous free tier that covers personal use. You only need to upgrade to Pro ($25/month) if you hit the free tier's row or bandwidth limits. [HQ hosted](/hosted/getting-started) provisions and manages the database for you automatically.
 
 ---
 
@@ -1193,7 +1640,8 @@ and options for exposing HQ to the public internet with a custom domain.
 
 If you're just starting out: run the installer, pick **Local-only** or
 **Tailscale**, and come back here when you want to split services across
-machines or put HQ on a custom domain.
+machines or put HQ on a custom domain. (If networking isn't your thing,
+[HQ hosted](/hosted/getting-started) handles all of this.)
 
 ---
 
@@ -2132,7 +2580,7 @@ The UI's Supabase config lives in the project registry (runtime, not baked into 
 
 ## Backing up
 
-Three things to back up. Don't skip any of them.
+Three things to back up. Don't skip any of them. ([HQ hosted](/hosted/getting-started) handles backups and updates automatically.)
 
   
     Supabase stores everything: contacts, tasks, agents, documents, automations, usage history, audit log, and gateway registrations. Losing it means losing your entire workspace.
@@ -2326,7 +2774,7 @@ Source: https://docs.yourhq.ai/guides/workspace-setup
 After connecting Supabase and signing in, HQ opens the **Workspace Setup** wizard. This takes about 2 minutes and sets up the core structure of your workspace.
 
 > 
-  Everything you configure here can be changed later from Settings → Pipeline, Settings → Fields, and Settings → Streams. Nothing is permanent.
+  Everything you configure here can be changed later from Settings → Pipeline, Settings → Fields, and Settings → Streams. Nothing is permanent. On [HQ hosted](/hosted/getting-started), the wizard runs during signup — your workspace is pre-configured when you sign in.
 
 ---
 
@@ -4130,7 +4578,7 @@ Source: https://docs.yourhq.ai/concepts/security-model
 
 > The trust boundaries behind HQ's self-hosted architecture.
 
-HQ is single-operator admin software. The security model is designed for one trusted user running their own infrastructure — not for multi-tenant SaaS.
+HQ is single-operator admin software. The self-hosted security model is designed for one trusted user running their own infrastructure. [HQ hosted](/hosted/getting-started) manages these trust boundaries for you — each workspace gets a dedicated database and isolated runtime.
 
 ## Trust boundaries
 
@@ -6631,6 +7079,12 @@ Source: https://docs.yourhq.ai/troubleshooting/common-issues
     - Access noVNC via Tailscale (direct peer-to-peer, much better throughput than going via public internet)
     - In the noVNC UI (top-left gear icon): set quality to `6` and compression to `9` — cuts bandwidth ~3x
   
+
+---
+
+## Tired of debugging infrastructure?
+
+If you'd rather focus on agents than Docker and networking, [HQ hosted](/hosted/getting-started) runs the same platform without any infrastructure to manage.
 
 ---
 

@@ -26,7 +26,7 @@
     "primary": {
       "type": "button",
       "label": "Get started",
-      "href": "/getting-started/quickstart"
+      "href": "/getting-started/choose-your-path"
     }
   },
   "footer": {
@@ -41,14 +41,22 @@
         "pages": [
           "index",
           "getting-started/choose-your-path",
-          "getting-started/quickstart",
           "getting-started/faq",
           "getting-started/roadmap"
         ]
       },
       {
+        "group": "Hosted",
+        "pages": [
+          "hosted/getting-started",
+          "hosted/account-billing",
+          "hosted/faq"
+        ]
+      },
+      {
         "group": "Self-host",
         "pages": [
+          "getting-started/quickstart",
           "self-host/requirements",
           "self-host/supabase",
           "self-host/installation",

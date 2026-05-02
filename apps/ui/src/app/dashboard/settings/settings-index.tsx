@@ -13,6 +13,7 @@ import {
   Settings as SettingsIcon,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
+import { cn } from "@/lib/utils";
 
 interface SettingsSection {
   href: string;
@@ -33,7 +34,7 @@ const SECTIONS: SettingsSection[] = [
     href: "/dashboard/settings/projects",
     icon: FolderKanban,
     title: "Projects",
-    description: "Connect, edit, and switch between Supabase projects.",
+    description: "Connect, edit, and switch between database projects.",
     ossOnly: true,
   },
   {
@@ -93,16 +94,19 @@ export function SettingsIndex({ isHosted }: { isHosted: boolean }) {
 
       <div className="flex-1 overflow-auto">
         <div className="mx-auto w-full max-w-2xl p-5">
-          <div className="space-y-1.5">
+          <div className="rounded-lg border border-border/60 bg-card overflow-hidden divide-y divide-border/40">
             {visible.map((s) => {
               const Icon = s.icon;
               return (
                 <Link
                   key={s.href}
                   href={s.href}
-                  className="group flex items-center gap-3 rounded-md border border-border/60 bg-card px-4 py-3.5 transition-colors hover:border-border-strong hover:bg-accent/60"
+                  className={cn(
+                    "group flex items-center gap-3 px-4 py-3.5 transition-colors",
+                    "hover:bg-accent/40",
+                  )}
                 >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/50 transition-colors group-hover:bg-muted">
                     <Icon className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -113,7 +117,7 @@ export function SettingsIndex({ isHosted }: { isHosted: boolean }) {
                       {s.description}
                     </div>
                   </div>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-all group-hover:text-muted-foreground group-hover:translate-x-0.5" />
                 </Link>
               );
             })}

@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { logger } from "hono/logger";
+import { bearerAuth } from "hono/bearer-auth";
 import healthRoutes from "./routes/health.js";
 import stripeWebhookRoutes from "./routes/stripe-webhook.js";
 import workspaceRoutes from "./routes/workspaces.js";
@@ -12,6 +13,14 @@ app.use("*", logger());
 
 app.route("/", healthRoutes);
 app.route("/", stripeWebhookRoutes);
+
+const internalToken = process.env.WORKER_INTERNAL_TOKEN;
+if (internalToken) {
+  app.use("/users/*", bearerAuth({ token: internalToken }));
+  app.use("/workspaces/*", bearerAuth({ token: internalToken }));
+  app.use("/checkout", bearerAuth({ token: internalToken }));
+}
+
 app.route("/", workspaceRoutes);
 
 // Background loops

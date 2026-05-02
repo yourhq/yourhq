@@ -7,8 +7,7 @@ import type {
   OnboardingState,
 } from "./schema";
 import { cookies } from "next/headers";
-
-const WORKER_URL = process.env.WORKER_URL ?? "http://worker:3001";
+import { WORKER_URL, workerHeaders } from "@/lib/worker-client";
 
 interface HostedWorkspaceData {
   id: string;
@@ -103,6 +102,7 @@ export async function lookupUserWorkspaces(
 ): Promise<{ userId: string; workspaces: HostedWorkspaceData[] } | null> {
   const res = await fetch(
     `${WORKER_URL}/users/by-email/${encodeURIComponent(email)}`,
+    { headers: workerHeaders() },
   );
   if (!res.ok) return null;
   const data = (await res.json()) as {
@@ -118,7 +118,10 @@ export async function getProvisionStatus(workspaceId: string): Promise<{
   subscription_status: string;
   e2b_sandbox_status: string;
 } | null> {
-  const res = await fetch(`${WORKER_URL}/workspaces/${workspaceId}/status`);
+  const res = await fetch(
+    `${WORKER_URL}/workspaces/${workspaceId}/status`,
+    { headers: workerHeaders() },
+  );
   if (!res.ok) return null;
   return res.json();
 }

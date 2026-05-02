@@ -19,13 +19,18 @@ export class E2BSandboxProvider implements SandboxProvider {
     });
 
     const sandboxId = sandbox.sandboxId;
-    const host = sandbox.getHost(6901);
-    const novncUrl = `https://${host}/vnc.html?autoconnect=1&resize=remote`;
+    const novncHost = sandbox.getHost(6901);
+    const novncUrl = `https://${novncHost}/vnc.html?autoconnect=1&resize=remote`;
+    const baseHost = novncHost.replace(/^6901-/, "");
+    const sandboxHost = `https://${baseHost}`;
+
+    await sandbox.files.write("/tmp/sandbox-host", sandboxHost);
 
     return {
       sandboxId,
       novncUrl,
-      accessToken: "", // E2B v2 uses port auth by default; token extracted from SDK
+      accessToken: "",
+      sandboxHost,
     };
   }
 

@@ -2,14 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { AlertCircle, ExternalLink, Loader2 } from "lucide-react";
+import {
+  AlertCircle,
+  ExternalLink,
+  Loader2,
+  LogOut,
+  Plus,
+  CreditCard,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   listWorkspacesAction,
   cancelWorkspaceAction,
   getBillingPortalAction,
   logoutAction,
 } from "./actions";
+import { PageHeader } from "@/components/shared/page-header";
 
 interface Workspace {
   id: string;
@@ -19,12 +27,35 @@ interface Workspace {
   e2b_sandbox_status: string;
 }
 
-const STATUS_LABELS: Record<string, { label: string; className: string }> = {
-  active: { label: "Active", className: "text-green-600" },
-  provisioning: { label: "Setting up", className: "text-yellow-600" },
-  canceling: { label: "Canceling", className: "text-orange-600" },
-  canceled: { label: "Canceled", className: "text-muted-foreground" },
-  pending: { label: "Pending", className: "text-muted-foreground" },
+const STATUS_CONFIG: Record<
+  string,
+  { label: string; color: string; bg: string }
+> = {
+  active: {
+    label: "Active",
+    color: "text-green-600",
+    bg: "bg-green-500/10",
+  },
+  provisioning: {
+    label: "Setting up",
+    color: "text-amber-600",
+    bg: "bg-amber-500/10",
+  },
+  canceling: {
+    label: "Canceling",
+    color: "text-orange-600",
+    bg: "bg-orange-500/10",
+  },
+  canceled: {
+    label: "Canceled",
+    color: "text-muted-foreground",
+    bg: "bg-muted",
+  },
+  pending: {
+    label: "Pending",
+    color: "text-muted-foreground",
+    bg: "bg-muted",
+  },
 };
 
 export function AccountPage() {
@@ -32,6 +63,7 @@ export function AccountPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [canceling, setCanceling] = useState<string | null>(null);
+  const [billingLoading, setBillingLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -42,8 +74,13 @@ export function AccountPage() {
     });
   }, []);
 
-  async function handleCancel(id: string) {
-    if (!confirm("Cancel this workspace? You'll have 30 days to reactivate.")) return;
+  async function handleCancel(id: string, label: string) {
+    if (
+      !confirm(
+        `Cancel "${label}"? You'll have 30 days before it's permanently deleted.`,
+      )
+    )
+      return;
     setCanceling(id);
     const r = await cancelWorkspaceAction(id);
     if (!r.ok) {
@@ -59,10 +96,14 @@ export function AccountPage() {
   }
 
   async function handleBilling() {
+    setBillingLoading(true);
     const r = await getBillingPortalAction();
     if (r.ok && r.url) {
       window.open(r.url, "_blank");
+    } else {
+      setError(r.error ?? "Failed to open billing.");
     }
+    setBillingLoading(false);
   }
 
   async function handleLogout() {
@@ -72,87 +113,144 @@ export function AccountPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8 p-6">
-      <div>
-        <h1 className="text-title">Account</h1>
-        <p className="text-body text-muted-foreground">
-          Manage your workspaces and billing.
-        </p>
-      </div>
+    <div className="flex h-full flex-col">
+      <PageHeader
+        icon={<CreditCard className="h-4 w-4" />}
+        title="Account"
+        description="Manage your workspaces and billing."
+      />
 
-      {error && (
-        <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-body text-destructive">
-          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
+      <div className="flex-1 overflow-auto">
+        <div className="mx-auto w-full max-w-2xl p-5 space-y-8">
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-[12px] text-destructive">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
 
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-subtitle">Workspaces</h2>
-          <Button variant="outline" size="sm" asChild>
-            <a href="/signup">Add workspace</a>
-          </Button>
-        </div>
+          {/* Workspaces */}
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-heading">Workspaces</h2>
+              <a
+                href="/signup"
+                className="flex h-7 items-center gap-1.5 rounded-md border border-border/60 bg-background px-2.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <Plus className="h-3 w-3" />
+                Add workspace
+              </a>
+            </div>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          </div>
-        ) : workspaces.length === 0 ? (
-          <p className="text-body text-muted-foreground py-4">
-            No workspaces found.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {workspaces.map((ws) => {
-              const status = STATUS_LABELS[ws.subscription_status] ?? {
-                label: ws.subscription_status,
-                className: "text-muted-foreground",
-              };
-              return (
-                <div
-                  key={ws.id}
-                  className="flex items-center justify-between rounded-md border border-border/60 bg-card px-4 py-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg">{ws.emoji ?? "🏠"}</span>
-                    <div>
-                      <p className="text-body font-medium">{ws.label}</p>
-                      <p className={`text-caption ${status.className}`}>
-                        {status.label}
-                      </p>
-                    </div>
-                  </div>
-                  {ws.subscription_status === "active" && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={canceling === ws.id}
-                      onClick={() => handleCancel(ws.id)}
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : workspaces.length === 0 ? (
+              <div className="rounded-lg border border-border/60 bg-card p-8 text-center">
+                <p className="text-[13px] text-muted-foreground">
+                  No workspaces found.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-border/60 bg-card overflow-hidden divide-y divide-border/40">
+                {workspaces.map((ws) => {
+                  const status = STATUS_CONFIG[ws.subscription_status] ?? {
+                    label: ws.subscription_status,
+                    color: "text-muted-foreground",
+                    bg: "bg-muted",
+                  };
+                  return (
+                    <div
+                      key={ws.id}
+                      className="flex items-center justify-between px-4 py-3.5"
                     >
-                      {canceling === ws.id ? "Canceling…" : "Cancel"}
-                    </Button>
-                  )}
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/40 bg-muted/30 text-base">
+                          {ws.emoji ?? "🏠"}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-medium truncate">
+                            {ws.label}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span
+                              className={cn(
+                                "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                                status.bg,
+                                status.color,
+                              )}
+                            >
+                              {status.label}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      {ws.subscription_status === "active" && (
+                        <button
+                          disabled={canceling === ws.id}
+                          onClick={() => handleCancel(ws.id, ws.label)}
+                          className="shrink-0 rounded-md px-2.5 py-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-destructive/5 hover:text-destructive disabled:opacity-50"
+                        >
+                          {canceling === ws.id ? "Canceling…" : "Cancel"}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          {/* Billing */}
+          <section className="space-y-3">
+            <h2 className="text-heading">Billing</h2>
+            <div className="rounded-lg border border-border/60 bg-card p-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-[13px] font-medium">Manage subscription</p>
+                  <p className="text-[12px] text-muted-foreground">
+                    Update payment method, view invoices, or change your plan.
+                  </p>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                <button
+                  onClick={handleBilling}
+                  disabled={billingLoading}
+                  className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-border/60 bg-background px-3 text-[12px] font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+                >
+                  {billingLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <ExternalLink className="h-3 w-3" />
+                  )}
+                  Open Stripe
+                </button>
+              </div>
+            </div>
+          </section>
 
-      <div className="space-y-4">
-        <h2 className="text-subtitle">Billing</h2>
-        <Button variant="outline" onClick={handleBilling}>
-          <ExternalLink className="mr-2 h-3.5 w-3.5" />
-          Manage billing
-        </Button>
-      </div>
-
-      <div className="border-t border-border/60 pt-6">
-        <Button variant="ghost" onClick={handleLogout}>
-          Sign out
-        </Button>
+          {/* Danger zone */}
+          <section className="space-y-3 pb-8">
+            <h2 className="text-heading">Session</h2>
+            <div className="rounded-lg border border-border/60 bg-card p-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-[13px] font-medium">Sign out</p>
+                  <p className="text-[12px] text-muted-foreground">
+                    Sign out of your current session on this device.
+                  </p>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="flex h-8 shrink-0 items-center gap-1.5 rounded-md px-3 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-destructive/5 hover:text-destructive"
+                >
+                  <LogOut className="h-3 w-3" />
+                  Sign out
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   );

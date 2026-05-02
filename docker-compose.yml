@@ -54,6 +54,10 @@ services:
       # over the Docker internal network (default) or Tailscale.
       GATEWAY_URL: ${GATEWAY_URL:-http://gateway:18790}
       GATEWAY_AUTH_TOKEN: ${GATEWAY_AUTH_TOKEN}
+      # Hosted mode — set DEPLOYMENT_MODE=hosted to enable hosted UI routes.
+      DEPLOYMENT_MODE: ${DEPLOYMENT_MODE:-}
+      WORKER_URL: ${WORKER_URL:-http://worker:3001}
+      WORKER_INTERNAL_TOKEN: ${WORKER_INTERNAL_TOKEN:-}
       # Reverse-proxy origin allowlist (Codespaces, VPS behind nginx, etc.)
       CODESPACE_NAME: ${CODESPACE_NAME:-}
       GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN: ${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}
@@ -213,6 +217,8 @@ services:
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
       STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}
+      WORKER_INTERNAL_TOKEN: ${WORKER_INTERNAL_TOKEN:-}
+      PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-http://localhost:3000}
       RESEND_API_KEY: ${RESEND_API_KEY}
       E2B_API_KEY: ${E2B_API_KEY}
     healthcheck:

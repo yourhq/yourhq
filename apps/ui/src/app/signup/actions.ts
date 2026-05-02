@@ -1,8 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-
-const WORKER_URL = process.env.WORKER_URL ?? "http://worker:3001";
+import { WORKER_URL, workerHeaders } from "@/lib/worker-client";
 
 export async function createCheckoutAction(formData: FormData): Promise<void> {
   const email = formData.get("email") as string;
@@ -16,7 +15,7 @@ export async function createCheckoutAction(formData: FormData): Promise<void> {
 
   const res = await fetch(`${WORKER_URL}/checkout`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: workerHeaders(),
     body: JSON.stringify({
       email,
       ownerName,

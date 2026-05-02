@@ -524,8 +524,18 @@ if [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
   export REG_VNC_PW=""
   [ -f "$VNC_PW_FILE" ] && export REG_VNC_PW="$(cat "$VNC_PW_FILE")"
 
-  # SANDBOX_HOST: when set (e2b mode), the worker passes the sandbox's
-  # public hostname. E2B exposes ports as https://<port>-<sandbox-id>.e2b.app.
+  # SANDBOX_HOST: in E2B mode, the worker writes /tmp/sandbox-host with
+  # the sandbox's public base URL after creation. The entrypoint waits
+  # for this file since the sandbox ID isn't known at spawn time.
+  if [ "$RUNTIME_MODE" = "e2b" ] && [ -z "${SANDBOX_HOST:-}" ]; then
+    log "Waiting for /tmp/sandbox-host (written by E2B provider) ..."
+    for _i in $(seq 1 60); do
+      [ -f /tmp/sandbox-host ] && break
+      sleep 1
+    done
+    [ -f /tmp/sandbox-host ] && export SANDBOX_HOST="$(cat /tmp/sandbox-host)"
+  fi
+
   REACHABLE_JSON=$(python3 - << PYEOF
 import json, os
 sandbox_host = os.environ.get("SANDBOX_HOST", "").strip()

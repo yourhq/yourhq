@@ -1,0 +1,97 @@
+---
+title: "Account & billing"
+description: "Manage workspaces, update your payment method, and understand how cancellation works."
+---
+
+Your account page is at **Account** in the sidebar (or navigate to `/dashboard/account`). From here you can see all your workspaces, manage billing, and sign out.
+
+---
+
+## Workspaces
+
+Each workspace is an independent HQ environment — its own database, agents, CRM, documents, and agent runtime. Workspaces don't share any data with each other.
+
+### Adding a workspace
+
+Click **Add workspace** on the account page. You'll go through the same flow as your initial signup: pick a name, choose a context preset, and confirm payment. Each workspace is billed separately at **$30/month**.
+
+### Workspace status
+
+| Status | Meaning |
+|---|---|
+| **Active** | Workspace is running. Agents, CRM, and all features work normally. |
+| **Setting up** | Provisioning is in progress. Usually takes about a minute. |
+| **Canceling** | You've requested cancellation. Workspace stays active for 30 days. |
+| **Canceled** | Grace period expired. Workspace and all its data have been deleted. |
+| **Pending** | Payment hasn't been confirmed yet. |
+
+---
+
+## Billing
+
+HQ uses Stripe for all payments. Click **Open Stripe** on the account page to access the Stripe Customer Portal, where you can:
+
+- Update your payment method (card, bank account)
+- View and download invoices
+- See your next billing date
+
+### Pricing
+
+**$30/month per workspace.** This includes:
+
+- A dedicated database (your own Supabase project)
+- A dedicated agent runtime (sandbox)
+- Unlimited agents, contacts, tasks, and documents
+- All features — no tier restrictions
+
+Model API costs are separate. You pay your model provider (OpenAI, Anthropic, etc.) directly through your own API key. HQ never charges for model usage.
+
+---
+
+## Cancellation
+
+To cancel a workspace, click **Cancel** next to it on the account page. You'll be asked to confirm.
+
+### What happens when you cancel
+
+1. **Immediately:** status changes to "Canceling." Your workspace keeps working normally.
+2. **30-day grace period:** you have 30 days to change your mind. During this time, everything stays active — agents run, data is accessible, billing stops at the end of the current cycle.
+3. **After 30 days:** the workspace is permanently deleted. This includes your database, agent runtime, all agent data, CRM contacts, documents, and files. This cannot be undone.
+
+<Warning>
+  Cancellation is **per workspace**, not per account. If you have multiple workspaces, canceling one doesn't affect the others.
+</Warning>
+
+### Reactivating
+
+During the 30-day grace period, contact `support@yourhq.ai` to reactivate your workspace.
+
+---
+
+## Signing in
+
+HQ uses **magic links** — no passwords. Enter your email at [yourhq.ai/login](https://yourhq.ai/login) and check your inbox for a sign-in link.
+
+- Links expire after **1 hour**
+- Each link is single-use
+- If you have multiple workspaces, you'll be signed into the one you used most recently
+
+### Signing out
+
+Click **Sign out** at the bottom of the account page, or in the sidebar.
+
+---
+
+## Multiple workspaces
+
+If you have more than one workspace, you can switch between them from the sidebar. Each workspace has its own set of agents, data, and settings. Signing in always takes you to your most recently active workspace.
+
+---
+
+## Data and privacy
+
+- **Your data is yours.** Each workspace gets a dedicated Supabase project. We don't share data between workspaces or customers.
+- **API keys are stored in your workspace's database**, not in a shared system. They're only used to route model calls on your behalf.
+- **We can't see your agent conversations.** Agent memory, messages, and tool outputs live in your dedicated database.
+
+For more on the security model, see [Security](/concepts/security-model).

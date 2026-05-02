@@ -18,6 +18,8 @@ app.get("/users/by-email/:email", async (c) => {
   if (!user) return c.json({ error: "User not found" }, 404);
 
   const workspaces = await getWorkspacesForUser(user.id);
+  // service_role_key included — endpoint is bearer-auth-gated, key is
+  // stored in an httpOnly cookie server-side, never exposed to browser JS.
   return c.json({
     user: { id: user.id, email: user.email, display_name: user.display_name },
     workspaces: workspaces.map((w) => ({

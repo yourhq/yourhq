@@ -2,6 +2,7 @@ export interface SpawnResult {
   sandboxId: string;
   novncUrl: string;
   accessToken: string;
+  sandboxHost: string;
 }
 
 export interface SandboxProvider {
