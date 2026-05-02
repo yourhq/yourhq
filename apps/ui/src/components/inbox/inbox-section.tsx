@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useInboxItems } from "@/hooks/use-inbox-items";
-import type { InboxItem, InboxItemStatus } from "@/lib/automations/types";
-import { INBOX_STATUS_COLORS, INBOX_STATUS_BG } from "@/lib/automations/types";
+import type { InboxItem, InboxItemStatus } from "@/lib/inbox/types";
+import { INBOX_STATUS_COLORS, INBOX_STATUS_BG } from "@/lib/inbox/types";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

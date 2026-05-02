@@ -15,8 +15,8 @@ HQ stores shared state in one Supabase project per workspace. The SQL source of 
 | `007_agents.sql` | Agent registry, org-chart hierarchy, `agent_reports_chain()` RPC |
 | `008_interactions.sql` | Contact interaction timeline and sync triggers |
 | `009_tasks_streams.sql` | Streams, tasks, recurring task series, and scheduling |
-| `010_comments_attachments.sql` | Polymorphic comments and task attachments |
-| `011_assets_documents.sql` | Assets, documents, semantic/full-text search, and draft sets |
+| `010_comments_attachments.sql` | Polymorphic comments |
+| `011_assets_documents.sql` | Knowledge items, chunks, semantic/full-text search, and draft sets |
 | `012_audit_notifications.sql` | Audit log and notification tables |
 | `013_agent_inbox.sql` | Agent inbox queue, inbox triggers, and automation rules |
 | `014_agent_commands.sql` | Command queue for agent lifecycle and system operations |
@@ -24,9 +24,17 @@ HQ stores shared state in one Supabase project per workspace. The SQL source of 
 | `016_rls_realtime_storage.sql` | Row-level security, Realtime subscriptions, Storage buckets |
 | `017_setup_wizard.sql` | `complete_setup()` RPC for the first-run wizard |
 | `018_tenants.sql` | Tenant registry, `tenant_id` column on all tenant-owned tables, tenant-scoped RLS policies |
-| `019_onboarding_rpc.sql` | `finalizeOnboarding()` RPC for project setup |
+| `019_rls_tenant_scoped.sql` | Tenant-scoped RLS policies and JWT helper |
 | `020_rpc_tenant_scoped.sql` | Tenant-scoped RPCs: `lease_command`, `consume_gateway_token`, `spawn_due_task_instances`, `complete_setup`, `recompute_agent_budget` |
 | `021_status_enums_schema_version.sql` | `agent_status` and `gateway_status` enum migration, `_schema_version` table |
+| `022_agent_heartbeat_cron.sql` | Agent heartbeat cron job |
+| `023_entity_links.sql` | Universal polymorphic entity linking table |
+| `025_routines.sql` | Routines (scheduled agent workflows) |
+| `026_collections.sql` | Custom collections and records |
+| `027_file_processing.sql` | File processing pipeline for knowledge items |
+| `028_source_connections.sql` | External source connections for knowledge sync |
+| `029_routines_extension.sql` | Routine extensions and scheduling |
+| `030_modular_workspace.sql` | Modular workspace onboarding |
 
 For a fresh Supabase project, run all files in filename order from the SQL Editor. The onboarding wizard handles this automatically — it concatenates all files and lets you copy/paste a single SQL blob.
 
@@ -87,21 +95,35 @@ The `agent_usage_rollup` trigger updates `agent_budgets` after each usage row. B
 - `streams` — task grouping and workflow lanes.
 - `task_series` — recurring task definitions. Series-level `model_override` and `thinking_override` propagate to spawned instances.
 - `comments` — polymorphic comments with mention support.
-- `task_attachments` — links from tasks to documents/assets/files.
+- `entity_links` — universal polymorphic links from tasks (and other entities) to knowledge items, contacts, organizations, collection records, and URLs.
 
 Task assignment and comment mention triggers enqueue `agent_inbox_items` for affected agents. When a task has model/thinking overrides, they are included in the inbox item's `context` JSONB and passed to the agent's session at wake time.
 
-### Documents and Assets
+### Knowledge
 
-- `documents` — rich-text knowledge base documents, folders, tags, pinned state, and metadata.
-- `document_folders` — folder hierarchy.
-- `assets` — operational files and references such as SOPs, research, images, videos, audio, templates, scripts, spreadsheets, and links.
-- `asset_folders` — asset folder hierarchy.
+- `knowledge_items` — unified knowledge store for pages, playbooks, files, and sources. Supports scope (`workspace` or `agent`), pinning, folders, tags, embeddings, and full-text search.
+- `knowledge_folders` — folder hierarchy for organizing knowledge items.
+- `knowledge_item_agents` — junction table linking agent-scoped items to specific agents.
+- `knowledge_chunks` — chunked content with per-chunk embeddings for granular retrieval. References `knowledge_item_id`.
 
-Boot-context tags are plain document tags:
+Boot context is controlled by scope and pinning:
 
-- `boot:all` includes a document for every agent.
-- `boot:<agent-slug>` includes a document for one agent.
+- A **workspace-scoped, pinned** item is included in every agent's startup context.
+- An **agent-scoped** item assigned to specific agents via `knowledge_item_agents` is included only for those agents.
+
+Important RPCs:
+
+- `search_knowledge_items(...)` — semantic vector search over items.
+- `search_knowledge_items_text(...)` — full-text search over items.
+- `search_knowledge_chunks(...)` / `search_knowledge_chunks_text(...)` — search at the chunk level, joining back to the parent item.
+- `lease_knowledge_items_for_indexing(...)` — atomic lease for the embedder daemon.
+- `mark_knowledge_item_indexed(...)` / `mark_knowledge_item_failed(...)` — embedding pipeline status updates.
+
+### Entity Links
+
+- `entity_links` — universal polymorphic linking table. Any owner (task, routine, collection_record, agent) can link to any target (knowledge_item, collection_record, contact, organization, task, or URL).
+
+Entity links replace the earlier task-specific attachments with a generalized model. When an agent claims a task, it receives all linked entities as context.
 
 ### Automations
 
@@ -151,7 +173,7 @@ Fresh project:
 
 1. Create a Supabase project.
 2. Open SQL Editor.
-3. Run every `.sql` file in `db/migrations/` in filename order (`001` through `021`). Or use the onboarding wizard, which concatenates them all into a single copy-paste blob.
+3. Run every `.sql` file in `db/migrations/` in filename order (`001` through `030`). Or use the onboarding wizard, which concatenates them all into a single copy-paste blob.
 4. Create an auth user and disable public signup unless needed.
 
 Existing project:

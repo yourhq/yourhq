@@ -70,32 +70,6 @@ ALTER TABLE entity_links REPLICA IDENTITY FULL;
 GRANT ALL ON entity_links TO authenticated;
 GRANT ALL ON entity_links TO service_role;
 
--- ── Migrate task_attachments → entity_links ────────────────────────
-
-INSERT INTO entity_links (tenant_id, owner_type, owner_id, target_type, target_id, url, label)
-SELECT
-  COALESCE(t.tenant_id, '00000000-0000-0000-0000-000000000000'),
-  'task',
-  ta.task_id,
-  CASE ta.entity_type
-    WHEN 'document' THEN 'document'
-    WHEN 'asset'    THEN 'asset'
-    WHEN 'url'      THEN 'url'
-  END,
-  ta.entity_id,
-  ta.url,
-  ta.label
-FROM task_attachments ta
-JOIN tasks t ON t.id = ta.task_id
-ON CONFLICT DO NOTHING;
-
--- ── Drop task_attachments ──────────────────────────────────────────
-
-DROP TRIGGER IF EXISTS task_attachments_sync_parent ON task_attachments;
-DROP FUNCTION IF EXISTS sync_task_attachment_updated();
-DROP TRIGGER IF EXISTS task_attachments_updated_at ON task_attachments;
-DROP TABLE IF EXISTS task_attachments CASCADE;
-
 -- ── Schema version ─────────────────────────────────────────────────
 
 INSERT INTO _schema_version (version, description)

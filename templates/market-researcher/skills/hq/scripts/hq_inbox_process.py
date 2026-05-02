@@ -95,13 +95,14 @@ for _ in range(batch_size):
                 if tasks:
                     context["task"] = tasks[0]
 
-                # Fetch task attachments
-                attachments = api_get("task_attachments", {
-                    "select": "id,entity_type,entity_id,url,label",
-                    "task_id": f"eq.{item['task_id']}",
+                # Fetch linked entities
+                links = api_get("entity_links", {
+                    "select": "id,target_type,target_id,url,label",
+                    "owner_type": "eq.task",
+                    "owner_id": f"eq.{item['task_id']}",
                 })
-                if attachments:
-                    context["attachments"] = attachments
+                if links:
+                    context["links"] = links
 
             if item.get("comment_id"):
                 comments = api_get("comments", {

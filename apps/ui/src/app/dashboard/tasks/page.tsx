@@ -7,6 +7,7 @@ import { TaskList } from "@/components/tasks/task-list";
 import { TaskFilters } from "@/components/tasks/task-filters";
 import { TaskBoardView } from "@/components/tasks/task-board-view";
 import { SeriesListView } from "@/components/tasks/series-list-view";
+import { TaskCalendarView } from "@/components/tasks/task-calendar-view";
 import { SeriesForm } from "@/components/tasks/series-form";
 import { useStreams } from "@/hooks/use-streams";
 import { useTasks } from "@/hooks/use-tasks";
@@ -29,9 +30,10 @@ import {
   Archive,
   RefreshCw,
   Repeat,
+  Calendar,
 } from "lucide-react";
 
-type ViewMode = "list" | "board" | "recurring";
+type ViewMode = "list" | "board" | "calendar" | "recurring";
 
 const TASKS_VIEW_KEY = "tasks-view-mode";
 
@@ -174,6 +176,13 @@ function TasksContent() {
                     <Columns3 className="h-3.5 w-3.5" />
                   </ToggleGroupItem>
                   <ToggleGroupItem
+                    value="calendar"
+                    title="Calendar view"
+                    className="h-8 w-8 p-0"
+                  >
+                    <Calendar className="h-3.5 w-3.5" />
+                  </ToggleGroupItem>
+                  <ToggleGroupItem
                     value="recurring"
                     title="Recurring"
                     className="h-8 w-8 p-0"
@@ -235,6 +244,14 @@ function TasksContent() {
                     ? tasks.filters.streamFilter
                     : null
                 }
+              />
+            )}
+            {viewMode === "calendar" && (
+              <TaskCalendarView
+                tasks={tasks.tasks}
+                loading={tasks.loading}
+                onSelect={tasks.form.openEditForm}
+                onStatusChange={tasks.actions.handleStatusChange}
               />
             )}
             {viewMode === "recurring" && (

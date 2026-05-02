@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { InboxItem, InboxItemStatus } from "@/lib/automations/types";
+import type { InboxItem, InboxItemStatus } from "@/lib/inbox/types";
 import { useRealtime } from "./use-realtime";
 
 const PAGE_SIZE = 20;

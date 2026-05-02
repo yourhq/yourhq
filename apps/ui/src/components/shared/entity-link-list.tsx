@@ -19,23 +19,21 @@ import Link from "next/link";
 import type { EntityLink } from "@/lib/entity-links/types";
 
 const LINK_ROUTES: Record<string, string> = {
-  document: "/dashboard/knowledge",
-  asset: "/dashboard/knowledge",
+  knowledge_item: "/dashboard/knowledge",
+  collection_record: "/dashboard/collections",
   contact: "/dashboard/contacts",
   organization: "/dashboard/organizations",
   task: "/dashboard/tasks",
-  knowledge_item: "/dashboard/knowledge",
 };
 
 function LinkIcon({ link }: { link: EntityLink }) {
   switch (link.target_type) {
-    case "document":
     case "knowledge_item":
       if (link.resolved_icon) {
         return <span className="text-sm leading-none">{link.resolved_icon}</span>;
       }
       return <FileText className="h-3.5 w-3.5 text-muted-foreground" />;
-    case "asset":
+    case "collection_record":
       return <Package className="h-3.5 w-3.5 text-muted-foreground" />;
     case "contact":
       return <User className="h-3.5 w-3.5 text-muted-foreground" />;
@@ -144,10 +142,10 @@ export function EntityLinkList({
               <div className="flex-1 min-w-0">
                 <LinkName link={link} />
               </div>
-              {link.target_type === "asset" &&
-                typeof link.resolved_extra?.asset_type === "string" && (
+              {link.target_type === "knowledge_item" &&
+                typeof link.resolved_extra?.kind === "string" && (
                   <span className="text-[10px] text-muted-foreground/50 shrink-0">
-                    {link.resolved_extra.asset_type}
+                    {link.resolved_extra.kind}
                   </span>
                 )}
               <button

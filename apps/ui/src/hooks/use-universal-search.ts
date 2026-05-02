@@ -63,6 +63,7 @@ export function useUniversalSearch(query: string, enabled: boolean) {
         { type: "collection_record", label: "Collection Records", results: [], loading: true },
         { type: "contact", label: "Contacts", results: [], loading: true },
         { type: "agent", label: "Agents", results: [], loading: true },
+        { type: "routine", label: "Routines", results: [], loading: true },
       ];
       setGroups(pending);
 
@@ -233,6 +234,31 @@ export function useUniversalSearch(query: string, enabled: boolean) {
           );
         } catch {
           update("agent", []);
+        }
+      })();
+
+      (async () => {
+        try {
+          const { data } = await supabase
+            .from("routines")
+            .select("id, name, trigger_type, agent_slug")
+            .ilike("name", pattern)
+            .is("archived_at", null)
+            .order("updated_at", { ascending: false })
+            .limit(MAX_PER_GROUP);
+          if (ac.signal.aborted) return;
+          update(
+            "routine",
+            (data ?? []).map((r) => ({
+              id: r.id,
+              type: "routine" as const,
+              title: r.name,
+              subtitle: r.trigger_type,
+              href: `/dashboard/routines?selected=${r.id}`,
+            })),
+          );
+        } catch {
+          update("routine", []);
         }
       })();
 

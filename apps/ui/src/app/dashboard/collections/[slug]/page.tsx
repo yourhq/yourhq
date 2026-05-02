@@ -7,6 +7,7 @@ import type { CollectionDefinition } from "@/lib/collections/types";
 import { useCollectionRecords } from "@/hooks/use-collection-records";
 import { CollectionTableView } from "@/components/collections/collection-table-view";
 import { CollectionKanbanView } from "@/components/collections/collection-kanban-view";
+import { CollectionCalendarView } from "@/components/collections/collection-calendar-view";
 import { CollectionViewTabs } from "@/components/collections/collection-view-tabs";
 import { CollectionFieldEditor } from "@/components/collections/collection-field-editor";
 import { CollectionImportDialog } from "@/components/collections/collection-import-dialog";
@@ -207,11 +208,22 @@ function CollectionDetailInner({ collection }: { collection: CollectionDefinitio
               onDeleteRecord={(id) => setDeleteRecordId(id)}
               onRecordClick={handleRecordClick}
             />
+          ) : cr.activeView?.view_type === "calendar" && cr.activeView.config.date_field ? (
+            <CollectionCalendarView
+              records={cr.records}
+              fields={cr.fields}
+              dateFieldKey={cr.activeView.config.date_field}
+              titleField={cr.titleField}
+              onAddRecord={handleAddRecord}
+              onArchiveRecord={cr.actions.archiveRecord}
+              onDeleteRecord={(id) => setDeleteRecordId(id)}
+              onRecordClick={handleRecordClick}
+            />
           ) : cr.activeView?.view_type === "calendar" ? (
             <EmptyState
               icon={Database}
-              title="Calendar view coming soon"
-              description="Calendar views will display records on a date-based timeline. Use table or kanban view for now."
+              title="No date field configured"
+              description="Edit this view and select a date field to display records on the calendar."
             />
           ) : (
             <CollectionTableView

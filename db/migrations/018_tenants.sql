@@ -42,9 +42,8 @@ BEGIN
     'gateways', 'gateway_registration_tokens',
     'agents',
     'streams', 'tasks', 'task_series',
-    'comments', 'task_attachments',
-    'asset_folders', 'assets', 'document_folders', 'documents',
-    'knowledge_sources', 'knowledge_chunks',
+    'comments',
+    'knowledge_folders', 'knowledge_items', 'knowledge_item_agents', 'knowledge_chunks',
     'audit_log', 'notifications',
     'agent_inbox_items', 'automation_rules',
     'agent_commands',
@@ -72,9 +71,8 @@ BEGIN
     'gateways', 'gateway_registration_tokens',
     'agents',
     'streams', 'tasks', 'task_series',
-    'comments', 'task_attachments',
-    'asset_folders', 'assets', 'document_folders', 'documents',
-    'knowledge_sources', 'knowledge_chunks',
+    'comments',
+    'knowledge_folders', 'knowledge_items', 'knowledge_item_agents', 'knowledge_chunks',
     'audit_log', 'notifications',
     'agent_inbox_items', 'automation_rules',
     'agent_commands',
@@ -142,87 +140,6 @@ EXCEPTION WHEN duplicate_table THEN NULL; WHEN duplicate_object THEN NULL; END $
 -- agent_inbox_items: dedup_key stays globally unique (dedup keys are content-addressed)
 
 -- agent_usage: idempotency stays globally unique
-
--- knowledge_sources: tenant-scoped source identity
-DROP INDEX IF EXISTS knowledge_sources_source_unique;
-UPDATE knowledge_sources ks
-SET tenant_id = d.tenant_id
-FROM documents d
-WHERE ks.source_type = 'document'
-  AND ks.document_id = d.id;
-CREATE UNIQUE INDEX IF NOT EXISTS knowledge_sources_tenant_source_unique
-  ON knowledge_sources(tenant_id, source_type, source_id);
-
-CREATE OR REPLACE FUNCTION set_knowledge_chunk_tenant()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SET search_path = ''
-AS $$
-BEGIN
-  SELECT ks.tenant_id
-  INTO NEW.tenant_id
-  FROM public.knowledge_sources ks
-  WHERE ks.id = NEW.source_id;
-
-  RETURN NEW;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS knowledge_chunks_set_tenant ON knowledge_chunks;
-CREATE TRIGGER knowledge_chunks_set_tenant
-  BEFORE INSERT OR UPDATE OF source_id ON knowledge_chunks
-  FOR EACH ROW EXECUTE FUNCTION set_knowledge_chunk_tenant();
-
-CREATE OR REPLACE FUNCTION sync_document_knowledge_source()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SET search_path = ''
-AS $$
-DECLARE
-  should_reindex boolean;
-BEGIN
-  IF TG_OP = 'INSERT' THEN
-    should_reindex := true;
-  ELSE
-    should_reindex := NEW.title IS DISTINCT FROM OLD.title
-      OR NEW.content IS DISTINCT FROM OLD.content
-      OR NEW.tags IS DISTINCT FROM OLD.tags;
-  END IF;
-
-  INSERT INTO public.knowledge_sources (
-    tenant_id, source_type, source_id, document_id, title, tags, folder_id, meta,
-    archived_at, source_updated_at, extraction_method,
-    extraction_status, extraction_error, chunk_status, chunk_error,
-    embedding_status, embedding_error, indexing_leased_by, indexing_leased_until
-  )
-  VALUES (
-    NEW.tenant_id, 'document', NEW.id::text, NEW.id, NEW.title, NEW.tags, NEW.folder_id, NEW.meta,
-    NEW.archived_at, NEW.updated_at, 'native_document',
-    'pending', NULL, 'pending', NULL,
-    'pending', NULL, NULL, NULL
-  )
-  ON CONFLICT (tenant_id, source_type, source_id) DO UPDATE
-  SET
-    document_id = EXCLUDED.document_id,
-    title = EXCLUDED.title,
-    tags = EXCLUDED.tags,
-    folder_id = EXCLUDED.folder_id,
-    meta = EXCLUDED.meta,
-    archived_at = EXCLUDED.archived_at,
-    source_updated_at = EXCLUDED.source_updated_at,
-    extraction_method = 'native_document',
-    extraction_status = CASE WHEN should_reindex THEN 'pending' ELSE knowledge_sources.extraction_status END,
-    extraction_error = CASE WHEN should_reindex THEN NULL ELSE knowledge_sources.extraction_error END,
-    chunk_status = CASE WHEN should_reindex THEN 'pending' ELSE knowledge_sources.chunk_status END,
-    chunk_error = CASE WHEN should_reindex THEN NULL ELSE knowledge_sources.chunk_error END,
-    embedding_status = CASE WHEN should_reindex THEN 'pending' ELSE knowledge_sources.embedding_status END,
-    embedding_error = CASE WHEN should_reindex THEN NULL ELSE knowledge_sources.embedding_error END,
-    indexing_leased_by = CASE WHEN should_reindex THEN NULL ELSE knowledge_sources.indexing_leased_by END,
-    indexing_leased_until = CASE WHEN should_reindex THEN NULL ELSE knowledge_sources.indexing_leased_until END;
-
-  RETURN NEW;
-END;
-$$;
 
 -- draft_sets: tenant-scoped
 ALTER TABLE draft_sets DROP CONSTRAINT IF EXISTS draft_sets_contact_id_channel_stage_version_key;

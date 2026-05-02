@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Claim a task and fetch attachment metadata plus relevant knowledge chunks."""
+"""Claim a task and fetch linked entities plus relevant knowledge chunks."""
 
 import sys
 import os
@@ -19,7 +19,6 @@ if not agent_id:
     output({"error": "agent_not_registered"})
     sys.exit(1)
 
-# Claim
 result = api_patch("tasks", task_id, {
     "status": "in_progress",
     "assignee_type": "agent",
@@ -29,10 +28,10 @@ result = api_patch("tasks", task_id, {
 audit("tasks", "task", task_id, "assigned",
       summary=f"Agent '{AGENT_SLUG}' claimed task")
 
-# Fetch attachments
-attachments = api_get("task_attachments", {
-    "select": "id,entity_type,entity_id,url,label",
-    "task_id": f"eq.{task_id}",
+links = api_get("entity_links", {
+    "select": "id,target_type,target_id,url,label,meta",
+    "owner_type": "eq.task",
+    "owner_id": f"eq.{task_id}",
 })
 
 task = result[0] if isinstance(result, list) else result
@@ -44,25 +43,19 @@ task_context_query = " ".join(
 )
 
 
-def fetch_document_attachment(document_id):
-    docs = api_get("documents", {
-        "select": "id,title,tags,folder_id,updated_at,chunk_status,chunk_count,embedding_status",
-        "id": f"eq.{document_id}",
+def resolve_knowledge_item(item_id):
+    items = api_get("knowledge_items", {
+        "select": "id,title,kind,content,plain_text,tags,scope,folder_id,updated_at,chunk_status,chunk_count",
+        "id": f"eq.{item_id}",
         "limit": "1",
     })
-    doc = docs[0] if docs else None
-
-    sources = api_get("knowledge_sources", {
-        "select": "id,source_type,source_id,document_id,title,tags,folder_id,source_uri,extraction_status,chunk_status,chunk_count,embedding_status,chunks_updated_at,embedding_error,chunk_error",
-        "source_type": "eq.document",
-        "source_id": f"eq.{document_id}",
-        "limit": "1",
-    })
-    source = sources[0] if sources else None
+    item = items[0] if items else None
+    if not item:
+        return {"knowledge_item": None, "relevant_chunks": []}
 
     chunks = []
-    if source:
-        query = task_context_query or str(doc.get("title") if doc else source.get("title") or "").strip()
+    if item.get("chunk_count", 0) > 0:
+        query = task_context_query or str(item.get("title") or "").strip()
         if query:
             try:
                 chunks = api_rpc("search_knowledge_chunks_text", {
@@ -71,38 +64,59 @@ def fetch_document_attachment(document_id):
                     "filter_tags": None,
                     "filter_folder_id": None,
                     "filter_source_type": None,
-                    "filter_source_id": source["id"],
+                    "filter_source_id": None,
                 }) or []
-            except Exception as e:
-                source["chunk_lookup_error"] = str(e)
+                chunks = [c for c in chunks if c.get("knowledge_item_id") == item_id][:5]
+            except Exception:
+                pass
 
     return {
-        "document": doc,
-        "knowledge_source": source,
+        "knowledge_item": item,
         "relevant_chunks": chunks,
-        "content_access": "Use hq_get_doc.py DOCUMENT_ID for full native content or hq_get_knowledge_chunks.py SOURCE_ID for indexed sections.",
+        "content_access": "Use hq_get_doc.py ITEM_ID for full content or hq_get_knowledge_chunks.py ITEM_ID for indexed sections.",
     }
 
 
-# Resolve documents and assets
 resolved = []
-for att in attachments:
-    entry = dict(att)
-    if att["entity_type"] == "document" and att.get("entity_id"):
-        entry.update(fetch_document_attachment(att["entity_id"]))
-    elif att["entity_type"] == "asset" and att.get("entity_id"):
-        assets = api_get("assets", {
-            "select": "id,name,type,content,file_url",
-            "id": f"eq.{att['entity_id']}",
+for link in (links or []):
+    entry = {
+        "link_id": link["id"],
+        "target_type": link["target_type"],
+        "target_id": link.get("target_id"),
+        "url": link.get("url"),
+        "label": link.get("label"),
+    }
+
+    if link["target_type"] == "knowledge_item" and link.get("target_id"):
+        entry.update(resolve_knowledge_item(link["target_id"]))
+    elif link["target_type"] == "contact" and link.get("target_id"):
+        contacts = api_get("contacts", {
+            "select": "id,first_name,last_name,email,company,status",
+            "id": f"eq.{link['target_id']}",
             "limit": "1",
         })
-        entry["asset"] = assets[0] if assets else None
+        entry["contact"] = contacts[0] if contacts else None
+    elif link["target_type"] == "organization" and link.get("target_id"):
+        orgs = api_get("organizations", {
+            "select": "id,name,domain,industry",
+            "id": f"eq.{link['target_id']}",
+            "limit": "1",
+        })
+        entry["organization"] = orgs[0] if orgs else None
+    elif link["target_type"] == "collection_record" and link.get("target_id"):
+        records = api_get("collection_records", {
+            "select": "id,collection_id,values",
+            "id": f"eq.{link['target_id']}",
+            "limit": "1",
+        })
+        entry["collection_record"] = records[0] if records else None
+
     resolved.append(entry)
 
 output({
     "status": "claimed",
     "task_id": task_id,
     "task_title": task.get("title"),
-    "attachment_count": len(resolved),
-    "attachments": resolved,
+    "link_count": len(resolved),
+    "links": resolved,
 })

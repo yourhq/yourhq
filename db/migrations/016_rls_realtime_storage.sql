@@ -25,9 +25,8 @@ BEGIN
     'tags', 'campaigns', 'contacts', 'organizations', 'contact_organizations',
     'templates', 'interactions', 'draft_sets',
     'gateways',
-    'agents', 'streams', 'tasks', 'task_series', 'comments', 'task_attachments',
-    'asset_folders', 'assets', 'document_folders', 'documents',
-    'knowledge_sources', 'knowledge_chunks',
+    'agents', 'streams', 'tasks', 'task_series', 'comments',
+    'knowledge_folders', 'knowledge_items', 'knowledge_item_agents', 'knowledge_chunks',
     'audit_log', 'notifications',
     'agent_inbox_items', 'automation_rules',
     'agent_commands'
@@ -53,10 +52,9 @@ BEGIN
     'contacts', 'organizations', 'contact_organizations', 'interactions',
     'templates', 'campaigns', 'tags', 'draft_sets',
     'gateways',
-    'agents', 'streams', 'tasks', 'task_series', 'comments', 'task_attachments',
+    'agents', 'streams', 'tasks', 'task_series', 'comments',
     'audit_log', 'notifications',
-    'asset_folders', 'assets', 'document_folders', 'documents',
-    'knowledge_sources', 'knowledge_chunks',
+    'knowledge_folders', 'knowledge_items', 'knowledge_item_agents', 'knowledge_chunks',
     'agent_inbox_items', 'automation_rules', 'agent_commands',
     'pipeline_stages', 'field_definitions', 'workspace'
   ]

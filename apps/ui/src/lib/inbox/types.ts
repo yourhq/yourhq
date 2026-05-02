@@ -1,6 +1,6 @@
-// Automation Rules & Inbox Types — mirrors Supabase schema
+// Inbox Types — mirrors Supabase schema
 
-export type RuleCondition = "created" | "changed_to" | "changed_from" | "any_change";
+import type { ActorType } from "@/lib/tasks/types";
 
 export type InboxItemStatus = "pending" | "leased" | "done" | "failed" | "dead_letter";
 
@@ -10,24 +10,9 @@ export type InboxEventType =
   | "task_comment_mention"
   | "contact_created"
   | "contact_status_changed"
-  | "contact_updated";
-
-export interface AutomationRule {
-  id: string;
-  created_at: string;
-  updated_at: string;
-  table_name: string;
-  field: string | null;
-  condition: RuleCondition;
-  value: string | null;
-  target_agent_id: string;
-  target_agent_slug: string;
-  event_type: string;
-  summary_template: string;
-  is_active: boolean;
-  // Joined
-  target_agent?: { id: string; name: string; slug: string } | null;
-}
+  | "contact_updated"
+  | "routine_schedule"
+  | "routine_event";
 
 export interface InboxItem {
   id: string;
@@ -57,20 +42,6 @@ export interface InboxItem {
 }
 
 // Constants
-
-export const RULE_CONDITIONS: { value: RuleCondition; label: string }[] = [
-  { value: "created", label: "Created" },
-  { value: "changed_to", label: "Changed to" },
-  { value: "changed_from", label: "Changed from" },
-  { value: "any_change", label: "Any change" },
-];
-
-export const RULE_FIELDS: { value: string; label: string }[] = [
-  { value: "status", label: "Status" },
-  { value: "tier", label: "Tier" },
-  { value: "primary_channel", label: "Primary Channel" },
-  { value: "best_contact_method", label: "Best Contact Method" },
-];
 
 export const INBOX_STATUSES: { value: InboxItemStatus; label: string }[] = [
   { value: "pending", label: "Pending" },

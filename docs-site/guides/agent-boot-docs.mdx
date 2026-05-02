@@ -1,84 +1,111 @@
 ---
-title: "Agent boot documents"
-description: "Give agents shared context they read at the start of every session."
+title: "Knowledge and agent context"
+description: "Give agents shared knowledge and per-agent context using the unified knowledge system."
 ---
 
-Boot documents are regular HQ documents that get injected into an agent's context automatically when it wakes up. Use them to give agents durable context they should always have — without repeating yourself every conversation.
-
----
-
-## What boot documents are for
-
-Agents read their boot documents before doing any work. This means you can:
-
-- Tell an agent about your company without explaining it every time
-- Define a writing style or tone it should always use
-- Share a list of current priorities or active projects
-- Set standing rules ("always CC me on outbound emails", "never commit to pricing without asking")
-- Describe standard procedures the agent should follow for recurring tasks
-
-Think of boot documents as the agent's permanent briefing — the things it should always know, regardless of what conversation it's in.
+Knowledge items are how you give agents durable context — company background, style guides, SOPs, research, files, and standing rules — without repeating yourself every conversation. The knowledge system replaces the old documents and assets model with a single, unified library.
 
 ---
 
-## How to tag a document
+## How it works
+
+Every knowledge item has a **kind** (what it is) and a **scope** (who can see it):
+
+<CardGroup cols={2}>
+  <Card title="Kind" icon="shapes">
+    **Page** — rich-text documents (company briefs, style guides, priorities).
+    **Playbook** — structured procedures and SOPs.
+    **File** — uploaded files (images, PDFs, spreadsheets, audio, video).
+    **Source** — externally synced content from connected integrations.
+  </Card>
+  <Card title="Scope" icon="users">
+    **Workspace** — visible to all agents in the workspace. Pin it to include in every agent's boot context.
+    **Agent** — visible only to specific agents, assigned via the agent junction.
+  </Card>
+</CardGroup>
+
+---
+
+## Giving agents boot context
+
+Boot context is what an agent reads before doing any work. Two mechanisms control it:
+
+| Mechanism | What it does |
+|---|---|
+| **Workspace scope + pinned** | A pinned workspace-scoped item is injected into **every agent's** startup context. |
+| **Agent scope + agent assignment** | An agent-scoped item assigned to specific agents is injected only for **those agents**. |
 
 <Steps>
-  <Step title="Create or open a document">
-    Go to **Documents** in the left sidebar and create a new document, or open an existing one.
+  <Step title="Create a knowledge item">
+    Go to **Knowledge** in the left sidebar and create a new page, playbook, or upload a file.
   </Step>
-  <Step title="Add a boot tag">
-    Tag the document with one of the boot prefixes:
+  <Step title="Set scope and visibility">
+    For **all agents**: set scope to **Workspace** and toggle **Pinned** on.
 
-    | Tag | Scope |
-    |---|---|
-    | `boot:all` | Injected for **every agent** in your workspace |
-    | `boot:<agent-slug>` | Injected for **one specific agent** only |
-
-    For example, a company one-pager tagged `boot:all` will be read by every agent. A detailed brief about your newsletter cadence tagged `boot:newsletter-writer` will only be read by that agent.
+    For **specific agents**: set scope to **Agent** and assign the agents who should receive it from the agent picker.
   </Step>
   <Step title="Agent reads it automatically">
-    The next time the agent wakes up (via a message, a task, or an automation), it reads the tagged document as part of its startup context. No restart required — changes take effect on the next session.
+    The next time an agent wakes up (via a message, a task, or an automation), it reads the item as part of its startup context. No restart required — changes take effect on the next session.
   </Step>
 </Steps>
 
 ---
 
-## Keeping boot documents effective
+## Organizing knowledge
+
+Use **folders** to organize items by topic. Folders support nesting and custom icons.
+
+Use **tags** for cross-cutting labels (e.g. "q2-2026", "onboarding", "legal"). Tags are separate from scope — they're for your own organization, not for controlling agent access.
+
+Use **pinned** to surface important workspace items in boot context without having to remember which folder they're in.
+
+---
+
+## Keeping knowledge effective
 
 <Warning>
-  Large boot documents slow agents down and reduce their effectiveness. Context has a limit — the more you pack in, the less room the agent has to think about the actual task.
+  Large boot context slows agents down and reduces their effectiveness. Context has a limit — the more you pack in, the less room the agent has to think about the actual task.
 </Warning>
 
-**Keep each document focused.** One document per topic is better than one giant document with everything. An agent reads all tagged documents, so you can have multiple short ones.
+**Keep each item focused.** One item per topic is better than one giant document with everything. An agent reads all items in its boot context, so you can have multiple short ones.
 
-**Keep them current.** An agent reading a stale document ("Q1 priorities" in Q3) is worse than reading nothing — it acts on outdated information. Review boot documents quarterly or when your situation changes significantly.
+**Keep them current.** An agent reading stale knowledge ("Q1 priorities" in Q3) is worse than reading nothing — it acts on outdated information. Review pinned items quarterly or when your situation changes significantly.
 
-**Signs a boot document is stale:**
+**Signs knowledge is stale:**
 - The agent references old project names or priorities
 - It uses outdated context in responses
 - It contradicts what you've told it recently in conversation
 
-To update: edit the document directly — changes take effect on the next session.
+To update: edit the item directly — changes take effect on the next session.
 
 ---
 
-## Good boot document examples
+## Good boot context examples
 
 <AccordionGroup>
-  <Accordion title="Company one-pager (boot:all)">
-    Who you are, what the company does, who the customers are, your stage, your voice. 3–5 paragraphs maximum. Every agent benefits from this context.
+  <Accordion title="Company one-pager (workspace, pinned)">
+    Who you are, what the company does, who the customers are, your stage, your voice. 3-5 paragraphs maximum. Every agent benefits from this context.
   </Accordion>
-  <Accordion title="Writing style guide (boot:all or boot:specific-writer)">
-    Tone, vocabulary, formatting preferences, what to avoid. Examples of good and bad outputs help more than abstract rules.
+  <Accordion title="Writing style guide (workspace pinned, or agent-scoped)">
+    Tone, vocabulary, formatting preferences, what to avoid. Examples of good and bad outputs help more than abstract rules. Pin it workspace-wide if all agents should follow it, or scope it to specific writer agents.
   </Accordion>
-  <Accordion title="Current quarter priorities (boot:all)">
-    What matters right now — 3–5 bullet points. Update at the start of each quarter. Helps agents prioritize when they have discretion.
+  <Accordion title="Current quarter priorities (workspace, pinned)">
+    What matters right now — 3-5 bullet points. Update at the start of each quarter. Helps agents prioritize when they have discretion.
   </Accordion>
-  <Accordion title="Standing rules (boot:all)">
+  <Accordion title="Standing rules (workspace, pinned)">
     Hard rules that should never be broken: "never commit to pricing", "always CC [name] on outbound", "don't share confidential deal terms". Short list, no ambiguity.
   </Accordion>
-  <Accordion title="Standard procedures (boot:specific-agent)">
-    Step-by-step workflows for recurring tasks — e.g., how to research a new contact, how to structure a newsletter draft, how to handle inbound inquiries. Role-specific, so tag per agent.
+  <Accordion title="Standard procedures (agent-scoped)">
+    Step-by-step workflows for recurring tasks — e.g., how to research a new contact, how to structure a newsletter draft, how to handle inbound inquiries. Role-specific, so assign to the relevant agents only.
   </Accordion>
 </AccordionGroup>
+
+---
+
+## Entity links
+
+Knowledge items can be linked to tasks, routines, collection records, and agents using **entity links**. Links are bidirectional references — they show up on both the owner and the target.
+
+When an agent claims a task, it receives all linked entities (knowledge items, contacts, organizations, collection records) as context for that task. This replaces the old task attachments system with a universal linking model.
+
+You can also link external URLs. URL links show up alongside entity links but open in a new tab instead of navigating within HQ.

@@ -39,11 +39,8 @@ export function useEntityLinks(ownerType: OwnerType, ownerId: string) {
       return;
     }
 
-    const docIds = rows
-      .filter((r) => r.target_type === "document" && r.target_id)
-      .map((r) => r.target_id!);
-    const assetIds = rows
-      .filter((r) => r.target_type === "asset" && r.target_id)
+    const knowledgeIds = rows
+      .filter((r) => r.target_type === "knowledge_item" && r.target_id)
       .map((r) => r.target_id!);
     const contactIds = rows
       .filter((r) => r.target_type === "contact" && r.target_id)
@@ -54,14 +51,17 @@ export function useEntityLinks(ownerType: OwnerType, ownerId: string) {
     const taskIds = rows
       .filter((r) => r.target_type === "task" && r.target_id)
       .map((r) => r.target_id!);
+    const collectionRecordIds = rows
+      .filter((r) => r.target_type === "collection_record" && r.target_id)
+      .map((r) => r.target_id!);
 
-    const [docsResult, assetsResult, contactsResult, orgsResult, tasksResult] =
+    const [knowledgeResult, contactsResult, orgsResult, tasksResult, recordsResult] =
       await Promise.all([
-        docIds.length > 0
-          ? supabase.from("documents").select("id, title, icon").in("id", docIds)
-          : Promise.resolve({ data: [] }),
-        assetIds.length > 0
-          ? supabase.from("assets").select("id, name, type").in("id", assetIds)
+        knowledgeIds.length > 0
+          ? supabase
+              .from("knowledge_items")
+              .select("id, title, kind, icon")
+              .in("id", knowledgeIds)
           : Promise.resolve({ data: [] }),
         contactIds.length > 0
           ? supabase
@@ -78,14 +78,17 @@ export function useEntityLinks(ownerType: OwnerType, ownerId: string) {
         taskIds.length > 0
           ? supabase.from("tasks").select("id, title").in("id", taskIds)
           : Promise.resolve({ data: [] }),
+        collectionRecordIds.length > 0
+          ? supabase
+              .from("collection_records")
+              .select("id, collection_id, values")
+              .in("id", collectionRecordIds)
+          : Promise.resolve({ data: [] }),
       ]);
 
     type IdName = { id: string; [k: string]: unknown };
-    const docMap = new Map(
-      (docsResult.data ?? []).map((d: IdName) => [d.id, d])
-    );
-    const assetMap = new Map(
-      (assetsResult.data ?? []).map((a: IdName) => [a.id, a])
+    const knowledgeMap = new Map(
+      (knowledgeResult.data ?? []).map((k: IdName) => [k.id, k])
     );
     const contactMap = new Map(
       (contactsResult.data ?? []).map((c: IdName) => [c.id, c])
@@ -96,25 +99,21 @@ export function useEntityLinks(ownerType: OwnerType, ownerId: string) {
     const taskMap = new Map(
       (tasksResult.data ?? []).map((t: IdName) => [t.id, t])
     );
+    const recordMap = new Map(
+      (recordsResult.data ?? []).map((r: IdName) => [r.id, r])
+    );
 
     const resolved: EntityLink[] = rows.map((row) => {
       const link: EntityLink = row as EntityLink;
       if (!row.target_id) return link;
 
       switch (row.target_type) {
-        case "document": {
-          const doc = docMap.get(row.target_id);
-          if (doc) {
-            link.resolved_name = doc.title as string;
-            link.resolved_icon = (doc.icon as string) ?? undefined;
-          }
-          break;
-        }
-        case "asset": {
-          const asset = assetMap.get(row.target_id);
-          if (asset) {
-            link.resolved_name = asset.name as string;
-            link.resolved_extra = { asset_type: asset.type };
+        case "knowledge_item": {
+          const item = knowledgeMap.get(row.target_id);
+          if (item) {
+            link.resolved_name = item.title as string;
+            link.resolved_icon = (item.icon as string) ?? undefined;
+            link.resolved_extra = { kind: item.kind };
           }
           break;
         }
@@ -135,6 +134,15 @@ export function useEntityLinks(ownerType: OwnerType, ownerId: string) {
         case "task": {
           const task = taskMap.get(row.target_id);
           if (task) link.resolved_name = task.title as string;
+          break;
+        }
+        case "collection_record": {
+          const record = recordMap.get(row.target_id);
+          if (record) {
+            const values = record.values as Record<string, unknown>;
+            link.resolved_name =
+              (values?.name as string) ?? (values?.title as string) ?? "Record";
+          }
           break;
         }
       }
@@ -197,51 +205,34 @@ export function useEntityLinks(ownerType: OwnerType, ownerId: string) {
     if (!query.trim()) return [];
     const q = `%${query.trim()}%`;
     const types = targetTypes ?? [
-      "document",
-      "asset",
+      "knowledge_item",
       "contact",
       "organization",
       "task",
+      "collection_record",
     ];
     const results: EntityLinkSearchResult[] = [];
 
     const searches = [];
 
-    if (types.includes("document")) {
+    if (types.includes("knowledge_item")) {
       searches.push(
         supabase
-          .from("documents")
-          .select("id, title, icon")
+          .from("knowledge_items")
+          .select("id, title, kind, icon")
           .ilike("title", q)
+          .is("archived_at", null)
           .limit(5)
           .then(({ data }) =>
-            (data ?? []).forEach((d: { id: string; title: string; icon: string | null }) =>
-              results.push({
-                id: d.id,
-                name: d.title,
-                target_type: "document",
-                icon: d.icon ?? undefined,
-              })
-            )
-          )
-      );
-    }
-
-    if (types.includes("asset")) {
-      searches.push(
-        supabase
-          .from("assets")
-          .select("id, name, type")
-          .ilike("name", q)
-          .limit(5)
-          .then(({ data }) =>
-            (data ?? []).forEach((a: { id: string; name: string; type: string }) =>
-              results.push({
-                id: a.id,
-                name: a.name,
-                target_type: "asset",
-                extra: { asset_type: a.type },
-              })
+            (data ?? []).forEach(
+              (k: { id: string; title: string; kind: string; icon: string | null }) =>
+                results.push({
+                  id: k.id,
+                  name: k.title,
+                  target_type: "knowledge_item",
+                  icon: k.icon ?? undefined,
+                  extra: { kind: k.kind },
+                })
             )
           )
       );

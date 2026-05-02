@@ -2,9 +2,7 @@
 """Local knowledge embedder for HQ.
 
 Runs an internal HTTP embedding endpoint for agent scripts and a background
-indexing loop that extracts, chunks, and embeds pending knowledge sources.
-Documents use native Tiptap/JSON extraction now; assets and external sources
-can plug in through the same SourceAdapter boundary when Unstructured lands.
+indexing loop that embeds pending knowledge items.
 """
 
 from __future__ import annotations
@@ -20,7 +18,7 @@ import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Protocol
+from typing import Any
 
 try:
     from fastembed import TextEmbedding
@@ -65,26 +63,6 @@ class ExtractedSource:
     meta: dict[str, Any] | None = None
 
 
-class SourceAdapter(Protocol):
-    def extract(self, row: dict[str, Any]) -> ExtractedSource:
-        ...
-
-
-class DocumentAdapter:
-    def extract(self, row: dict[str, Any]) -> ExtractedSource:
-        title = str(row.get("title") or "").strip()
-        tags = [str(tag).strip() for tag in (row.get("tags") or []) if str(tag).strip()]
-        body = extract_text(row.get("content")).strip()
-        parts = [title, ", ".join(tags), body]
-        return ExtractedSource(
-            title=title,
-            tags=tags,
-            text="\n\n".join(part for part in parts if part),
-            source_uri=row.get("source_uri"),
-            meta={"extraction_method": "native_document"},
-        )
-
-
 class KnowledgeItemAdapter:
     def extract(self, row: dict[str, Any]) -> ExtractedSource:
         title = str(row.get("title") or "").strip()
@@ -99,10 +77,6 @@ class KnowledgeItemAdapter:
             meta={"extraction_method": "knowledge_item", "kind": row.get("kind")},
         )
 
-
-ADAPTERS: dict[str, SourceAdapter] = {
-    "document": DocumentAdapter(),
-}
 
 _ITEM_ADAPTER = KnowledgeItemAdapter()
 
@@ -278,68 +252,6 @@ def make_chunks(text: str) -> list[dict[str, Any]]:
     return chunks
 
 
-def index_source(row: dict[str, Any]) -> None:
-    source_type = row.get("source_type")
-    adapter = ADAPTERS.get(source_type)
-    if adapter is None:
-        rpc("mark_knowledge_source_failed", {
-            "p_source_id": row.get("id"),
-            "p_error": f"No adapter for source_type={source_type}",
-        })
-        return
-
-    extracted = adapter.extract(row)
-    text = extracted.text.strip()
-    digest = source_hash(text)
-    if not text:
-        rpc("mark_knowledge_source_failed", {
-            "p_source_id": row.get("id"),
-            "p_error": "Knowledge source has no extractable text",
-        })
-        return
-
-    chunks = make_chunks(text)
-    if not chunks:
-        rpc("mark_knowledge_source_failed", {
-            "p_source_id": row.get("id"),
-            "p_error": "Knowledge source produced no chunks",
-        })
-        return
-
-    coarse_embedding: list[float] | None = None
-    embedding_status = "indexed"
-    embedding_error: str | None = None
-    try:
-        texts = [text[:MAX_INPUT_CHARS]] + [
-            "\n\n".join(part for part in [extracted.title, ", ".join(extracted.tags), chunk["content"]] if part)
-            for chunk in chunks
-        ]
-        embeddings = embed_many(texts)
-        coarse_embedding = embeddings[0]
-        for chunk, embedding in zip(chunks, embeddings[1:]):
-            chunk["embedding"] = embedding
-            chunk["embedding_status"] = "indexed"
-    except Exception as exc:
-        embedding_status = "failed"
-        embedding_error = str(exc)
-        for chunk in chunks:
-            chunk["embedding"] = None
-            chunk["embedding_status"] = "failed"
-        log("chunk embeddings unavailable; storing full-text chunks", level="error", source_id=row.get("id"), error=str(exc))
-
-    rpc("replace_knowledge_source_chunks", {
-        "p_source_id": row["id"],
-        "p_chunks": chunks,
-        "p_embedding_model": MODEL_NAME,
-        "p_embedding_dimensions": 384,
-        "p_source_hash": digest,
-        "p_coarse_embedding": coarse_embedding,
-        "p_coarse_hash": digest,
-        "p_embedding_status": embedding_status,
-        "p_embedding_error": embedding_error,
-    })
-    log("indexed knowledge source", source_id=row.get("id"), source_type=source_type, chunks=len(chunks), embedding_status=embedding_status)
-
 
 def index_knowledge_item(row: dict[str, Any]) -> None:
     extracted = _ITEM_ADAPTER.extract(row)
@@ -399,29 +311,9 @@ def indexing_loop() -> None:
                     except Exception as mark_exc:
                         log("failed to mark knowledge item failure", level="error", error=str(mark_exc))
 
-            # Also index legacy knowledge_sources if any remain
-            rows = rpc("lease_knowledge_sources_for_indexing", {
-                "p_gateway_slug": GATEWAY_ID,
-                "p_limit": BATCH_SIZE,
-                "p_lease_seconds": LEASE_SECONDS,
-            }) or []
-
-            if not items and not rows:
+            if not items:
                 time.sleep(POLL_INTERVAL)
                 continue
-
-            for row in rows:
-                try:
-                    index_source(row)
-                except Exception as exc:
-                    log("failed to index knowledge source", level="error", source_id=row.get("id"), error=str(exc))
-                    try:
-                        rpc("mark_knowledge_source_failed", {
-                            "p_source_id": row.get("id"),
-                            "p_error": str(exc),
-                        })
-                    except Exception as mark_exc:
-                        log("failed to mark knowledge source failure", level="error", error=str(mark_exc))
         except urllib.error.URLError as exc:
             log("Supabase request failed", level="error", error=str(exc))
             time.sleep(POLL_INTERVAL)
@@ -448,7 +340,7 @@ class Handler(BaseHTTPRequestHandler):
             "chunk_chars": CHUNK_CHARS,
             "chunk_overlap": CHUNK_OVERLAP,
             "max_chunks": MAX_CHUNKS,
-            "adapters": sorted(ADAPTERS.keys()),
+            "adapters": ["knowledge_item"],
             "supabase_configured": bool(SUPABASE_URL or resolve_config()),
         })
 

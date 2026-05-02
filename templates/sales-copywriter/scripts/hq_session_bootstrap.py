@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Session-scoped HQ bootstrap.
 
-Registers the current agent and fetches boot documents once for a session,
+Registers the current agent and fetches boot knowledge once for a session,
 writing a local cache artifact for prompt injection hooks.
 """
 
@@ -65,30 +65,55 @@ def register_agent() -> dict:
     return {"action": "created", "agent_id": agent_id}
 
 
-def fetch_boot_docs() -> list:
-    docs_all = api_get("documents", {
-        "select": "id,title,content,tags,folder_id,updated_at",
-        "tags": "cs.{boot:all}",
-    })
-    docs_agent = api_get("documents", {
-        "select": "id,title,content,tags,folder_id,updated_at",
-        "tags": f"cs.{{boot:{AGENT_SLUG}}}",
-    })
+def fetch_boot_knowledge() -> list:
+    """Fetch knowledge items for agent boot context.
+
+    Workspace-scoped pinned items (available to all agents) plus
+    agent-scoped items linked to this agent via the junction table.
+    """
+    agent_id = None
+    agents = api_get("agents", {"select": "id", "slug": f"eq.{AGENT_SLUG}", "limit": "1"})
+    if agents:
+        agent_id = agents[0]["id"]
+
+    workspace_items = api_get("knowledge_items", {
+        "select": "id,title,kind,content,plain_text,tags,scope,folder_id,updated_at",
+        "scope": "eq.workspace",
+        "pinned": "eq.true",
+        "archived_at": "is.null",
+    }) or []
+
+    agent_items = []
+    if agent_id:
+        junctions = api_get("knowledge_item_agents", {
+            "select": "knowledge_item_id",
+            "agent_id": f"eq.{agent_id}",
+        }) or []
+        item_ids = [j["knowledge_item_id"] for j in junctions]
+        if item_ids:
+            agent_items = api_get("knowledge_items", {
+                "select": "id,title,kind,content,plain_text,tags,scope,folder_id,updated_at",
+                "id": f"in.({','.join(item_ids)})",
+                "archived_at": "is.null",
+            }) or []
+
     seen = set()
-    docs = []
-    for d in (docs_all or []) + (docs_agent or []):
-        if d["id"] in seen:
+    items = []
+    for item in workspace_items + agent_items:
+        if item["id"] in seen:
             continue
-        seen.add(d["id"])
-        docs.append({
-            "id": d.get("id"),
-            "title": d.get("title") or "Untitled",
-            "tags": d.get("tags") or [],
-            "updatedAt": d.get("updated_at"),
-            "content": d.get("content") or "",
-            "folderId": d.get("folder_id"),
+        seen.add(item["id"])
+        items.append({
+            "id": item.get("id"),
+            "title": item.get("title") or "Untitled",
+            "kind": item.get("kind") or "page",
+            "tags": item.get("tags") or [],
+            "scope": item.get("scope") or "workspace",
+            "updatedAt": item.get("updated_at"),
+            "content": item.get("plain_text") or item.get("content") or "",
+            "folderId": item.get("folder_id"),
         })
-    return docs
+    return items
 
 
 def main() -> int:
@@ -117,7 +142,7 @@ def main() -> int:
     try:
         check_env()
         registered = register_agent()
-        docs = fetch_boot_docs()
+        knowledge = fetch_boot_knowledge()
         payload = {
             "status": "done",
             "sessionId": args.session_id,
@@ -127,8 +152,8 @@ def main() -> int:
             "registrationAction": registered.get("action"),
             "registeredAt": now_iso(),
             "fetchedAt": now_iso(),
-            "documents": docs,
-            "documentCount": len(docs),
+            "knowledge": knowledge,
+            "knowledgeCount": len(knowledge),
             "retries": retries,
         }
         out.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")

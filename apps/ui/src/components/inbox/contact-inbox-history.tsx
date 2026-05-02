@@ -1,8 +1,8 @@
 "use client";
 
 import { useInboxItems } from "@/hooks/use-inbox-items";
-import type { InboxItem } from "@/lib/automations/types";
-import { INBOX_STATUS_COLORS } from "@/lib/automations/types";
+import type { InboxItem } from "@/lib/inbox/types";
+import { INBOX_STATUS_COLORS } from "@/lib/inbox/types";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Button } from "@/components/ui/button";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
@@ -31,18 +31,18 @@ function HistoryItem({ item }: { item: InboxItem }) {
   );
 }
 
-interface ContactAutomationHistoryProps {
+interface ContactInboxHistoryProps {
   contactId: string;
 }
 
-export function ContactAutomationHistory({ contactId }: ContactAutomationHistoryProps) {
+export function ContactInboxHistory({ contactId }: ContactInboxHistoryProps) {
   const { items, loading, hasMore, loadMore } = useInboxItems({ contactId });
 
   if (loading && items.length === 0) {
     return (
       <div>
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-          Automation History
+          Inbox History
         </h3>
         <LoadingSkeleton variant="list" count={2} />
       </div>
@@ -50,13 +50,13 @@ export function ContactAutomationHistory({ contactId }: ContactAutomationHistory
   }
 
   if (items.length === 0) {
-    return null; // Don't render section if no automation history
+    return null;
   }
 
   return (
     <div>
       <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-        Automation History
+        Inbox History
       </h3>
       <div className="space-y-0">
         {items.map((item) => (

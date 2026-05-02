@@ -6,9 +6,7 @@ export type TargetType =
   | "contact"
   | "organization"
   | "task"
-  | "url"
-  | "document"
-  | "asset";
+  | "url";
 
 export interface EntityLink {
   id: string;
@@ -41,6 +39,4 @@ export const TARGET_TYPE_LABELS: Record<TargetType, string> = {
   organization: "Organization",
   task: "Task",
   url: "URL",
-  document: "Document",
-  asset: "Asset",
 };

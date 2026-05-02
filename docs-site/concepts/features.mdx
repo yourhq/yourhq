@@ -1,9 +1,9 @@
 ---
 title: "What HQ includes"
-description: "A practical tour of HQ's workspace, agents, gateways, automations, documents, CRM, and budgets."
+description: "A practical tour of HQ's workspace, agents, gateways, automations, knowledge, CRM, and budgets."
 ---
 
-HQ is an agent operations system, not just an agent chat UI. It gives one operator a workspace for CRM, tasks, documents, automations, and a fleet of long-lived AI agents that run on infrastructure the operator controls.
+HQ is an agent operations system, not just an agent chat UI. It gives one operator a workspace for CRM, tasks, knowledge, automations, and a fleet of long-lived AI agents that run on infrastructure the operator controls.
 
 This page is the product tour. For system internals, read [Architecture](/concepts/architecture). For installation, read [Installation](/self-host/installation).
 
@@ -17,7 +17,7 @@ This page is the product tour. For system internals, read [Architecture](/concep
     Per-agent and per-task model + thinking level. Mix providers freely across your fleet.
   </Card>
   <Card title="Workspace" icon="briefcase" href="#workspace">
-    CRM, tasks, documents, assets, automations, notifications, and activity.
+    CRM, tasks, knowledge, automations, notifications, and activity.
   </Card>
   <Card title="Gateways" icon="server" href="#gateways">
     Docker hosts that run agents on infrastructure you control.
@@ -35,7 +35,7 @@ This page is the product tour. For system internals, read [Architecture](/concep
 
 ## Workspace
 
-Every HQ install connects to one or more Supabase projects. A project contains the workspace data: agents, tasks, CRM records, documents, settings, gateway registrations, command history, and usage data.
+Every HQ install connects to one or more Supabase projects. A project contains the workspace data: agents, tasks, CRM records, knowledge, settings, gateway registrations, command history, and usage data.
 
 The first boot flow is intentionally config-light:
 
@@ -212,21 +212,28 @@ Tasks support:
 - Recurrence rules.
 - **Per-task model and thinking overrides** — when assigned to an agent, override the model or reasoning depth for this specific execution without changing the agent's default.
 - Comments and mentions.
-- Attachments.
+- Entity links to knowledge items, contacts, organizations, collection records, and URLs.
 - Agent inbox wakeups on assignment and reassignment.
 
 Mentioning an agent in a comment creates an inbox item for that agent. Assigning a task to an agent does the same. Per-task model overrides are carried through the inbox item's context and passed to the agent session at wake time.
 
-## Documents and Assets
+## Knowledge
 
-Documents are the shared knowledge base. They support folders, tags, pinned state, rich editing, markdown import/export, and boot-context tagging.
+The knowledge system is the unified store for all workspace knowledge. It replaces the earlier separate documents and assets models with a single `knowledge_items` table supporting four kinds:
 
-Agents can receive documents in boot context by tag:
+- **Pages** — rich-text documents (company briefs, style guides, meeting notes).
+- **Playbooks** — structured procedures and SOPs.
+- **Files** — uploaded files (PDFs, images, spreadsheets, audio, video).
+- **Sources** — externally synced content from connected integrations.
 
-- `boot:all` includes a document for every agent.
-- `boot:<agent-slug>` includes a document for one agent.
+Knowledge items support folders, tags, pinned state, rich editing, and semantic + full-text search.
 
-Assets are a related library for operational files and references: SOPs, research, images, videos, audio, templates, scripts, spreadsheets, links, and other workspace artifacts.
+Agent boot context is controlled by **scope** and **pinning**:
+
+- A **workspace-scoped, pinned** item is included in every agent's startup context.
+- An **agent-scoped** item assigned to specific agents is included only for those agents.
+
+See [Knowledge system](/concepts/knowledge) for the full architecture and [Knowledge and agent context](/guides/agent-boot-docs) for the practical guide.
 
 ## Automations and Inbox
 

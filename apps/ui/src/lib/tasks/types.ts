@@ -110,7 +110,7 @@ export interface Comment {
 }
 
 export interface CommentAttachmentRef {
-  entity_type: "document" | "asset" | "url";
+  entity_type: "knowledge_item" | "url";
   entity_id?: string;
   url?: string;
   label: string;

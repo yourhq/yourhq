@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Search, Archive, LayoutList, LayoutGrid, BookOpen, Upload, FolderOpen } from "lucide-react";
+import { Search, Archive, LayoutList, LayoutGrid, BookOpen, Upload, FolderOpen, FileUp } from "lucide-react";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -38,6 +38,8 @@ function KnowledgeContent() {
   const [deleteFolderId, setDeleteFolderId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounter = useRef(0);
 
   useEffect(() => {
     const saved = localStorage.getItem(VIEW_KEY) as ViewMode | null;
@@ -68,13 +70,72 @@ function KnowledgeContent() {
     e.target.value = "";
   }
 
+  const ACCEPTED_EXTENSIONS = ".md,.markdown,.txt,.pdf,.docx,.csv,.xlsx,.pptx,.png,.jpg,.jpeg,.gif,.webp";
+
+  function handleDragEnter(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDragging(true);
+    }
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setIsDragging(false);
+    }
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  async function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    dragCounter.current = 0;
+
+    const files = Array.from(e.dataTransfer.files);
+    const extensions = ACCEPTED_EXTENSIONS.split(",");
+    const accepted = files.filter((f) =>
+      extensions.some((ext) => f.name.toLowerCase().endsWith(ext))
+    );
+    if (!accepted.length) return;
+
+    const folderId = k.filters.folderId !== "all" ? k.filters.folderId : null;
+    const count = await k.actions.importFiles(accepted, folderId);
+    toast.success(`Imported ${count} file${count !== 1 ? "s" : ""}`);
+  }
+
   const folderCounts = useMemo(
     () => computeDescendantCounts(k.folders, k.items.map((i) => i.folder_id)),
     [k.folders, k.items]
   );
 
   return (
-    <div className="flex h-full">
+    <div
+      className="relative flex h-full"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {/* Drag-and-drop overlay */}
+      {isDragging && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3 rounded-lg border-2 border-dashed border-primary/50 bg-primary/5 px-12 py-10">
+            <FileUp className="h-10 w-10 text-primary/70" />
+            <p className="text-sm font-medium text-primary/90">Drop files to upload</p>
+          </div>
+        </div>
+      )}
+
       {/* Folder sidebar */}
       <div className="hidden lg:block w-[200px] border-r border-border/50 overflow-auto">
         <SharedFolderTree

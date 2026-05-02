@@ -1,0 +1,110 @@
+---
+title: "Knowledge system"
+description: "How HQ's unified knowledge system stores, scopes, searches, and delivers context to agents."
+---
+
+HQ uses a single knowledge system — `knowledge_items` — to store all workspace knowledge: pages, playbooks, files, and external sources. This replaces the earlier split between separate documents and assets tables.
+
+## Kinds
+
+Every knowledge item has a `kind` that determines how it's stored and rendered:
+
+| Kind | What it is | Content model |
+|---|---|---|
+| `page` | Rich-text document (company briefs, style guides, meeting notes) | JSON content + plain_text |
+| `playbook` | Structured procedure or SOP | JSON content + plain_text |
+| `file` | Uploaded file (PDF, image, spreadsheet, audio, video) | `file_url` + `mime_type` + `file_size` |
+| `source` | Externally synced content from a connected integration | `source_connection_id` + `source_external_id` + sync metadata |
+
+Pages and playbooks support rich editing in the UI. Files go through a processing pipeline (upload, extract text, embed). Sources sync from external integrations and track their sync status.
+
+## Scope and agent access
+
+Every item has a `scope` that controls who can access it:
+
+**Workspace scope** (`scope = 'workspace'`) — visible to all agents. When **pinned**, the item is included in every agent's boot context automatically.
+
+**Agent scope** (`scope = 'agent'`) — visible only to agents explicitly assigned via the `knowledge_item_agents` junction table. Each row links one item to one agent.
+
+This replaces the old `boot:all` / `boot:<slug>` tag convention with explicit, queryable relationships. The scope is a column, not a tag — it can be filtered, indexed, and enforced at the database level.
+
+### How agents receive knowledge at boot
+
+When an agent starts a session, the bootstrap script:
+
+1. Fetches all workspace-scoped items where `pinned = true`.
+2. Looks up the agent's ID from its slug.
+3. Fetches all items linked to that agent via `knowledge_item_agents`.
+4. Deduplicates (an item can be both workspace-pinned and agent-assigned).
+5. Injects the combined set into the agent's startup context, grouped by scope.
+
+The gateway's HQ bootstrap plugin renders this context with kind labels (`[page]`, `[playbook]`, `[file]`) and scope grouping (`Workspace Knowledge` vs `Your Knowledge`).
+
+## Folders and organization
+
+Knowledge items live in **folders** (`knowledge_folders`). Folders support:
+
+- Nesting (parent/child via `parent_id`)
+- Custom icons and colors
+- Sort ordering
+
+Folders are organizational — they don't affect scope or agent access.
+
+## Search
+
+Knowledge items support two search paths:
+
+**Semantic search** — vector similarity using the `embedding` column (384-dimensional vectors from the gateway embedder). Used by `search_knowledge_items()` RPC.
+
+**Full-text search** — PostgreSQL `tsvector` over title, plain_text, content, and tags. Used by `search_knowledge_items_text()` RPC.
+
+Both RPCs support filtering by tags, folder, and kind.
+
+## Chunks
+
+Long-form items are split into **chunks** (`knowledge_chunks`) for granular retrieval. Each chunk has its own embedding and full-text search vector. The `search_knowledge_chunks()` and `search_knowledge_chunks_text()` RPCs search at the chunk level and join back to the parent item for metadata.
+
+Chunks reference their parent via `knowledge_item_id`. When an item's content changes, the `mark_knowledge_item_pending` trigger resets chunk and embedding status, and the embedder re-indexes on its next cycle.
+
+## Embedding pipeline
+
+The gateway embedder daemon handles indexing:
+
+1. Calls `lease_knowledge_items_for_indexing()` to atomically claim pending items.
+2. Generates embeddings using the local BGE model.
+3. Splits content into chunks, embeds each chunk.
+4. Calls `mark_knowledge_item_indexed()` on success or `mark_knowledge_item_failed()` on error.
+
+Items in `pending` or `failed` embedding status are picked up automatically. The lease mechanism prevents parallel embedders from duplicating work.
+
+## Entity links
+
+Knowledge items participate in the **entity links** system. Any owner entity (task, routine, collection record, agent) can link to any target entity (knowledge item, collection record, contact, organization, task, or URL).
+
+When an agent claims a task, it receives all linked entities as context. This is a universal replacement for the old task-specific attachments model.
+
+Entity links are stored in `entity_links` with polymorphic `owner_type`/`target_type` columns and a check constraint ensuring URL links carry a `url` and entity links carry a `target_id`.
+
+## Database tables
+
+| Table | Purpose |
+|---|---|
+| `knowledge_folders` | Folder hierarchy for organizing items |
+| `knowledge_items` | All knowledge content — pages, playbooks, files, sources |
+| `knowledge_item_agents` | Junction table linking agent-scoped items to specific agents |
+| `knowledge_chunks` | Chunked content with per-chunk embeddings for granular retrieval |
+| `entity_links` | Universal polymorphic links between any entities |
+
+## Agent scripts
+
+Every agent template ships with HQ skills that interact with the knowledge system:
+
+| Script | Purpose |
+|---|---|
+| `hq_session_bootstrap.py` | Fetches workspace-pinned + agent-specific items at session start |
+| `hq_boot_docs.py` | Loads boot context using scope + junction queries |
+| `hq_get_knowledge_chunks.py` | Retrieves chunks for a specific knowledge item by ID |
+| `hq_claim_task.py` | Claims a task and resolves all entity links (knowledge items, contacts, orgs, collection records) |
+| `hq_inbox_process.py` | Processes inbox items and resolves linked entities |
+
+All scripts use the Supabase PostgREST API via the service role key.

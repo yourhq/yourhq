@@ -42,7 +42,7 @@ import {
   DetailSidebarPropertyGrid,
   DetailSidebarProperty,
 } from "@/components/shared/detail-sidebar";
-import { InboxSection } from "@/components/automations/inbox-section";
+import { InboxSection } from "@/components/inbox/inbox-section";
 import { AgentProvisioning } from "@/components/agents/agent-provisioning";
 import { AgentFileBrowser } from "./agent-file-browser";
 import { RoutinesSection } from "@/components/routines/routines-section";
