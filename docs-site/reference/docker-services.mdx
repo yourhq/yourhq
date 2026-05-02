@@ -19,7 +19,7 @@ HQ's default Compose stack has five services that work together.
     **Command daemon.** Watches `agent_commands`, leases commands for the local gateway, executes lifecycle and auth operations, and reports results back to Supabase.
   </Card>
   <Card title="embedder" icon="search">
-    **Document indexing daemon.** Runs FastEmbed locally, starts downloading/loading the BGE model on boot, serves `/embed` inside Docker, and indexes pending documents for semantic search.
+    **Knowledge indexing daemon.** Runs FastEmbed locally, starts downloading/loading the BGE model on boot, serves `/embed` inside Docker, and indexes pending documents into searchable knowledge chunks.
   </Card>
 </CardGroup>
 

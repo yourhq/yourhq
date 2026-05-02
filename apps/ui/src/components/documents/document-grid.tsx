@@ -1,7 +1,7 @@
 "use client";
 
 import { useDraggable } from "@dnd-kit/core";
-import type { Document } from "@/lib/documents/types";
+import type { Document, KnowledgeChunkSearchResult } from "@/lib/documents/types";
 import { getBootTags, getBootLabel } from "@/lib/documents/boot-tags";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,7 @@ interface DocumentGridProps {
   onDelete?: (id: string) => void;
   showArchived?: boolean;
   agentMap: Record<string, string>;
+  snippetsByDocument?: Record<string, KnowledgeChunkSearchResult[]>;
 }
 
 export function DocumentGrid({
@@ -32,6 +33,7 @@ export function DocumentGrid({
   onDelete,
   showArchived,
   agentMap,
+  snippetsByDocument,
 }: DocumentGridProps) {
   if (loading) {
     return (
@@ -67,6 +69,7 @@ export function DocumentGrid({
           key={doc.id}
           doc={doc}
           agentMap={agentMap}
+          snippets={snippetsByDocument?.[doc.id]}
           showArchived={showArchived}
           onArchive={onArchive}
           onRestore={onRestore}
@@ -80,6 +83,7 @@ export function DocumentGrid({
 interface DocumentCardProps {
   doc: Document;
   agentMap: Record<string, string>;
+  snippets?: KnowledgeChunkSearchResult[];
   showArchived?: boolean;
   onArchive?: (id: string) => void;
   onRestore?: (id: string) => void;
@@ -89,6 +93,7 @@ interface DocumentCardProps {
 function DocumentCard({
   doc,
   agentMap,
+  snippets,
   showArchived,
   onArchive,
   onRestore,
@@ -102,7 +107,7 @@ function DocumentCard({
   const bootTags = getBootTags(doc.tags);
 
   // Extract a text preview from the Tiptap JSON content
-  const preview = (() => {
+  const preview = snippets?.[0]?.content ?? (() => {
     if (!doc.content) return null;
     try {
       const parsed = JSON.parse(doc.content);

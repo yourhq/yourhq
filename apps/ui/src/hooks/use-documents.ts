@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import type { Document, DocumentFolder } from "@/lib/documents/types";
+import type { Document, DocumentFolder, KnowledgeChunkSearchResult } from "@/lib/documents/types";
 import { collectDescendantIds, isDescendant } from "@/lib/documents/tree";
 import { logAudit } from "@/lib/audit/log";
 import { useRealtimeSync } from "./use-realtime-sync";
@@ -16,6 +16,7 @@ export function useDocuments() {
   const pathname = usePathname();
 
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [searchSnippets, setSearchSnippets] = useState<Record<string, KnowledgeChunkSearchResult[]>>({});
   const [folders, setFolders] = useState<DocumentFolder[]>([]);
   const [loading, setLoading] = useState(true);
   const [folderId, setFolderIdState] = useState(searchParams.get("folder") || "all");
@@ -95,14 +96,6 @@ export function useDocuments() {
     const { data, error } = await query;
     if (!error && data) {
       let filtered = data as unknown as Document[];
-      if (search.trim()) {
-        const q = search.toLowerCase();
-        filtered = filtered.filter(
-          (d) =>
-            d.title.toLowerCase().includes(q) ||
-            d.tags?.some((t) => t.toLowerCase().includes(q))
-        );
-      }
       if (bootFilter !== "all") {
         if (bootFilter === "boot:none") {
           filtered = filtered.filter(
@@ -113,6 +106,51 @@ export function useDocuments() {
             (d) => d.tags?.includes(bootFilter)
           );
         }
+      }
+      if (search.trim()) {
+        const rpcTags = bootFilter !== "all" && bootFilter !== "boot:none"
+          ? [bootFilter]
+          : null;
+        const { data: chunkRows } = await supabase.rpc("search_knowledge_chunks_text", {
+          query_text: search.trim(),
+          match_count: 50,
+          filter_tags: rpcTags,
+          filter_folder_id: folderId !== "all" ? folderId : null,
+          filter_source_type: "document",
+          filter_source_id: null,
+        });
+        const rows = (chunkRows ?? []) as KnowledgeChunkSearchResult[];
+        const snippetsByDocument: Record<string, KnowledgeChunkSearchResult[]> = {};
+        const order = new Map<string, number>();
+        for (const row of rows) {
+          if (!row.document_id) continue;
+          if (!snippetsByDocument[row.document_id]) {
+            snippetsByDocument[row.document_id] = [];
+            order.set(row.document_id, order.size);
+          }
+          if (snippetsByDocument[row.document_id].length < 3) {
+            snippetsByDocument[row.document_id].push(row);
+          }
+        }
+        if (rows.length > 0) {
+          filtered = filtered
+            .filter((doc) => snippetsByDocument[doc.id])
+            .sort((a, b) => (order.get(a.id) ?? 9999) - (order.get(b.id) ?? 9999));
+          setSearchSnippets(snippetsByDocument);
+        } else {
+          const term = search.trim().toLowerCase();
+          filtered = filtered.filter((doc) => {
+            const haystack = [
+              doc.title,
+              doc.tags?.join(" "),
+              typeof doc.content === "string" ? doc.content : JSON.stringify(doc.content ?? ""),
+            ].join(" ").toLowerCase();
+            return haystack.includes(term);
+          });
+          setSearchSnippets({});
+        }
+      } else {
+        setSearchSnippets({});
       }
       setDocuments(filtered);
     }
@@ -161,6 +199,7 @@ export function useDocuments() {
         folder_id: folderId || null,
         content: "",
         embedding_status: "pending",
+        chunk_status: "pending",
       })
       .select()
       .single();
@@ -188,6 +227,7 @@ export function useDocuments() {
       content: item.content,
       folder_id: folderId || null,
       embedding_status: "pending",
+      chunk_status: "pending",
     }));
 
     const { data, error } = await supabase
@@ -375,6 +415,7 @@ export function useDocuments() {
 
   return {
     documents,
+    searchSnippets,
     folders,
     loading,
     filters: {

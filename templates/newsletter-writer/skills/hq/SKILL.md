@@ -1,6 +1,6 @@
 ---
 name: hq
-description: Connect to the HQ via Supabase. Use when you need to register yourself, search or create documents, claim tasks, post comments, manage contacts and organizations, log interactions, or query the audit trail. Also use at session startup to register and load boot documents.
+description: Connect to the HQ via Supabase. Use when you need to register yourself, search HQ knowledge, read/create/update documents, claim tasks, post comments, manage contacts and organizations, log interactions, or query the audit trail. Also use at session startup to register and load boot documents.
 ---
 
 # HQ
@@ -94,15 +94,28 @@ python3 skills/hq/scripts/hq_update_extended.py organizations ORG_ID \
   --data '{"deal_value": 50000}'
 ```
 
-## Documents
+## Knowledge & Documents
 
-### Search documents (semantic + full-text fallback)
+### Search HQ knowledge (semantic chunks + full-text fallback)
 ```bash
 python3 skills/hq/scripts/hq_search_docs.py "your natural language query"
 ```
-Optional flags: `--tags tag1,tag2` `--folder-id UUID` `--limit 5`
+Optional flags: `--tags tag1,tag2` `--folder-id UUID` `--source-type document` `--limit 5`
 
-Falls back to indexed PostgreSQL full-text search if embeddings are not available.
+Returns grouped sources with matched chunks/snippets. It uses local BGE semantic search when the embedder is available and indexed PostgreSQL full-text chunk search as the fallback.
+
+### Get an indexed knowledge source
+```bash
+python3 skills/hq/scripts/hq_get_knowledge_source.py SOURCE_ID
+```
+Use the `knowledge_source_id` returned by search or task attachments.
+
+### Get chunks for a knowledge source
+```bash
+python3 skills/hq/scripts/hq_get_knowledge_chunks.py SOURCE_ID
+python3 skills/hq/scripts/hq_get_knowledge_chunks.py SOURCE_ID --query "specific topic"
+```
+Use this when a task or search result references a long document and you need more surrounding sections without loading the full native document.
 
 ### Get a specific document
 ```bash
@@ -149,7 +162,7 @@ Optional: `--status todo,in_progress`
 ```bash
 python3 skills/hq/scripts/hq_claim_task.py TASK_ID
 ```
-Sets status to `in_progress`, assigns you, and fetches any attached documents/assets.
+Sets status to `in_progress`, assigns you, and fetches attached source metadata plus top relevant chunks for document attachments. Use `hq_get_knowledge_chunks.py SOURCE_ID` or `hq_get_doc.py DOCUMENT_ID` if you need more context.
 
 ### Assign a task
 ```bash
@@ -287,7 +300,7 @@ Sets task to `blocked`, posts a comment mentioning @prajoth, sends Telegram noti
 
 - **Every write must be audited.** Use the audited helpers, not raw Supabase queries.
 - **Document embeddings are local.** Use the HQ document scripts; no embedding API key is required.
-- **Search documents before asking.** Your knowledge base is in Supabase.
+- **Search HQ knowledge before asking.** The knowledge base is in Supabase and search returns exact matched sections when available.
 - **Discover fields before writing.** Fetch `field_definitions` to know what extended fields exist and what they mean.
 - **Use valid pipeline stages.** Fetch `pipeline_stages` before setting a contact's status.
 - **When you claim a task, read its attachments.** They're fetched automatically.

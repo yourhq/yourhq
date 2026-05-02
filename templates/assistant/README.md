@@ -69,13 +69,13 @@ Current team values in use:
 ## Supabase Dependencies
 
 ### Tables Used
-agents, tasks, streams, comments, audit_log, contacts, interactions, organizations, contact_organizations, templates, campaigns, documents, document_folders, assets, asset_folders, task_attachments, notifications, field_definitions, pipeline_stages, draft_sets
+agents, tasks, streams, comments, audit_log, contacts, interactions, organizations, contact_organizations, templates, campaigns, documents, document_folders, knowledge_sources, knowledge_chunks, assets, asset_folders, task_attachments, notifications, field_definitions, pipeline_stages, draft_sets
 
 ### Required Migrations
-- `006_documents.sql` — documents + document_folders tables
-- `007_document_embeddings.sql` — pgvector extension + embedding column
-- `008_document_search_rpc.sql` — `search_documents()` Postgres function
-- `009_task_attachments.sql` — task attachment join table
+- `011_assets_documents.sql` — documents, assets, local embeddings, knowledge sources/chunks, and search RPCs
+- `016_rls_realtime_storage.sql` — grants, RLS, realtime, and storage
+- `018_tenants.sql` — tenant IDs and tenant-scoped knowledge source uniqueness
+- `019_rls_tenant_scoped.sql` — tenant-scoped RLS policies
 
 ### Required Extension
-- `vector` (pgvector) — enabled via migration 007
+- `vector` (pgvector) — enabled via migration 011

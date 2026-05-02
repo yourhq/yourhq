@@ -13,9 +13,10 @@ Skills define _how_ tools work. This file is for _your_ specifics.
 ## HQ
 
 - **Project URL:** (set via SUPABASE_URL env var)
-- **Tables you use:** agents, tasks, streams, comments, audit_log, contacts, interactions, organizations, contact_organizations, templates, campaigns, documents, document_folders, assets, asset_folders, task_attachments, notifications, field_definitions, pipeline_stages, draft_sets, workspace
+- **Tables you use:** agents, tasks, streams, comments, audit_log, contacts, interactions, organizations, contact_organizations, templates, campaigns, documents, document_folders, knowledge_sources, knowledge_chunks, assets, asset_folders, task_attachments, notifications, field_definitions, pipeline_stages, draft_sets, workspace
 - **Auth:** Service role key (bypasses RLS)
 - **Skill:** `skills/hq/` — all hq_* scripts for Supabase operations
+- **Knowledge search:** Chunked HQ knowledge search is available through `skills/hq/scripts/hq_search_docs.py`; use source/chunk IDs from results to fetch exact sections.
 - **Embedding model:** BAAI/bge-small-en-v1.5 (384 dimensions), served locally by HQ embedder
 
 ## Browser

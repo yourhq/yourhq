@@ -1,7 +1,7 @@
 "use client";
 
 import { useDraggable } from "@dnd-kit/core";
-import type { Document } from "@/lib/documents/types";
+import type { Document, KnowledgeChunkSearchResult } from "@/lib/documents/types";
 import { getBootTags, getBootLabel } from "@/lib/documents/boot-tags";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -22,9 +22,10 @@ interface DocumentListProps {
   onDelete?: (id: string) => void;
   showArchived?: boolean;
   agentMap: Record<string, string>;
+  snippetsByDocument?: Record<string, KnowledgeChunkSearchResult[]>;
 }
 
-export function DocumentList({ documents, loading, hasFilters, onArchive, onRestore, onDelete, showArchived, agentMap }: DocumentListProps) {
+export function DocumentList({ documents, loading, hasFilters, onArchive, onRestore, onDelete, showArchived, agentMap, snippetsByDocument }: DocumentListProps) {
   if (loading) {
     return <LoadingSkeleton variant="list" count={8} />;
   }
@@ -46,6 +47,7 @@ export function DocumentList({ documents, loading, hasFilters, onArchive, onRest
           key={doc.id}
           doc={doc}
           agentMap={agentMap}
+          snippets={snippetsByDocument?.[doc.id]}
           showArchived={showArchived}
           onArchive={onArchive}
           onRestore={onRestore}
@@ -59,6 +61,7 @@ export function DocumentList({ documents, loading, hasFilters, onArchive, onRest
 interface DocumentRowProps {
   doc: Document;
   agentMap: Record<string, string>;
+  snippets?: KnowledgeChunkSearchResult[];
   showArchived?: boolean;
   onArchive?: (id: string) => void;
   onRestore?: (id: string) => void;
@@ -68,6 +71,7 @@ interface DocumentRowProps {
 function DocumentRow({
   doc,
   agentMap,
+  snippets,
   showArchived,
   onArchive,
   onRestore,
@@ -101,6 +105,11 @@ function DocumentRow({
               {doc.folder && (
                 <p className="text-[11px] text-muted-foreground truncate">
                   {doc.folder.name}
+                </p>
+              )}
+              {snippets?.[0] && (
+                <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground">
+                  {snippets[0].content}
                 </p>
               )}
             </div>

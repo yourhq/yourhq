@@ -222,6 +222,9 @@ services:
       EMBEDDER_CACHE_DIR: /models
       EMBEDDER_POLL_INTERVAL: ${EMBEDDER_POLL_INTERVAL:-10}
       EMBEDDER_BATCH_SIZE: ${EMBEDDER_BATCH_SIZE:-8}
+      EMBEDDER_CHUNK_CHARS: ${EMBEDDER_CHUNK_CHARS:-3500}
+      EMBEDDER_CHUNK_OVERLAP: ${EMBEDDER_CHUNK_OVERLAP:-500}
+      EMBEDDER_MAX_CHUNKS: ${EMBEDDER_MAX_CHUNKS:-500}
     volumes:
       - gateway-embedding-cache:/models
       - ui-config:/config:ro

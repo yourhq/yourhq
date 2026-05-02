@@ -27,6 +27,7 @@ BEGIN
     'gateways',
     'agents', 'streams', 'tasks', 'task_series', 'comments', 'task_attachments',
     'asset_folders', 'assets', 'document_folders', 'documents',
+    'knowledge_sources', 'knowledge_chunks',
     'audit_log', 'notifications',
     'agent_inbox_items', 'automation_rules',
     'agent_commands'
@@ -55,6 +56,7 @@ BEGIN
     'agents', 'streams', 'tasks', 'task_series', 'comments', 'task_attachments',
     'audit_log', 'notifications',
     'asset_folders', 'assets', 'document_folders', 'documents',
+    'knowledge_sources', 'knowledge_chunks',
     'agent_inbox_items', 'automation_rules', 'agent_commands',
     'pipeline_stages', 'field_definitions', 'workspace'
   ]

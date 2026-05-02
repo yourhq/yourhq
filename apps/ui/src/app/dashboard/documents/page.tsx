@@ -313,6 +313,7 @@ function DocumentsContent() {
                 onDelete={setDeleteId}
                 showArchived={docs.filters.showArchived}
                 agentMap={agentMap}
+                snippetsByDocument={docs.searchSnippets}
               />
             ) : (
               <DocumentGrid
@@ -328,6 +329,7 @@ function DocumentsContent() {
                 onDelete={setDeleteId}
                 showArchived={docs.filters.showArchived}
                 agentMap={agentMap}
+                snippetsByDocument={docs.searchSnippets}
               />
             )}
           </div>

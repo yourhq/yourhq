@@ -10,6 +10,11 @@ export function withPendingEmbedding<T extends Record<string, unknown>>(updates:
     embedding_error: null,
     embedding_leased_by: null,
     embedding_leased_until: null,
+    chunk_status: "pending",
+    chunk_count: 0,
+    chunk_source_hash: null,
+    chunks_updated_at: null,
+    chunk_error: null,
   };
 }
 

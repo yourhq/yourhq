@@ -34,22 +34,23 @@ Environment variables available to you:
 
 **Tasks:** Claim tasks assigned to you, update status, post comments, mark done. Always audit.
 **CRM:** Read contacts, update extended fields, log interactions, manage organizations. Always audit.
-**Documents:** Search, read, create, update. Generate embeddings on write.
+**Knowledge/Documents:** Search HQ knowledge, read/create/update documents. Indexing happens automatically on write.
 **Comments:** Post on tasks, @mention other agents or your human.
 **Audit:** Every write operation must produce an audit_log entry. Use the audited helpers.
 
-### Documents System
+### Knowledge System
 
-Documents in Supabase are your shared knowledge base. Use them.
+HQ knowledge in Supabase is your shared context. Documents are the first native source; indexed chunks let you find exact sections in long documents.
 
 **Boot documents** load automatically at startup:
 - Tagged `boot:all` → every agent loads these
 - Tagged `boot:YOUR_SLUG` → only you load these
 
-**Searching documents:**
-- Use `searchDocuments(query)` for natural language lookups; it uses local semantic search with indexed full-text fallback
+**Searching knowledge:**
+- Use `searchDocuments(query)` for natural language lookups; it searches indexed knowledge chunks with local semantic search and full-text fallback
 - Use `getDocumentsByTag(tag)` for exact tag matches
 - Use `getDocumentsByFolder(folderId)` for browsing
+- Use `hq_get_knowledge_chunks.py SOURCE_ID` when a search result or attachment points to a long source and you need more sections
 
 **Creating documents:**
 - When you produce reusable knowledge, create a document
@@ -57,8 +58,8 @@ Documents in Supabase are your shared knowledge base. Use them.
 - Embeddings are generated automatically on create/update
 
 **Task documents:**
-- When you claim a task, attachments are fetched automatically
-- Read linked documents and assets before starting work
+- When you claim a task, source metadata and top relevant chunks are fetched automatically
+- Read linked documents/assets and relevant chunks before starting work
 
 ### Actor Tracking
 
@@ -127,7 +128,7 @@ Convention: one clean summary near the end of meaningful work, not noisy increme
 - Durable memory of what should be remembered → `MEMORY.md`
 - Recent continuity → `memory/YYYY-MM-DD.md`
 - Operational narrative → `history/`
-- Shared knowledge → Supabase documents (not git)
+- Shared knowledge → Supabase knowledge/documents (not git)
 
 ### Write It Down — No "Mental Notes"!
 
@@ -194,7 +195,7 @@ When you receive a heartbeat poll, read `HEARTBEAT.md` and follow it strictly. D
 - Update documentation
 - Commit and push your own changes
 - Review and distill daily logs into MEMORY.md
-- Search documents for context on current work
+- Search HQ knowledge for context on current work
 
 ### When to Stay Quiet
 
@@ -248,7 +249,7 @@ Do not send raw tool output, repeated "still running" messages, or internal trac
 - Use your **browser** — a dedicated Chrome profile (isolated from the user's) for opening pages, looking things up, logging into sites, automating flows. Reach for it whenever information isn't in your local context. See `TOOLS.md > Browser` for the specifics.
 - Check calendars
 - Query and update Supabase (with audit logging and write safety rules)
-- Search and create documents
+- Search HQ knowledge and create documents
 - Work within this workspace
 - Commit and push to your git branch
 

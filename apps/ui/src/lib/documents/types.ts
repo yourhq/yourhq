@@ -34,6 +34,33 @@ export interface Document {
   embedding_error: string | null;
   embedding_leased_by: string | null;
   embedding_leased_until: string | null;
+  chunk_status: "pending" | "indexed" | "failed" | null;
+  chunk_count: number | null;
+  chunk_source_hash: string | null;
+  chunks_updated_at: string | null;
+  chunk_error: string | null;
   // Joined
   folder?: DocumentFolder | null;
+}
+
+export interface KnowledgeChunkSearchResult {
+  knowledge_source_id: string;
+  source_type: string;
+  source_entity_id: string;
+  document_id: string | null;
+  asset_id: string | null;
+  title: string;
+  tags: string[];
+  folder_id: string | null;
+  source_uri: string | null;
+  chunk_id: string;
+  chunk_index: number;
+  content: string;
+  char_start: number | null;
+  char_end: number | null;
+  page_number: number | null;
+  section_path: string[] | null;
+  meta: Record<string, unknown>;
+  updated_at: string;
+  similarity: number;
 }

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Local document embedder for HQ.
+"""Local knowledge embedder for HQ.
 
 Runs an internal HTTP embedding endpoint for agent scripts and a background
-indexing loop that embeds pending documents in Supabase.
+indexing loop that extracts, chunks, and embeds pending knowledge sources.
+Documents use native Tiptap/JSON extraction now; assets and external sources
+can plug in through the same SourceAdapter boundary when Unstructured lands.
 """
 
 from __future__ import annotations
@@ -15,9 +17,10 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any
+from typing import Any, Protocol
 
 try:
     from fastembed import TextEmbedding
@@ -40,6 +43,9 @@ POLL_INTERVAL = int(os.environ.get("EMBEDDER_POLL_INTERVAL", "10"))
 BATCH_SIZE = int(os.environ.get("EMBEDDER_BATCH_SIZE", "8"))
 LEASE_SECONDS = int(os.environ.get("EMBEDDER_LEASE_SECONDS", "300"))
 MAX_INPUT_CHARS = int(os.environ.get("EMBEDDER_MAX_INPUT_CHARS", "6000"))
+CHUNK_CHARS = int(os.environ.get("EMBEDDER_CHUNK_CHARS", "3500"))
+CHUNK_OVERLAP = int(os.environ.get("EMBEDDER_CHUNK_OVERLAP", "500"))
+MAX_CHUNKS = int(os.environ.get("EMBEDDER_MAX_CHUNKS", "500"))
 
 SUPABASE_URL = ""
 SUPABASE_KEY = ""
@@ -48,6 +54,40 @@ _MODEL_LOCK = threading.Lock()
 MODEL_STATUS = "not_loaded"
 MODEL_ERROR: str | None = None
 MODEL_READY_AT: str | None = None
+
+
+@dataclass
+class ExtractedSource:
+    title: str
+    tags: list[str]
+    text: str
+    source_uri: str | None = None
+    meta: dict[str, Any] | None = None
+
+
+class SourceAdapter(Protocol):
+    def extract(self, row: dict[str, Any]) -> ExtractedSource:
+        ...
+
+
+class DocumentAdapter:
+    def extract(self, row: dict[str, Any]) -> ExtractedSource:
+        title = str(row.get("title") or "").strip()
+        tags = [str(tag).strip() for tag in (row.get("tags") or []) if str(tag).strip()]
+        body = extract_text(row.get("content")).strip()
+        parts = [title, ", ".join(tags), body]
+        return ExtractedSource(
+            title=title,
+            tags=tags,
+            text="\n\n".join(part for part in parts if part),
+            source_uri=row.get("source_uri"),
+            meta={"extraction_method": "native_document"},
+        )
+
+
+ADAPTERS: dict[str, SourceAdapter] = {
+    "document": DocumentAdapter(),
+}
 
 
 def log(message: str, level: str = "info", **extra: Any) -> None:
@@ -92,7 +132,6 @@ def get_model() -> TextEmbedding:
             try:
                 log("loading embedding model", model=MODEL_NAME, cache_dir=CACHE_DIR)
                 model = TextEmbedding(model_name=MODEL_NAME, cache_dir=CACHE_DIR)
-                # Force lazy downloads/load while the log context is clear.
                 list(model.embed(["warmup"]))
                 _MODEL = model
                 MODEL_STATUS = "ready"
@@ -116,11 +155,23 @@ def warm_model_loop() -> None:
             time.sleep(POLL_INTERVAL)
 
 
-def embed_text(text: str) -> list[float]:
+def embed_many(texts: list[str]) -> list[list[float]]:
+    if not texts:
+        return []
     model = get_model()
-    vector = next(iter(model.embed([text[:MAX_INPUT_CHARS]])))
-    values = vector.tolist() if hasattr(vector, "tolist") else list(vector)
-    return [float(v) for v in values]
+    vectors = model.embed([text[:MAX_INPUT_CHARS] for text in texts])
+    results: list[list[float]] = []
+    for vector in vectors:
+        values = vector.tolist() if hasattr(vector, "tolist") else list(vector)
+        embedding = [float(v) for v in values]
+        if len(embedding) != 384:
+            raise ValueError(f"Expected 384-dim embedding, got {len(embedding)}")
+        results.append(embedding)
+    return results
+
+
+def embed_text(text: str) -> list[float]:
+    return embed_many([text])[0]
 
 
 def extract_text(value: Any) -> str:
@@ -159,16 +210,6 @@ def extract_text(value: Any) -> str:
     return ""
 
 
-def build_embedding_input(title: str, content: Any = None, tags: list[str] | None = None) -> str:
-    parts = [title.strip()]
-    if tags:
-        parts.append(", ".join(t.strip() for t in tags if t.strip()))
-    body = extract_text(content).strip()
-    if body:
-        parts.append(body)
-    return "\n\n".join(part for part in parts if part)[:MAX_INPUT_CHARS]
-
-
 def source_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
@@ -187,34 +228,100 @@ def rpc(function_name: str, payload: dict[str, Any]) -> Any:
             "Accept": "application/json",
         },
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
+    with urllib.request.urlopen(request, timeout=60) as response:
         body = response.read().decode("utf-8")
         return json.loads(body) if body else None
 
 
-def index_one(row: dict[str, Any]) -> None:
-    doc_id = row["id"]
-    text = build_embedding_input(row.get("title") or "", row.get("content"), row.get("tags") or [])
-    digest = source_hash(text)
-    if not text:
-        rpc("mark_document_embedding_failed", {
-            "p_document_id": doc_id,
-            "p_error": "Document has no embeddable text",
+def make_chunks(text: str) -> list[dict[str, Any]]:
+    normalized = " ".join(text.split())
+    if not normalized:
+        return []
+    chunks: list[dict[str, Any]] = []
+    start = 0
+    while start < len(normalized) and len(chunks) < MAX_CHUNKS:
+        end = min(start + CHUNK_CHARS, len(normalized))
+        if end < len(normalized):
+            boundary = normalized.rfind(" ", start + max(1, CHUNK_CHARS - 400), end)
+            if boundary > start:
+                end = boundary
+        content = normalized[start:end].strip()
+        if content:
+            chunks.append({
+                "chunk_index": len(chunks),
+                "content": content,
+                "content_hash": source_hash(content),
+                "char_start": start,
+                "char_end": end,
+                "meta": {},
+            })
+        if end >= len(normalized):
+            break
+        start = max(end - CHUNK_OVERLAP, start + 1)
+    return chunks
+
+
+def index_source(row: dict[str, Any]) -> None:
+    source_type = row.get("source_type")
+    adapter = ADAPTERS.get(source_type)
+    if adapter is None:
+        rpc("mark_knowledge_source_failed", {
+            "p_source_id": row.get("id"),
+            "p_error": f"No adapter for source_type={source_type}",
         })
         return
 
-    embedding = embed_text(text)
-    if len(embedding) != 384:
-        raise ValueError(f"Expected 384-dim embedding, got {len(embedding)}")
+    extracted = adapter.extract(row)
+    text = extracted.text.strip()
+    digest = source_hash(text)
+    if not text:
+        rpc("mark_knowledge_source_failed", {
+            "p_source_id": row.get("id"),
+            "p_error": "Knowledge source has no extractable text",
+        })
+        return
 
-    rpc("mark_document_embedding_indexed", {
-        "p_document_id": doc_id,
-        "p_embedding": embedding,
+    chunks = make_chunks(text)
+    if not chunks:
+        rpc("mark_knowledge_source_failed", {
+            "p_source_id": row.get("id"),
+            "p_error": "Knowledge source produced no chunks",
+        })
+        return
+
+    coarse_embedding: list[float] | None = None
+    embedding_status = "indexed"
+    embedding_error: str | None = None
+    try:
+        texts = [text[:MAX_INPUT_CHARS]] + [
+            "\n\n".join(part for part in [extracted.title, ", ".join(extracted.tags), chunk["content"]] if part)
+            for chunk in chunks
+        ]
+        embeddings = embed_many(texts)
+        coarse_embedding = embeddings[0]
+        for chunk, embedding in zip(chunks, embeddings[1:]):
+            chunk["embedding"] = embedding
+            chunk["embedding_status"] = "indexed"
+    except Exception as exc:
+        embedding_status = "failed"
+        embedding_error = str(exc)
+        for chunk in chunks:
+            chunk["embedding"] = None
+            chunk["embedding_status"] = "failed"
+        log("chunk embeddings unavailable; storing full-text chunks", level="error", source_id=row.get("id"), error=str(exc))
+
+    rpc("replace_knowledge_source_chunks", {
+        "p_source_id": row["id"],
+        "p_chunks": chunks,
         "p_embedding_model": MODEL_NAME,
-        "p_embedding_dimensions": len(embedding),
+        "p_embedding_dimensions": 384,
         "p_source_hash": digest,
+        "p_coarse_embedding": coarse_embedding,
+        "p_coarse_hash": digest,
+        "p_embedding_status": embedding_status,
+        "p_embedding_error": embedding_error,
     })
-    log("indexed document", document_id=doc_id)
+    log("indexed knowledge source", source_id=row.get("id"), source_type=source_type, chunks=len(chunks), embedding_status=embedding_status)
 
 
 def indexing_loop() -> None:
@@ -225,7 +332,7 @@ def indexing_loop() -> None:
                 time.sleep(POLL_INTERVAL)
                 continue
 
-            rows = rpc("lease_documents_for_embedding", {
+            rows = rpc("lease_knowledge_sources_for_indexing", {
                 "p_gateway_slug": GATEWAY_ID,
                 "p_limit": BATCH_SIZE,
                 "p_lease_seconds": LEASE_SECONDS,
@@ -237,16 +344,16 @@ def indexing_loop() -> None:
 
             for row in rows:
                 try:
-                    index_one(row)
+                    index_source(row)
                 except Exception as exc:
-                    log("failed to index document", level="error", document_id=row.get("id"), error=str(exc))
+                    log("failed to index knowledge source", level="error", source_id=row.get("id"), error=str(exc))
                     try:
-                        rpc("mark_document_embedding_failed", {
-                            "p_document_id": row.get("id"),
+                        rpc("mark_knowledge_source_failed", {
+                            "p_source_id": row.get("id"),
                             "p_error": str(exc),
                         })
                     except Exception as mark_exc:
-                        log("failed to mark document embedding failure", level="error", error=str(mark_exc))
+                        log("failed to mark knowledge source failure", level="error", error=str(mark_exc))
         except urllib.error.URLError as exc:
             log("Supabase request failed", level="error", error=str(exc))
             time.sleep(POLL_INTERVAL)
@@ -270,6 +377,10 @@ class Handler(BaseHTTPRequestHandler):
             "model_ready_at": MODEL_READY_AT,
             "model_error": MODEL_ERROR,
             "cache_dir": CACHE_DIR,
+            "chunk_chars": CHUNK_CHARS,
+            "chunk_overlap": CHUNK_OVERLAP,
+            "max_chunks": MAX_CHUNKS,
+            "adapters": sorted(ADAPTERS.keys()),
             "supabase_configured": bool(SUPABASE_URL or resolve_config()),
         })
 

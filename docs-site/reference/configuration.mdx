@@ -45,7 +45,9 @@ Use (1) only as an override — e.g. a remote gateway that must always point at 
 
 - **`EMBEDDER_URL`** — Optional. Defaults to `http://embedder:18801` inside Compose. Agent scripts use this local HTTP endpoint for query/document embeddings.
 
-- **`EMBEDDER_MODEL`** — Optional. Defaults to `BAAI/bge-small-en-v1.5`. The gateway-profile embedder service downloads/loads this local FastEmbed model on boot and uses it for document vector search.
+- **`EMBEDDER_MODEL`** — Optional. Defaults to `BAAI/bge-small-en-v1.5`. The gateway-profile embedder service downloads/loads this local FastEmbed model on boot and uses it for knowledge vector search.
+
+- **`EMBEDDER_CHUNK_CHARS`**, **`EMBEDDER_CHUNK_OVERLAP`**, **`EMBEDDER_MAX_CHUNKS`** — Optional. Defaults to `3500`, `500`, and `500`. These tune the source-agnostic knowledge chunker used for documents now and future file/external-source indexing.
 
 **Where the real creds live**: the project registry files (`/config/projects.json` for URL + anon key, `/config/secrets.json` for service role key). Don't edit these by hand — use the onboarding screen on first boot, or Settings → Projects afterward.
 

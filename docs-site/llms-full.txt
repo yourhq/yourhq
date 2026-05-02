@@ -3958,7 +3958,7 @@ All five services live in the same monorepo ([`docker-compose.yml`](https://gith
 | `gateway` | The container that hosts the agents. Runs Xtigervnc + XFCE + Chrome + OpenClaw gateway + the files-API. Exposes a remote desktop (noVNC) and a file browser (`files-api`). | [`gateway/entrypoint.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/entrypoint.sh), [`gateway/files_api.py`](https://github.com/yourhq/yourhq/tree/main/gateway/files_api.py), [`gateway/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/Dockerfile) | `6901` (noVNC), `18790` (files-API) | `workspace.slug` at boot to prefix branches | `gateways` row upsert at boot with reachable URLs |
 | `dispatcher` | Python daemon. Subscribes to `agent_inbox_items` INSERT events and wakes the owning agent via `openclaw agent --agent …`. Only wakes agents bound to this gateway. | [`gateway/daemons/inbox_dispatcher.py`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/inbox_dispatcher.py), [`gateway/dispatcher/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/dispatcher/Dockerfile) | none | `agent_inbox_items`, `agents`, `gateways`, `workspace` | `agent_inbox_items.last_wake_*` |
 | `runner` | Python daemon. Subscribes to `agent_commands` INSERT events, leases via `lease_command(gateway_slug=…)`, executes `add-agent.sh` / `update-agent.sh` / `docker compose restart …`, reports back stdout/stderr/exit code. | [`gateway/daemons/command_runner.py`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/command_runner.py), [`gateway/runner/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/runner/Dockerfile), [`gateway/scripts/add-agent.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/scripts/add-agent.sh) | none | `agent_commands`, `workspace`, `gateways` | `agent_commands.status/stdout/stderr`, `gateways.last_seen_at` (30 s heartbeat) |
-| `embedder` | Python daemon. Eagerly downloads/loads the local BGE model, serves embeddings over an internal HTTP endpoint, and indexes pending documents for semantic search. | [`gateway/embedder/`](https://github.com/yourhq/yourhq/tree/main/gateway/embedder) | none | `documents` via embedding lease RPCs | `documents.embedding`, embedding status metadata |
+| `embedder` | Python daemon. Eagerly downloads/loads the local BGE model, serves embeddings over an internal HTTP endpoint, and indexes pending knowledge sources into searchable chunks. Documents are the first source type; the schema is ready for files and external sources. | [`gateway/embedder/`](https://github.com/yourhq/yourhq/tree/main/gateway/embedder) | none | `knowledge_sources`, `documents` via indexing lease RPCs | `knowledge_chunks`, `documents.embedding`, indexing status metadata |
 
 The `gateway`, `dispatcher`, and `runner` containers all share the Docker volume `gateway-state` (mounted at `/home/openclaw/.openclaw`). That volume is where OpenClaw's config, the bare git repo, per-agent worktrees, browser profiles, and the VNC state live. The `embedder` uses `gateway-embedding-cache` for downloaded local embedding models. The runner additionally mounts `/var/run/docker.sock` so it can restart sibling containers.
 
@@ -4657,7 +4657,9 @@ Use (1) only as an override — e.g. a remote gateway that must always point at 
 
 - **`EMBEDDER_URL`** — Optional. Defaults to `http://embedder:18801` inside Compose. Agent scripts use this local HTTP endpoint for query/document embeddings.
 
-- **`EMBEDDER_MODEL`** — Optional. Defaults to `BAAI/bge-small-en-v1.5`. The gateway-profile embedder service downloads/loads this local FastEmbed model on boot and uses it for document vector search.
+- **`EMBEDDER_MODEL`** — Optional. Defaults to `BAAI/bge-small-en-v1.5`. The gateway-profile embedder service downloads/loads this local FastEmbed model on boot and uses it for knowledge vector search.
+
+- **`EMBEDDER_CHUNK_CHARS`**, **`EMBEDDER_CHUNK_OVERLAP`**, **`EMBEDDER_MAX_CHUNKS`** — Optional. Defaults to `3500`, `500`, and `500`. These tune the source-agnostic knowledge chunker used for documents now and future file/external-source indexing.
 
 **Where the real creds live**: the project registry files (`/config/projects.json` for URL + anon key, `/config/secrets.json` for service role key). Don't edit these by hand — use the onboarding screen on first boot, or Settings → Projects afterward.
 
@@ -5224,7 +5226,7 @@ HQ's default Compose stack has five services that work together.
   
 
   - **embedder**: 
-    **Document indexing daemon.** Runs FastEmbed locally, starts downloading/loading the BGE model on boot, serves `/embed` inside Docker, and indexes pending documents for semantic search.
+    **Knowledge indexing daemon.** Runs FastEmbed locally, starts downloading/loading the BGE model on boot, serves `/embed` inside Docker, and indexes pending documents into searchable knowledge chunks.
   
 
 ## Shared state
