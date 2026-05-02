@@ -47,7 +47,7 @@ export function useCollections() {
   const fetchCollections = useCallback(async () => {
     let q = supabase
       .from("collection_definitions")
-      .select("*")
+      .select("*, collection_records(count)")
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: false });
 
@@ -60,7 +60,13 @@ export function useCollections() {
       console.error("Failed to fetch collections:", error);
       return;
     }
-    setCollections(data ?? []);
+    const mapped = (data ?? []).map((d) => {
+      const raw = d as typeof d & { collection_records?: { count: number }[] };
+      const count = raw.collection_records?.[0]?.count ?? 0;
+      const { collection_records: _, ...rest } = raw;
+      return { ...rest, record_count: count } as CollectionDefinition;
+    });
+    setCollections(mapped);
     setLoading(false);
   }, [supabase, showArchived]);
 

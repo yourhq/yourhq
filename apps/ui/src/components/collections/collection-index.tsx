@@ -45,18 +45,26 @@ export function CollectionIndex({
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-heading truncate">{col.name}</div>
-              {col.description && (
-                <div className="text-body text-muted-foreground mt-0.5 line-clamp-2">
-                  {col.description}
-                </div>
-              )}
+              <div className="text-body text-muted-foreground mt-0.5">
+                {col.record_count != null && (
+                  <span className="text-[11px]">
+                    {col.record_count} record{col.record_count !== 1 ? "s" : ""}
+                  </span>
+                )}
+                {col.description && col.record_count != null && (
+                  <span className="text-muted-foreground/40 mx-1">·</span>
+                )}
+                {col.description && (
+                  <span className="text-[11px] line-clamp-1">{col.description}</span>
+                )}
+              </div>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="relative z-10 h-6 w-6 opacity-0 group-hover:opacity-100"
+                  className="relative z-10 h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100"
                 >
                   <MoreHorizontal className="h-3.5 w-3.5" />
                 </Button>

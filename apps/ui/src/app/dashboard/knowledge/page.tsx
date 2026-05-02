@@ -176,6 +176,18 @@ function KnowledgeContent() {
         <div className="flex-1 overflow-auto">
           {k.loading ? (
             <LoadingSkeleton variant="list" count={8} />
+          ) : k.items.length === 0 && (k.filters.search || k.filters.kindFilter !== "all" || k.filters.folderId !== "all") ? (
+            <EmptyState
+              icon={BookOpen}
+              title="No items match"
+              description="Try adjusting your search or filters."
+              variant="filtered"
+              onClearFilters={() => {
+                k.filters.setSearch("");
+                k.filters.setKindFilter("all");
+                k.filters.setFolderId("all");
+              }}
+            />
           ) : k.items.length === 0 ? (
             <EmptyState
               icon={BookOpen}

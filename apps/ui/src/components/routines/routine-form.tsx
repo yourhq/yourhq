@@ -7,6 +7,7 @@ import { CADENCE_OPTIONS, SUB_DAILY_PRESETS, CONDITION_LABELS, ENTITY_TYPE_LABEL
 import { humanizeRoutine } from "@/lib/routines/humanize";
 import { usePipelineStages } from "@/hooks/use-pipeline-stages";
 import { logAudit } from "@/lib/audit/log";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -100,6 +101,14 @@ export function RoutineForm({
   const [collectionFields, setCollectionFields] = useState<{ field_key: string; label: string; field_type: string; options: unknown }[]>([]);
 
   const instructionRef = useRef<HTMLTextAreaElement>(null);
+
+  const timezones = useMemo(() => {
+    try {
+      return Intl.supportedValuesOf("timeZone");
+    } catch {
+      return ["America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "America/Anchorage", "Pacific/Honolulu", "Europe/London", "Europe/Paris", "Europe/Berlin", "Asia/Tokyo", "Asia/Shanghai", "Asia/Kolkata", "Australia/Sydney", "UTC"];
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -228,6 +237,7 @@ export function RoutineForm({
         .update(payload)
         .eq("id", editingRoutine.id);
       if (error) {
+        toast.error("Failed to update routine", { description: error.message });
         setSaving(false);
         return;
       }
@@ -245,6 +255,7 @@ export function RoutineForm({
         .select("id")
         .single();
       if (error || !inserted) {
+        toast.error("Failed to create routine", { description: error?.message });
         setSaving(false);
         return;
       }
@@ -271,6 +282,13 @@ export function RoutineForm({
           Create or edit a routine for an agent
         </DialogDescription>
 
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSubmit();
+          }}
+          className="flex flex-1 flex-col min-h-0"
+        >
         <div className="flex-1 overflow-y-auto min-h-0">
           {/* Header */}
           <div className="px-5 pt-5 pb-3">
@@ -467,12 +485,20 @@ export function RoutineForm({
                       onChange={(e) => setTimeOfDay(e.target.value)}
                       className="h-7 w-32 text-xs"
                     />
-                    <Input
-                      value={timezone}
-                      onChange={(e) => setTimezone(e.target.value)}
-                      placeholder="Timezone"
-                      className="h-7 flex-1 text-xs"
-                    />
+                    <div className="flex-1">
+                      <Input
+                        list="tz-list"
+                        value={timezone}
+                        onChange={(e) => setTimezone(e.target.value)}
+                        placeholder="Timezone"
+                        className="h-7 text-xs"
+                      />
+                      <datalist id="tz-list">
+                        {timezones.map((tz) => (
+                          <option key={tz} value={tz} />
+                        ))}
+                      </datalist>
+                    </div>
                   </div>
                 )}
               </div>
@@ -670,15 +696,16 @@ export function RoutineForm({
               Cancel
             </Button>
             <Button
+              type="submit"
               size="sm"
               className="h-7 text-xs"
-              onClick={handleSubmit}
               disabled={saving || !canSubmit}
             >
               {saving ? "Saving..." : editingRoutine ? "Save changes" : "Create routine"}
             </Button>
           </div>
         </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

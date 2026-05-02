@@ -207,6 +207,12 @@ function CollectionDetailInner({ collection }: { collection: CollectionDefinitio
               onDeleteRecord={(id) => setDeleteRecordId(id)}
               onRecordClick={handleRecordClick}
             />
+          ) : cr.activeView?.view_type === "calendar" ? (
+            <EmptyState
+              icon={Database}
+              title="Calendar view coming soon"
+              description="Calendar views will display records on a date-based timeline. Use table or kanban view for now."
+            />
           ) : (
             <CollectionTableView
               records={cr.records}

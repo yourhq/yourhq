@@ -19,6 +19,9 @@ import {
   Keyboard,
   CreditCard,
   Database,
+  ChevronRight,
+  Pin,
+  Settings2,
 } from "lucide-react";
 import { useUnreadNotificationCount } from "@/hooks/use-notifications";
 import { cn } from "@/lib/utils";
@@ -44,6 +47,13 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { ProjectSwitcher } from "@/components/projects/project-switcher";
 import { SignInModal } from "@/components/auth/sign-in-modal";
 import { useAuthWatcher } from "@/hooks/use-auth-watcher";
+import { ModulesProvider } from "@/components/shared/modules-context";
+import { useSidebarCollections } from "@/hooks/use-sidebar-collections";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
 import * as React from "react";
 
 type NavItem = {
@@ -95,14 +105,8 @@ function buildNavGroups(
       items: [
         { href: "/dashboard/tasks", label: "Tasks", icon: CheckSquare },
         { href: "/dashboard/agents", label: "Agents", icon: Bot },
-        { href: "/dashboard/collections", label: "Collections", icon: Database },
-        { href: "/dashboard/routines", label: "Routines", icon: Zap },
-      ],
-    },
-    {
-      label: "Knowledge",
-      items: [
         { href: "/dashboard/knowledge", label: "Knowledge", icon: BookOpen },
+        { href: "/dashboard/routines", label: "Routines", icon: Zap },
       ],
     },
     {
@@ -121,6 +125,151 @@ const SidebarContext = React.createContext<{
 
 export function useSidebarState() {
   return React.useContext(SidebarContext);
+}
+
+function CollectionsSidebarGroup({
+  pinned,
+  unpinned,
+  pinnedIds,
+  expanded,
+  setExpanded,
+  togglePin,
+  showLabels,
+  pathname,
+  onLinkClick,
+}: {
+  pinned: { id: string; name: string; slug: string; icon: string | null; color: string | null }[];
+  unpinned: { id: string; name: string; slug: string; icon: string | null; color: string | null }[];
+  pinnedIds: Set<string>;
+  expanded: boolean;
+  setExpanded: (v: boolean) => void;
+  togglePin: (id: string) => void;
+  showLabels: boolean;
+  pathname: string;
+  onLinkClick?: () => void;
+}) {
+  const isActive = (slug: string) =>
+    pathname.startsWith(`/dashboard/collections/${slug}`);
+  const manageActive = pathname === "/dashboard/collections";
+
+  function renderItem(col: { id: string; name: string; slug: string; icon: string | null; color: string | null }, isPinned: boolean) {
+    const href = `/dashboard/collections/${col.slug}`;
+    const active = isActive(col.slug);
+
+    const linkContent = (
+      <Link
+        href={href}
+        onClick={onLinkClick}
+        className={cn(
+          "group/col relative flex h-8 items-center gap-2.5 rounded-md px-2 text-[13px] transition-colors",
+          active
+            ? "bg-accent text-foreground font-medium"
+            : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+        )}
+      >
+        {active && (
+          <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-foreground" />
+        )}
+        <span
+          className="flex h-4 w-4 items-center justify-center rounded text-[11px] leading-none shrink-0"
+          style={col.color ? { color: col.color } : undefined}
+        >
+          {col.icon ?? <Database className="h-3.5 w-3.5" />}
+        </span>
+        {showLabels && (
+          <>
+            <span className="flex-1 truncate">{col.name}</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                togglePin(col.id);
+              }}
+              className={cn(
+                "shrink-0 p-0.5 rounded transition-opacity",
+                isPinned
+                  ? "text-muted-foreground/70 opacity-0 group-hover/col:opacity-100"
+                  : "text-muted-foreground/40 opacity-0 group-hover/col:opacity-100"
+              )}
+              title={isPinned ? "Unpin" : "Pin"}
+            >
+              <Pin className={cn("h-3 w-3", isPinned && "fill-current")} />
+            </button>
+          </>
+        )}
+      </Link>
+    );
+
+    if (!showLabels) {
+      return (
+        <Tooltip key={col.id}>
+          <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
+          <TooltipContent side="right" className="text-xs">
+            {col.name}
+          </TooltipContent>
+        </Tooltip>
+      );
+    }
+    return <div key={col.id}>{linkContent}</div>;
+  }
+
+  const manageLink = (
+    <Link
+      href="/dashboard/collections"
+      onClick={onLinkClick}
+      className={cn(
+        "group relative flex h-7 items-center gap-2.5 rounded-md px-2 text-[12px] transition-colors",
+        manageActive
+          ? "bg-accent text-foreground font-medium"
+          : "text-muted-foreground/60 hover:bg-accent/60 hover:text-foreground"
+      )}
+    >
+      <Settings2 className="h-3.5 w-3.5 shrink-0" />
+      {showLabels && <span>Manage</span>}
+    </Link>
+  );
+
+  return (
+    <Collapsible open={expanded} onOpenChange={setExpanded}>
+      <div>
+        {showLabels ? (
+          <CollapsibleTrigger className="flex w-full items-center gap-1 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70 hover:text-muted-foreground transition-colors">
+            <ChevronRight className={cn("h-3 w-3 transition-transform", expanded && "rotate-90")} />
+            <span>Collections</span>
+          </CollapsibleTrigger>
+        ) : (
+          <CollapsibleTrigger className="flex w-full items-center justify-center py-1 text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+            <ChevronRight className={cn("h-3 w-3 transition-transform", expanded && "rotate-90")} />
+          </CollapsibleTrigger>
+        )}
+
+        {/* Pinned items — always visible */}
+        <div className="space-y-0.5">
+          {pinned.map((col) => renderItem(col, true))}
+        </div>
+
+        {/* Unpinned items — collapsible */}
+        <CollapsibleContent>
+          <div className="space-y-0.5">
+            {unpinned.map((col) => renderItem(col, false))}
+          </div>
+        </CollapsibleContent>
+
+        {/* Manage link */}
+        <div className="mt-0.5">
+          {!showLabels ? (
+            <Tooltip>
+              <TooltipTrigger asChild>{manageLink}</TooltipTrigger>
+              <TooltipContent side="right" className="text-xs">Manage collections</TooltipContent>
+            </Tooltip>
+          ) : (
+            manageLink
+          )}
+        </div>
+      </div>
+    </Collapsible>
+  );
 }
 
 function SidebarInner({
@@ -143,6 +292,7 @@ function SidebarInner({
   const { count: unreadCount } = useUnreadNotificationCount();
   const { showHelp } = useShortcuts();
   const navGroups = React.useMemo(() => buildNavGroups(isHosted, modules), [isHosted, modules]);
+  const sc = useSidebarCollections();
 
   const isItemActive = (href: string) =>
     href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
@@ -243,6 +393,62 @@ function SidebarInner({
             </div>
           </div>
         ))}
+
+        {/* Collections — dynamic group */}
+        {sc.collections.length === 0 && !sc.loading ? (
+          <div>
+            {showLabels && (
+              <div className="mb-1 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                Collections
+              </div>
+            )}
+            <div className="space-y-0.5">
+              {(() => {
+                const href = "/dashboard/collections";
+                const isActive = pathname === href;
+                const linkContent = (
+                  <Link
+                    href={href}
+                    onClick={onLinkClick}
+                    className={cn(
+                      "group relative flex h-8 items-center gap-2.5 rounded-md px-2 text-[13px] transition-colors",
+                      isActive
+                        ? "bg-accent text-foreground font-medium"
+                        : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                    )}
+                  >
+                    {isActive && (
+                      <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-foreground" />
+                    )}
+                    <Database className={cn("h-4 w-4 shrink-0", isActive ? "text-foreground" : "text-muted-foreground group-hover:text-foreground")} />
+                    {showLabels && <span className="flex-1">Collections</span>}
+                  </Link>
+                );
+                if (!showLabels) {
+                  return (
+                    <Tooltip>
+                      <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
+                      <TooltipContent side="right" className="text-xs">Collections</TooltipContent>
+                    </Tooltip>
+                  );
+                }
+                return linkContent;
+              })()}
+            </div>
+          </div>
+        ) : sc.collections.length > 0 ? (
+          <CollectionsSidebarGroup
+            pinned={sc.pinned}
+            unpinned={sc.unpinned}
+            pinnedIds={sc.pinnedIds}
+            expanded={sc.expanded}
+            setExpanded={sc.setExpanded}
+            togglePin={sc.togglePin}
+            showLabels={showLabels}
+            pathname={pathname}
+            onLinkClick={onLinkClick}
+          />
+        ) : null}
       </nav>
 
       {/* Sidebar footer — keyboard shortcuts hint */}
@@ -353,6 +559,7 @@ export function DashboardShell({
 
   return (
     <SidebarContext.Provider value={{ collapsed, toggle }}>
+      <ModulesProvider modules={modules}>
       <KeyboardShortcutsProvider>
         <TooltipProvider delayDuration={200}>
           {activeProject && (
@@ -424,6 +631,7 @@ export function DashboardShell({
           <CommandPalette />
         </TooltipProvider>
       </KeyboardShortcutsProvider>
+      </ModulesProvider>
     </SidebarContext.Provider>
   );
 }

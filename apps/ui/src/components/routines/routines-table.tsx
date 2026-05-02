@@ -40,8 +40,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Bot, Clock, MoreHorizontal, Pencil, Trash2, Zap } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { ArrowUpDown, Bot, Clock, MoreHorizontal, Pencil, Trash2, Zap } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface RoutinesTableProps {
   routines: Routine[];
@@ -62,7 +63,17 @@ export function RoutinesTable({
   const columns: ColumnDef<Routine>[] = [
     {
       id: "routine",
-      header: "Routine",
+      accessorFn: (row) => row.name,
+      header: ({ column }) => (
+        <button
+          type="button"
+          className="flex items-center gap-1 hover:text-foreground"
+          onClick={() => column.toggleSorting()}
+        >
+          Routine
+          {column.getIsSorted() && <ArrowUpDown className="h-3 w-3" />}
+        </button>
+      ),
       cell: ({ row }) => {
         const r = row.original;
         return (
@@ -135,7 +146,17 @@ export function RoutinesTable({
     },
     {
       id: "lastRun",
-      header: "Last run",
+      accessorFn: (row) => row.last_run_at,
+      header: ({ column }) => (
+        <button
+          type="button"
+          className="flex items-center gap-1 hover:text-foreground"
+          onClick={() => column.toggleSorting()}
+        >
+          Last run
+          {column.getIsSorted() && <ArrowUpDown className="h-3 w-3" />}
+        </button>
+      ),
       size: 110,
       cell: ({ row }) => {
         const r = row.original;
@@ -151,7 +172,17 @@ export function RoutinesTable({
     },
     {
       id: "runCount",
-      header: "Runs",
+      accessorFn: (row) => row.run_count,
+      header: ({ column }) => (
+        <button
+          type="button"
+          className="flex items-center gap-1 hover:text-foreground"
+          onClick={() => column.toggleSorting()}
+        >
+          Runs
+          {column.getIsSorted() && <ArrowUpDown className="h-3 w-3" />}
+        </button>
+      ),
       size: 60,
       cell: ({ row }) => (
         <span className="text-[11px] text-muted-foreground">
@@ -168,7 +199,7 @@ export function RoutinesTable({
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+              className="h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
               onClick={(e) => e.stopPropagation()}
             >
               <MoreHorizontal className="h-3.5 w-3.5" />

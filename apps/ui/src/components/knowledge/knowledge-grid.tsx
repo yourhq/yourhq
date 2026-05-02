@@ -54,13 +54,13 @@ export function KnowledgeGrid({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="shrink-0 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-accent"
-                    onClick={(e) => e.preventDefault()}
+                    className="shrink-0 p-1 rounded opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity hover:bg-accent"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
                   >
                     <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-36">
+                <DropdownMenuContent align="end" className="w-36" onClick={(e) => e.stopPropagation()}>
                   {showArchived ? (
                     <>
                       <DropdownMenuItem onClick={() => onRestore(item.id)}>

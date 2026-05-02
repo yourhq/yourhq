@@ -67,9 +67,13 @@ export function useKnowledge() {
     updateUrl({ folder: value === "all" ? null : value });
   }
 
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   function setSearch(value: string) {
     setSearchState(value);
-    updateUrl({ q: value || null });
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      updateUrl({ q: value || null });
+    }, 250);
   }
 
   function setKindFilter(value: string) {

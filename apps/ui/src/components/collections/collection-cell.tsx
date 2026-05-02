@@ -85,6 +85,10 @@ function TextCell({
   const ref = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    if (!editing) setDraft(value ?? "");
+  }, [value, editing]);
+
+  useEffect(() => {
     if (editing) ref.current?.focus();
   }, [editing]);
 
@@ -136,6 +140,10 @@ function NumberCell({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value?.toString() ?? "");
   const ref = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!editing) setDraft(value?.toString() ?? "");
+  }, [value, editing]);
 
   useEffect(() => {
     if (editing) ref.current?.focus();
@@ -190,6 +198,10 @@ function UrlCell({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? "");
   const ref = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!editing) setDraft(value ?? "");
+  }, [value, editing]);
 
   useEffect(() => {
     if (editing) ref.current?.focus();

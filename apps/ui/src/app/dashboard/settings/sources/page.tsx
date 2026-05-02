@@ -10,8 +10,6 @@ import { BookOpen } from "lucide-react";
 function SourcesContent() {
   const sc = useSourceConnections();
 
-  if (sc.loading) return <LoadingSkeleton variant="list" count={3} />;
-
   return (
     <>
       <PageHeader
@@ -20,13 +18,17 @@ function SourcesContent() {
         description="Connect external services to sync content into Knowledge."
       />
       <div className="p-4 max-w-2xl mx-auto">
-        <SourceConnectionsPanel
-          connections={sc.connections}
-          syncRuns={sc.syncRuns}
-          onCreateConnection={sc.actions.createConnection}
-          onDeleteConnection={sc.actions.deleteConnection}
-          onTriggerSync={sc.actions.triggerSync}
-        />
+        {sc.loading ? (
+          <LoadingSkeleton variant="list" count={3} />
+        ) : (
+          <SourceConnectionsPanel
+            connections={sc.connections}
+            syncRuns={sc.syncRuns}
+            onCreateConnection={sc.actions.createConnection}
+            onDeleteConnection={sc.actions.deleteConnection}
+            onTriggerSync={sc.actions.triggerSync}
+          />
+        )}
       </div>
     </>
   );

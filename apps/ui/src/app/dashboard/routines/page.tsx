@@ -20,7 +20,8 @@ import { Plus, Repeat, Search } from "lucide-react";
 import type { TriggerType } from "@/lib/routines/types";
 
 function RoutinesContent() {
-  const { routines, loading, filters, actions, form } = useRoutines();
+  const { routines, allRoutines, loading, filters, actions, form } = useRoutines();
+  const hasFilters = filters.search.trim() !== "" || filters.triggerFilter !== "all";
 
   return (
     <div className="flex h-full flex-col">
@@ -66,7 +67,7 @@ function RoutinesContent() {
       <div className="flex-1 overflow-auto p-5">
         {loading ? (
           <LoadingSkeleton variant="table" count={5} />
-        ) : routines.length === 0 ? (
+        ) : routines.length === 0 && !hasFilters ? (
           <EmptyState
             icon={Repeat}
             title="No routines yet"
@@ -74,6 +75,17 @@ function RoutinesContent() {
             action={{
               label: "New routine",
               onClick: form.openCreateForm,
+            }}
+          />
+        ) : routines.length === 0 ? (
+          <EmptyState
+            icon={Repeat}
+            title="No routines match"
+            description="Try adjusting your search or filter."
+            variant="filtered"
+            onClearFilters={() => {
+              filters.setSearch("");
+              filters.setTriggerFilter("all");
             }}
           />
         ) : (

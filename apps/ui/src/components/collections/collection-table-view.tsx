@@ -76,14 +76,26 @@ export function CollectionTableView({
           )}
         </button>
       ),
-      cell: ({ row }) => (
-        <CollectionCell
-          field={field}
-          value={row.original.values[field.field_key]}
-          onChange={(value) => onCellChange(row.original.id, field.field_key, value)}
-        />
-      ),
+      cell: ({ row }) =>
+        field.is_title_field ? (
+          <button
+            type="button"
+            className="w-full text-left text-body font-medium truncate px-1.5 py-0.5 rounded hover:text-foreground min-h-[28px] flex items-center"
+            onClick={() => onRecordClick?.(row.original.id)}
+          >
+            {(row.original.values[field.field_key] as string) || (
+              <span className="text-muted-foreground font-normal">Untitled</span>
+            )}
+          </button>
+        ) : (
+          <CollectionCell
+            field={field}
+            value={row.original.values[field.field_key]}
+            onChange={(value) => onCellChange(row.original.id, field.field_key, value)}
+          />
+        ),
       size: viewConfig.field_widths?.[field.field_key] ?? (field.is_title_field ? 240 : 160),
+      meta: { isTitleField: field.is_title_field },
     }));
 
     cols.push({
@@ -159,17 +171,20 @@ export function CollectionTableView({
           {table.getRowModel().rows.map((row) => (
             <tr
               key={row.id}
-              className={cn(
-                "group/row border-b border-border/30 transition-colors hover:bg-accent/30",
-                onRecordClick && "cursor-pointer",
-              )}
-              onDoubleClick={() => onRecordClick?.(row.original.id)}
+              className="group/row border-b border-border/30 transition-colors hover:bg-accent/30"
             >
-              {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className="px-2 py-0.5">
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              ))}
+              {row.getVisibleCells().map((cell) => {
+                const isTitleField = (cell.column.columnDef.meta as { isTitleField?: boolean })?.isTitleField;
+                return (
+                  <td
+                    key={cell.id}
+                    className={cn("px-2 py-0.5", isTitleField && "cursor-pointer")}
+                    onClick={isTitleField ? undefined : (e) => e.stopPropagation()}
+                  >
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>
