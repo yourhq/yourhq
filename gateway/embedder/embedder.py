@@ -85,9 +85,26 @@ class DocumentAdapter:
         )
 
 
+class KnowledgeItemAdapter:
+    def extract(self, row: dict[str, Any]) -> ExtractedSource:
+        title = str(row.get("title") or "").strip()
+        tags = [str(tag).strip() for tag in (row.get("tags") or []) if str(tag).strip()]
+        plain = str(row.get("plain_text") or "").strip()
+        body = plain if plain else extract_text(row.get("content")).strip()
+        parts = [title, ", ".join(tags), body]
+        return ExtractedSource(
+            title=title,
+            tags=tags,
+            text="\n\n".join(part for part in parts if part),
+            meta={"extraction_method": "knowledge_item", "kind": row.get("kind")},
+        )
+
+
 ADAPTERS: dict[str, SourceAdapter] = {
     "document": DocumentAdapter(),
 }
+
+_ITEM_ADAPTER = KnowledgeItemAdapter()
 
 
 def log(message: str, level: str = "info", **extra: Any) -> None:
@@ -324,6 +341,36 @@ def index_source(row: dict[str, Any]) -> None:
     log("indexed knowledge source", source_id=row.get("id"), source_type=source_type, chunks=len(chunks), embedding_status=embedding_status)
 
 
+def index_knowledge_item(row: dict[str, Any]) -> None:
+    extracted = _ITEM_ADAPTER.extract(row)
+    text = extracted.text.strip()
+    if not text:
+        rpc("mark_knowledge_item_failed", {
+            "p_item_id": row["id"],
+            "p_error": "No extractable text",
+        })
+        return
+
+    digest = source_hash(text)
+    try:
+        embedding = embed_text(text[:MAX_INPUT_CHARS])
+    except Exception as exc:
+        rpc("mark_knowledge_item_failed", {
+            "p_item_id": row["id"],
+            "p_error": str(exc),
+        })
+        return
+
+    rpc("mark_knowledge_item_indexed", {
+        "p_item_id": row["id"],
+        "p_embedding": embedding,
+        "p_model": MODEL_NAME,
+        "p_dimensions": 384,
+        "p_source_hash": digest,
+    })
+    log("indexed knowledge item", item_id=row.get("id"), kind=row.get("kind"), title=row.get("title", "")[:60])
+
+
 def indexing_loop() -> None:
     while True:
         try:
@@ -332,13 +379,34 @@ def indexing_loop() -> None:
                 time.sleep(POLL_INTERVAL)
                 continue
 
+            # Index knowledge_items (new unified table)
+            items = rpc("lease_knowledge_items_for_indexing", {
+                "p_gateway_slug": GATEWAY_ID,
+                "p_limit": BATCH_SIZE,
+                "p_lease_seconds": LEASE_SECONDS,
+            }) or []
+
+            for row in items:
+                try:
+                    index_knowledge_item(row)
+                except Exception as exc:
+                    log("failed to index knowledge item", level="error", item_id=row.get("id"), error=str(exc))
+                    try:
+                        rpc("mark_knowledge_item_failed", {
+                            "p_item_id": row.get("id"),
+                            "p_error": str(exc),
+                        })
+                    except Exception as mark_exc:
+                        log("failed to mark knowledge item failure", level="error", error=str(mark_exc))
+
+            # Also index legacy knowledge_sources if any remain
             rows = rpc("lease_knowledge_sources_for_indexing", {
                 "p_gateway_slug": GATEWAY_ID,
                 "p_limit": BATCH_SIZE,
                 "p_lease_seconds": LEASE_SECONDS,
             }) or []
 
-            if not rows:
+            if not items and not rows:
                 time.sleep(POLL_INTERVAL)
                 continue
 

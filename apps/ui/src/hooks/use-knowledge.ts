@@ -101,38 +101,27 @@ export function useKnowledge() {
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
-    let query = supabase
-      .from("knowledge_items")
-      .select("*, folder:knowledge_folders(id, name)")
-      .order("pinned", { ascending: false })
-      .order("updated_at", { ascending: false });
+    const trimmedSearch = search.trim();
 
-    if (showArchived) {
-      query = query.not("archived_at", "is", null);
-    } else {
-      query = query.is("archived_at", null);
-    }
+    if (trimmedSearch) {
+      const { data } = await supabase.rpc("search_knowledge_items_text", {
+        query_text: trimmedSearch,
+        match_count: 50,
+        filter_folder_id: folderId !== "all" ? folderId : null,
+        filter_kind: kindFilter !== "all" ? kindFilter : null,
+      });
 
-    if (kindFilter !== "all") {
-      query = query.eq("kind", kindFilter);
-    }
+      let results = (data ?? []).map(
+        (r: { id: string; title: string; kind: string; content: unknown; tags: string[]; folder_id: string | null; scope: string; updated_at: string; meta: Record<string, unknown>; similarity: number }) => ({
+          ...r,
+          pinned: false,
+          archived_at: null,
+        })
+      ) as unknown as KnowledgeItem[];
 
-    if (scopeFilter !== "all" && scopeFilter !== "workspace") {
-      query = query.eq("scope", "agent");
-    } else if (scopeFilter === "workspace") {
-      query = query.eq("scope", "workspace");
-    }
-
-    if (folderId !== "all") {
-      const ids = collectDescendantIds(foldersRef.current, folderId);
-      query = query.in("folder_id", ids);
-    }
-
-    const { data, error } = await query;
-    if (!error && data) {
-      let filtered = data as unknown as KnowledgeItem[];
-
-      if (scopeFilter !== "all" && scopeFilter !== "workspace") {
+      if (scopeFilter === "workspace") {
+        results = results.filter((item) => item.scope === "workspace");
+      } else if (scopeFilter !== "all") {
         const { data: junctionRows } = await supabase
           .from("knowledge_item_agents")
           .select("knowledge_item_id")
@@ -142,30 +131,94 @@ export function useKnowledge() {
             (r: { knowledge_item_id: string }) => r.knowledge_item_id
           )
         );
-        filtered = filtered.filter((item) => agentItemIds.has(item.id));
+        results = results.filter((item) => agentItemIds.has(item.id));
       }
 
-      if (search.trim()) {
-        const term = search.trim().toLowerCase();
-        filtered = filtered.filter((item) => {
-          const haystack = [
-            item.title,
-            item.tags?.join(" "),
-            item.plain_text,
-            typeof item.content === "string"
-              ? item.content
-              : JSON.stringify(item.content ?? ""),
-          ]
-            .join(" ")
-            .toLowerCase();
-          return haystack.includes(term);
-        });
-        setSearchSnippets({});
+      setItems(results);
+
+      const itemIds = results.map((r) => r.id);
+      if (itemIds.length > 0) {
+        const { data: chunks } = await supabase
+          .from("knowledge_chunks")
+          .select("id, knowledge_item_id, chunk_index, content")
+          .in("knowledge_item_id", itemIds)
+          .textSearch("content", trimmedSearch, { type: "plain" })
+          .limit(20);
+
+        const snippets: Record<string, KnowledgeChunkSearchResult[]> = {};
+        for (const chunk of chunks ?? []) {
+          const itemId = chunk.knowledge_item_id as string;
+          if (!snippets[itemId]) snippets[itemId] = [];
+          snippets[itemId].push({
+            knowledge_item_id: itemId,
+            title: "",
+            tags: [],
+            folder_id: null,
+            chunk_id: chunk.id as string,
+            chunk_index: chunk.chunk_index as number,
+            content: (chunk.content as string).slice(0, 200),
+            char_start: null,
+            char_end: null,
+            page_number: null,
+            section_path: null,
+            meta: {},
+            updated_at: "",
+            similarity: 0,
+          });
+        }
+        setSearchSnippets(snippets);
       } else {
         setSearchSnippets({});
       }
+    } else {
+      setSearchSnippets({});
 
-      setItems(filtered);
+      let query = supabase
+        .from("knowledge_items")
+        .select("*, folder:knowledge_folders(id, name)")
+        .order("pinned", { ascending: false })
+        .order("updated_at", { ascending: false });
+
+      if (showArchived) {
+        query = query.not("archived_at", "is", null);
+      } else {
+        query = query.is("archived_at", null);
+      }
+
+      if (kindFilter !== "all") {
+        query = query.eq("kind", kindFilter);
+      }
+
+      if (scopeFilter !== "all" && scopeFilter !== "workspace") {
+        query = query.eq("scope", "agent");
+      } else if (scopeFilter === "workspace") {
+        query = query.eq("scope", "workspace");
+      }
+
+      if (folderId !== "all") {
+        const ids = collectDescendantIds(foldersRef.current, folderId);
+        query = query.in("folder_id", ids);
+      }
+
+      const { data, error } = await query;
+      if (!error && data) {
+        let filtered = data as unknown as KnowledgeItem[];
+
+        if (scopeFilter !== "all" && scopeFilter !== "workspace") {
+          const { data: junctionRows } = await supabase
+            .from("knowledge_item_agents")
+            .select("knowledge_item_id")
+            .eq("agent_id", scopeFilter);
+          const agentItemIds = new Set(
+            (junctionRows ?? []).map(
+              (r: { knowledge_item_id: string }) => r.knowledge_item_id
+            )
+          );
+          filtered = filtered.filter((item) => agentItemIds.has(item.id));
+        }
+
+        setItems(filtered);
+      }
     }
     setLoading(false);
   }, [supabase, folderId, search, kindFilter, scopeFilter, showArchived]);
