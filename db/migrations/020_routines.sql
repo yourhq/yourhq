@@ -1,8 +1,4 @@
--- 025_routines.sql — Unified routines replacing automation_rules + heartbeat_cron.
---
--- Routines are ongoing agent behaviors: scheduled checks (replacing heartbeats
--- and recurring concepts) and event reactions (replacing automation_rules).
--- Each routine belongs to one agent and produces inbox items when it fires.
+-- 020_routines.sql — Unified routines: scheduled and event-driven agent behaviors.
 
 -- ── Extend inbox_event_type ──────────────────────────────────────────
 
@@ -54,6 +50,9 @@ CREATE TABLE IF NOT EXISTS routines (
   CONSTRAINT routines_schedule_check CHECK (
     trigger_type != 'schedule' OR (cadence_type IS NOT NULL AND timezone IS NOT NULL)
   ),
+  CONSTRAINT routines_timezone_valid CHECK (
+    timezone IS NULL OR is_valid_timezone(timezone)
+  ),
   CONSTRAINT routines_event_check CHECK (
     trigger_type != 'event' OR (entity_type IS NOT NULL AND condition IS NOT NULL)
   )
@@ -61,6 +60,7 @@ CREATE TABLE IF NOT EXISTS routines (
 
 CREATE INDEX IF NOT EXISTS idx_routines_tenant    ON routines (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_routines_agent     ON routines (agent_id);
+CREATE INDEX IF NOT EXISTS idx_routines_agent_active ON routines (agent_id, is_active) WHERE is_active;
 CREATE INDEX IF NOT EXISTS idx_routines_next_run  ON routines (next_run_at) WHERE is_active AND trigger_type = 'schedule';
 CREATE INDEX IF NOT EXISTS idx_routines_entity    ON routines (entity_type, condition) WHERE is_active AND trigger_type = 'event';
 
@@ -68,9 +68,11 @@ CREATE TRIGGER set_routines_updated_at
   BEFORE UPDATE ON routines
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- ── RLS ──────────────────────────────────────────────────────────────
+
 ALTER TABLE routines ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Authenticated full access" ON routines
+CREATE POLICY "Tenant isolation" ON routines
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
@@ -78,12 +80,21 @@ CREATE POLICY "Authenticated full access" ON routines
 CREATE POLICY "Service role full access" ON routines
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
-ALTER PUBLICATION supabase_realtime ADD TABLE routines;
+-- ── Realtime ─────────────────────────────────────────────────────────
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE routines;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+ALTER TABLE routines REPLICA IDENTITY FULL;
+
+-- ── Grants ───────────────────────────────────────────────────────────
 
 GRANT ALL ON routines TO authenticated, service_role;
 
 -- ── routine_next_occurrence() ────────────────────────────────────────
--- Computes the next fire time for a schedule routine.
 
 CREATE OR REPLACE FUNCTION routine_next_occurrence(
   p_cadence_type    text,
@@ -175,8 +186,6 @@ $$;
 GRANT EXECUTE ON FUNCTION routine_next_occurrence(text, integer, smallint[], smallint, time, text, timestamptz) TO authenticated, service_role;
 
 -- ── spawn_routine_schedule_items() ───────────────────────────────────
--- Called by pg_cron every minute. Creates inbox items for schedule routines
--- whose next_run_at has passed.
 
 CREATE OR REPLACE FUNCTION spawn_routine_schedule_items()
 RETURNS void
@@ -214,7 +223,7 @@ BEGIN
     )
     ON CONFLICT (dedup_key) DO NOTHING;
 
-    v_next := routine_next_occurrence(
+    v_next := public.routine_next_occurrence(
       v_routine.cadence_type, v_routine.interval_n,
       v_routine.days_of_week, v_routine.day_of_month,
       v_routine.time_of_day, v_routine.timezone, now()
@@ -231,7 +240,6 @@ $$;
 
 GRANT EXECUTE ON FUNCTION spawn_routine_schedule_items() TO authenticated, service_role;
 
--- Schedule via pg_cron (same pattern as heartbeats)
 DO $$
 BEGIN
   PERFORM cron.unschedule('spawn_routine_schedule_items');
@@ -245,8 +253,6 @@ SELECT cron.schedule(
 );
 
 -- ── process_routine_event() ──────────────────────────────────────────
--- Trigger function for contacts table. Evaluates event-type routines
--- and fires inbox items when conditions match.
 
 CREATE OR REPLACE FUNCTION process_routine_event()
 RETURNS trigger
@@ -339,109 +345,6 @@ $$;
 
 GRANT EXECUTE ON FUNCTION process_routine_event() TO authenticated, service_role;
 
--- Replace old contact automation trigger with routine-based one
-DROP TRIGGER IF EXISTS contact_automation_trigger ON contacts;
-DROP FUNCTION IF EXISTS process_contact_automation();
-
 CREATE TRIGGER contact_routine_trigger
   AFTER INSERT OR UPDATE ON contacts
   FOR EACH ROW EXECUTE FUNCTION process_routine_event();
-
--- ── Data migration: automation_rules → routines ──────────────────────
-
-INSERT INTO routines (
-  tenant_id, agent_id, agent_slug, name, instruction,
-  trigger_type, is_active,
-  entity_type, field, condition, value
-)
-SELECT
-  ar.tenant_id,
-  ar.target_agent_id,
-  ar.target_agent_slug,
-  CASE
-    WHEN ar.condition = 'created' THEN 'When contact created'
-    WHEN ar.field IS NOT NULL AND ar.value IS NOT NULL THEN
-      'When contact ' || ar.field || ' ' || ar.condition || ' ' || ar.value
-    WHEN ar.field IS NOT NULL THEN
-      'When contact ' || ar.field || ' changes'
-    ELSE 'Contact change trigger'
-  END,
-  COALESCE(ar.summary_template, ''),
-  'event',
-  ar.is_active,
-  'contact',
-  ar.field,
-  ar.condition::text,
-  ar.value
-FROM automation_rules ar
-WHERE NOT EXISTS (
-  SELECT 1 FROM routines r
-  WHERE r.agent_id = ar.target_agent_id
-    AND r.entity_type = 'contact'
-    AND r.field IS NOT DISTINCT FROM ar.field
-    AND r.condition = ar.condition::text
-    AND r.value IS NOT DISTINCT FROM ar.value
-);
-
--- ── Data migration: heartbeat_cron → schedule routines ───────────────
-
-INSERT INTO routines (
-  tenant_id, agent_id, agent_slug, name, instruction,
-  trigger_type, is_active,
-  cadence_type, interval_n, timezone, next_run_at
-)
-SELECT
-  a.tenant_id,
-  a.id,
-  a.slug,
-  'Heartbeat check',
-  'Process inbox and run any pending tasks.',
-  'schedule',
-  true,
-  CASE a.heartbeat_cron
-    WHEN '*/15 * * * *' THEN 'every_n_minutes'
-    WHEN '*/30 * * * *' THEN 'every_n_minutes'
-    WHEN '0 * * * *'    THEN 'every_n_hours'
-    WHEN '0 */6 * * *'  THEN 'every_n_hours'
-    ELSE 'every_n_hours'
-  END,
-  CASE a.heartbeat_cron
-    WHEN '*/15 * * * *' THEN 15
-    WHEN '*/30 * * * *' THEN 30
-    WHEN '0 * * * *'    THEN 1
-    WHEN '0 */6 * * *'  THEN 6
-    ELSE 1
-  END,
-  'UTC',
-  now() + interval '5 minutes'
-FROM agents a
-WHERE a.heartbeat_cron IS NOT NULL
-  AND a.status = 'ready'
-  AND NOT EXISTS (
-    SELECT 1 FROM routines r
-    WHERE r.agent_id = a.id AND r.trigger_type = 'schedule'
-  );
-
--- ── Drop old automation_rules ────────────────────────────────────────
-
-DROP TABLE IF EXISTS automation_rules CASCADE;
-
--- ── Drop heartbeat_cron column ───────────────────────────────────────
-
-ALTER TABLE agents DROP COLUMN IF EXISTS heartbeat_cron;
-ALTER TABLE agents DROP COLUMN IF EXISTS last_heartbeat_at;
-
--- Unschedule old heartbeat cron job
-DO $$
-BEGIN
-  PERFORM cron.unschedule('spawn_agent_heartbeats');
-EXCEPTION WHEN OTHERS THEN NULL;
-END $$;
-
-DROP FUNCTION IF EXISTS spawn_agent_heartbeats();
-
--- ── Schema version ───────────────────────────────────────────────────
-
-INSERT INTO _schema_version (version, description)
-VALUES (25, 'Unified routines replacing automation_rules + heartbeat_cron')
-ON CONFLICT (version) DO NOTHING;

@@ -1,9 +1,12 @@
--- 009_tasks_streams.sql — Streams, tasks, recurring task series, and scheduling.
+-- 010_tasks_streams.sql — Streams, tasks, recurring task series, and scheduling.
+
+-- ── Streams ───────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS streams (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at  timestamptz NOT NULL DEFAULT now(),
   updated_at  timestamptz NOT NULL DEFAULT now(),
+  tenant_id   uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES tenants(id) ON DELETE CASCADE,
   name        text NOT NULL,
   description text,
   color       text DEFAULT '#6b7280',
@@ -14,14 +17,19 @@ CREATE TABLE IF NOT EXISTS streams (
   meta        jsonb NOT NULL DEFAULT '{}'::jsonb
 );
 
+CREATE INDEX IF NOT EXISTS idx_streams_tenant ON streams(tenant_id);
+
 DROP TRIGGER IF EXISTS streams_updated_at ON streams;
 CREATE TRIGGER streams_updated_at
   BEFORE UPDATE ON streams FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ── Tasks ─────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS tasks (
   id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at           timestamptz NOT NULL DEFAULT now(),
   updated_at           timestamptz NOT NULL DEFAULT now(),
+  tenant_id            uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES tenants(id) ON DELETE CASCADE,
   title                text NOT NULL,
   description          text,
   status               task_status NOT NULL DEFAULT 'todo',
@@ -30,6 +38,8 @@ CREATE TABLE IF NOT EXISTS tasks (
   parent_id            uuid REFERENCES tasks(id) ON DELETE CASCADE,
   assignee_type        actor_type,
   assignee_agent_id    uuid REFERENCES agents(id) ON DELETE SET NULL,
+  model_override       text,
+  thinking_override    text,
   due_date             timestamptz,
   due_at               timestamptz,
   completed_at         timestamptz,
@@ -37,7 +47,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   linked_entity_id     uuid,
   contact_id           uuid REFERENCES contacts(id) ON DELETE SET NULL,
   org_id               uuid REFERENCES organizations(id) ON DELETE SET NULL,
-  series_id            uuid,  -- FK set after task_series is created
+  series_id            uuid,
   series_occurrence_at timestamptz,
   is_recurring         boolean DEFAULT false,
   recurrence_rule      text,
@@ -47,29 +57,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   archived_at          timestamptz
 );
 
--- Column reconciliation for streams
-ALTER TABLE streams ADD COLUMN IF NOT EXISTS icon text;
-ALTER TABLE streams ADD COLUMN IF NOT EXISTS type stream_type NOT NULL DEFAULT 'functional';
-ALTER TABLE streams ADD COLUMN IF NOT EXISTS is_archived boolean DEFAULT false;
-ALTER TABLE streams ADD COLUMN IF NOT EXISTS meta jsonb NOT NULL DEFAULT '{}'::jsonb;
-
--- Column reconciliation for tasks
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS due_at timestamptz;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_at timestamptz;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS linked_entity_type text;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS linked_entity_id uuid;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS contact_id uuid;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS org_id uuid;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS series_id uuid;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS series_occurrence_at timestamptz;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS is_recurring boolean DEFAULT false;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recurrence_rule text;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS last_completed_at timestamptz;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS archived_at timestamptz;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assignee_type actor_type;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS model_override text;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS thinking_override text;
-
+CREATE INDEX IF NOT EXISTS idx_tasks_tenant ON tasks(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
 CREATE INDEX IF NOT EXISTS idx_tasks_stream ON tasks(stream_id);
@@ -80,9 +68,12 @@ CREATE INDEX IF NOT EXISTS idx_tasks_org ON tasks(org_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_due ON tasks(due_date ASC NULLS LAST);
 CREATE INDEX IF NOT EXISTS idx_tasks_due_at ON tasks(due_at ASC NULLS LAST);
 CREATE INDEX IF NOT EXISTS idx_tasks_active ON tasks(created_at DESC) WHERE archived_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_tasks_agent_active ON tasks(assignee_agent_id, status, due_at)
+  WHERE archived_at IS NULL AND assignee_agent_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_tasks_tags ON tasks USING gin(tags);
 CREATE INDEX IF NOT EXISTS idx_tasks_series_history
   ON tasks(series_id, series_occurrence_at DESC) WHERE series_id IS NOT NULL;
+
 DO $$ BEGIN
   ALTER TABLE tasks ADD CONSTRAINT tasks_series_occurrence_key UNIQUE (series_id, series_occurrence_at);
 EXCEPTION WHEN duplicate_table THEN NULL; WHEN duplicate_object THEN NULL; END $$;
@@ -112,12 +103,13 @@ CREATE TRIGGER tasks_sync_completion
   BEFORE INSERT OR UPDATE ON tasks
   FOR EACH ROW EXECUTE FUNCTION sync_task_completion();
 
--- ── Recurring tasks: task_series (definition) + spawn infra ─────
+-- ── Recurring tasks: task_series ──────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS task_series (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at            timestamptz NOT NULL DEFAULT now(),
   updated_at            timestamptz NOT NULL DEFAULT now(),
+  tenant_id             uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES tenants(id) ON DELETE CASCADE,
 
   -- task template fields
   stream_id             uuid REFERENCES streams(id) ON DELETE SET NULL,
@@ -126,6 +118,8 @@ CREATE TABLE IF NOT EXISTS task_series (
   priority              task_priority NOT NULL DEFAULT 'medium',
   assignee_type         actor_type,
   assignee_agent_id     uuid REFERENCES agents(id) ON DELETE SET NULL,
+  model_override        text,
+  thinking_override     text,
   tags                  text[] NOT NULL DEFAULT '{}',
   linked_entity_type    text,
   linked_entity_id      uuid,
@@ -138,7 +132,7 @@ CREATE TABLE IF NOT EXISTS task_series (
   days_of_week          smallint[] NOT NULL DEFAULT '{}',
   day_of_month          smallint,
   time_of_day           time NOT NULL DEFAULT '09:00',
-  timezone              text NOT NULL,
+  timezone              text NOT NULL CHECK (is_valid_timezone(timezone)),
 
   -- lifecycle
   is_paused             boolean NOT NULL DEFAULT false,
@@ -152,13 +146,11 @@ CREATE TABLE IF NOT EXISTS task_series (
     CHECK (missed_policy IN ('auto_skip','queue'))
 );
 
+CREATE INDEX IF NOT EXISTS idx_task_series_tenant ON task_series(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_task_series_next_due
   ON task_series(next_occurrence_at) WHERE NOT is_paused;
 CREATE INDEX IF NOT EXISTS idx_task_series_stream ON task_series(stream_id);
 CREATE INDEX IF NOT EXISTS idx_task_series_assignee ON task_series(assignee_agent_id);
-
-ALTER TABLE task_series ADD COLUMN IF NOT EXISTS model_override text;
-ALTER TABLE task_series ADD COLUMN IF NOT EXISTS thinking_override text;
 
 DROP TRIGGER IF EXISTS task_series_updated_at ON task_series;
 CREATE TRIGGER task_series_updated_at
@@ -193,12 +185,13 @@ CREATE TRIGGER tasks_propagate_series_model
 
 GRANT EXECUTE ON FUNCTION propagate_series_model_overrides() TO authenticated, service_role;
 
--- Attach the deferred FK from tasks.series_id → task_series.id
+-- Attach the deferred FK from tasks.series_id -> task_series.id
 DO $$ BEGIN
   ALTER TABLE tasks ADD CONSTRAINT tasks_series_id_fkey FOREIGN KEY (series_id) REFERENCES task_series(id) ON DELETE SET NULL;
 EXCEPTION WHEN duplicate_table THEN NULL; WHEN duplicate_object THEN NULL; END $$;
 
--- Compute next UTC occurrence from a "from" timestamp, per series cadence.
+-- ── next_occurrence() — Compute next UTC occurrence ───────────────
+
 CREATE OR REPLACE FUNCTION next_occurrence(
   p_series task_series,
   p_from_ts timestamptz
@@ -289,7 +282,8 @@ BEGIN
 END;
 $$;
 
--- Sync next_occurrence_at on insert/update of cadence fields or unpausing.
+-- ── Sync next_occurrence_at on cadence changes ────────────────────
+
 CREATE OR REPLACE FUNCTION task_series_sync_next_occurrence()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -343,7 +337,8 @@ CREATE TRIGGER task_series_sync
   BEFORE INSERT OR UPDATE ON task_series
   FOR EACH ROW EXECUTE FUNCTION task_series_sync_next_occurrence();
 
--- Spawn one row per series that's due, auto-skip prior unfinished, catch up.
+-- ── spawn_due_task_instances (tenant-scoped) ──────────────────────
+
 CREATE OR REPLACE FUNCTION spawn_due_task_instances()
 RETURNS void
 LANGUAGE plpgsql
@@ -387,11 +382,12 @@ BEGIN
 
       IF v_prior.id IS NOT NULL THEN
         UPDATE public.tasks SET status = 'missed' WHERE id = v_prior.id;
-        INSERT INTO public.audit_log (actor_type, module, entity_type, entity_id, action, summary, meta)
+        INSERT INTO public.audit_log (actor_type, module, entity_type, entity_id, action, summary, meta, tenant_id)
         VALUES (
           'system', 'tasks', 'task', v_prior.id, 'status_changed',
           'Auto-missed: new occurrence spawned before completion',
-          jsonb_build_object('series_id', v_series.id, 'reason', 'recurring_auto_skip')
+          jsonb_build_object('series_id', v_series.id, 'reason', 'recurring_auto_skip'),
+          v_series.tenant_id
         );
       END IF;
     END IF;
@@ -405,18 +401,20 @@ BEGIN
       stream_id, title, description, priority,
       assignee_type, assignee_agent_id, tags,
       linked_entity_type, linked_entity_id,
-      series_id, series_occurrence_at, due_at, due_date
+      series_id, series_occurrence_at, due_at, due_date,
+      tenant_id
     ) VALUES (
       v_series.stream_id, v_series.title, v_series.description, v_series.priority,
       v_series.assignee_type, v_series.assignee_agent_id, v_series.tags,
       v_series.linked_entity_type, v_series.linked_entity_id,
-      v_series.id, v_occurrence_at, v_occurrence_at, v_occurrence_at
+      v_series.id, v_occurrence_at, v_occurrence_at, v_occurrence_at,
+      v_series.tenant_id
     )
     ON CONFLICT (series_id, series_occurrence_at) DO NOTHING
     RETURNING id INTO v_new_task_id;
 
     IF v_new_task_id IS NOT NULL THEN
-      INSERT INTO public.audit_log (actor_type, module, entity_type, entity_id, action, summary, meta)
+      INSERT INTO public.audit_log (actor_type, module, entity_type, entity_id, action, summary, meta, tenant_id)
       VALUES (
         'system', 'tasks', 'task', v_new_task_id, 'created',
         'Recurring instance spawned: ' || v_series.title,
@@ -424,7 +422,8 @@ BEGIN
           'series_id', v_series.id,
           'occurrence_at', v_occurrence_at,
           'catchup_skipped', v_catchup_skipped
-        )
+        ),
+        v_series.tenant_id
       );
     END IF;
 
@@ -445,14 +444,6 @@ BEGIN
   END LOOP;
 END;
 $$;
-
--- Schedule the spawn function every minute.
-DO $$ BEGIN PERFORM cron.unschedule('spawn-due-task-instances'); EXCEPTION WHEN OTHERS THEN NULL; END $$;
-SELECT cron.schedule(
-  'spawn-due-task-instances',
-  '* * * * *',
-  $cron$SELECT public.spawn_due_task_instances();$cron$
-);
 
 GRANT EXECUTE ON FUNCTION public.spawn_due_task_instances() TO authenticated;
 
@@ -486,3 +477,62 @@ AS $$
 $$;
 
 GRANT EXECUTE ON FUNCTION public.recurring_tasks_debug() TO authenticated;
+
+-- ── RLS ───────────────────────────────────────────────────────────
+
+ALTER TABLE streams ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Tenant isolation" ON streams
+  FOR ALL TO authenticated
+  USING (tenant_id = current_tenant_id())
+  WITH CHECK (tenant_id = current_tenant_id());
+CREATE POLICY "Service role full access" ON streams
+  FOR ALL TO service_role
+  USING (true) WITH CHECK (true);
+
+ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Tenant isolation" ON tasks
+  FOR ALL TO authenticated
+  USING (tenant_id = current_tenant_id())
+  WITH CHECK (tenant_id = current_tenant_id());
+CREATE POLICY "Service role full access" ON tasks
+  FOR ALL TO service_role
+  USING (true) WITH CHECK (true);
+
+ALTER TABLE task_series ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Tenant isolation" ON task_series
+  FOR ALL TO authenticated
+  USING (tenant_id = current_tenant_id())
+  WITH CHECK (tenant_id = current_tenant_id());
+CREATE POLICY "Service role full access" ON task_series
+  FOR ALL TO service_role
+  USING (true) WITH CHECK (true);
+
+GRANT ALL ON streams TO authenticated, service_role;
+GRANT ALL ON tasks TO authenticated, service_role;
+GRANT ALL ON task_series TO authenticated, service_role;
+
+-- ── Realtime ──────────────────────────────────────────────────────
+
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE streams;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+ALTER TABLE streams REPLICA IDENTITY FULL;
+
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE tasks;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+ALTER TABLE tasks REPLICA IDENTITY FULL;
+
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE task_series;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+ALTER TABLE task_series REPLICA IDENTITY FULL;
+
+-- ── pg_cron: spawn due tasks every minute ─────────────────────────
+
+DO $$ BEGIN PERFORM cron.unschedule('spawn-due-task-instances'); EXCEPTION WHEN OTHERS THEN NULL; END $$;
+SELECT cron.schedule(
+  'spawn-due-task-instances',
+  '* * * * *',
+  $cron$SELECT public.spawn_due_task_instances();$cron$
+);

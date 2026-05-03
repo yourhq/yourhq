@@ -1,10 +1,4 @@
--- 026_collections.sql — User-defined tables with JSONB-backed records.
---
--- collection_definitions: the "table" itself
--- collection_fields: typed columns for validation/rendering
--- collection_records: the data rows
--- collection_views: saved view configurations (table/kanban/calendar)
--- collection_templates: global seeded templates
+-- 021_collections.sql — User-defined tables with JSONB-backed records.
 
 -- ── collection_definitions ────────────────────────────────────────
 
@@ -78,6 +72,7 @@ CREATE TABLE IF NOT EXISTS collection_records (
 );
 
 CREATE INDEX IF NOT EXISTS idx_collection_records_collection ON collection_records(collection_id);
+CREATE INDEX IF NOT EXISTS idx_collection_records_active ON collection_records(collection_id, created_at DESC) WHERE archived_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_collection_records_values ON collection_records USING gin("values");
 CREATE INDEX IF NOT EXISTS idx_collection_records_tenant ON collection_records(tenant_id);
 
@@ -121,7 +116,7 @@ CREATE TABLE IF NOT EXISTS collection_templates (
   sort_order  integer DEFAULT 0
 );
 
--- ── Seed: Job Search template ─────────────────────────────────────
+-- ── Seed templates ───────────────────────────────────────────────
 
 INSERT INTO collection_templates (name, slug, description, icon, category, definition, sort_order)
 VALUES (
@@ -231,28 +226,52 @@ ALTER TABLE collection_fields ENABLE ROW LEVEL SECURITY;
 ALTER TABLE collection_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE collection_views ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Authenticated full access" ON collection_definitions;
-CREATE POLICY "Authenticated full access" ON collection_definitions
-  FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Tenant isolation" ON collection_definitions
+  FOR ALL TO authenticated
+  USING (tenant_id = current_tenant_id())
+  WITH CHECK (tenant_id = current_tenant_id());
+CREATE POLICY "Service role full access" ON collection_definitions
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Authenticated full access" ON collection_fields;
-CREATE POLICY "Authenticated full access" ON collection_fields
-  FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Tenant isolation" ON collection_fields
+  FOR ALL TO authenticated
+  USING (tenant_id = current_tenant_id())
+  WITH CHECK (tenant_id = current_tenant_id());
+CREATE POLICY "Service role full access" ON collection_fields
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Authenticated full access" ON collection_records;
-CREATE POLICY "Authenticated full access" ON collection_records
-  FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Tenant isolation" ON collection_records
+  FOR ALL TO authenticated
+  USING (tenant_id = current_tenant_id())
+  WITH CHECK (tenant_id = current_tenant_id());
+CREATE POLICY "Service role full access" ON collection_records
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Authenticated full access" ON collection_views;
-CREATE POLICY "Authenticated full access" ON collection_views
-  FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Tenant isolation" ON collection_views
+  FOR ALL TO authenticated
+  USING (tenant_id = current_tenant_id())
+  WITH CHECK (tenant_id = current_tenant_id());
+CREATE POLICY "Service role full access" ON collection_views
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 -- ── Realtime ──────────────────────────────────────────────────────
 
-ALTER PUBLICATION supabase_realtime ADD TABLE collection_definitions;
-ALTER PUBLICATION supabase_realtime ADD TABLE collection_fields;
-ALTER PUBLICATION supabase_realtime ADD TABLE collection_records;
-ALTER PUBLICATION supabase_realtime ADD TABLE collection_views;
+DO $$
+DECLARE
+  _tbl text;
+BEGIN
+  FOREACH _tbl IN ARRAY ARRAY[
+    'collection_definitions', 'collection_fields',
+    'collection_records', 'collection_views'
+  ]
+  LOOP
+    BEGIN
+      EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE %I', _tbl);
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+    EXECUTE format('ALTER TABLE %I REPLICA IDENTITY FULL', _tbl);
+  END LOOP;
+END $$;
 
 -- ── Grants ────────────────────────────────────────────────────────
 
@@ -266,8 +285,3 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON collection_views TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON collection_views TO service_role;
 GRANT SELECT ON collection_templates TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON collection_templates TO service_role;
-
--- ── Schema version ────────────────────────────────────────────────
-
-INSERT INTO _schema_version (version) VALUES (26)
-ON CONFLICT (version) DO NOTHING;

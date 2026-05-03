@@ -1,21 +1,10 @@
--- 015_usage_budgets.sql — LLM usage logging, per-agent budgets, and enforcement.
+-- 016_usage_budgets.sql — LLM usage logging, per-agent budgets, and enforcement.
 
--- ── Enum ────────────────────────────────────────────────────────
-
-DO $$ BEGIN
-  CREATE TYPE budget_status AS ENUM ('ok', 'warned', 'exceeded', 'unmetered');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
--- ── Workspace budget defaults ───────────────────────────────────
-
-ALTER TABLE workspace ADD COLUMN IF NOT EXISTS default_agent_budget_usd numeric(10,2);
-ALTER TABLE workspace ADD COLUMN IF NOT EXISTS default_soft_threshold_pct integer NOT NULL DEFAULT 80;
-ALTER TABLE workspace ADD COLUMN IF NOT EXISTS default_hard_cutoff boolean NOT NULL DEFAULT true;
-
--- ── agent_usage (source of truth) ───────────────────────────────
+-- ── agent_usage (source of truth) ─────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS agent_usage (
   id                       uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id                uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES tenants(id) ON DELETE CASCADE,
   agent_id                 uuid REFERENCES agents(id) ON DELETE SET NULL,
   agent_slug_snapshot      text,
   gateway_id               uuid REFERENCES gateways(id) ON DELETE SET NULL,
@@ -38,17 +27,28 @@ CREATE TABLE IF NOT EXISTS agent_usage (
   CONSTRAINT agent_usage_idem UNIQUE (run_id, provider, model, occurred_at)
 );
 
-CREATE INDEX IF NOT EXISTS idx_agent_usage_agent_occurred
-  ON agent_usage(agent_id, occurred_at DESC);
-CREATE INDEX IF NOT EXISTS idx_agent_usage_occurred
-  ON agent_usage(occurred_at DESC);
-CREATE INDEX IF NOT EXISTS idx_agent_usage_agent_model
-  ON agent_usage(agent_id, model);
+CREATE INDEX IF NOT EXISTS idx_agent_usage_tenant ON agent_usage(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_agent_usage_agent_occurred ON agent_usage(agent_id, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_usage_occurred ON agent_usage(occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_usage_agent_model ON agent_usage(agent_id, model);
 
--- ── agent_budgets (rollup cache + budget config) ────────────────
+-- RLS
+ALTER TABLE agent_usage ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Tenant isolation" ON agent_usage
+  FOR ALL TO authenticated
+  USING (tenant_id = current_tenant_id())
+  WITH CHECK (tenant_id = current_tenant_id());
+CREATE POLICY "Service role full access" ON agent_usage
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+-- Grants
+GRANT ALL ON agent_usage TO authenticated, service_role;
+
+-- ── agent_budgets (rollup cache + budget config) ──────────────────
 
 CREATE TABLE IF NOT EXISTS agent_budgets (
   agent_id                       uuid PRIMARY KEY REFERENCES agents(id) ON DELETE CASCADE,
+  tenant_id                      uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES tenants(id) ON DELETE CASCADE,
   monthly_limit_usd              numeric(10,2),
   soft_threshold_pct             integer NOT NULL DEFAULT 80,
   hard_cutoff                    boolean NOT NULL DEFAULT true,
@@ -67,11 +67,33 @@ CREATE TABLE IF NOT EXISTS agent_budgets (
   meta                           jsonb NOT NULL DEFAULT '{}'
 );
 
+CREATE INDEX IF NOT EXISTS idx_agent_budgets_tenant ON agent_budgets(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_agent_budgets_period ON agent_budgets(current_period_start);
+
 DROP TRIGGER IF EXISTS agent_budgets_updated_at ON agent_budgets;
 CREATE TRIGGER agent_budgets_updated_at
   BEFORE UPDATE ON agent_budgets FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- ── Rollup trigger ──────────────────────────────────────────────
+-- RLS
+ALTER TABLE agent_budgets ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Tenant isolation" ON agent_budgets
+  FOR ALL TO authenticated
+  USING (tenant_id = current_tenant_id())
+  WITH CHECK (tenant_id = current_tenant_id());
+CREATE POLICY "Service role full access" ON agent_budgets
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+-- Grants
+GRANT ALL ON agent_budgets TO authenticated, service_role;
+
+-- Realtime (agent_budgets only — agent_usage is too frequent)
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE agent_budgets;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+ALTER TABLE agent_budgets REPLICA IDENTITY FULL;
+
+-- ── Rollup trigger (tenant-scoped) ───────────────────────────────
 
 CREATE OR REPLACE FUNCTION update_agent_budget_on_usage()
 RETURNS TRIGGER LANGUAGE plpgsql SET search_path = '' AS $$
@@ -83,8 +105,11 @@ DECLARE
   v_period      date;
   v_old_status  public.budget_status;
   v_new_status  public.budget_status;
+  v_tenant_id   uuid;
 BEGIN
   IF NEW.agent_id IS NULL THEN RETURN NEW; END IF;
+
+  v_tenant_id := NEW.tenant_id;
 
   SELECT
     default_agent_budget_usd,
@@ -92,15 +117,16 @@ BEGIN
     coalesce(default_hard_cutoff, true),
     coalesce(nullif(owner_timezone, ''), 'UTC')
   INTO v_default_lim, v_default_pct, v_default_cut, v_anchor_tz
-  FROM public.workspace LIMIT 1;
+  FROM public.workspace WHERE tenant_id = v_tenant_id LIMIT 1;
 
   INSERT INTO public.agent_budgets (
     agent_id, monthly_limit_usd, soft_threshold_pct, hard_cutoff,
-    period_anchor_tz, current_period_start
+    period_anchor_tz, current_period_start, tenant_id
   ) VALUES (
     NEW.agent_id, v_default_lim, v_default_pct, v_default_cut,
     v_anchor_tz,
-    date_trunc('month', NEW.occurred_at AT TIME ZONE v_anchor_tz)::date
+    date_trunc('month', NEW.occurred_at AT TIME ZONE v_anchor_tz)::date,
+    v_tenant_id
   ) ON CONFLICT (agent_id) DO NOTHING;
 
   SELECT status, period_anchor_tz
@@ -152,7 +178,7 @@ BEGIN
   RETURNING status INTO v_new_status;
 
   IF v_old_status IS DISTINCT FROM 'warned'::public.budget_status AND v_new_status = 'warned'::public.budget_status THEN
-    INSERT INTO public.notifications (type, title, body, entity_type, entity_id, actor_type, meta)
+    INSERT INTO public.notifications (type, title, body, entity_type, entity_id, actor_type, meta, tenant_id)
     SELECT 'budget.warned',
            'Agent ' || a.name || ' near monthly budget',
            'Spent $' || round(b.current_period_spend_usd, 2)::text
@@ -163,14 +189,15 @@ BEGIN
              'period_start', b.current_period_start::text,
              'spend', b.current_period_spend_usd,
              'limit', b.monthly_limit_usd
-           )
+           ),
+           v_tenant_id
     FROM public.agent_budgets b
     JOIN public.agents a ON a.id = b.agent_id
     WHERE b.agent_id = NEW.agent_id
     ON CONFLICT DO NOTHING;
 
   ELSIF v_old_status IS DISTINCT FROM 'exceeded'::public.budget_status AND v_new_status = 'exceeded'::public.budget_status THEN
-    INSERT INTO public.notifications (type, title, body, entity_type, entity_id, actor_type, meta)
+    INSERT INTO public.notifications (type, title, body, entity_type, entity_id, actor_type, meta, tenant_id)
     SELECT 'budget.exceeded',
            'Agent ' || a.name || ' exceeded monthly budget',
            'Stopped at $' || round(b.current_period_spend_usd, 2)::text
@@ -181,7 +208,8 @@ BEGIN
              'period_start', b.current_period_start::text,
              'spend', b.current_period_spend_usd,
              'limit', b.monthly_limit_usd
-           )
+           ),
+           v_tenant_id
     FROM public.agent_budgets b
     JOIN public.agents a ON a.id = b.agent_id
     WHERE b.agent_id = NEW.agent_id
@@ -197,27 +225,28 @@ CREATE TRIGGER agent_usage_rollup
   AFTER INSERT ON agent_usage
   FOR EACH ROW EXECUTE FUNCTION update_agent_budget_on_usage();
 
--- ── Notification dedup index ────────────────────────────────────
+-- ── Notification dedup index ──────────────────────────────────────
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_budget_notification_per_period
   ON notifications (entity_id, type, (meta->>'period_start'))
   WHERE entity_type = 'agent_budget'
     AND type IN ('budget.warned', 'budget.exceeded');
 
--- ── Reconcile RPC ───────────────────────────────────────────────
+-- ── Recompute RPC (tenant-aware workspace lookup) ─────────────────
 
 CREATE OR REPLACE FUNCTION recompute_agent_budget(p_agent_id uuid)
 RETURNS public.agent_budgets LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE
-  v_anchor_tz text;
-  v_period    date;
-  v_result    public.agent_budgets;
+  v_anchor_tz  text;
+  v_period     date;
+  v_result     public.agent_budgets;
+  v_tenant_id  uuid;
 BEGIN
-  SELECT period_anchor_tz INTO v_anchor_tz
+  SELECT tenant_id, period_anchor_tz INTO v_tenant_id, v_anchor_tz
     FROM public.agent_budgets WHERE agent_id = p_agent_id;
   IF v_anchor_tz IS NULL THEN
     SELECT coalesce(nullif(owner_timezone, ''), 'UTC') INTO v_anchor_tz
-      FROM public.workspace LIMIT 1;
+      FROM public.workspace WHERE tenant_id = COALESCE(v_tenant_id, '00000000-0000-0000-0000-000000000000'::uuid) LIMIT 1;
   END IF;
   v_period := date_trunc('month', now() AT TIME ZONE v_anchor_tz)::date;
 
@@ -260,46 +289,33 @@ BEGIN
 END;
 $$;
 
--- ── RLS ─────────────────────────────────────────────────────────
+-- ── Daily usage aggregation RPC ──────────────────────────────────
 
-DO $$
-DECLARE
-  _tbl text;
-BEGIN
-  FOREACH _tbl IN ARRAY ARRAY['agent_usage', 'agent_budgets']
-  LOOP
-    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', _tbl);
-    EXECUTE format('DROP POLICY IF EXISTS "Authenticated full access" ON %I', _tbl);
-    EXECUTE format(
-      'CREATE POLICY "Authenticated full access" ON %I FOR ALL TO authenticated USING (true) WITH CHECK (true)',
-      _tbl
-    );
-  END LOOP;
-END
+CREATE OR REPLACE FUNCTION get_agent_daily_usage(p_agent_id uuid)
+RETURNS TABLE (day date, spend_usd numeric, tokens bigint)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT
+    (occurred_at AT TIME ZONE COALESCE(
+      (SELECT period_anchor_tz FROM public.agent_budgets WHERE agent_id = p_agent_id),
+      'UTC'
+    ))::date AS day,
+    COALESCE(SUM(cost_total_usd), 0) AS spend_usd,
+    COALESCE(SUM(total_tokens), 0)::bigint AS tokens
+  FROM public.agent_usage
+  WHERE agent_id = p_agent_id
+    AND occurred_at >= (
+      SELECT COALESCE(current_period_start, date_trunc('month', now())::date)
+      FROM public.agent_budgets WHERE agent_id = p_agent_id
+    )
+  GROUP BY 1
+  ORDER BY 1;
 $$;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON agent_usage TO authenticated, service_role;
-GRANT SELECT, INSERT, UPDATE, DELETE ON agent_budgets TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION get_agent_daily_usage(uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION recompute_agent_budget(uuid) TO authenticated, service_role;
 
--- ── Realtime (agent_budgets only — agent_usage is too frequent) ─
+-- ── Backfill existing agents ──────────────────────────────────────
 
-DO $$
-DECLARE
-  _tbl text;
-BEGIN
-  FOREACH _tbl IN ARRAY ARRAY['agent_budgets']
-  LOOP
-    BEGIN
-      EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE %I', _tbl);
-    EXCEPTION WHEN duplicate_object THEN NULL;
-    END;
-    EXECUTE format('ALTER TABLE %I REPLICA IDENTITY FULL', _tbl);
-  END LOOP;
-END
-$$;
-
--- ── Backfill existing agents ────────────────────────────────────
-
-INSERT INTO agent_budgets (agent_id)
-SELECT id FROM agents
+INSERT INTO agent_budgets (agent_id, tenant_id)
+SELECT id, tenant_id FROM agents
 ON CONFLICT DO NOTHING;

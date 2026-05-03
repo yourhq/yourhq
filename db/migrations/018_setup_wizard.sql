@@ -1,4 +1,4 @@
--- 017_setup_wizard.sql — Setup wizard RPC for atomic workspace initialization.
+-- 018_setup_wizard.sql — Setup wizard RPC for atomic workspace initialization.
 
 CREATE OR REPLACE FUNCTION complete_setup(
   p_name text,
@@ -9,7 +9,8 @@ CREATE OR REPLACE FUNCTION complete_setup(
   p_timezone text,
   p_stages jsonb,
   p_fields jsonb,
-  p_streams jsonb
+  p_streams jsonb,
+  p_tenant_id uuid DEFAULT '00000000-0000-0000-0000-000000000000'
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -17,7 +18,6 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 BEGIN
-  -- Update the singleton workspace row
   UPDATE public.workspace SET
     name = p_name,
     slug = p_slug,
@@ -27,15 +27,13 @@ BEGIN
     owner_timezone = nullif(p_timezone, ''),
     initialized = true,
     updated_at = now()
-  WHERE initialized = false;
+  WHERE initialized = false AND tenant_id = p_tenant_id;
 
-  -- Clear any existing rows to make this idempotent
-  DELETE FROM public.pipeline_stages WHERE entity_type = 'contact';
-  DELETE FROM public.field_definitions WHERE entity_type = 'contact';
-  DELETE FROM public.streams WHERE true;
+  DELETE FROM public.pipeline_stages WHERE entity_type = 'contact' AND tenant_id = p_tenant_id;
+  DELETE FROM public.field_definitions WHERE entity_type = 'contact' AND tenant_id = p_tenant_id;
+  DELETE FROM public.streams WHERE tenant_id = p_tenant_id;
 
-  -- Seed pipeline stages
-  INSERT INTO public.pipeline_stages (entity_type, stage_key, label, color, sort_order, is_terminal, is_default)
+  INSERT INTO public.pipeline_stages (entity_type, stage_key, label, color, sort_order, is_terminal, is_default, tenant_id)
   SELECT
     'contact',
     s->>'stage_key',
@@ -43,11 +41,11 @@ BEGIN
     s->>'color',
     coalesce((s->>'sort_order')::int, 0),
     coalesce((s->>'is_terminal')::bool, false),
-    coalesce((s->>'is_default')::bool, false)
+    coalesce((s->>'is_default')::bool, false),
+    p_tenant_id
   FROM jsonb_array_elements(p_stages) AS s;
 
-  -- Seed field definitions
-  INSERT INTO public.field_definitions (entity_type, field_key, field_type, label, field_group, sort_order, required, options, description, is_active)
+  INSERT INTO public.field_definitions (entity_type, field_key, field_type, label, field_group, sort_order, required, options, description, is_active, tenant_id)
   SELECT
     'contact',
     f->>'field_key',
@@ -60,11 +58,11 @@ BEGIN
          THEN f->'options'
          ELSE NULL END,
     nullif(f->>'description', ''),
-    true
+    true,
+    p_tenant_id
   FROM jsonb_array_elements(p_fields) AS f;
 
-  -- Seed task streams
-  INSERT INTO public.streams (name, description, type, color, icon, sort_order, meta)
+  INSERT INTO public.streams (name, description, type, color, icon, sort_order, meta, tenant_id)
   SELECT
     st->>'name',
     nullif(st->>'description', ''),
@@ -72,7 +70,10 @@ BEGIN
     st->>'color',
     st->>'icon',
     coalesce((st->>'sort_order')::int, 0),
-    '{}'::jsonb
+    '{}'::jsonb,
+    p_tenant_id
   FROM jsonb_array_elements(p_streams) AS st;
 END;
 $$;
+
+GRANT EXECUTE ON FUNCTION complete_setup(text, text, text, text, text, text, jsonb, jsonb, jsonb, uuid) TO authenticated, service_role;

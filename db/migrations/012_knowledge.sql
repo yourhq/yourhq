@@ -1,4 +1,4 @@
--- 011_knowledge.sql — Knowledge items, chunks, semantic/full-text search, and draft sets.
+-- 012_knowledge.sql — Knowledge items, chunks, semantic/full-text search, and draft sets.
 
 -- ── Knowledge folders ──────────────────────────────────────────────
 
@@ -6,19 +6,30 @@ CREATE TABLE IF NOT EXISTS knowledge_folders (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at  timestamptz NOT NULL DEFAULT now(),
   updated_at  timestamptz NOT NULL DEFAULT now(),
+  tenant_id   uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES tenants(id) ON DELETE CASCADE,
   parent_id   uuid REFERENCES knowledge_folders(id) ON DELETE CASCADE,
   name        text NOT NULL,
   icon        text,
   color       text,
   sort_order  integer DEFAULT 0
 );
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_folders_tenant ON knowledge_folders(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_knowledge_folders_parent ON knowledge_folders(parent_id);
+
 DROP TRIGGER IF EXISTS knowledge_folders_updated_at ON knowledge_folders;
 CREATE TRIGGER knowledge_folders_updated_at
   BEFORE UPDATE ON knowledge_folders FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 ALTER TABLE knowledge_folders ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Authenticated full access" ON knowledge_folders FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Tenant isolation" ON knowledge_folders
+  FOR ALL TO authenticated
+  USING (tenant_id = current_tenant_id())
+  WITH CHECK (tenant_id = current_tenant_id());
+CREATE POLICY "Service role full access" ON knowledge_folders
+  FOR ALL TO service_role
+  USING (true) WITH CHECK (true);
+
 GRANT ALL ON knowledge_folders TO authenticated, service_role;
 
 -- ── Knowledge items ────────────────────────────────────────────────
@@ -27,6 +38,7 @@ CREATE TABLE IF NOT EXISTS knowledge_items (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at            timestamptz NOT NULL DEFAULT now(),
   updated_at            timestamptz NOT NULL DEFAULT now(),
+  tenant_id             uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES tenants(id) ON DELETE CASCADE,
   folder_id             uuid REFERENCES knowledge_folders(id) ON DELETE SET NULL,
   kind                  text NOT NULL CHECK (kind IN ('page', 'playbook', 'file', 'source')),
   title                 text NOT NULL,
@@ -76,6 +88,7 @@ CREATE TABLE IF NOT EXISTS knowledge_items (
   archived_at           timestamptz
 );
 
+CREATE INDEX IF NOT EXISTS idx_knowledge_items_tenant ON knowledge_items(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_knowledge_items_folder ON knowledge_items(folder_id);
 CREATE INDEX IF NOT EXISTS idx_knowledge_items_kind ON knowledge_items(kind);
 CREATE INDEX IF NOT EXISTS idx_knowledge_items_scope ON knowledge_items(scope);
@@ -95,7 +108,14 @@ CREATE TRIGGER knowledge_items_updated_at
   BEFORE UPDATE ON knowledge_items FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 ALTER TABLE knowledge_items ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Authenticated full access" ON knowledge_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Tenant isolation" ON knowledge_items
+  FOR ALL TO authenticated
+  USING (tenant_id = current_tenant_id())
+  WITH CHECK (tenant_id = current_tenant_id());
+CREATE POLICY "Service role full access" ON knowledge_items
+  FOR ALL TO service_role
+  USING (true) WITH CHECK (true);
+
 GRANT ALL ON knowledge_items TO authenticated, service_role;
 
 -- ── Knowledge item agents (agent scope junction) ───────────────────
@@ -103,15 +123,25 @@ GRANT ALL ON knowledge_items TO authenticated, service_role;
 CREATE TABLE IF NOT EXISTS knowledge_item_agents (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at          timestamptz NOT NULL DEFAULT now(),
+  tenant_id           uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES tenants(id) ON DELETE CASCADE,
   knowledge_item_id   uuid NOT NULL REFERENCES knowledge_items(id) ON DELETE CASCADE,
   agent_id            uuid NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
   CONSTRAINT knowledge_item_agents_unique UNIQUE (knowledge_item_id, agent_id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_item_agents_tenant ON knowledge_item_agents(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_knowledge_item_agents_item ON knowledge_item_agents(knowledge_item_id);
 CREATE INDEX IF NOT EXISTS idx_knowledge_item_agents_agent ON knowledge_item_agents(agent_id);
 
 ALTER TABLE knowledge_item_agents ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Authenticated full access" ON knowledge_item_agents FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Tenant isolation" ON knowledge_item_agents
+  FOR ALL TO authenticated
+  USING (tenant_id = current_tenant_id())
+  WITH CHECK (tenant_id = current_tenant_id());
+CREATE POLICY "Service role full access" ON knowledge_item_agents
+  FOR ALL TO service_role
+  USING (true) WITH CHECK (true);
+
 GRANT ALL ON knowledge_item_agents TO authenticated, service_role;
 
 -- ── Mark knowledge item pending trigger ────────────────────────────
@@ -165,6 +195,7 @@ CREATE TABLE IF NOT EXISTS knowledge_chunks (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at          timestamptz NOT NULL DEFAULT now(),
   updated_at          timestamptz NOT NULL DEFAULT now(),
+  tenant_id           uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES tenants(id) ON DELETE CASCADE,
   knowledge_item_id   uuid NOT NULL REFERENCES knowledge_items(id) ON DELETE CASCADE,
   chunk_index         integer NOT NULL,
   content             text NOT NULL,
@@ -189,6 +220,7 @@ CREATE TABLE IF NOT EXISTS knowledge_chunks (
   CONSTRAINT knowledge_chunks_item_index_unique UNIQUE (knowledge_item_id, chunk_index)
 );
 
+CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_tenant ON knowledge_chunks(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_item ON knowledge_chunks(knowledge_item_id, chunk_index);
 CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_search_vector ON knowledge_chunks USING gin(search_vector);
 CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_embedding_status
@@ -199,7 +231,14 @@ CREATE TRIGGER knowledge_chunks_updated_at
   BEFORE UPDATE ON knowledge_chunks FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 ALTER TABLE knowledge_chunks ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Authenticated full access" ON knowledge_chunks FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Tenant isolation" ON knowledge_chunks
+  FOR ALL TO authenticated
+  USING (tenant_id = current_tenant_id())
+  WITH CHECK (tenant_id = current_tenant_id());
+CREATE POLICY "Service role full access" ON knowledge_chunks
+  FOR ALL TO service_role
+  USING (true) WITH CHECK (true);
+
 GRANT ALL ON knowledge_chunks TO authenticated, service_role;
 
 -- ── RPCs ───────────────────────────────────────────────────────────
@@ -501,32 +540,29 @@ GRANT EXECUTE ON FUNCTION public.mark_knowledge_item_failed(uuid, text) TO authe
 GRANT EXECUTE ON FUNCTION public.search_knowledge_chunks(extensions.vector, integer, text[], uuid, text, uuid) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.search_knowledge_chunks_text(text, integer, text[], uuid, text, uuid) TO authenticated, service_role;
 
--- ── Draft sets ──────────────────────────────────────────────────────
+-- ── Realtime ──────────────────────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS draft_sets (
-  id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at            timestamptz NOT NULL DEFAULT now(),
-  updated_at            timestamptz NOT NULL DEFAULT now(),
-  contact_id            uuid NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
-  template_id           uuid REFERENCES templates(id) ON DELETE SET NULL,
-  channel               text NOT NULL,
-  stage                 text NOT NULL,
-  version               integer NOT NULL DEFAULT 1,
-  variants              jsonb NOT NULL,
-  selected_variant_index integer,
-  based_on_draft_set_id uuid REFERENCES draft_sets(id) ON DELETE SET NULL,
-  feedback_notes        text,
-  status                text NOT NULL DEFAULT 'draft',
-  meta                  jsonb NOT NULL DEFAULT '{}',
-  CONSTRAINT draft_sets_version_check CHECK (version >= 1),
-  CONSTRAINT draft_sets_variants_is_array CHECK (jsonb_typeof(variants) = 'array'),
-  CONSTRAINT draft_sets_contact_channel_stage_version_key
-    UNIQUE (contact_id, channel, stage, version)
-);
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE knowledge_folders;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+ALTER TABLE knowledge_folders REPLICA IDENTITY FULL;
 
-CREATE INDEX IF NOT EXISTS idx_draft_sets_contact ON draft_sets(contact_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_draft_sets_status ON draft_sets(status);
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE knowledge_items;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+ALTER TABLE knowledge_items REPLICA IDENTITY FULL;
 
-DROP TRIGGER IF EXISTS draft_sets_updated_at ON draft_sets;
-CREATE TRIGGER draft_sets_updated_at
-  BEFORE UPDATE ON draft_sets FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE knowledge_item_agents;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+ALTER TABLE knowledge_item_agents REPLICA IDENTITY FULL;
+
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE knowledge_chunks;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+ALTER TABLE knowledge_chunks REPLICA IDENTITY FULL;
+
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE draft_sets;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+ALTER TABLE draft_sets REPLICA IDENTITY FULL;

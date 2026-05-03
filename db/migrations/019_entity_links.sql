@@ -1,9 +1,4 @@
--- 023_entity_links.sql — Universal polymorphic linking table.
---
--- Replaces task_attachments with a generalized entity linking system.
--- Any entity (task, routine, collection_record, agent) can link to any
--- other entity (knowledge_item, collection_record, contact, organization,
--- task, or a raw URL).
+-- 019_entity_links.sql — Universal polymorphic linking table.
 
 -- ── entity_links table ─────────────────────────────────────────────
 
@@ -37,7 +32,9 @@ CREATE INDEX IF NOT EXISTS idx_entity_links_target
 CREATE INDEX IF NOT EXISTS idx_entity_links_tenant
   ON entity_links(tenant_id);
 
--- Timestamps trigger
+CREATE UNIQUE INDEX IF NOT EXISTS entity_links_url_unique
+  ON entity_links(owner_type, owner_id, url) WHERE target_type = 'url';
+
 DROP TRIGGER IF EXISTS entity_links_updated_at ON entity_links;
 CREATE TRIGGER entity_links_updated_at
   BEFORE UPDATE ON entity_links FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -48,8 +45,8 @@ ALTER TABLE entity_links ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Tenant isolation" ON entity_links
   FOR ALL TO authenticated
-  USING (tenant_id = public.current_tenant_id())
-  WITH CHECK (tenant_id = public.current_tenant_id());
+  USING (tenant_id = current_tenant_id())
+  WITH CHECK (tenant_id = current_tenant_id());
 
 CREATE POLICY "Service role full access" ON entity_links
   FOR ALL TO service_role
@@ -67,11 +64,4 @@ ALTER TABLE entity_links REPLICA IDENTITY FULL;
 
 -- ── Grants ─────────────────────────────────────────────────────────
 
-GRANT ALL ON entity_links TO authenticated;
-GRANT ALL ON entity_links TO service_role;
-
--- ── Schema version ─────────────────────────────────────────────────
-
-INSERT INTO _schema_version (version, description)
-VALUES (23, 'Entity links: universal polymorphic linking table replacing task_attachments')
-ON CONFLICT (version) DO NOTHING;
+GRANT ALL ON entity_links TO authenticated, service_role;

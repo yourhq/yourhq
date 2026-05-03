@@ -1,4 +1,4 @@
--- 027_file_processing.sql — RPCs for the file processing pipeline.
+-- 022_file_processing.sql — RPCs for the file processing pipeline.
 --
 -- The file_processor daemon leases knowledge_items with kind='file' and
 -- processing_status='ready', extracts text, and marks them done so the
@@ -92,5 +92,5 @@ GRANT EXECUTE ON FUNCTION public.mark_knowledge_item_processing_failed(uuid, tex
 
 -- ── Schema version ────────────────────────────────────────────────
 
-INSERT INTO _schema_version (version) VALUES (27)
+INSERT INTO _schema_version (version) VALUES (22)
 ON CONFLICT (version) DO NOTHING;

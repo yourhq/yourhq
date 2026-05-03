@@ -625,7 +625,7 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
   };
 }
 
-const EXPECTED_SCHEMA_VERSION = 22;
+const EXPECTED_SCHEMA_VERSION = 25;
 
 export async function getSchemaVersionAction(): Promise<{
   current: number | null;

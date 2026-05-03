@@ -1,36 +1,13 @@
--- 014_agent_commands.sql — Command queue for agent lifecycle and system operations.
-
-DO $$ BEGIN
-  CREATE TYPE command_action AS ENUM (
-    'provision', 'approve_pairing', 'update', 'remove',
-    'restart_gateway', 'update_all', 'restart_dispatcher'
-  );
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
-ALTER TYPE command_action ADD VALUE IF NOT EXISTS 'auth_set_api_key';
-ALTER TYPE command_action ADD VALUE IF NOT EXISTS 'auth_start';
-ALTER TYPE command_action ADD VALUE IF NOT EXISTS 'auth_paste';
-ALTER TYPE command_action ADD VALUE IF NOT EXISTS 'auth_list';
-ALTER TYPE command_action ADD VALUE IF NOT EXISTS 'auth_remove';
-ALTER TYPE command_action ADD VALUE IF NOT EXISTS 'auth_refresh';
-ALTER TYPE command_action ADD VALUE IF NOT EXISTS 'auth_set_default';
-ALTER TYPE command_action ADD VALUE IF NOT EXISTS 'update_gateway';
-ALTER TYPE command_action ADD VALUE IF NOT EXISTS 'set_agent_model';
-ALTER TYPE command_action ADD VALUE IF NOT EXISTS 'list_models';
-
-DO $$ BEGIN
-  CREATE TYPE command_status AS ENUM (
-    'pending', 'leased', 'running', 'done', 'failed'
-  );
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+-- 015_agent_commands.sql — Command queue for agent lifecycle and system operations.
 
 CREATE TABLE IF NOT EXISTS agent_commands (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at      timestamptz NOT NULL DEFAULT now(),
   updated_at      timestamptz NOT NULL DEFAULT now(),
-  gateway_id      uuid REFERENCES gateways(id),
+  tenant_id       uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES tenants(id) ON DELETE CASCADE,
   agent_id        uuid REFERENCES agents(id) ON DELETE SET NULL,
   agent_slug      text,
+  gateway_id      uuid REFERENCES gateways(id),
   action          command_action NOT NULL,
   payload         jsonb NOT NULL DEFAULT '{}',
   status          command_status NOT NULL DEFAULT 'pending',
@@ -38,31 +15,15 @@ CREATE TABLE IF NOT EXISTS agent_commands (
   leased_until    timestamptz,
   started_at      timestamptz,
   completed_at    timestamptz,
-  failed_at       timestamptz,
   exit_code       integer,
   stdout          text,
   stderr          text,
   error_message   text,
-  requested_by    uuid
+  requested_by    uuid,
+  meta            jsonb NOT NULL DEFAULT '{}'
 );
 
--- Column reconciliation for agent_commands
-ALTER TABLE agent_commands ADD COLUMN IF NOT EXISTS agent_slug text;
-ALTER TABLE agent_commands ADD COLUMN IF NOT EXISTS exit_code integer;
-ALTER TABLE agent_commands ADD COLUMN IF NOT EXISTS stdout text;
-ALTER TABLE agent_commands ADD COLUMN IF NOT EXISTS stderr text;
-ALTER TABLE agent_commands ADD COLUMN IF NOT EXISTS error_message text;
-ALTER TABLE agent_commands ADD COLUMN IF NOT EXISTS requested_by uuid;
-ALTER TABLE agent_commands ADD COLUMN IF NOT EXISTS gateway_id uuid REFERENCES gateways(id);
-
--- Backfill gateway_id from the agent record (or the default gateway if no agent)
-UPDATE agent_commands c
-SET gateway_id = COALESCE(
-  (SELECT a.gateway_id FROM agents a WHERE a.id = c.agent_id),
-  (SELECT id FROM gateways WHERE slug = 'default')
-)
-WHERE c.gateway_id IS NULL;
-
+CREATE INDEX IF NOT EXISTS idx_commands_tenant ON agent_commands(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_commands_status ON agent_commands(status);
 CREATE INDEX IF NOT EXISTS idx_commands_pending ON agent_commands(status, created_at ASC) WHERE status = 'pending';
 CREATE INDEX IF NOT EXISTS idx_commands_agent ON agent_commands(agent_id, created_at DESC);
@@ -74,7 +35,27 @@ DROP TRIGGER IF EXISTS agent_commands_updated_at ON agent_commands;
 CREATE TRIGGER agent_commands_updated_at
   BEFORE UPDATE ON agent_commands FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- Lease next pending command (atomic, row-locked).
+-- RLS
+ALTER TABLE agent_commands ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Tenant isolation" ON agent_commands
+  FOR ALL TO authenticated
+  USING (tenant_id = current_tenant_id())
+  WITH CHECK (tenant_id = current_tenant_id());
+CREATE POLICY "Service role full access" ON agent_commands
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+-- Grants
+GRANT ALL ON agent_commands TO authenticated, service_role;
+
+-- Realtime
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE agent_commands;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+ALTER TABLE agent_commands REPLICA IDENTITY FULL;
+
+-- ── Command lifecycle RPCs ────────────────────────────────────────
+
 CREATE OR REPLACE FUNCTION lease_command(
   p_lease_seconds integer DEFAULT 300,
   p_gateway_slug text DEFAULT NULL
@@ -113,7 +94,6 @@ BEGIN
 END;
 $$;
 
--- Mark command as running
 CREATE OR REPLACE FUNCTION start_command(p_command_id uuid)
 RETURNS void
 LANGUAGE plpgsql
@@ -126,7 +106,6 @@ BEGIN
 END;
 $$;
 
--- Complete a command
 CREATE OR REPLACE FUNCTION complete_command(
   p_command_id uuid,
   p_exit_code integer,
@@ -147,7 +126,6 @@ BEGIN
 END;
 $$;
 
--- Fail a command
 CREATE OR REPLACE FUNCTION fail_command(
   p_command_id uuid,
   p_exit_code integer DEFAULT NULL,
@@ -162,9 +140,16 @@ AS $$
 BEGIN
   UPDATE public.agent_commands
   SET
-    status = 'failed', failed_at = now(),
+    status = 'failed', completed_at = now(),
     exit_code = p_exit_code, stdout = p_stdout, stderr = p_stderr,
     error_message = p_error, updated_at = now()
   WHERE id = p_command_id;
 END;
 $$;
+
+-- ── Grants for RPCs ──────────────────────────────────────────────
+
+GRANT EXECUTE ON FUNCTION lease_command(integer, text) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION start_command(uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION complete_command(uuid, integer, text, text) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION fail_command(uuid, integer, text, text, text) TO authenticated, service_role;
