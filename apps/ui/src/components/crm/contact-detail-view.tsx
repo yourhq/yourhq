@@ -48,7 +48,7 @@ import { toast } from "sonner";
 import { logAudit } from "@/lib/audit/log";
 import { DraftSetsSection } from "./draft-sets-section";
 import { InteractionsTimeline } from "./interactions-timeline";
-import { ContactAutomationHistory } from "@/components/automations/contact-automation-history";
+import { ContactInboxHistory } from "@/components/inbox/contact-inbox-history";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
 // ── Inline editable field components ────────────────────────────────
@@ -647,7 +647,7 @@ export function ContactDetailView({ contact: initialContact }: { contact: Contac
 
             {/* Automation history */}
             <Separator className="bg-border/50" />
-            <ContactAutomationHistory contactId={contact.id} />
+            <ContactInboxHistory contactId={contact.id} />
           </div>
 
           {/* Right sidebar — status & properties */}

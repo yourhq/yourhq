@@ -5,15 +5,16 @@ All hq_* scripts import from here. Handles:
 - Supabase connection via env vars
 - Agent identity resolution
 - Audit logging
-- Embedding generation
+- Local embedding generation
 """
 
+import hashlib
 import json
 import os
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
-import urllib.error
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -62,8 +63,8 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 AGENT_SLUG = _resolve_agent_slug()
 AGENT_CHANNEL = _resolve_agent_channel()
-EMBEDDING_API_KEY = os.environ.get("EMBEDDING_API_KEY", "")
-EMBEDDING_MODEL = "text-embedding-3-small"
+EMBEDDER_URL = os.environ.get("EMBEDDER_URL", "http://embedder:18801").rstrip("/")
+EMBEDDING_MODEL = os.environ.get("EMBEDDER_MODEL", "BAAI/bge-small-en-v1.5")
 
 
 def check_env():
@@ -209,17 +210,15 @@ def audit(module, entity_type, entity_id, action, summary=None, changes=None):
 # ── Embedding ──────────────────────────────────────────────────────────
 
 def generate_embedding(text):
-    """Generate embedding via OpenAI API using EMBEDDING_API_KEY."""
-    if not EMBEDDING_API_KEY:
+    """Generate a local BGE embedding via the HQ embedder service."""
+    if not text:
         return None
     data = json.dumps({
-        "model": EMBEDDING_MODEL,
-        "input": text[:8000],
+        "input": text[:6000],
     }).encode()
     req = urllib.request.Request(
-        "https://api.openai.com/v1/embeddings",
+        f"{EMBEDDER_URL}/embed",
         headers={
-            "Authorization": f"Bearer {EMBEDDING_API_KEY}",
             "Content-Type": "application/json",
         },
         method="POST",
@@ -227,16 +226,57 @@ def generate_embedding(text):
     )
     with urllib.request.urlopen(req, timeout=30) as r:
         result = json.loads(r.read().decode())
-    return result["data"][0]["embedding"]
+    return result.get("embedding")
+
+
+def extract_text(value):
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except Exception:
+            return value
+        if isinstance(parsed, (dict, list)):
+            return extract_text(parsed)
+        return value
+    if isinstance(value, (int, float, bool)):
+        return str(value)
+    if isinstance(value, list):
+        return " ".join(part for item in value if (part := extract_text(item)))
+    if isinstance(value, dict):
+        parts = []
+        text = value.get("text")
+        if isinstance(text, str):
+            parts.append(text)
+        for key in ("title", "content", "children"):
+            if key in value:
+                part = extract_text(value[key])
+                if part:
+                    parts.append(part)
+        for key, item in value.items():
+            if key in {"text", "title", "content", "children"}:
+                continue
+            if isinstance(item, (dict, list)):
+                part = extract_text(item)
+                if part:
+                    parts.append(part)
+        return " ".join(parts)
+    return ""
 
 
 def build_embedding_input(title, content=None, tags=None):
-    parts = [title]
+    parts = [str(title or "").strip()]
     if tags:
-        parts.append(", ".join(tags))
-    if content:
-        parts.append(content)
-    return "\n\n".join(parts)
+        parts.append(", ".join(str(tag).strip() for tag in tags if str(tag).strip()))
+    body = extract_text(content).strip()
+    if body:
+        parts.append(body)
+    return "\n\n".join(part for part in parts if part)[:6000]
+
+
+def embedding_source_hash(text):
+    return hashlib.sha256((text or "").encode("utf-8")).hexdigest()
 
 
 # ── Output helper ──────────────────────────────────────────────────────

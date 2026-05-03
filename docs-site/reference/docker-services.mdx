@@ -3,11 +3,11 @@ title: "Docker services"
 description: "The containers in the HQ Compose stack and what each one does."
 ---
 
-HQ's default Compose stack has four services that work together.
+HQ's default Compose stack has five services that work together.
 
 <CardGroup cols={2}>
   <Card title="ui" icon="browser">
-    **Next.js dashboard.** Renders the workspace — agents, CRM, tasks, documents, settings — and writes to Supabase through server actions. Port `3000`.
+    **Next.js dashboard.** Renders the workspace — agents, CRM, tasks, knowledge, routines, settings — and writes to Supabase through server actions. Port `3000`.
   </Card>
   <Card title="gateway" icon="server">
     **Agent runtime host.** Runs OpenClaw, Chrome/Chromium, XFCE desktop, noVNC, and the files API. This is where agents live. Ports `6901` (noVNC), `18790` (files API).
@@ -18,14 +18,17 @@ HQ's default Compose stack has four services that work together.
   <Card title="runner" icon="terminal">
     **Command daemon.** Watches `agent_commands`, leases commands for the local gateway, executes lifecycle and auth operations, and reports results back to Supabase.
   </Card>
+  <Card title="embedder" icon="search">
+    **Knowledge indexing daemon.** Runs FastEmbed locally, starts downloading/loading the BGE model on boot, serves `/embed` inside Docker, and indexes pending knowledge items into searchable knowledge chunks.
+  </Card>
 </CardGroup>
 
 ## Shared state
 
-The `gateway`, `dispatcher`, and `runner` containers share the `gateway-state` Docker volume (mounted at `/home/openclaw/.openclaw`). This volume holds OpenClaw config, the bare git repo, agent worktrees, browser profiles, and auth state.
+The `gateway`, `dispatcher`, and `runner` containers share the `gateway-state` Docker volume (mounted at `/home/openclaw/.openclaw`). This volume holds OpenClaw config, the bare git repo, agent worktrees, browser profiles, and auth state. The `embedder` uses `gateway-embedding-cache` for downloaded local embedding models, so restarts reuse the cached BGE files.
 
 The `runner` additionally mounts `/var/run/docker.sock` so it can restart sibling containers when needed.
 
 <Tip>
-  For single-host installs, all four services run together via `docker compose up -d`. For multi-host setups, run `ui` separately from the gateway services. See [Add a gateway](/self-host/add-gateway).
+  For single-host installs, all five services run together via `docker compose up -d`. For multi-host setups, run `ui` separately from the gateway services. See [Add a gateway](/self-host/add-gateway).
 </Tip>

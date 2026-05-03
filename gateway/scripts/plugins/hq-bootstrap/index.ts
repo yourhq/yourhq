@@ -269,19 +269,36 @@ function renderOrgBlock(agentName: string, agentSlug: string, org: OrgContext): 
 }
 
 function renderBootContext(state: any) {
-  const docs = Array.isArray(state.documents) ? state.documents : [];
+  const items = Array.isArray(state.knowledge) ? state.knowledge : [];
   const parts = [
     "HQ bootstrap status: connected.",
     `Agent slug: ${state.agentSlug || "unknown"}.`,
-    `Boot documents loaded: ${docs.length}.`,
+    `Boot knowledge loaded: ${items.length}.`,
     "",
-    "## HQ Boot Context",
+    "## HQ Boot Knowledge",
   ];
-  for (const doc of docs) {
-    parts.push(`\n### ${doc.title || "Untitled"}`);
-    if (Array.isArray(doc.tags) && doc.tags.length) parts.push(`Tags: ${doc.tags.join(", ")}`);
-    if (doc.content) parts.push(String(doc.content));
+
+  const workspace = items.filter((i: any) => i.scope === "workspace");
+  const agent = items.filter((i: any) => i.scope === "agent");
+
+  if (workspace.length > 0) {
+    parts.push("\n### Workspace Knowledge");
+    for (const item of workspace) {
+      parts.push(`\n#### ${item.title || "Untitled"} [${item.kind || "page"}]`);
+      if (Array.isArray(item.tags) && item.tags.length) parts.push(`Tags: ${item.tags.join(", ")}`);
+      if (item.content) parts.push(String(item.content));
+    }
   }
+
+  if (agent.length > 0) {
+    parts.push("\n### Agent Knowledge");
+    for (const item of agent) {
+      parts.push(`\n#### ${item.title || "Untitled"} [${item.kind || "page"}]`);
+      if (Array.isArray(item.tags) && item.tags.length) parts.push(`Tags: ${item.tags.join(", ")}`);
+      if (item.content) parts.push(String(item.content));
+    }
+  }
+
   return parts.join("\n");
 }
 

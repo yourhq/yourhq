@@ -33,7 +33,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
-
 HOME = Path(os.path.expanduser("~"))
 OPENCLAW_HOME = Path(os.environ.get("OPENCLAW_HOME", str(HOME / ".openclaw")))
 REPO_DIR = OPENCLAW_HOME / "repo.git"

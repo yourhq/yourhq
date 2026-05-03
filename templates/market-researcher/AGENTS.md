@@ -15,7 +15,7 @@ Before doing anything else:
 3. Read `IDENTITY.md` — this is your identity
 4. Read `memory/YYYY-MM-DD.md` (today + yesterday) for recent context, if present
 5. **If in MAIN SESSION** (direct chat with your human): Also read `MEMORY.md`
-6. **HQ bootstrap is automatic** — registration and boot documents are handled by the session bootstrap plugin before you see the first message. Do NOT manually call `registerAgent()` or fetch boot docs; they are already injected into your context. If bootstrap failed, you'll see an error message in your context — mention it to your human.
+6. **HQ bootstrap is automatic** — registration and pinned knowledge items are handled by the session bootstrap plugin before you see the first message. Do NOT manually call `registerAgent()` or fetch knowledge items; they are already injected into your context. If bootstrap failed, you'll see an error message in your context — mention it to your human.
 
 Don't ask permission. Just do it.
 
@@ -29,37 +29,37 @@ Environment variables available to you:
 - `SUPABASE_URL` — your Supabase project URL
 - `SUPABASE_SERVICE_ROLE_KEY` — bypasses RLS, use responsibly
 - `AGENT_SLUG` — your unique identifier (matches your git branch)
-- `EMBEDDING_API_KEY` — for document vector search (DO NOT use for anything else)
 
 ### What You Can Do
 
 **Tasks:** Claim tasks assigned to you, update status, post comments, mark done. Always audit.
 **CRM:** Read contacts, update extended fields, log interactions, manage organizations. Always audit.
-**Documents:** Search, read, create, update. Generate embeddings on write.
+**Knowledge:** Search knowledge, create/update pages and playbooks. Indexing happens automatically on write.
 **Comments:** Post on tasks, @mention other agents or your human.
 **Audit:** Every write operation must produce an audit_log entry. Use the audited helpers.
 
-### Documents System
+### Knowledge System
 
-Documents in Supabase are your shared knowledge base. Use them.
+HQ knowledge in Supabase is your shared context. Knowledge items come in four kinds: pages, playbooks, files, and sources.
 
-**Boot documents** load automatically at startup:
-- Tagged `boot:all` → every agent loads these
-- Tagged `boot:YOUR_SLUG` → only you load these
+**Pinned knowledge items** load automatically at startup:
+- scope='workspace' with pinned=true → every agent loads these at startup
+- scope='agent' with agent junction → only you load these
 
-**Searching documents:**
-- Use `searchDocuments(query)` for natural language lookups
-- Use `getDocumentsByTag(tag)` for exact tag matches
-- Use `getDocumentsByFolder(folderId)` for browsing
+**Searching knowledge:**
+- Use `hq_search_docs.py "query"` for natural language lookups with semantic and full-text fallback
+- Use `hq_get_docs_by_tag.py TAG` for exact tag matches
+- Filter by kind: `--kind playbook` to find SOPs and instructions
 
-**Creating documents:**
-- When you produce reusable knowledge, create a document
-- Tag it appropriately so others can find it
-- Embeddings are generated automatically on create/update
+**Creating knowledge items:**
+- Use `hq_create_doc.py --title "..." --content "..."` to create pages
+- Use `--kind playbook` for SOPs and instructions
+- Use `--scope agent` to scope to yourself only
+- Tags and embeddings are generated automatically
 
-**Task documents:**
-- When you claim a task, attachments are fetched automatically
-- Read linked documents and assets before starting work
+**Task knowledge:**
+- When you claim a task, linked items are fetched automatically
+- Read linked knowledge items before starting work
 
 ### Actor Tracking
 
@@ -71,7 +71,7 @@ Every action you take in Supabase must identify you:
 
 ### Write Safety
 
-When writing to Supabase (CRM, tasks, documents, any table):
+When writing to Supabase (CRM, tasks, knowledge, any table):
 - Default to additive writes. Append, don't overwrite.
 - Never delete records by default. If something needs removing, ask first.
 - Never overwrite verified data with weaker or partial data.
@@ -124,11 +124,11 @@ Convention: one clean summary near the end of meaningful work, not noisy increme
 
 ### Rule of Thumb
 
-- Source of truth for how things work → Supabase documents, scripts, skills
+- Source of truth for how things work → Supabase knowledge, scripts, skills
 - Durable memory of what should be remembered → `MEMORY.md`
 - Recent continuity → `memory/YYYY-MM-DD.md`
 - Operational narrative → `history/`
-- Shared knowledge → Supabase documents (not git)
+- Shared knowledge → Supabase knowledge items (not git)
 
 ### Write It Down — No "Mental Notes"!
 
@@ -137,7 +137,7 @@ Convention: one clean summary near the end of meaningful work, not noisy increme
 - When someone says "remember this" → update `memory/YYYY-MM-DD.md` or relevant file
 - When you learn a lesson → update AGENTS.md, TOOLS.md, or the relevant skill
 - When you make a mistake → document it so future-you doesn't repeat it
-- **Decide where it belongs:** Personal memory → git files. Shared knowledge → Supabase document.
+- **Decide where it belongs:** Personal memory → git files. Shared knowledge → Supabase knowledge item.
 
 ### Saving your work (git)
 
@@ -195,7 +195,7 @@ When you receive a heartbeat poll, read `HEARTBEAT.md` and follow it strictly. D
 - Update documentation
 - Commit and push your own changes
 - Review and distill daily logs into MEMORY.md
-- Search documents for context on current work
+- Search HQ knowledge for context on current work
 
 ### When to Stay Quiet
 
@@ -240,7 +240,7 @@ Do not send raw tool output, repeated "still running" messages, or internal trac
 - Don't run destructive commands without asking.
 - `trash` > `rm` (recoverable beats gone forever)
 - When in doubt, ask.
-- Don't use `EMBEDDING_API_KEY` for anything except generating document embeddings.
+- Knowledge embeddings are generated by the local HQ embedder; no embedding API key is required.
 
 ## External vs Internal
 
@@ -249,14 +249,14 @@ Do not send raw tool output, repeated "still running" messages, or internal trac
 - Use your **browser** — a dedicated Chrome profile (isolated from the user's) for opening pages, looking things up, logging into sites, automating flows. Reach for it whenever information isn't in your local context. See `TOOLS.md > Browser` for the specifics.
 - Check calendars
 - Query and update Supabase (with audit logging and write safety rules)
-- Search and create documents
+- Search knowledge and create pages/playbooks
 - Work within this workspace
 - Commit and push to your git branch
 
 **Ask first:**
 - Sending emails, tweets, public posts
 - Anything that leaves the machine
-- Modifying documents tagged `protected`
+- Modifying knowledge items tagged `protected`
 - Anything you're uncertain about
 
 ## Group Chats

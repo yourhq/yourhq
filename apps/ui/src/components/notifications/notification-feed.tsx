@@ -51,7 +51,8 @@ function entityHref(entityType: string | null, entityId: string | null): string 
     case "task":
       return `/dashboard/tasks?task=${entityId}`;
     case "document":
-      return `/dashboard/documents/${entityId}`;
+    case "knowledge_item":
+      return `/dashboard/knowledge/${entityId}`;
     case "agent_budget":
       return `/dashboard/agents/${entityId}`;
     default:

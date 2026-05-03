@@ -12,16 +12,20 @@ Repository: https://github.com/yourhq/yourhq
 
 Source: https://docs.yourhq.ai
 
-> Open-source AI operations HQ — self-hosted agents, CRM, tasks, documents, and automations on infrastructure you control.
+> Open-source AI operations HQ — self-hosted agents, CRM, tasks, knowledge, and routines on infrastructure you control.
 
-**HQ is an open-source workspace for running AI agents on infrastructure you control.** You bring a Docker host and a Supabase project. HQ gives you the UI, the agent runtime, 15 role templates, and the full stack to manage them.
+**HQ is an AI operations workspace — agents, CRM, tasks, knowledge, and routines.** Run it on your own infrastructure or let us host it for you.
 
-  - **Get started in 15 minutes**: 
-    Install HQ, connect Supabase, connect a model, and create your first agent.
+  - **Hosted — ready in 2 min**: 
+    Sign up at yourhq.ai. We handle infrastructure, you create agents.
+  
+
+  - **Self-host in 15 min**: 
+    Install on your own machine. Full control, completely free.
   
 
   - **Not sure where to start?**: 
-    Pick a path based on what you want to do — try it, self-host it, build agents, fork it, or review security.
+    Pick a path based on what you want to do.
   
 
 ---
@@ -32,7 +36,7 @@ Source: https://docs.yourhq.ai
 Your browser  →  HQ UI (Next.js)  →  Your Supabase project  →  Gateway hosts  →  Agents
 ```
 
-The **UI** is where you manage everything: agents, tasks, CRM, documents, automations, connections, and settings.
+The **UI** is where you manage everything: agents, tasks, CRM, knowledge, routines, collections, connections, and settings.
 
 **Supabase** is the shared database and auth system — owned by you, on your account.
 
@@ -41,11 +45,11 @@ The **UI** is where you manage everything: agents, tasks, CRM, documents, automa
 **Agents** are long-lived workspaces: their own git branch, Chrome profile, messaging channel, and skills.
 
   - **Run agents**: 
-    Templates, memory, channels, boot docs, org chart, and delegation.
+    Templates, memory, channels, knowledge, org chart, and delegation.
   
 
   - **Manage work**: 
-    CRM, tasks, documents, assets, automations, and notifications.
+    CRM, tasks, knowledge, routines, collections, and notifications.
   
 
   - **Self-host anywhere**: 
@@ -69,7 +73,7 @@ The **UI** is where you manage everything: agents, tasks, CRM, documents, automa
 ## Who HQ is for
 
   - **Non-technical operators**: 
-    Use the installer and browser UI. No coding required to install, create agents, and manage your workspace.
+    Sign up for hosted or use the installer. No coding required to create agents and manage your workspace.
   
 
   - **Technical self-hosters**: 
@@ -86,9 +90,9 @@ The **UI** is where you manage everything: agents, tasks, CRM, documents, automa
 
 ---
 
-## Open source by design
+## Open source at the core
 
-HQ is not a hosted product with a self-hosted checkbox — the repo is the product. The docs include UI paths, manual paths, operational notes, security risks, and extension points so you can run it yourself or build your own version.
+HQ is open source — the same codebase powers both the self-hosted version and the hosted service. The docs include UI paths, manual paths, operational notes, security risks, and extension points so you can run it yourself, use our hosted version, or build your own.
 
   - **Architecture**: 
     Runtime, queues, daemons, files API, and full data flow.
@@ -107,20 +111,20 @@ Source: https://docs.yourhq.ai/getting-started/choose-your-path
 
 HQ is useful to different people for different reasons. Start with the path that matches what you are trying to do today.
 
-  - **I want to try HQ**: 
-    Get the fastest path from zero to a running workspace, then create your first agent.
+  - **I want HQ without managing infrastructure**: 
+    Sign up at yourhq.ai. We handle the database, runtime, and updates — you just create agents. Ready in 2 minutes.
   
 
-  - **I want to self-host it properly**: 
-    Review requirements, Supabase setup, networking, backups, updates, and gateway operations.
+  - **I want to self-host it**: 
+    Install on your own machine. Full control, completely free. Takes about 15 minutes.
   
 
   - **I want to understand the product**: 
-    Learn what HQ includes: agents, CRM, tasks, documents, automations, gateways, usage, and budgets.
+    Learn what HQ includes: agents, CRM, tasks, knowledge, routines, collections, gateways, usage, and budgets.
   
 
   - **I want to build agents**: 
-    Understand templates, memory, boot documents, channel setup, delegation, and agent worktrees.
+    Understand templates, memory, knowledge items, channel setup, delegation, and agent worktrees.
   
 
   - **I want to customize or fork it**: 
@@ -149,12 +153,871 @@ HQ is useful to different people for different reasons. Start with the path that
     Provision an agent from a template.
   
 
-  - **Use boot docs**: 
+  - **Add knowledge**: 
     Give agents shared context.
   
 
   - **Set budgets**: 
     Track usage and enforce monthly limits.
+
+---
+
+# FAQ
+
+Source: https://docs.yourhq.ai/getting-started/faq
+
+> Common questions about HQ — what it is, how it works, and how to run it.
+
+HQ is an open-source platform for running AI agents on your own infrastructure. You bring a Docker host and a free Supabase account; HQ gives you the UI, the agent runtime, a CRM, a task system, and a library of agent templates.
+
+    Agents have real memory, can browse the web, use tools, manage files, and respond through messaging channels (Telegram, Discord, Slack). They're not chat bots — they run as persistent processes that do background work on your behalf.
+  
+
+  
+    About 15 minutes:
+
+    - ~2 min to create a Supabase project
+    - ~3 min to run migrations and create an auth user
+    - ~5 min for Docker to pull images on first run (~1.5 GB)
+    - ~2 min to connect your model provider and create the first agent
+
+    See the [Quickstart →](/getting-started/quickstart)
+  
+
+  
+    No. The install is a single `curl | bash` command. Everything else — Supabase setup, agent creation, routines — is done through the UI. You don't need to edit any code or understand Docker internals to get started.
+
+    If you want to customize agent templates, build your own, or contribute to the project, coding knowledge helps — but it's entirely optional.
+  
+
+  
+    Yes. Sign up at [yourhq.ai](https://yourhq.ai) and skip the self-hosting entirely — we handle the database, agent runtime, and updates. $30/month per workspace, ready in under 2 minutes.
+
+    See [Hosted getting started →](/hosted/getting-started)
+  
+
+  
+    - **Your data stays on your machine.** No third party has access to your CRM, knowledge, or agent outputs.
+    - **Free.** You only pay for your own infrastructure and model API costs.
+    - **Open source.** Fork it, customize it, ship your own version.
+    - **Offline-capable.** Gateways can run on a laptop or home server with no cloud dependency.
+    - **Full template control.** Modify agent templates directly on the filesystem.
+
+    The trade-off: you're responsible for updates, backups, and debugging. If that's unappealing, [try the hosted version](/hosted/getting-started).
+  
+
+  
+    It's the headquarters metaphor — one place where you manage everything. Short, memorable, hard to misspell.
+  
+
+---
+
+## Agents & models
+
+  
+    An agent is a persistent workspace made up of:
+
+    - A **git branch** — holds identity files, memory notes, skills, and docs
+    - A **Chrome profile** — persistent cookies and logged-in browser sessions
+    - A **messaging channel** — Telegram, Discord, Slack, or none
+    - An **OpenClaw session** — the runtime that executes prompts and tool calls
+
+    Agents have real memory across sessions, can browse the web, send messages, edit files, and call APIs. They run as background processes, not just in response to messages.
+  
+
+  
+    HQ is model-agnostic. Agents use whatever provider you configure:
+
+    - **API key providers**: OpenAI, Anthropic, Gemini, DeepSeek, Mistral, Groq, OpenRouter, and 15+ more
+    - **OAuth providers**: OpenAI Codex, GitHub Copilot
+    - **Local / self-hosted**: Ollama, LM Studio, vLLM, any OpenAI-compatible server
+
+    There is no default or required provider. You can set different models per agent.
+
+    See [Connect a model provider →](/guides/connect-model-provider)
+  
+
+  
+    Yes. Ollama lets you run models like Llama 3, Mistral, and Gemma entirely on your machine — no API costs, fully private. Install Ollama, pull a model, and point HQ at `http://host.docker.internal:11434`.
+
+    Local models are slower and less capable than frontier models for complex tasks, but they're free and work offline.
+
+    See the Ollama walkthrough in [Connect a model provider →](/guides/connect-model-provider)
+  
+
+  
+    Yes. Each agent has its own model selector on its detail page. A common pattern: use a frontier model (GPT-4o, Claude 3.5) for agents doing complex reasoning, and a cheap/fast model or Ollama for agents doing simple lookups.
+  
+
+  
+    Yes — agents share the same Supabase database, so tasks, contacts, knowledge items, and comments are all visible across agents.
+
+    Collaboration patterns:
+    - **@-mentions**: type `@agent-slug` in any task comment to wake that agent
+    - **Routines**: set a routine so agent A's output (a status change, new task, etc.) triggers agent B
+    - **Org chart**: agents can be arranged into a manager/direct-report hierarchy. That hierarchy is injected into agent boot context and gives agents a clear delegation model
+
+    See [Routines →](/guides/automations)
+  
+
+  
+    It depends on how you've configured it:
+
+    - **Soft threshold only** — a notification fires when the agent crosses the warning percentage. The agent keeps working.
+    - **Hard cutoff enabled** — the runtime blocks further LLM replies and the dispatcher stops waking the agent for background work. The agent is effectively paused until the next budget period (first of the month) or until you raise the limit.
+
+    See [Usage budgets →](/guides/usage-budgets)
+  
+
+  
+    HQ ships 15 built-in templates:
+
+    `default`, `analytics`, `assistant`, `chief-of-staff`, `cmo`, `cofounder`, `crm-researcher`, `designer`, `market-researcher`, `newsletter-editor`, `newsletter-writer`, `sales-copywriter`, `script-writer`, `social-strategist`, `social-writer`
+
+    Each template comes with pre-loaded identity files, skills, and a personality. You pick one when creating an agent — you can customize everything afterward.
+
+    See [Templates reference →](/reference/templates)
+  
+
+  
+    Yes. Copy `templates/default/` to `templates/your-role/`, edit the identity files (`IDENTITY.md`, `SOUL.md`, `USER.md`, `MEMORY.md`), and add role-specific skills under `skills/`. The gateway picks up new templates automatically when it reboots.
+
+    If your template might be useful to others, open a PR.
+
+    See [Agents →](/concepts/agents)
+  
+
+---
+
+## Self-hosting & operations
+
+  
+    **Minimum:** Any machine with 4 GB RAM and Docker. A t3.medium on AWS (~$20/month) or the equivalent Hetzner CX22 (~$4/month) works well.
+
+    **Resource usage per gateway:**
+    - Idle (1–2 agents): ~1.5 GB RAM, 5–10% CPU
+    - Active agent (browsing/running): +~500 MB RAM, CPU spikes during work
+
+    **Recommended minimums:**
+    - t3.small (2 GB RAM): absolute floor, 1 agent
+    - t3.medium (4 GB RAM): comfortable for 2–3 active agents
+    - t3.large / m5.large: heavier use, 5+ agents
+
+    Raspberry Pi 4/5 (arm64, 4–8 GB) works fine — arm64 images are published automatically.
+  
+
+  
+    The gateway needs internet for:
+    - Model API calls (unless using Ollama or another local model)
+    - Supabase connectivity (unless you self-host Supabase)
+    - OpenClaw plugin updates
+
+    Gateway agents need internet to browse the web. Beyond that, a local model + self-hosted Supabase gives you a fully offline setup.
+  
+
+  
+    Yes. Each gateway registers itself with a unique `GATEWAY_ID`. Agents are bound to a specific gateway via a foreign key; the UI talks to each gateway via its stored reachable URL.
+
+    Example: UI on your laptop, one gateway on a Mac mini at home, one gateway on a VPS — all pointing at the same Supabase project.
+
+    To add a gateway: **Settings → Gateways → Add Gateway**. HQ generates a one-time registration token and gives you the installer command for the new host.
+
+    See [Add a gateway →](/self-host/add-gateway)
+  
+
+  
+    Yes. One HQ UI instance can manage multiple independent Supabase projects via the project registry. Use the project picker in the top nav to switch between workspaces. Each workspace is completely isolated — separate agents, data, gateways, and auth users.
+
+    You can also run multiple Compose stacks on the same host by setting a different `COMPOSE_PROJECT` in each `.env` — they get separate volumes and container names.
+  
+
+  
+    Yes. Raspberry Pi 4 or 5 (arm64) runs the full stack. The Pi 4 with 4 GB RAM is the minimum; Pi 5 with 8 GB is comfortable. arm64 images are built and published automatically — the installer handles it.
+  
+
+  
+    Several options, from simplest to most involved:
+
+    1. **Tailscale** (recommended) — install Tailscale on both your phone and the HQ host, access via `http://:3000`. Private, no port exposure.
+    2. **Tailscale Serve** — `sudo tailscale serve --bg --https=443 localhost:3000` → TLS access at `https://hq..ts.net`
+    3. **Tailscale Funnel** — makes HQ accessible from the internet without Tailscale on the phone
+    4. **Reverse proxy** — Cloudflare Tunnel, nginx, Caddy, etc. (see [Networking](/self-host/networking))
+
+    See [Networking →](/self-host/networking)
+  
+
+  
+    ```bash
+    cd ~/.yourhq
+    docker compose pull
+    docker compose up -d
+    ```
+
+    No rebuilds required — the UI reads its Supabase config from a runtime volume, not from the image.
+
+    You can also trigger updates from the UI: **Settings → Gateways → hover a gateway row → Update gateway**.
+
+    
+> 
+      If a new release includes database migrations, run them in the Supabase SQL Editor **before** pulling new images. Check the [GitHub releases page](https://github.com/yourhq/yourhq/releases) first.
+    
+
+  
+
+  
+    Three things to back up:
+
+    1. **Supabase** — your contacts, tasks, agents, knowledge items, audit log. Use Supabase built-in backups (Pro tier) or `pg_dump` to a file. See [Operations →](/self-host/operations)
+    2. **Gateway state volume** — per-agent git branches, Chrome profiles, OpenClaw config. Back up with `docker run --rm -v yourhq-gateway-state:/src -v $(pwd):/dst alpine tar -czf /dst/gateway-state.tar.gz -C /src .`
+    3. **`.env`** — contains secrets. Store in a password manager or encrypted disk.
+
+    Optional: set `GIT_REMOTE_URL` in `.env` to continuously sync agent branches to GitHub/Gitea.
+  
+
+  
+    ```bash
+    cd ~/.yourhq
+    docker compose down -v   # deletes containers AND volumes — all agent state gone
+    cd ..
+    rm -rf .yourhq
+    ```
+
+    To also delete the database: Supabase dashboard → Settings → General → Delete project.
+
+    
+> 
+      `docker compose down -v` is irreversible. Back up the gateway state volume first if you want to keep anything.
+    
+
+  
+
+  
+    Infrastructure:
+    - **Laptop / home server**: free
+    - **Hetzner CX22** (~2 vCPU, 4 GB RAM): ~$4/month
+    - **AWS t3.medium** (2 vCPU, 4 GB RAM): ~$20/month
+
+    Supabase free tier covers small and personal use. Pro is $25/month if you hit the free tier limits.
+
+    Model API costs vary widely: typically $10–$100/month per active agent depending on the provider and how much work the agent does. Use Ollama to eliminate API costs entirely.
+  
+
+---
+
+## Data & security
+
+  
+    Only you — and only if you set it up that way. HQ stores everything in **your own Supabase project**. Anthropic and the HQ maintainers have no access to your workspace data, your agent conversations, or your API keys.
+
+    The only outbound connections are model API calls (to your chosen provider) and Supabase queries (to your own project).
+  
+
+  
+    HQ does not use row-level security to isolate tenants within a single database. Instead, each workspace gets its own Supabase project — full database-level isolation. The UI's project registry lets one HQ instance switch between multiple isolated projects.
+
+    See [Security model →](/concepts/security-model)
+  
+
+  
+    Email `security@yourhq.ai`. Do not open a public GitHub issue for security vulnerabilities.
+
+    See [Security policy →](/security/security-policy)
+  
+
+  
+    The service role key is stored in the `ui-config` Docker volume on your host — never sent to or stored by Anthropic or the HQ maintainers. It's included in `.env` for the gateway daemons that need direct database access.
+
+    Treat it like a database password: don't commit it to public repos, don't share it in screenshots. If it leaks, regenerate it in Supabase → Settings → API.
+  
+
+---
+
+## Customization & development
+
+  
+    Yes — fork the repo. `apps/ui/` is a standard Next.js app (App Router, Tailwind CSS, shadcn components). Modify, rebuild, and deploy from your fork. Pull upstream changes at your own cadence.
+
+    If your changes might benefit others, open a PR.
+  
+
+  
+    Yes. Copy `templates/default/` to `templates/your-role/` and edit the identity files. The gateway picks up new templates from `/opt/templates/` at boot. Rebuild the gateway image with your templates included, or set `TEMPLATES_SOURCE` in `.env` to point at an external repo.
+
+    See [Templates reference →](/reference/templates)
+  
+
+  
+    The routine trigger types are defined in the UI and matched in the inbox dispatcher. Adding a new trigger type requires:
+
+    1. A new entry in the routine trigger type enum (via a migration)
+    2. A place in the UI or a backend hook that creates the `agent_inbox_items` row
+    3. The dispatcher handles it automatically — it dispatches any actionable inbox item
+
+    See [Inbox dispatch reference →](/reference/inbox-dispatch)
+  
+
+  
+    - Read [Contributing →](/development/contributing) for the PR process
+    - Bug reports: [GitHub Issues](https://github.com/yourhq/yourhq/issues)
+    - Design questions, roadmap: [GitHub Discussions](https://github.com/yourhq/yourhq/discussions)
+    - Security issues: `security@yourhq.ai` only
+
+    Local development setup is in [Local development →](/development/local-development).
+  
+
+  
+    Currently: the maintainers, beta testers, and early adopters who've discovered it. The project targets founders, solo operators, and small teams who want their AI agents to do real background work on their own infrastructure — not in a SaaS they don't control.
+
+---
+
+# Roadmap
+
+Source: https://docs.yourhq.ai/getting-started/roadmap
+
+# Roadmap
+
+Where HQ is now, what ships in v0.1, and what comes after.
+
+## Shipped
+
+### Core platform
+
+- One repo (`yourhq/yourhq`) for UI, gateway, dispatcher, runner, templates, migrations, installer, and docs
+- `docker-compose.yml` stack with five services and Docker healthchecks on all of them
+- Interactive `installer/install.sh` with local, Tailscale, and public networking modes
+- Gateway runtime with OpenClaw, Chrome/Chromium, Xtigervnc, XFCE desktop, noVNC, and files API
+- `RUNTIME_MODE` env var (`docker` | `systemd` | `e2b`) for portable entrypoint behavior
+- Agent templates bundled into the gateway image (16 templates, each with a README)
+- Multi-arch GHCR images for amd64 and arm64
+- Multi-gateway database model with `gateways` table and `agents.gateway_id`
+- Tailscale as a host-level dependency, not a container dependency
+
+### Multi-tenant schema
+
+- `tenants` table with a fixed default UUID for single-tenant OSS installs
+- `tenant_id` foreign key on all ~30 tenant-owned tables with cascade deletes
+- Tenant-scoped unique constraints (e.g. `gateways(tenant_id, slug)` instead of `gateways(slug)`)
+- RLS policies scoped by `tenant_id` extracted from JWT `app_metadata`
+- All RPCs and triggers updated for tenant-aware leasing and filtering
+- Status enum unification: `ready`, `error`, `paused`, `provisioning`, `hibernating` for both agents and gateways
+- `_schema_version` tracking table (currently at v22)
+- `last_heartbeat_at` on both `gateways` and `agents` tables
+
+### Workspace and onboarding
+
+- First-boot onboarding in the browser
+- Project registry in `/config/projects.json` and `/config/secrets.json`
+- Runtime Supabase config injection with no `NEXT_PUBLIC_*` rebuild requirement
+- Project switcher and project settings
+- Supabase validation during onboarding
+- Account creation and sign-in flow
+- Workspace setup wizard with presets for owner profile, pipeline, fields, and streams
+- CRM, tasks, knowledge, routines, collections, notifications, activity, and settings pages
+
+### Gateway and provider operations
+
+- Settings → Gateways UI with health indicators, stale heartbeat detection, and label editing
+- Single-use gateway registration tokens and generated installer command
+- URL override support for custom domains and reverse proxies
+- Desktop modal proxied through the UI — no exposed VNC port, auto-connects with the gateway's password
+- Desktop label in the UI (not "noVNC")
+- Pause and resume controls for both gateways and agents
+- Settings → Connections UI
+- API-key, OAuth-paste, device-code, CLI-reuse, and local URL provider auth flows
+- Provider list, removal, refresh, and default-model command support
+- Template update propagation ("Update agents" button dispatches `update_all` to the gateway)
+
+### Agent operations
+
+- Agent creation wizard from templates
+- Multi-channel support (Telegram, Discord, Slack, None) with per-channel credential provisioning and pairing
+- Agent file browser and editor
+- Agent operations and command history
+- Unified knowledge system with scope-based agent boot context (workspace pinned + agent-scoped items)
+- Collections for custom structured data
+- Entity links for universal cross-entity references
+- File processing pipeline for knowledge items
+- Source connections for external knowledge sync
+- Agent triggers and inbox history
+- Schedule routines with cron presets (15 min to daily) via pg_cron
+- Inline model and provider default selection
+- Agent org chart through `reports_to_id`
+- Runtime delegation context for managers and direct reports
+- Per-agent LLM usage tracking and monthly budgets
+- Budget warning, exceeded notifications, and hard cutoff enforcement
+
+### Observability and operations
+
+- System page with Commands, Inbox, and Audit Log tabs
+- Status, module, action, and actor filters across all log views
+- Realtime subscriptions and pagination on all log views
+- Structured JSON logging in both daemons (gateway_id and tenant_id in every line)
+- Schema version banner ("Update available") in the dashboard shell
+- `scripts/diagnostic-bundle.sh` for support triage
+
+### Docs and migration tooling
+
+- Docs site at `docs.yourhq.ai` (Mintlify) with self-host, concepts, and reference sections
+- Public deployment guide covering Tailscale Serve, Tailscale Funnel, Cloudflare Tunnel, and classic reverse proxies
+- Security hardening guide (Supabase auth gates, RLS, noVNC exposure, gateway auth tokens)
+- Per-template READMEs explaining intended role, tools, and first tasks
+- Migration runner CLI (`apps/migrate/`) with one-click and SQL editor fallback modes
+
+## Remaining for v0.1
+
+Small items to address before tagging. None are blockers, but they'd be good to ship.
+
+- **End-to-end install test** — fresh VPS, Codespaces, and M-series Mac. Manual checklist is fine for v0.1; automated test suite can follow.
+
+## Next (post-v0.1)
+
+- **Sentry (env-gated)** — `sentry-sdk` in daemons, `@sentry/nextjs` in UI. Only active when `SENTRY_DSN` is set. Ships alongside other hosted integrations.
+- **Templates source UI** — switch between bundled templates and a custom git URL per project.
+- **Pretty tailnet URLs** — optional Tailscale Serve automation in the installer for `http://hq` instead of ported URLs.
+
+## Hosted Offering
+
+`yourhq.ai` signup flow for users who do not want to self-host. Same monorepo, same images, controlled by `DEPLOYMENT_MODE=hosted` env var. Self-hosted code stays usable on its own.
+
+- Worker service (`apps/worker/`) for provisioning, billing, and sandbox lifecycle
+- Per-user Supabase project provisioning via Management API
+- E2B sandbox hosting (gateway Dockerfile runs on E2B with `RUNTIME_MODE=e2b`)
+- Stripe billing ($30/month per workspace, self-serve add/cancel)
+- Magic link authentication
+- Hosted registry backed by a master Supabase accounts database
+- noVNC proxy with E2B access token injection (extends the `/desktop/` proxy already in OSS)
+- Onboarding flow that skips Supabase and gateway setup steps
+
+## Longer-Term Ideas
+
+- Free hosted tier with shared Supabase and tenant data portability (export → bundle → import)
+- Per-agent view in the desktop modal with pause, takeover, and resume
+- Agent-to-agent workflow builder
+- Native apps (macOS menu bar, iOS Shortcuts)
+- Community template marketplace
+- MCP-first integrations where they can replace direct plugins
+- Stronger per-agent isolation for operators who need stricter security boundaries
+
+## How To Influence The Roadmap
+
+- Open issues labeled `feature-request` with a clear use case.
+- Start discussions in `github.com/yourhq/yourhq/discussions`.
+- Send PRs for docs, templates, UI polish, gateway hardening, or well-scoped integrations.
+- For large architecture changes, open an issue first so the design can be discussed before implementation.
+
+---
+
+# Getting started with HQ
+
+Source: https://docs.yourhq.ai/hosted/getting-started
+
+> Sign up, set up your workspace, and create your first agent — all from your browser.
+
+HQ hosted gives you the full platform without managing any infrastructure. You sign up, we provision a workspace, and you're ready to create agents in under two minutes.
+
+> 
+  This guide is for the hosted version at [yourhq.ai](https://yourhq.ai). If you want to self-host HQ on your own machine, see the [self-host quickstart](/getting-started/quickstart) instead.
+
+---
+
+## What you need
+
+  - **An email address**: 
+    Used for sign-in (magic link — no password to remember).
+  
+
+  - **A model API key**: 
+    Any provider: OpenAI, Anthropic, Gemini, Ollama, and more. You'll add this after your workspace is ready.
+  
+
+---
+
+## Step 1 — Sign up
+
+  
+### Go to yourhq.ai and click Get started
+
+    You'll see a short onboarding flow — three screens.
+  
+
+  
+### Enter your details
+
+    - **Your name** — how agents will address you
+    - **Workspace name** — whatever you'd like to call it (e.g. your company or project name)
+    - **Context** — pick the preset that best matches what you'll use HQ for. This seeds your pipeline stages, fields, and streams. You can change everything later.
+
+    Presets: Growth, Sales, Recruiting, Clients, Personal, Other.
+  
+
+  
+### Confirm and pay
+
+    Review your workspace details and proceed to checkout. HQ is **$30/month per workspace**, billed through Stripe.
+  
+
+---
+
+## Step 2 — Watch your workspace come online
+
+After payment, you'll see a live provisioning screen. Each step checks off as it completes:
+
+1. **Creating database** — a dedicated Supabase project, just for you
+2. **Applying schema** — tables, functions, and security policies
+3. **Setting up your workspace** — your account, pipeline, and fields
+4. **Starting agent runtime** — a sandboxed environment where your agents run
+5. **Connecting gateway** — the runtime registers with your workspace
+
+This usually takes about a minute. When it's done, you'll see **"Your workspace is ready"** and a button to sign in.
+
+---
+
+## Step 3 — Sign in
+
+Check your email for a sign-in link. Click it — you'll land directly in your dashboard. No password needed; HQ uses magic links.
+
+> 
+  The link expires after 1 hour. If it's gone, go to [yourhq.ai/login](https://yourhq.ai/login) and request a new one.
+
+---
+
+## Step 4 — Connect a model provider
+
+Go to **Settings → Connections** and add a provider. Your agents need a model to think with.
+
+  
+    1. Go to [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+    2. Create a new key
+    3. Back in HQ: click **Add connection → OpenAI → API key**
+    4. Paste your key and click **Connect**
+
+    Cost: ~$0.01–0.10 per agent conversation depending on the model.
+  
+  
+    1. Go to [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
+    2. Create a new key
+    3. Back in HQ: click **Add connection → Anthropic → API key**
+    4. Paste your key and click **Connect**
+  
+  
+    HQ supports 15+ providers: Gemini, DeepSeek, Mistral, Groq, OpenRouter, and more. Click **Add connection** to see the full list.
+  
+
+> 
+  HQ never touches your API keys for billing. You pay the model provider directly — HQ just routes calls through your key.
+
+---
+
+## Step 5 — Create your first agent
+
+Go to **Agents → New Agent**.
+
+  
+### Pick a template
+
+    Choose a role. **Assistant** is a good general-purpose starting point. Each template comes with pre-loaded skills, memory structure, and a personality.
+  
+
+  
+### Set identity
+
+    Give your agent a name. The slug is auto-generated. You can add an emoji and description.
+  
+
+  
+### Choose a channel
+
+    How you'll talk to your agent:
+    - **Telegram** — easiest. Create a bot at [@BotFather](https://t.me/botfather) and paste the token.
+    - **Discord** — create a bot in the [Discord Developer Portal](https://discord.com/developers/applications) and paste the token.
+    - **None** — skip channels and interact through tasks, routines, and the remote desktop.
+  
+
+  
+### Create
+
+    Click **Create Agent**. HQ provisions the agent on your runtime — this takes about 60 seconds.
+  
+
+  
+### Pair your channel (Telegram / Discord only)
+
+    Send a DM to your bot. It replies with a 6-digit pairing code. Paste that code in the agent's detail page → **Pairing Code** → click **Approve**. Your next message triggers the agent.
+  
+
+---
+
+## You're set up
+
+Your hosted HQ is running. Here's what to explore next:
+
+  - **Pick a model per agent**: 
+    Assign different models and thinking levels to each agent.
+  
+
+  - **Understand agents**: 
+    Memory, files, skills, org chart, and how agents actually work.
+  
+
+  - **Set usage budgets**: 
+    Avoid surprise API bills with per-agent monthly limits.
+  
+
+  - **Manage your account**: 
+    Add workspaces, manage billing, or cancel.
+
+---
+
+# Account & billing
+
+Source: https://docs.yourhq.ai/hosted/account-billing
+
+> Manage workspaces, update your payment method, and understand how cancellation works.
+
+Your account page is at **Account** in the sidebar (or navigate to `/dashboard/account`). From here you can see all your workspaces, manage billing, and sign out.
+
+---
+
+## Workspaces
+
+Each workspace is an independent HQ environment — its own database, agents, CRM, knowledge, and agent runtime. Workspaces don't share any data with each other.
+
+### Adding a workspace
+
+Click **Add workspace** on the account page. You'll go through the same flow as your initial signup: pick a name, choose a context preset, and confirm payment. Each workspace is billed separately at **$30/month**.
+
+### Workspace status
+
+| Status | Meaning |
+|---|---|
+| **Active** | Workspace is running. Agents, CRM, and all features work normally. |
+| **Setting up** | Provisioning is in progress. Usually takes about a minute. |
+| **Canceling** | You've requested cancellation. Workspace stays active for 30 days. |
+| **Canceled** | Grace period expired. Workspace and all its data have been deleted. |
+| **Pending** | Payment hasn't been confirmed yet. |
+
+---
+
+## Billing
+
+HQ uses Stripe for all payments. Click **Open Stripe** on the account page to access the Stripe Customer Portal, where you can:
+
+- Update your payment method (card, bank account)
+- View and download invoices
+- See your next billing date
+
+### Pricing
+
+**$30/month per workspace.** This includes:
+
+- A dedicated database (your own Supabase project)
+- A dedicated agent runtime (sandbox)
+- Unlimited agents, contacts, tasks, and knowledge items
+- All features — no tier restrictions
+
+Model API costs are separate. You pay your model provider (OpenAI, Anthropic, etc.) directly through your own API key. HQ never charges for model usage.
+
+---
+
+## Cancellation
+
+To cancel a workspace, click **Cancel** next to it on the account page. You'll be asked to confirm.
+
+### What happens when you cancel
+
+1. **Immediately:** status changes to "Canceling." Your workspace keeps working normally.
+2. **30-day grace period:** you have 30 days to change your mind. During this time, everything stays active — agents run, data is accessible, billing stops at the end of the current cycle.
+3. **After 30 days:** the workspace is permanently deleted. This includes your database, agent runtime, all agent data, CRM contacts, knowledge items, and files. This cannot be undone.
+
+> 
+  Cancellation is **per workspace**, not per account. If you have multiple workspaces, canceling one doesn't affect the others.
+
+### Reactivating
+
+During the 30-day grace period, contact `support@yourhq.ai` to reactivate your workspace.
+
+---
+
+## Signing in
+
+HQ uses **magic links** — no passwords. Enter your email at [yourhq.ai/login](https://yourhq.ai/login) and check your inbox for a sign-in link.
+
+- Links expire after **1 hour**
+- Each link is single-use
+- If you have multiple workspaces, you'll be signed into the one you used most recently
+
+### Signing out
+
+Click **Sign out** at the bottom of the account page, or in the sidebar.
+
+---
+
+## Multiple workspaces
+
+If you have more than one workspace, you can switch between them from the sidebar. Each workspace has its own set of agents, data, and settings. Signing in always takes you to your most recently active workspace.
+
+---
+
+## Data and privacy
+
+- **Your data is yours.** Each workspace gets a dedicated Supabase project. We don't share data between workspaces or customers.
+- **API keys are stored in your workspace's database**, not in a shared system. They're only used to route model calls on your behalf.
+- **We can't see your agent conversations.** Agent memory, messages, and tool outputs live in your dedicated database.
+
+For more on the security model, see [Security](/concepts/security-model).
+
+---
+
+# Hosted FAQ
+
+Source: https://docs.yourhq.ai/hosted/faq
+
+> Common questions about HQ's hosted offering — pricing, data, cancellation, and differences from self-hosting.
+
+HQ hosted is the managed version of HQ at [yourhq.ai](https://yourhq.ai). You get the same platform as the open-source self-hosted version — agents, CRM, tasks, knowledge, routines — without managing Docker, Supabase, or any infrastructure.
+
+    You sign up, we provision a dedicated workspace (database + agent runtime), and you're ready to create agents in under two minutes.
+  
+
+  
+    **$30/month per workspace.** This includes:
+
+    - Dedicated database (your own Supabase project)
+    - Dedicated agent runtime (sandbox)
+    - Unlimited agents, contacts, tasks, and knowledge items
+    - All features — no tier restrictions
+
+    **Model API costs are separate.** You bring your own API key (OpenAI, Anthropic, etc.) and pay your provider directly. HQ never charges for model usage.
+  
+
+  
+    Everything. The hosted version runs the same codebase as the open-source version. The only difference is who manages the infrastructure:
+
+    | | Self-hosted | Hosted |
+    |---|---|---|
+    | **You manage** | Docker, Supabase, networking, updates | Nothing |
+    | **We manage** | Nothing | Database, agent runtime, updates |
+    | **Features** | All | All |
+    | **Agents** | Unlimited | Unlimited |
+    | **Data location** | Your machine | Dedicated Supabase project (US East by default) |
+    | **Cost** | Infrastructure + model API | $30/mo + model API |
+
+    Self-hosted is free (you pay for your own infrastructure). Hosted is $30/mo and we handle infrastructure.
+  
+
+  
+    Not currently — there's no free trial or free tier. If you want to evaluate HQ without paying, the [self-hosted version](/getting-started/quickstart) is free and identical in features.
+  
+
+---
+
+## Data and security
+
+  
+    Each workspace gets a **dedicated Supabase project** — your database is not shared with other customers. By default, projects are provisioned in US East (us-east-1).
+
+    Your agent runtime runs in a dedicated sandbox. Agent memory, files, Chrome profiles, and conversation history live in that sandbox.
+  
+
+  
+    We have administrative access to the Supabase Management API (needed to provision and manage your project), but we do not access your workspace data in normal operations. Your agent conversations, CRM contacts, knowledge items, and API keys live in your dedicated project.
+
+    HQ is open source — you can audit exactly what the hosted version runs.
+  
+
+  
+    Your model provider API keys (OpenAI, Anthropic, etc.) are stored in your workspace's dedicated Supabase project. They're used only to route model calls on your behalf. They're never stored in or accessible from a shared system.
+  
+
+  
+    Data portability is on the roadmap. The goal is to let you export your full workspace and import it into a self-hosted HQ instance (or vice versa) with a single command. The database schema is identical between hosted and self-hosted.
+
+    In the meantime, your Supabase project uses standard Postgres — all your data is in standard tables with documented schemas.
+  
+
+---
+
+## Account management
+
+  
+    Yes. Each workspace is independent — separate database, agents, CRM, and billing. Add a workspace from the **Account** page. Each is billed at $30/month.
+  
+
+  
+    Go to **Account** → click **Cancel** next to the workspace. Your workspace stays active for 30 days (grace period), then it's permanently deleted. Canceling one workspace doesn't affect others.
+
+    See [Account & billing](/hosted/account-billing) for details.
+  
+
+  
+    During the 30-day grace period: everything stays active. After 30 days: the agent runtime is destroyed, the Supabase project is deleted, and all data is permanently removed. This cannot be undone.
+  
+
+  
+    Data migration between hosted and self-hosted is on the roadmap. The schema is identical, so the migration is technically straightforward — we're building a one-click tool for it.
+
+    Until then, you'd need to manually export/import your Postgres data.
+  
+
+  
+    Go to **Account** → **Open Stripe**. The Stripe Customer Portal lets you update your card, view invoices, and see your next billing date.
+  
+
+---
+
+## Agents and features
+
+  
+    All of them — the same as self-hosted. HQ is model-agnostic:
+
+    - **API key providers**: OpenAI, Anthropic, Gemini, DeepSeek, Mistral, Groq, OpenRouter, and 15+ more
+    - **OAuth providers**: OpenAI Codex, GitHub Copilot
+
+    Each agent can use a different model. You pay the provider directly through your own API key.
+
+    
+> 
+      Local models (Ollama, LM Studio) require a publicly reachable URL since the agent runtime runs in a cloud sandbox, not on your machine.
+    
+
+  
+
+  
+    Yes. Channel setup works exactly the same as self-hosted:
+
+    - **Telegram**: create a bot at [@BotFather](https://t.me/botfather), paste the token
+    - **Discord**: create a bot in the Developer Portal, paste the token
+    - **Slack**: OAuth flow through HQ's settings
+
+    Webhooks from messaging platforms route directly to your agent runtime.
+  
+
+  
+    There's no hard limit on the number of agents. In practice, the runtime handles 5–10 active agents comfortably. If you need more, contact us.
+  
+
+  
+    No. We handle all infrastructure updates — database migrations, runtime updates, and security patches. Your workspace is always on the latest version.
+  
+
+  
+    Not directly in the hosted version (you don't have filesystem access to the runtime). You can customize each agent's identity, memory, skills, and behavior through the UI after creation.
+
+    If you need full template customization, the self-hosted version gives you complete filesystem access.
+  
+
+---
+
+## Support
+
+  
+    - **Email**: support@yourhq.ai
+    - **GitHub Issues**: [github.com/yourhq/yourhq/issues](https://github.com/yourhq/yourhq/issues) for bugs
+    - **GitHub Discussions**: [github.com/yourhq/yourhq/discussions](https://github.com/yourhq/yourhq/discussions) for questions and ideas
+  
+
+  
+    Email `security@yourhq.ai`. Do not open a public GitHub issue for security vulnerabilities.
 
 ---
 
@@ -165,7 +1028,7 @@ Source: https://docs.yourhq.ai/getting-started/quickstart
 > Get HQ running in about 15 minutes. You need Docker, a free Supabase account, and a model API key.
 
 > 
-  **Not technical?** That's fine. The install is one command in a terminal and a few steps in your browser. You don't need to edit code or understand Docker to get started.
+  **Not technical?** That's fine. The install is one command in a terminal and a few steps in your browser. You don't need to edit code or understand Docker to get started. Or skip infrastructure entirely with [HQ hosted](/hosted/getting-started).
 
 ## Before you begin
 
@@ -347,7 +1210,7 @@ Go to **Agents → New Agent**.
 
     This is how you'll talk to your agent:
     - **Telegram** — easiest to set up. Create a bot at [@BotFather](https://t.me/botfather) and paste the token.
-    - **None** — skip for now and interact through tasks and automations instead.
+    - **None** — skip for now and interact through tasks and routines instead.
   
 
   
@@ -389,418 +1252,6 @@ Your HQ is running. Here's what to explore next:
 
 ---
 
-# FAQ
-
-Source: https://docs.yourhq.ai/getting-started/faq
-
-> Common questions about HQ — what it is, how it works, and how to run it.
-
-HQ is an open-source platform for running AI agents on your own infrastructure. You bring a Docker host and a free Supabase account; HQ gives you the UI, the agent runtime, a CRM, a task system, and a library of agent templates.
-
-    Agents have real memory, can browse the web, use tools, manage files, and respond through messaging channels (Telegram, Discord, Slack). They're not chat bots — they run as persistent processes that do background work on your behalf.
-  
-
-  
-    About 15 minutes:
-
-    - ~2 min to create a Supabase project
-    - ~3 min to run migrations and create an auth user
-    - ~5 min for Docker to pull images on first run (~1.5 GB)
-    - ~2 min to connect your model provider and create the first agent
-
-    See the [Quickstart →](/getting-started/quickstart)
-  
-
-  
-    No. The install is a single `curl | bash` command. Everything else — Supabase setup, agent creation, automations — is done through the UI. You don't need to edit any code or understand Docker internals to get started.
-
-    If you want to customize agent templates, build your own, or contribute to the project, coding knowledge helps — but it's entirely optional.
-  
-
-  
-    Not yet. A hosted offering at `yourhq.ai` is on the roadmap — you'd sign up and skip the self-hosting entirely. Until then, everyone self-hosts.
-
-    See [Roadmap →](/getting-started/roadmap)
-  
-
-  
-    - **Your data stays on your machine.** No third party has access to your CRM, documents, or agent outputs.
-    - **No per-seat pricing.** Run as many agents as your hardware can handle.
-    - **Open source.** Fork it, customize it, ship your own version.
-    - **Offline-capable.** Gateways can run on a laptop or home server with no cloud dependency.
-
-    The trade-off: you're responsible for updates, backups, and debugging. If that's unappealing, wait for the hosted offering.
-  
-
-  
-    It's the headquarters metaphor — one place where you manage everything. Short, memorable, hard to misspell.
-  
-
----
-
-## Agents & models
-
-  
-    An agent is a persistent workspace made up of:
-
-    - A **git branch** — holds identity files, memory notes, skills, and docs
-    - A **Chrome profile** — persistent cookies and logged-in browser sessions
-    - A **messaging channel** — Telegram, Discord, Slack, or none
-    - An **OpenClaw session** — the runtime that executes prompts and tool calls
-
-    Agents have real memory across sessions, can browse the web, send messages, edit files, and call APIs. They run as background processes, not just in response to messages.
-  
-
-  
-    HQ is model-agnostic. Agents use whatever provider you configure:
-
-    - **API key providers**: OpenAI, Anthropic, Gemini, DeepSeek, Mistral, Groq, OpenRouter, and 15+ more
-    - **OAuth providers**: OpenAI Codex, GitHub Copilot
-    - **Local / self-hosted**: Ollama, LM Studio, vLLM, any OpenAI-compatible server
-
-    There is no default or required provider. You can set different models per agent.
-
-    See [Connect a model provider →](/guides/connect-model-provider)
-  
-
-  
-    Yes. Ollama lets you run models like Llama 3, Mistral, and Gemma entirely on your machine — no API costs, fully private. Install Ollama, pull a model, and point HQ at `http://host.docker.internal:11434`.
-
-    Local models are slower and less capable than frontier models for complex tasks, but they're free and work offline.
-
-    See the Ollama walkthrough in [Connect a model provider →](/guides/connect-model-provider)
-  
-
-  
-    Yes. Each agent has its own model selector on its detail page. A common pattern: use a frontier model (GPT-4o, Claude 3.5) for agents doing complex reasoning, and a cheap/fast model or Ollama for agents doing simple lookups.
-  
-
-  
-    Yes — agents share the same Supabase database, so tasks, contacts, documents, and comments are all visible across agents.
-
-    Collaboration patterns:
-    - **@-mentions**: type `@agent-slug` in any task or document comment to wake that agent
-    - **Automations**: set a rule so agent A's output (a status change, new task, etc.) triggers agent B
-    - **Org chart**: agents can be arranged into a manager/direct-report hierarchy. That hierarchy is injected into agent boot context and gives agents a clear delegation model
-
-    See [Automations →](/guides/automations)
-  
-
-  
-    It depends on how you've configured it:
-
-    - **Soft threshold only** — a notification fires when the agent crosses the warning percentage. The agent keeps working.
-    - **Hard cutoff enabled** — the runtime blocks further LLM replies and the dispatcher stops waking the agent for background work. The agent is effectively paused until the next budget period (first of the month) or until you raise the limit.
-
-    See [Usage budgets →](/guides/usage-budgets)
-  
-
-  
-    HQ ships 15 built-in templates:
-
-    `default`, `analytics`, `assistant`, `chief-of-staff`, `cmo`, `cofounder`, `crm-researcher`, `designer`, `market-researcher`, `newsletter-editor`, `newsletter-writer`, `sales-copywriter`, `script-writer`, `social-strategist`, `social-writer`
-
-    Each template comes with pre-loaded identity files, skills, and a personality. You pick one when creating an agent — you can customize everything afterward.
-
-    See [Templates reference →](/reference/templates)
-  
-
-  
-    Yes. Copy `templates/default/` to `templates/your-role/`, edit the identity files (`IDENTITY.md`, `SOUL.md`, `USER.md`, `MEMORY.md`), and add role-specific skills under `skills/`. The gateway picks up new templates automatically when it reboots.
-
-    If your template might be useful to others, open a PR.
-
-    See [Agents →](/concepts/agents)
-  
-
----
-
-## Self-hosting & operations
-
-  
-    **Minimum:** Any machine with 4 GB RAM and Docker. A t3.medium on AWS (~$20/month) or the equivalent Hetzner CX22 (~$4/month) works well.
-
-    **Resource usage per gateway:**
-    - Idle (1–2 agents): ~1.5 GB RAM, 5–10% CPU
-    - Active agent (browsing/running): +~500 MB RAM, CPU spikes during work
-
-    **Recommended minimums:**
-    - t3.small (2 GB RAM): absolute floor, 1 agent
-    - t3.medium (4 GB RAM): comfortable for 2–3 active agents
-    - t3.large / m5.large: heavier use, 5+ agents
-
-    Raspberry Pi 4/5 (arm64, 4–8 GB) works fine — arm64 images are published automatically.
-  
-
-  
-    The gateway needs internet for:
-    - Model API calls (unless using Ollama or another local model)
-    - Supabase connectivity (unless you self-host Supabase)
-    - OpenClaw plugin updates
-
-    Gateway agents need internet to browse the web. Beyond that, a local model + self-hosted Supabase gives you a fully offline setup.
-  
-
-  
-    Yes. Each gateway registers itself with a unique `GATEWAY_ID`. Agents are bound to a specific gateway via a foreign key; the UI talks to each gateway via its stored reachable URL.
-
-    Example: UI on your laptop, one gateway on a Mac mini at home, one gateway on a VPS — all pointing at the same Supabase project.
-
-    To add a gateway: **Settings → Gateways → Add Gateway**. HQ generates a one-time registration token and gives you the installer command for the new host.
-
-    See [Add a gateway →](/self-host/add-gateway)
-  
-
-  
-    Yes. One HQ UI instance can manage multiple independent Supabase projects via the project registry. Use the project picker in the top nav to switch between workspaces. Each workspace is completely isolated — separate agents, data, gateways, and auth users.
-
-    You can also run multiple Compose stacks on the same host by setting a different `COMPOSE_PROJECT` in each `.env` — they get separate volumes and container names.
-  
-
-  
-    Yes. Raspberry Pi 4 or 5 (arm64) runs the full stack. The Pi 4 with 4 GB RAM is the minimum; Pi 5 with 8 GB is comfortable. arm64 images are built and published automatically — the installer handles it.
-  
-
-  
-    Several options, from simplest to most involved:
-
-    1. **Tailscale** (recommended) — install Tailscale on both your phone and the HQ host, access via `http://:3000`. Private, no port exposure.
-    2. **Tailscale Serve** — `sudo tailscale serve --bg --https=443 localhost:3000` → TLS access at `https://hq..ts.net`
-    3. **Tailscale Funnel** — makes HQ accessible from the internet without Tailscale on the phone
-    4. **Reverse proxy** — Cloudflare Tunnel, nginx, Caddy, etc. (see [Networking](/self-host/networking))
-
-    See [Networking →](/self-host/networking)
-  
-
-  
-    ```bash
-    cd ~/.yourhq
-    docker compose pull
-    docker compose up -d
-    ```
-
-    No rebuilds required — the UI reads its Supabase config from a runtime volume, not from the image.
-
-    You can also trigger updates from the UI: **Settings → Gateways → hover a gateway row → Update gateway**.
-
-    
-> 
-      If a new release includes database migrations, run them in the Supabase SQL Editor **before** pulling new images. Check the [GitHub releases page](https://github.com/yourhq/yourhq/releases) first.
-    
-
-  
-
-  
-    Three things to back up:
-
-    1. **Supabase** — your contacts, tasks, agents, documents, audit log. Use Supabase built-in backups (Pro tier) or `pg_dump` to a file. See [Operations →](/self-host/operations)
-    2. **Gateway state volume** — per-agent git branches, Chrome profiles, OpenClaw config. Back up with `docker run --rm -v yourhq-gateway-state:/src -v $(pwd):/dst alpine tar -czf /dst/gateway-state.tar.gz -C /src .`
-    3. **`.env`** — contains secrets. Store in a password manager or encrypted disk.
-
-    Optional: set `GIT_REMOTE_URL` in `.env` to continuously sync agent branches to GitHub/Gitea.
-  
-
-  
-    ```bash
-    cd ~/.yourhq
-    docker compose down -v   # deletes containers AND volumes — all agent state gone
-    cd ..
-    rm -rf .yourhq
-    ```
-
-    To also delete the database: Supabase dashboard → Settings → General → Delete project.
-
-    
-> 
-      `docker compose down -v` is irreversible. Back up the gateway state volume first if you want to keep anything.
-    
-
-  
-
-  
-    Infrastructure:
-    - **Laptop / home server**: free
-    - **Hetzner CX22** (~2 vCPU, 4 GB RAM): ~$4/month
-    - **AWS t3.medium** (2 vCPU, 4 GB RAM): ~$20/month
-
-    Supabase free tier covers small and personal use. Pro is $25/month if you hit the free tier limits.
-
-    Model API costs vary widely: typically $10–$100/month per active agent depending on the provider and how much work the agent does. Use Ollama to eliminate API costs entirely.
-  
-
----
-
-## Data & security
-
-  
-    Only you — and only if you set it up that way. HQ stores everything in **your own Supabase project**. Anthropic and the HQ maintainers have no access to your workspace data, your agent conversations, or your API keys.
-
-    The only outbound connections are model API calls (to your chosen provider) and Supabase queries (to your own project).
-  
-
-  
-    HQ does not use row-level security to isolate tenants within a single database. Instead, each workspace gets its own Supabase project — full database-level isolation. The UI's project registry lets one HQ instance switch between multiple isolated projects.
-
-    See [Security model →](/concepts/security-model)
-  
-
-  
-    Email `security@yourhq.ai`. Do not open a public GitHub issue for security vulnerabilities.
-
-    See [Security policy →](/security/security-policy)
-  
-
-  
-    The service role key is stored in the `ui-config` Docker volume on your host — never sent to or stored by Anthropic or the HQ maintainers. It's included in `.env` for the gateway daemons that need direct database access.
-
-    Treat it like a database password: don't commit it to public repos, don't share it in screenshots. If it leaks, regenerate it in Supabase → Settings → API.
-  
-
----
-
-## Customization & development
-
-  
-    Yes — fork the repo. `apps/ui/` is a standard Next.js app (App Router, Tailwind CSS, shadcn components). Modify, rebuild, and deploy from your fork. Pull upstream changes at your own cadence.
-
-    If your changes might benefit others, open a PR.
-  
-
-  
-    Yes. Copy `templates/default/` to `templates/your-role/` and edit the identity files. The gateway picks up new templates from `/opt/templates/` at boot. Rebuild the gateway image with your templates included, or set `TEMPLATES_SOURCE` in `.env` to point at an external repo.
-
-    See [Templates reference →](/reference/templates)
-  
-
-  
-    The automation trigger types are defined in the UI and matched in the inbox dispatcher. Adding a new trigger type requires:
-
-    1. A new entry in the `automation_trigger_type` enum (via a migration)
-    2. A place in the UI or a backend hook that creates the `agent_inbox_items` row
-    3. The dispatcher handles it automatically — it dispatches any actionable inbox item
-
-    See [Inbox dispatch reference →](/reference/inbox-dispatch)
-  
-
-  
-    - Read [Contributing →](/development/contributing) for the PR process
-    - Bug reports: [GitHub Issues](https://github.com/yourhq/yourhq/issues)
-    - Design questions, roadmap: [GitHub Discussions](https://github.com/yourhq/yourhq/discussions)
-    - Security issues: `security@yourhq.ai` only
-
-    Local development setup is in [Local development →](/development/local-development).
-  
-
-  
-    Currently: the maintainers, beta testers, and early adopters who've discovered it. The project targets founders, solo operators, and small teams who want their AI agents to do real background work on their own infrastructure — not in a SaaS they don't control.
-
----
-
-# Roadmap
-
-Source: https://docs.yourhq.ai/getting-started/roadmap
-
-# Roadmap
-
-This doc captures where HQ is now and what remains. Older phase labels are historical context only; several items that used to be described as Phase 2 or Phase 3 are now implemented.
-
-## Shipped
-
-### Foundations
-
-- One repo (`yourhq/yourhq`) for UI, gateway, dispatcher, runner, templates, migrations, and installers
-- `docker-compose.yml` stack with four services
-- Interactive `installer/install.sh` with local, Tailscale, and public networking modes
-- Gateway runtime with OpenClaw, Chrome/Chromium, Xtigervnc, XFCE, noVNC, and files API
-- Agent templates bundled into the image
-- Multi-arch GHCR images for amd64 and arm64
-- Multi-gateway database model with `gateways` and `agents.gateway_id`
-- Gateway file browser/editor through the files API
-- Tailscale as a host-level dependency, not a container dependency
-
-### Workspace and onboarding
-
-- First-boot onboarding in the browser
-- Project registry in `/config/projects.json` and `/config/secrets.json`
-- Runtime Supabase config injection with no `NEXT_PUBLIC_*` rebuild requirement
-- Project switcher and project settings
-- Supabase validation during onboarding
-- Account creation/sign-in flow
-- Workspace setup wizard with presets for owner profile, pipeline, fields, and streams
-- CRM, tasks, documents, assets, automations, notifications, activity, and settings pages
-
-### Gateway and provider operations
-
-- Settings -> Gateways UI
-- Single-use gateway registration tokens
-- Generated gateway installer command
-- Gateway health, stale heartbeat status, label editing, and URL override support
-- noVNC desktop modal from the UI
-- Settings -> Connections UI
-- API-key, OAuth-paste, device-code, CLI-reuse, and local URL provider auth flows through the command runner
-- Provider list, removal, refresh, and default-model command support
-
-### Agent operations
-
-- Agent creation wizard from templates
-- Multi-channel support (Telegram, Discord, Slack, None) with per-channel credential provisioning and pairing
-- Agent file browser/editor
-- Agent operations and command history
-- Agent boot-context documents through `boot:all` and `boot:` tags
-- Agent triggers and inbox history
-- Inline model/provider default selection
-- Agent org chart through `reports_to_id`
-- Runtime delegation context for managers and direct reports
-- Per-agent LLM usage tracking and monthly budgets
-- Budget warning/exceeded notifications and hard cutoff enforcement
-
-### Observability and gateway management
-
-- Gateway update from UI (pull images, restart) with confirmation dialog
-- System page with Commands, Inbox, and Audit Log tabs
-- Status, module, action, and actor filters across all log views
-- Realtime subscriptions and pagination on all log views
-
-## Next
-
-These are the most useful near-term areas for contributors.
-
-- **Migration runner** — replace copy/paste SQL instructions with a guided migration command or UI flow.
-- **Templates source UI** — switch between bundled templates and a custom git URL per project.
-- **Public deployment guide** — reverse proxy, Cloudflare Tunnel, TLS, and auth hardening examples.
-- **Pretty tailnet URLs** — optional Tailscale Serve setup for users who want `http://hq` instead of ported URLs.
-- **Richer budget pricing** — broader model pricing map and clearer treatment of unmetered providers.
-- **Template docs** — per-template READMEs that explain intended role, tools, and first tasks.
-- **Docs site** — render this repository's markdown docs at `docs.yourhq.ai`.
-
-## Hosted Offering
-
-`yourhq.ai` signup flow for users who do not want to self-host. This is a business-layer addition, not a product change; the self-hosted code should stay usable on its own.
-
-- Account management service
-- Signup and billing
-- Automated Supabase project provisioning per tenant
-- Automated gateway provisioning on managed hosts
-- Registry source swap: hosted UI reads project registry from account infrastructure instead of `/config/projects.json`
-
-## Longer-Term Ideas
-
-- Per-agent view in the Open Desktop modal with pause, takeover, and resume
-- Agent-to-agent workflow builder
-- Native apps such as macOS menu bar and iOS Shortcuts integration
-- Marketplace for community templates
-- MCP-first integrations where they can replace direct plugins cleanly
-- Stronger per-agent isolation for operators who need stricter security boundaries
-
-## How To Influence The Roadmap
-
-- Open issues labeled `feature-request` with a clear use case.
-- Start discussions in `github.com/yourhq/yourhq/discussions`.
-- Send PRs for docs, templates, UI polish, gateway hardening, or well-scoped integrations.
-- For large architecture changes, open an issue first so the design can be discussed before implementation.
-
----
-
 # Requirements
 
 Source: https://docs.yourhq.ai/self-host/requirements
@@ -810,7 +1261,7 @@ Source: https://docs.yourhq.ai/self-host/requirements
 HQ is self-hosted software. The minimum setup is one machine that can run Docker and one Supabase project.
 
 > 
-  For a first install, use a laptop or small VPS. You can add more gateways later after the workspace is working.
+  Don't want to manage infrastructure? [HQ hosted](/hosted/getting-started) handles all of this for you — sign up and start creating agents in 2 minutes.
 
 ## Required pieces
 
@@ -876,7 +1327,7 @@ Source: https://docs.yourhq.ai/self-host/supabase
 HQ uses your own Supabase project as its database, auth system, real-time event stream, and storage backbone. You own this project — HQ never touches a shared backend.
 
 > 
-  Supabase has a generous free tier that covers personal use. You only need to upgrade to Pro ($25/month) if you hit the free tier's row or bandwidth limits.
+  Supabase has a generous free tier that covers personal use. You only need to upgrade to Pro ($25/month) if you hit the free tier's row or bandwidth limits. [HQ hosted](/hosted/getting-started) provisions and manages the database for you automatically.
 
 ---
 
@@ -960,7 +1411,7 @@ HQ uses your own Supabase project as its database, auth system, real-time event 
 ## What HQ stores in your project
 
   - **Workspace data**: 
-    Contacts, organizations, tasks, documents, assets, automations, notifications, and audit log.
+    Contacts, organizations, tasks, knowledge items, routines, collections, notifications, and audit log.
   
 
   - **Agent coordination**: 
@@ -1193,7 +1644,8 @@ and options for exposing HQ to the public internet with a custom domain.
 
 If you're just starting out: run the installer, pick **Local-only** or
 **Tailscale**, and come back here when you want to split services across
-machines or put HQ on a custom domain.
+machines or put HQ on a custom domain. (If networking isn't your thing,
+[HQ hosted](/hosted/getting-started) handles all of this.)
 
 ---
 
@@ -1902,7 +2354,7 @@ When you create a new agent, HQ asks which gateway it should run on. The agent's
 The runner daemon has likely stopped. Check: `docker compose logs -f runner | tail -50`. Restart: `docker compose restart runner`.
 
 **Gateway registered but agents won't provision:**
-The `dispatcher` or `runner` may not be running. Check all four services: `docker compose ps`. If any show `Restarting`, tail their logs.
+The `dispatcher` or `runner` may not be running. Check all five services: `docker compose ps`. If any show `Restarting`, tail their logs.
 
 **Token expired before you ran the command:**
 Close the Add Gateway dialog and open it again — this generates a fresh token with a new 10-minute window.
@@ -2132,10 +2584,10 @@ The UI's Supabase config lives in the project registry (runtime, not baked into 
 
 ## Backing up
 
-Three things to back up. Don't skip any of them.
+Three things to back up. Don't skip any of them. ([HQ hosted](/hosted/getting-started) handles backups and updates automatically.)
 
   
-    Supabase stores everything: contacts, tasks, agents, documents, automations, usage history, audit log, and gateway registrations. Losing it means losing your entire workspace.
+    Supabase stores everything: contacts, tasks, agents, knowledge items, routines, collections, usage history, audit log, and gateway registrations. Losing it means losing your entire workspace.
 
     **Option A: Supabase built-in backups (Pro tier)**
 
@@ -2226,7 +2678,7 @@ docker compose logs -f runner
 docker compose logs -f dispatcher
 ```
 
-All four services should show `Status: Up`. If a container is in `Restarting` state, tail its logs to find the error.
+All five services should show `Status: Up`. If a container is in `Restarting` state, tail its logs to find the error.
 
 ### Gateway heartbeat
 
@@ -2326,7 +2778,7 @@ Source: https://docs.yourhq.ai/guides/workspace-setup
 After connecting Supabase and signing in, HQ opens the **Workspace Setup** wizard. This takes about 2 minutes and sets up the core structure of your workspace.
 
 > 
-  Everything you configure here can be changed later from Settings → Pipeline, Settings → Fields, and Settings → Streams. Nothing is permanent.
+  Everything you configure here can be changed later from Settings → Pipeline, Settings → Fields, and Settings → Streams. Nothing is permanent. On [HQ hosted](/hosted/getting-started), the wizard runs during signup — your workspace is pre-configured when you sign in.
 
 ---
 
@@ -2341,7 +2793,7 @@ After connecting Supabase and signing in, HQ opens the **Workspace Setup** wizar
   
 ### Pipeline stages
 
-    Define the stages contacts move through, e.g. `Lead → Qualified → Proposal → Negotiation → Won / Lost`. These power the CRM kanban view and gate automation conditions. You can reorder, rename, or add stages from Settings → Pipeline later.
+    Define the stages contacts move through, e.g. `Lead → Qualified → Proposal → Negotiation → Won / Lost`. These power the CRM kanban view and gate routine conditions. You can reorder, rename, or add stages from Settings → Pipeline later.
   
 
   
@@ -2404,11 +2856,11 @@ Once you complete the wizard, your workspace is active. Next steps:
     Add OpenAI, Anthropic, Ollama, or another provider so agents have a model to use.
   
 
-  - **Set up automations**: 
-    Wire workspace events to agents so background work happens automatically.
+  - **Set up routines**: 
+    Wire workspace events and schedules to agents so background work happens automatically.
   
 
-  - **Add boot documents**: 
+  - **Add knowledge items**: 
     Give agents persistent context they read before every session.
 
 ---
@@ -2476,7 +2928,7 @@ Source: https://docs.yourhq.ai/guides/create-agent
   
 
 > 
-  Slack agents are active immediately after provisioning — no pairing step needed. For agents with no channel, you can still interact via task assignments, comment mentions, and automations.
+  Slack agents are active immediately after provisioning — no pairing step needed. For agents with no channel, you can still interact via task assignments, comment mentions, and routines.
 
 ## After creation: set a model
 
@@ -2708,121 +3160,153 @@ If you remove a provider that's set as the default for some agents, those agents
 
 ---
 
-# Agent boot documents
+# Knowledge and agent context
 
 Source: https://docs.yourhq.ai/guides/agent-boot-docs
 
-> Give agents shared context they read at the start of every session.
+> Give agents shared knowledge and per-agent context using the unified knowledge system.
 
-Boot documents are regular HQ documents that get injected into an agent's context automatically when it wakes up. Use them to give agents durable context they should always have — without repeating yourself every conversation.
-
----
-
-## What boot documents are for
-
-Agents read their boot documents before doing any work. This means you can:
-
-- Tell an agent about your company without explaining it every time
-- Define a writing style or tone it should always use
-- Share a list of current priorities or active projects
-- Set standing rules ("always CC me on outbound emails", "never commit to pricing without asking")
-- Describe standard procedures the agent should follow for recurring tasks
-
-Think of boot documents as the agent's permanent briefing — the things it should always know, regardless of what conversation it's in.
+Knowledge items are how you give agents durable context — company background, style guides, SOPs, research, files, and standing rules — without repeating yourself every conversation. The knowledge system replaces the old documents and assets model with a single, unified library.
 
 ---
 
-## How to tag a document
+## How it works
+
+Every knowledge item has a **kind** (what it is) and a **scope** (who can see it):
+
+  - **Kind**: 
+    **Page** — rich-text documents (company briefs, style guides, priorities).
+    **Playbook** — structured procedures and SOPs.
+    **File** — uploaded files (images, PDFs, spreadsheets, audio, video).
+    **Source** — externally synced content from connected integrations.
+  
+
+  - **Scope**: 
+    **Workspace** — visible to all agents in the workspace. Pin it to include in every agent's boot context.
+    **Agent** — visible only to specific agents, assigned via the agent junction.
+  
+
+---
+
+## Giving agents boot context
+
+Boot context is what an agent reads before doing any work. Two mechanisms control it:
+
+| Mechanism | What it does |
+|---|---|
+| **Workspace scope + pinned** | A pinned workspace-scoped item is injected into **every agent's** startup context. |
+| **Agent scope + agent assignment** | An agent-scoped item assigned to specific agents is injected only for **those agents**. |
 
   
-### Create or open a document
+### Create a knowledge item
 
-    Go to **Documents** in the left sidebar and create a new document, or open an existing one.
+    Go to **Knowledge** in the left sidebar and create a new page, playbook, or upload a file.
   
 
   
-### Add a boot tag
+### Set scope and visibility
 
-    Tag the document with one of the boot prefixes:
+    For **all agents**: set scope to **Workspace** and toggle **Pinned** on.
 
-    | Tag | Scope |
-    |---|---|
-    | `boot:all` | Injected for **every agent** in your workspace |
-    | `boot:` | Injected for **one specific agent** only |
-
-    For example, a company one-pager tagged `boot:all` will be read by every agent. A detailed brief about your newsletter cadence tagged `boot:newsletter-writer` will only be read by that agent.
+    For **specific agents**: set scope to **Agent** and assign the agents who should receive it from the agent picker.
   
 
   
 ### Agent reads it automatically
 
-    The next time the agent wakes up (via a message, a task, or an automation), it reads the tagged document as part of its startup context. No restart required — changes take effect on the next session.
+    The next time an agent wakes up (via a message, a task, or a routine), it reads the item as part of its startup context. No restart required — changes take effect on the next session.
   
 
 ---
 
-## Keeping boot documents effective
+## Organizing knowledge
+
+Use **folders** to organize items by topic. Folders support nesting and custom icons.
+
+Use **tags** for cross-cutting labels (e.g. "q2-2026", "onboarding", "legal"). Tags are separate from scope — they're for your own organization, not for controlling agent access.
+
+Use **pinned** to surface important workspace items in boot context without having to remember which folder they're in.
+
+---
+
+## Keeping knowledge effective
 
 > 
-  Large boot documents slow agents down and reduce their effectiveness. Context has a limit — the more you pack in, the less room the agent has to think about the actual task.
+  Large boot context slows agents down and reduces their effectiveness. Context has a limit — the more you pack in, the less room the agent has to think about the actual task.
 
-**Keep each document focused.** One document per topic is better than one giant document with everything. An agent reads all tagged documents, so you can have multiple short ones.
+**Keep each item focused.** One item per topic is better than one giant document with everything. An agent reads all items in its boot context, so you can have multiple short ones.
 
-**Keep them current.** An agent reading a stale document ("Q1 priorities" in Q3) is worse than reading nothing — it acts on outdated information. Review boot documents quarterly or when your situation changes significantly.
+**Keep them current.** An agent reading stale knowledge ("Q1 priorities" in Q3) is worse than reading nothing — it acts on outdated information. Review pinned items quarterly or when your situation changes significantly.
 
-**Signs a boot document is stale:**
+**Signs knowledge is stale:**
 - The agent references old project names or priorities
 - It uses outdated context in responses
 - It contradicts what you've told it recently in conversation
 
-To update: edit the document directly — changes take effect on the next session.
+To update: edit the item directly — changes take effect on the next session.
 
 ---
 
-## Good boot document examples
+## Good boot context examples
 
   
-    Who you are, what the company does, who the customers are, your stage, your voice. 3–5 paragraphs maximum. Every agent benefits from this context.
+    Who you are, what the company does, who the customers are, your stage, your voice. 3-5 paragraphs maximum. Every agent benefits from this context.
   
   
-    Tone, vocabulary, formatting preferences, what to avoid. Examples of good and bad outputs help more than abstract rules.
+    Tone, vocabulary, formatting preferences, what to avoid. Examples of good and bad outputs help more than abstract rules. Pin it workspace-wide if all agents should follow it, or scope it to specific writer agents.
   
   
-    What matters right now — 3–5 bullet points. Update at the start of each quarter. Helps agents prioritize when they have discretion.
+    What matters right now — 3-5 bullet points. Update at the start of each quarter. Helps agents prioritize when they have discretion.
   
   
     Hard rules that should never be broken: "never commit to pricing", "always CC [name] on outbound", "don't share confidential deal terms". Short list, no ambiguity.
   
   
-    Step-by-step workflows for recurring tasks — e.g., how to research a new contact, how to structure a newsletter draft, how to handle inbound inquiries. Role-specific, so tag per agent.
+    Step-by-step workflows for recurring tasks — e.g., how to research a new contact, how to structure a newsletter draft, how to handle inbound inquiries. Role-specific, so assign to the relevant agents only.
+  
 
 ---
 
-# Automations
+## Entity links
+
+Knowledge items can be linked to tasks, routines, collection records, and agents using **entity links**. Links are bidirectional references — they show up on both the owner and the target.
+
+When an agent claims a task, it receives all linked entities (knowledge items, contacts, organizations, collection records) as context for that task. This replaces the old task attachments system with a universal linking model.
+
+You can also link external URLs. URL links show up alongside entity links but open in a new tab instead of navigating within HQ.
+
+---
+
+# Routines
 
 Source: https://docs.yourhq.ai/guides/automations
 
-> Wire up workspace events to agents so background work happens automatically.
+> Wire up workspace events and schedules to agents so background work happens automatically.
 
-Automations let you define rules: when something happens in the workspace, an agent wakes up and handles it — no manual messaging needed.
+Routines let you define triggers: when something happens in the workspace or on a schedule, an agent wakes up and handles it — no manual messaging needed.
 
-**Where to go:** Settings → Automations
+**Where to go:** Dashboard → Routines
 
 ---
 
-## What automations do
+## What routines do
 
 ```
-Workspace event  →  Rule matches  →  Inbox item created  →  Dispatcher wakes agent  →  Agent processes it
+Trigger (event or schedule)  →  Routine matches  →  Inbox item created  →  Dispatcher wakes agent  →  Agent processes it
 ```
 
-An automation rule is: **when [trigger] matching [conditions], assign work to [agent]**.
+A routine is: **when [trigger] matching [conditions], assign work to [agent]**.
+
+Routines support two trigger types:
+
+- **Event triggers** — fire when a workspace event occurs (contact created, status changed, task assigned, etc.)
+- **Schedule triggers** — fire on a cron schedule (every 15 minutes, hourly, daily, etc.)
 
 The work arrives in the agent's inbox as a background task. The agent picks it up on its next active session, runs the relevant skill, and marks it done.
 
 ---
 
-## Supported triggers
+## Event triggers
 
   - **Contact created**: 
     Fires when a new contact is added to the CRM — manually, by another agent, or via import.
@@ -2841,34 +3325,55 @@ The work arrives in the agent's inbox as a background task. The agent picks it u
   
 
   - **Agent mentioned**: 
-    Fires when `@agent-slug` appears in any task or document comment.
+    Fires when `@agent-slug` appears in any task comment.
   
 
 ---
 
-## Creating an automation rule
+## Schedule triggers
+
+Schedule triggers wake an agent on a recurring cadence. Use these for periodic work: checking inboxes, generating reports, running sweeps, or any task that should happen on a timer.
+
+Available presets include:
+
+- Every 15 minutes
+- Every 30 minutes
+- Hourly
+- Every 6 hours
+- Daily
+- Weekly
+
+Custom cron expressions are also supported for advanced scheduling.
+
+---
+
+## Creating a routine
 
   
-### Open Automations
+### Open Routines
 
-    Go to **Settings → Automations** in the left sidebar. You'll see a list of existing rules (empty on a fresh install).
+    Go to **Routines** in the left sidebar. You'll see a list of existing routines (empty on a fresh install).
   
 
   
-### Click New rule
+### Click New routine
 
-    Click the **+ New rule** button in the top right.
+    Click the **+ New routine** button in the top right.
   
 
   
 ### Set the trigger
 
-    Pick a trigger type from the dropdown. For CRM triggers (contact created, status changed, fields updated), you can optionally add conditions:
+    Choose between **Event** and **Schedule**:
+
+    **For event triggers:** pick a trigger type from the dropdown. For CRM triggers (contact created, status changed, fields updated), you can optionally add conditions:
 
     - **Pipeline stage** — only fire when the contact is in a specific stage
     - **Field value** — only fire when a specific field matches a value
 
     Leave conditions empty to fire on every event of that type.
+
+    **For schedule triggers:** pick a cron preset or enter a custom cron expression.
   
 
   
@@ -2890,12 +3395,12 @@ The work arrives in the agent's inbox as a background task. The agent picks it u
   
 ### Save and activate
 
-    Click **Save**. The rule is active immediately — the next matching event will trigger it.
+    Click **Save**. The routine is active immediately — the next matching event or schedule tick will trigger it.
   
 
 ---
 
-## Example rules
+## Example routines
 
   
     **Trigger:** Contact created  
@@ -2915,30 +3420,38 @@ The work arrives in the agent's inbox as a background task. The agent picks it u
   
 
   
+    **Trigger:** Schedule — daily at 9:00 AM  
+    **Agent:** chief-of-staff  
+    **Summary:** "Morning sweep. Review open tasks, check for stale contacts, and summarize priorities for today."
+
+    The agent wakes every morning and produces a daily briefing.
+  
+
+  
+    **Trigger:** Schedule — every 6 hours  
+    **Agent:** social-strategist  
+    **Summary:** "Check social channels for engagement on recent posts. Flag anything that needs a response."
+
+    Regular monitoring without manual prompting.
+  
+
+  
     **Trigger:** Agent mentioned  
     **Agent:** assistant  
     **Summary:** (the mention text is passed automatically)
 
-    When anyone types `@assistant` in a task or document comment, the assistant wakes up and responds in-thread.
-  
-
-  
-    **Trigger:** Task assigned  
-    **Agent:** chief-of-staff  
-    **Summary:** "A new task has been assigned to you. Review it, break it into subtasks if needed, and begin work."
-
-    Task assignment becomes a wake signal, not just a database change.
+    When anyone types `@assistant` in a task comment, the assistant wakes up and responds in-thread.
   
 
 ---
 
 ## How the agent receives the work
 
-When a rule fires, HQ creates an `agent_inbox_items` row containing:
+When a routine fires, HQ creates an `agent_inbox_items` row containing:
 
-- The trigger event type
-- A summary (your rule note + event context)
-- The related record (contact ID, task ID, etc.)
+- The trigger event type (or `schedule` for schedule routines)
+- A summary (your routine note + event context)
+- The related record (contact ID, task ID, etc.) if applicable
 
 The **inbox dispatcher** wakes the agent within seconds via `openclaw agent --message "[inbox] ..."`. The agent reads its inbox, finds the item, and processes it using its skills.
 
@@ -2946,27 +3459,32 @@ The agent marks items done as it goes. You can see inbox history in **Settings �
 
 ---
 
-## Pausing and deleting rules
+## Pausing and deleting routines
 
-- **Pause a rule:** toggle the rule off. Existing inbox items are unaffected.
-- **Delete a rule:** click the trash icon. Events that already created inbox items will still be processed.
+- **Pause a routine:** toggle the routine off. Existing inbox items are unaffected. Schedule routines stop generating new items while paused.
+- **Delete a routine:** click the trash icon. Events that already created inbox items will still be processed.
 
 ---
 
-## Troubleshooting automations
+## Troubleshooting routines
 
-**Rule fired but agent never responded:**
+**Routine fired but agent never responded:**
 1. Check the agent status — it must be `ready`, not paused or over budget
 2. Check the dispatcher logs: `docker compose logs -f dispatcher`
 3. Check inbox history: Settings → System → Inbox — find the item and check its status
 
-**Rule is not firing:**
+**Event routine is not firing:**
 1. Confirm the trigger type matches the event you're testing
 2. Check that conditions are correct (wrong stage name, etc.)
-3. Verify the rule is enabled (toggle should be on)
+3. Verify the routine is enabled (toggle should be on)
+
+**Schedule routine is not firing:**
+1. Confirm the cron expression is correct
+2. Check that pg_cron is enabled in your Supabase project
+3. Verify the routine is enabled
 
 **Agent responded but work is wrong:**
-Edit the rule summary to be more specific. The summary is the agent's instruction — treat it like a short task description.
+Edit the routine summary to be more specific. The summary is the agent's instruction — treat it like a short task description.
 
 ---
 
@@ -3067,9 +3585,9 @@ This view is useful for identifying which agents are consuming the most model bu
 
 Source: https://docs.yourhq.ai/concepts/features
 
-> A practical tour of HQ's workspace, agents, gateways, automations, documents, CRM, and budgets.
+> A practical tour of HQ's workspace, agents, gateways, routines, knowledge, CRM, and budgets.
 
-HQ is an agent operations system, not just an agent chat UI. It gives one operator a workspace for CRM, tasks, documents, automations, and a fleet of long-lived AI agents that run on infrastructure the operator controls.
+HQ is an agent operations system, not just an agent chat UI. It gives one operator a workspace for CRM, tasks, knowledge, routines, collections, and a fleet of long-lived AI agents that run on infrastructure the operator controls.
 
 This page is the product tour. For system internals, read [Architecture](/concepts/architecture). For installation, read [Installation](/self-host/installation).
 
@@ -3084,15 +3602,15 @@ This page is the product tour. For system internals, read [Architecture](/concep
   
 
   - **Workspace**: 
-    CRM, tasks, documents, assets, automations, notifications, and activity.
+    CRM, tasks, knowledge, routines, collections, notifications, and activity.
   
 
   - **Gateways**: 
     Docker hosts that run agents on infrastructure you control.
   
 
-  - **Automations**: 
-    Convert CRM, task, and comment events into agent work.
+  - **Routines**: 
+    Convert CRM, task, and comment events into agent work via schedule and event triggers.
   
 
   - **Usage budgets**: 
@@ -3105,7 +3623,7 @@ This page is the product tour. For system internals, read [Architecture](/concep
 
 ## Workspace
 
-Every HQ install connects to one or more Supabase projects. A project contains the workspace data: agents, tasks, CRM records, documents, settings, gateway registrations, command history, and usage data.
+Every HQ install connects to one or more Supabase projects. A project contains the workspace data: agents, tasks, CRM records, knowledge, routines, collections, settings, gateway registrations, command history, and usage data.
 
 The first boot flow is intentionally config-light:
 
@@ -3184,7 +3702,7 @@ The agent detail page includes:
 
 - Overview, status, capabilities, and activity.
 - **Model and thinking level** — pick any connected model and reasoning depth from the right rail. Changes take effect on the next wake, no restart needed.
-- Boot context documents.
+- Knowledge items (workspace pinned + agent-scoped boot context).
 - Direct reports and manager assignment.
 - Trigger and inbox history.
 - File browser/editor for the agent branch.
@@ -3268,7 +3786,7 @@ Core capabilities include:
 - Pipeline stages and kanban views.
 - Import wizard with mapping and duplicate handling.
 - Campaign and draft workflows.
-- Automation triggers that can assign work to agents.
+- Routine triggers that can assign work to agents.
 
 CRM records are regular Supabase rows. Agents can read and update them through the bundled HQ skills.
 
@@ -3285,27 +3803,34 @@ Tasks support:
 - Recurrence rules.
 - **Per-task model and thinking overrides** — when assigned to an agent, override the model or reasoning depth for this specific execution without changing the agent's default.
 - Comments and mentions.
-- Attachments.
+- Entity links to knowledge items, contacts, organizations, collection records, and URLs.
 - Agent inbox wakeups on assignment and reassignment.
 
 Mentioning an agent in a comment creates an inbox item for that agent. Assigning a task to an agent does the same. Per-task model overrides are carried through the inbox item's context and passed to the agent session at wake time.
 
-## Documents and Assets
+## Knowledge
 
-Documents are the shared knowledge base. They support folders, tags, pinned state, rich editing, markdown import/export, and boot-context tagging.
+The knowledge system is the unified store for all workspace knowledge. It replaces the earlier separate documents and assets models with a single `knowledge_items` table supporting four kinds:
 
-Agents can receive documents in boot context by tag:
+- **Pages** — rich-text documents (company briefs, style guides, meeting notes).
+- **Playbooks** — structured procedures and SOPs.
+- **Files** — uploaded files (PDFs, images, spreadsheets, audio, video).
+- **Sources** — externally synced content from connected integrations.
 
-- `boot:all` includes a document for every agent.
-- `boot:` includes a document for one agent.
+Knowledge items support folders, tags, pinned state, rich editing, and semantic + full-text search.
 
-Assets are a related library for operational files and references: SOPs, research, images, videos, audio, templates, scripts, spreadsheets, links, and other workspace artifacts.
+Agent boot context is controlled by **scope** and **pinning**:
 
-## Automations and Inbox
+- A **workspace-scoped, pinned** item is included in every agent's startup context.
+- An **agent-scoped** item assigned to specific agents is included only for those agents.
 
-Automations convert workspace events into agent work.
+See [Knowledge system](/concepts/knowledge) for the full architecture and [Knowledge and agent context](/guides/agent-boot-docs) for the practical guide.
 
-Supported patterns include:
+## Routines and Inbox
+
+Routines convert workspace events and schedules into agent work. Each routine has a trigger (event-based or schedule-based) and an assigned agent.
+
+Supported event triggers include:
 
 - Contact created.
 - Contact status changed.
@@ -3313,7 +3838,9 @@ Supported patterns include:
 - Task assigned or reassigned.
 - Agent mentioned in a comment.
 
-Automations create `agent_inbox_items`. The gateway dispatcher leases pending inbox items, checks whether the target agent belongs to that gateway, verifies budget status, and wakes the agent through OpenClaw.
+Schedule triggers run on a cron schedule (e.g. every 15 minutes, hourly, daily) and wake the assigned agent at each interval.
+
+Routines create `agent_inbox_items`. The gateway dispatcher leases pending inbox items, checks whether the target agent belongs to that gateway, verifies budget status, and wakes the agent through OpenClaw.
 
 Inbox items have retry state, attempt counts, lease fields, done/failed/dead-letter statuses, and deduplication keys.
 
@@ -3422,7 +3949,7 @@ Most customization does not require changing code:
 
 - Add templates under `templates/`.
 - Add skills to templates.
-- Configure fields, pipeline stages, streams, and automation rules in the UI.
+- Configure fields, pipeline stages, streams, and routines in the UI.
 - Add model providers through connections.
 - Add gateways through Settings.
 
@@ -3430,7 +3957,7 @@ Code extension points include:
 
 - New UI pages under `apps/ui/src/app`.
 - New gateway command actions in `gateway/daemons/command_runner.py`.
-- New automation behavior in database functions/triggers.
+- New routine behavior in database functions/triggers.
 - New agent skills under template `skills/`.
 - New OpenClaw plugins in `gateway/scripts/plugins/`.
 
@@ -3442,7 +3969,7 @@ Source: https://docs.yourhq.ai/concepts/architecture
 
 # HQ — Architecture
 
-HQ (the codebase at [`yourhq/yourhq`](https://github.com/yourhq/yourhq), hosted at [yourhq.ai](https://yourhq.ai)) is a self-hostable operations platform for running a fleet of personal AI agents. One Next.js UI manages your work — CRM, tasks, docs, automations — and one or more gateway hosts run the agents themselves inside Docker containers you control. The target user is a single operator (founder, solo team, power user) who wants their agents to do real work on their behalf, in their own environment, against their own Supabase project, without handing that work to someone else's multi-tenant cloud. This document is the top-to-bottom tour of how the pieces fit together. It assumes you've skimmed the [README](https://github.com/yourhq/yourhq#readme) and want to know where things actually live.
+HQ (the codebase at [`yourhq/yourhq`](https://github.com/yourhq/yourhq), hosted at [yourhq.ai](https://yourhq.ai)) is a self-hostable operations platform for running a fleet of personal AI agents. One Next.js UI manages your work — CRM, tasks, knowledge, routines — and one or more gateway hosts run the agents themselves inside Docker containers you control. The target user is a single operator (founder, solo team, power user) who wants their agents to do real work on their behalf, in their own environment, against their own Supabase project, without handing that work to someone else's multi-tenant cloud. This document is the top-to-bottom tour of how the pieces fit together. It assumes you've skimmed the [README](https://github.com/yourhq/yourhq#readme) and want to know where things actually live.
 
 For deeper dives, see:
 
@@ -3500,18 +4027,19 @@ This is a **single-user** design. RLS on Supabase is "authenticated full access"
 
 Every arrow on the left of the diagram is a Supabase API call. The only direct UI↔gateway link is the files-API (right side), which is an authenticated HTTP request from the UI's server process into each gateway's `files_api.py`. Nothing is peer-to-peer; there is no central control plane outside Supabase.
 
-## 3. The four services
+## 3. The five services
 
-All four services live in the same monorepo ([`docker-compose.yml`](https://github.com/yourhq/yourhq/blob/main/docker-compose.yml)). The UI ships as one container and the three gateway services ship as three more, all bundled in a single Compose project by default. Larger installs can run the UI and gateway services on separate hosts against the same Supabase project.
+All five services live in the same monorepo ([`docker-compose.yml`](https://github.com/yourhq/yourhq/blob/main/docker-compose.yml)). The UI ships as one container and the gateway profile ships the agent runtime, dispatcher, runner, and embedder, all bundled in a single Compose project by default. Larger installs can run the UI and gateway services on separate hosts against the same Supabase project.
 
 | Service | Role | Key files | Ports | Reads from Supabase | Writes to Supabase |
 |---|---|---|---|---|---|
-| `ui` | The Next.js admin dashboard. Renders the CRM, tasks, agents, docs, settings, automations. Issues server actions that enqueue commands and proxy file edits. | [`apps/ui/`](https://github.com/yourhq/yourhq/tree/main/apps/ui/) — App Router under `src/app/`; server actions in `src/app/dashboard/*/actions.ts`; gateway proxy in [`src/lib/agent-repo/gateway-backend.ts`](https://github.com/yourhq/yourhq/tree/main/apps/ui/src/lib/agent-repo/gateway-backend.ts); auth middleware in [`src/middleware.ts`](https://github.com/yourhq/yourhq/tree/main/apps/ui/src/middleware.ts) | `3000` (host) | everything (uses authenticated user's session + service role for privileged inserts) | contacts, tasks, agents, `agent_commands`, `agent_inbox_items`, `audit_log`, `automation_rules`, everything |
+| `ui` | The Next.js admin dashboard. Renders the CRM, tasks, agents, knowledge, settings, routines. Issues server actions that enqueue commands and proxy file edits. | [`apps/ui/`](https://github.com/yourhq/yourhq/tree/main/apps/ui/) — App Router under `src/app/`; server actions in `src/app/dashboard/*/actions.ts`; gateway proxy in [`src/lib/agent-repo/gateway-backend.ts`](https://github.com/yourhq/yourhq/tree/main/apps/ui/src/lib/agent-repo/gateway-backend.ts); auth middleware in [`src/middleware.ts`](https://github.com/yourhq/yourhq/tree/main/apps/ui/src/middleware.ts) | `3000` (host) | everything (uses authenticated user's session + service role for privileged inserts) | contacts, tasks, agents, `agent_commands`, `agent_inbox_items`, `audit_log`, `routines`, everything |
 | `gateway` | The container that hosts the agents. Runs Xtigervnc + XFCE + Chrome + OpenClaw gateway + the files-API. Exposes a remote desktop (noVNC) and a file browser (`files-api`). | [`gateway/entrypoint.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/entrypoint.sh), [`gateway/files_api.py`](https://github.com/yourhq/yourhq/tree/main/gateway/files_api.py), [`gateway/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/Dockerfile) | `6901` (noVNC), `18790` (files-API) | `workspace.slug` at boot to prefix branches | `gateways` row upsert at boot with reachable URLs |
 | `dispatcher` | Python daemon. Subscribes to `agent_inbox_items` INSERT events and wakes the owning agent via `openclaw agent --agent …`. Only wakes agents bound to this gateway. | [`gateway/daemons/inbox_dispatcher.py`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/inbox_dispatcher.py), [`gateway/dispatcher/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/dispatcher/Dockerfile) | none | `agent_inbox_items`, `agents`, `gateways`, `workspace` | `agent_inbox_items.last_wake_*` |
 | `runner` | Python daemon. Subscribes to `agent_commands` INSERT events, leases via `lease_command(gateway_slug=…)`, executes `add-agent.sh` / `update-agent.sh` / `docker compose restart …`, reports back stdout/stderr/exit code. | [`gateway/daemons/command_runner.py`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/command_runner.py), [`gateway/runner/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/runner/Dockerfile), [`gateway/scripts/add-agent.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/scripts/add-agent.sh) | none | `agent_commands`, `workspace`, `gateways` | `agent_commands.status/stdout/stderr`, `gateways.last_seen_at` (30 s heartbeat) |
+| `embedder` | Python daemon. Eagerly downloads/loads the local BGE model, serves embeddings over an internal HTTP endpoint, and indexes pending knowledge items into searchable chunks. Supports pages, playbooks, files, and external sources. | [`gateway/embedder/`](https://github.com/yourhq/yourhq/tree/main/gateway/embedder) | none | `knowledge_items` via `lease_knowledge_items_for_indexing` RPC | `knowledge_chunks`, `knowledge_items.embedding`, indexing status metadata |
 
-The `gateway`, `dispatcher`, and `runner` containers all share the Docker volume `gateway-state` (mounted at `/home/openclaw/.openclaw`). That volume is where OpenClaw's config, the bare git repo, per-agent worktrees, browser profiles, and the VNC state live. The runner additionally mounts `/var/run/docker.sock` so it can restart sibling containers.
+The `gateway`, `dispatcher`, and `runner` containers all share the Docker volume `gateway-state` (mounted at `/home/openclaw/.openclaw`). That volume is where OpenClaw's config, the bare git repo, per-agent worktrees, browser profiles, and the VNC state live. The `embedder` uses `gateway-embedding-cache` for downloaded local embedding models. The runner additionally mounts `/var/run/docker.sock` so it can restart sibling containers.
 
 ## 4. Data flow: creating an agent end-to-end
 
@@ -3676,13 +4204,13 @@ Supabase is the backbone. Every piece of coordination — commands, inbox items,
 The structures to know:
 
 - **`agent_commands`** — command queue consumed by the runner. Schema in [`014_agent_commands.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/014_agent_commands.sql). Action enum covers `provision`, `update`, `remove`, `approve_pairing`, `restart_gateway`, `restart_dispatcher`, `update_all`, `update_gateway`, `set_agent_model`, `list_models`, and the `auth_*` connection actions. `lease_command(p_lease_seconds, p_gateway_slug)` is the atomic claim; `start_command`, `complete_command`, `fail_command` report back. Rows persist forever (with `stdout`/`stderr`) for the command-history UI.
-- **`agent_inbox_items`** — background-work queue consumed by agents, not the runner. Inserted by Postgres triggers on `tasks` (task assignment / reassignment), `comments` (@-mentions), and `contacts` (via `automation_rules`). The dispatcher wakes agents; the agent's own session claims work via `lease_inbox_item(p_agent_id, p_lease_seconds)` (see [`013_agent_inbox.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/013_agent_inbox.sql)) and reports via `complete_inbox_item` / `fail_inbox_item`. `dedup_key` + unique constraint prevents duplicates. `attempt_count < max_attempts` bounds retries before dead-lettering.
+- **`agent_inbox_items`** — background-work queue consumed by agents, not the runner. Inserted by Postgres triggers on `tasks` (task assignment / reassignment), `comments` (@-mentions), and `contacts` (via routines). The dispatcher wakes agents; the agent's own session claims work via `lease_inbox_item(p_agent_id, p_lease_seconds)` (see [`013_agent_inbox.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/013_agent_inbox.sql)) and reports via `complete_inbox_item` / `fail_inbox_item`. `dedup_key` + unique constraint prevents duplicates. `attempt_count < max_attempts` bounds retries before dead-lettering.
 - **`gateways`** — registry of known gateway hosts. Each row has `slug`, `label`, `status`, `last_seen_at`, and `meta.reachable_urls`. Seeded with a `default` row so single-gateway installs work without setup.
 - **`gateway_registration_tokens`** — single-use token records minted by the UI when adding a gateway. The plaintext token is shown once in the installer command; the database stores only the hash and expiry metadata.
 - **`agent_usage` / `agent_budgets`** — usage source-of-truth and per-agent current-period rollup from [`015_usage_budgets.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/015_usage_budgets.sql). Runtime usage is logged by the HQ bootstrap OpenClaw plugin; hard budget cutoffs are enforced both before replies and before dispatcher wakes.
 - **`agents.reports_to_id`** — lightweight org chart from [`007_agents.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/007_agents.sql). The `agent_reports_chain` RPC lets the UI prevent cycles before saving manager changes.
 - **Realtime**. Both daemons open a WebSocket to `/realtime/v1/websocket` and subscribe to `postgres_changes` on `agent_commands` / `agent_inbox_items` INSERT. Fallback poll every `POLL_INTERVAL` (30 s runner) / `RECONCILE_INTERVAL` (120 s dispatcher) catches anything Realtime missed during a reconnect.
-- **Triggers worth knowing**: `enqueue_task_assignment` enqueues inbox items when a task is assigned; `enqueue_comment_mentions` does the same for @-mentions; `process_contact_automation` runs `automation_rules` on contact inserts/updates. All three are defined in [`013_agent_inbox.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/013_agent_inbox.sql).
+- **Triggers worth knowing**: `enqueue_task_assignment` enqueues inbox items when a task is assigned; `enqueue_comment_mentions` does the same for @-mentions; `process_routine_event` runs routines on contact inserts/updates. All three are defined in [`013_agent_inbox.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/013_agent_inbox.sql).
 
 ## 13. Extensibility
 
@@ -3692,7 +4220,7 @@ The UI is designed to be configured, not coded, for most everyday changes:
 - **Custom fields.** `/dashboard/settings/fields` adds/edits rows in `field_definitions`, keyed per entity type. `DynamicFieldGroups` renders them in contact/organization forms without code changes.
 - **Pipeline stages.** `/dashboard/settings/pipeline` writes to `pipeline_stages`. Status dropdowns, kanban columns, and color swatches all read from this table via `usePipelineStages(entityType)`.
 - **Task streams.** Streams are runtime-created — functional, project, or custom — and hold their own colors. Tasks reference them by FK.
-- **Automation rules.** `/dashboard/automations` creates `automation_rules` that the `process_contact_automation` trigger evaluates on every contact change, enqueuing inbox items when conditions match.
+- **Routines.** `/dashboard/routines` creates routines with event or schedule triggers. Event triggers evaluate on contact/task/comment changes via the `process_routine_event` function, enqueuing inbox items when conditions match. Schedule triggers use pg_cron via `spawn_routine_schedule_items` to wake agents at defined intervals.
 - **Provider connections.** Settings → Connections enqueues auth commands that the runner executes through OpenClaw. API-key, OAuth paste, device-code, CLI-reuse, and local URL flows share the same command queue.
 - **Agent hierarchy.** Manager/direct-report structure is a regular column on `agents`. Runtime prompt context is assembled by the HQ bootstrap plugin, not hard-coded into templates.
 - **Usage budgets.** Budget config is stored in `agent_budgets`; raw usage is append-only in `agent_usage`. New provider pricing support belongs in the bootstrap plugin's pricing map and should degrade to unmetered calls when unknown.
@@ -3702,7 +4230,7 @@ The UI is designed to be configured, not coded, for most everyday changes:
 
 - **Self-hosted hardening.** Better migration tooling, stronger validation around project setup, and clearer gateway health diagnostics.
 - **Hosted offering.** Account management, automated Supabase/gateway provisioning, billing, and managed operations in front of the same core runtime.
-- **Integrations.** More MCP-first integrations, richer provider auth UX, optional email/calendar/Slack/Notion flows, and deeper automation primitives.
+- **Integrations.** More MCP-first integrations, richer provider auth UX, optional email/calendar/Slack/Notion flows, and deeper routine primitives.
 - **Docs site.** The markdown docs in this repository should remain the source of truth and can later be rendered at `docs.yourhq.ai`.
 
 Roadmap items should be tracked in [ROADMAP.md](/getting-started/roadmap) and issues, not as stale phase labels in docs.
@@ -3947,7 +4475,7 @@ Agents have access to (via openclaw):
 
 - **Browser** — a dedicated Chrome profile they can drive. Visit pages, screenshot, click, type. Persistent cookies.
 - **Messaging channel** — Telegram, Discord, or Slack — send/receive messages with their paired user.
-- **HQ database** — read/write contacts, tasks, documents, interactions via the service role.
+- **HQ database** — read/write contacts, tasks, knowledge items, interactions via the service role.
 - **MCP servers** — any MCP server you configure. Slack, GitHub, Notion, Google Calendar, etc.
 - **Shell** — scoped to their workspace directory.
 
@@ -3963,14 +4491,14 @@ Agents wake up fresh each session. Continuity comes from files in their branch:
 
 The default `AGENTS.md` prompts the agent to read these on every session start. The agent maintains them itself — the user doesn't usually touch them.
 
-For shared knowledge across agents, use Supabase documents (agents read/write the `documents` table).
+For shared knowledge across agents, use the [knowledge system](/concepts/knowledge) — workspace-scoped items are visible to all agents, and pinned items are automatically included in boot context.
 
 ## Agent-to-agent
 
-Agents see the same database, so they can see each other's tasks and documents. Coordination patterns:
+Agents see the same database, so they can see each other's tasks and knowledge. Coordination patterns:
 
-- **@-mentions in comments** — mentioning `@agent-slug` in a task or document comment enqueues an inbox item for that agent via the `enqueue_comment_mentions` trigger. Dispatcher wakes the agent.
-- **Automation rules** — `automation_rules` table can fire inbox items on CRM events. Agent A writes a contact update → rule creates inbox item for agent B.
+- **@-mentions in comments** — mentioning `@agent-slug` in a task comment enqueues an inbox item for that agent via the `enqueue_comment_mentions` trigger. Dispatcher wakes the agent.
+- **Routines** — routines can fire inbox items on CRM events or schedules. Agent A writes a contact update → routine creates inbox item for agent B.
 - **Task assignment** — assigning a task to an agent enqueues an inbox item (via `enqueue_task_assignment` trigger).
 
 The org chart adds a convention on top of these primitives: managers and direct reports coordinate through tasks instead of direct hidden calls.
@@ -3989,13 +4517,127 @@ See [Troubleshooting](/troubleshooting/common-issues) for common agent-related f
 
 ---
 
+# Knowledge system
+
+Source: https://docs.yourhq.ai/concepts/knowledge
+
+> How HQ's unified knowledge system stores, scopes, searches, and delivers context to agents.
+
+HQ uses a single knowledge system — `knowledge_items` — to store all workspace knowledge: pages, playbooks, files, and external sources. This replaces the earlier split between separate documents and assets tables.
+
+## Kinds
+
+Every knowledge item has a `kind` that determines how it's stored and rendered:
+
+| Kind | What it is | Content model |
+|---|---|---|
+| `page` | Rich-text document (company briefs, style guides, meeting notes) | JSON content + plain_text |
+| `playbook` | Structured procedure or SOP | JSON content + plain_text |
+| `file` | Uploaded file (PDF, image, spreadsheet, audio, video) | `file_url` + `mime_type` + `file_size` |
+| `source` | Externally synced content from a connected integration | `source_connection_id` + `source_external_id` + sync metadata |
+
+Pages and playbooks support rich editing in the UI. Files go through a processing pipeline (upload, extract text, embed). Sources sync from external integrations and track their sync status.
+
+## Scope and agent access
+
+Every item has a `scope` that controls who can access it:
+
+**Workspace scope** (`scope = 'workspace'`) — visible to all agents. When **pinned**, the item is included in every agent's boot context automatically.
+
+**Agent scope** (`scope = 'agent'`) — visible only to agents explicitly assigned via the `knowledge_item_agents` junction table. Each row links one item to one agent.
+
+This replaces the old `boot:all` / `boot:` tag convention with explicit, queryable relationships. The scope is a column, not a tag — it can be filtered, indexed, and enforced at the database level.
+
+### How agents receive knowledge at boot
+
+When an agent starts a session, the bootstrap script:
+
+1. Fetches all workspace-scoped items where `pinned = true`.
+2. Looks up the agent's ID from its slug.
+3. Fetches all items linked to that agent via `knowledge_item_agents`.
+4. Deduplicates (an item can be both workspace-pinned and agent-assigned).
+5. Injects the combined set into the agent's startup context, grouped by scope.
+
+The gateway's HQ bootstrap plugin renders this context with kind labels (`[page]`, `[playbook]`, `[file]`) and scope grouping (`Workspace Knowledge` vs `Your Knowledge`).
+
+## Folders and organization
+
+Knowledge items live in **folders** (`knowledge_folders`). Folders support:
+
+- Nesting (parent/child via `parent_id`)
+- Custom icons and colors
+- Sort ordering
+
+Folders are organizational — they don't affect scope or agent access.
+
+## Search
+
+Knowledge items support two search paths:
+
+**Semantic search** — vector similarity using the `embedding` column (384-dimensional vectors from the gateway embedder). Used by `search_knowledge_items()` RPC.
+
+**Full-text search** — PostgreSQL `tsvector` over title, plain_text, content, and tags. Used by `search_knowledge_items_text()` RPC.
+
+Both RPCs support filtering by tags, folder, and kind.
+
+## Chunks
+
+Long-form items are split into **chunks** (`knowledge_chunks`) for granular retrieval. Each chunk has its own embedding and full-text search vector. The `search_knowledge_chunks()` and `search_knowledge_chunks_text()` RPCs search at the chunk level and join back to the parent item for metadata.
+
+Chunks reference their parent via `knowledge_item_id`. When an item's content changes, the `mark_knowledge_item_pending` trigger resets chunk and embedding status, and the embedder re-indexes on its next cycle.
+
+## Embedding pipeline
+
+The gateway embedder daemon handles indexing:
+
+1. Calls `lease_knowledge_items_for_indexing()` to atomically claim pending items.
+2. Generates embeddings using the local BGE model.
+3. Splits content into chunks, embeds each chunk.
+4. Calls `mark_knowledge_item_indexed()` on success or `mark_knowledge_item_failed()` on error.
+
+Items in `pending` or `failed` embedding status are picked up automatically. The lease mechanism prevents parallel embedders from duplicating work.
+
+## Entity links
+
+Knowledge items participate in the **entity links** system. Any owner entity (task, routine, collection record, agent) can link to any target entity (knowledge item, collection record, contact, organization, task, or URL).
+
+When an agent claims a task, it receives all linked entities as context. This is a universal replacement for the old task-specific attachments model.
+
+Entity links are stored in `entity_links` with polymorphic `owner_type`/`target_type` columns and a check constraint ensuring URL links carry a `url` and entity links carry a `target_id`.
+
+## Database tables
+
+| Table | Purpose |
+|---|---|
+| `knowledge_folders` | Folder hierarchy for organizing items |
+| `knowledge_items` | All knowledge content — pages, playbooks, files, sources |
+| `knowledge_item_agents` | Junction table linking agent-scoped items to specific agents |
+| `knowledge_chunks` | Chunked content with per-chunk embeddings for granular retrieval |
+| `entity_links` | Universal polymorphic links between any entities |
+
+## Agent scripts
+
+Every agent template ships with HQ skills that interact with the knowledge system:
+
+| Script | Purpose |
+|---|---|
+| `hq_session_bootstrap.py` | Fetches workspace-pinned + agent-specific items at session start |
+| `hq_boot_docs.py` | Loads boot context using scope + junction queries |
+| `hq_get_knowledge_chunks.py` | Retrieves chunks for a specific knowledge item by ID |
+| `hq_claim_task.py` | Claims a task and resolves all entity links (knowledge items, contacts, orgs, collection records) |
+| `hq_inbox_process.py` | Processes inbox items and resolves linked entities |
+
+All scripts use the Supabase PostgREST API via the service role key.
+
+---
+
 # Projects and workspaces
 
 Source: https://docs.yourhq.ai/concepts/projects-and-workspaces
 
 > How one UI manages multiple Supabase-backed workspaces.
 
-An HQ project is a Supabase-backed workspace — your agents, tasks, CRM, documents, and settings all live in one Supabase project that you own.
+An HQ project is a Supabase-backed workspace — your agents, tasks, CRM, knowledge, and settings all live in one Supabase project that you own.
 
 ## How it works
 
@@ -4037,7 +4679,7 @@ A gateway is a Docker host that runs agents on infrastructure you control. Each 
   
 
   - **Dispatcher daemon**: 
-    Watches for background work (task assignments, comment mentions, automations) and wakes the right agent.
+    Watches for background work (task assignments, comment mentions, routines) and wakes the right agent.
   
 
   - **Runner daemon**: 
@@ -4084,7 +4726,7 @@ HQ uses Supabase tables as durable queues. Everything the UI tells a gateway to 
   
 
   - **Inbox**: 
-    `agent_inbox_items` — consumed by **agents**. Represents background work from task assignments, comment @-mentions, CRM automation rules, and other workspace events.
+    `agent_inbox_items` — consumed by **agents**. Represents background work from task assignments, comment @-mentions, routines, and other workspace events.
   
 
 ## How it flows
@@ -4130,7 +4772,7 @@ Source: https://docs.yourhq.ai/concepts/security-model
 
 > The trust boundaries behind HQ's self-hosted architecture.
 
-HQ is single-operator admin software. The security model is designed for one trusted user running their own infrastructure — not for multi-tenant SaaS.
+HQ is single-operator admin software. The self-hosted security model is designed for one trusted user running their own infrastructure. [HQ hosted](/hosted/getting-started) manages these trust boundaries for you — each workspace gets a dedicated database and isolated runtime.
 
 ## Trust boundaries
 
@@ -4206,7 +4848,11 @@ Use (1) only as an override — e.g. a remote gateway that must always point at 
 
 - **`SUPABASE_SERVICE_ROLE_KEY`** — **Optional override, secret**. No default. If set, takes precedence over the registry.
 
-- **`EMBEDDING_API_KEY`** — **Optional**. Empty. OpenAI API key used by the gateway to embed documents when the knowledge-base vector search is enabled. Override to enable embeddings; leave empty to disable.
+- **`EMBEDDER_URL`** — Optional. Defaults to `http://embedder:18801` inside Compose. Agent scripts use this local HTTP endpoint for query/document embeddings.
+
+- **`EMBEDDER_MODEL`** — Optional. Defaults to `BAAI/bge-small-en-v1.5`. The gateway-profile embedder service downloads/loads this local FastEmbed model on boot and uses it for knowledge vector search.
+
+- **`EMBEDDER_CHUNK_CHARS`**, **`EMBEDDER_CHUNK_OVERLAP`**, **`EMBEDDER_MAX_CHUNKS`** — Optional. Defaults to `3500`, `500`, and `500`. These tune the source-agnostic knowledge chunker used for documents now and future file/external-source indexing.
 
 **Where the real creds live**: the project registry files (`/config/projects.json` for URL + anon key, `/config/secrets.json` for service role key). Don't edit these by hand — use the onboarding screen on first boot, or Settings → Projects afterward.
 
@@ -4392,7 +5038,7 @@ A lot of yourhq's configuration is runtime-configurable via the UI, not via envi
 
 - **`/setup`** — the six-step workspace setup wizard. Seeds `workspace` (name, slug, owner profile), `pipeline_stages`, `field_definitions`, and initial `streams` in one RPC call. New workspaces are redirected here automatically until `workspace.initialized = true`.
 
-- **`/dashboard/settings`** — add or edit pipeline stages, custom field definitions, streams, automations, and agent identities after the initial setup. Most per-workspace behavior lives here, not in `.env`.
+- **`/dashboard/settings`** — add or edit pipeline stages, custom field definitions, streams, and agent identities after the initial setup. Routines are managed from `/dashboard/routines`. Most per-workspace behavior lives here, not in `.env`.
 
 - **`/dashboard/agents`** — the agent creation wizard (three steps: template → identity → Telegram). See [Agents](/concepts/agents) for agent-specific configuration (each agent has its own `agent.json` committed to its git branch).
 
@@ -4495,18 +5141,26 @@ HQ stores shared state in one Supabase project per workspace. The SQL source of 
 | `007_agents.sql` | Agent registry, org-chart hierarchy, `agent_reports_chain()` RPC |
 | `008_interactions.sql` | Contact interaction timeline and sync triggers |
 | `009_tasks_streams.sql` | Streams, tasks, recurring task series, and scheduling |
-| `010_comments_attachments.sql` | Polymorphic comments and task attachments |
-| `011_assets_documents.sql` | Assets, documents, semantic search, and draft sets |
+| `010_comments_attachments.sql` | Polymorphic comments |
+| `011_assets_documents.sql` | Knowledge items, chunks, semantic/full-text search, and draft sets |
 | `012_audit_notifications.sql` | Audit log and notification tables |
-| `013_agent_inbox.sql` | Agent inbox queue, inbox triggers, and automation rules |
+| `013_agent_inbox.sql` | Agent inbox queue, inbox triggers, and routines |
 | `014_agent_commands.sql` | Command queue for agent lifecycle and system operations |
 | `015_usage_budgets.sql` | LLM usage logging, per-agent budgets, and enforcement |
 | `016_rls_realtime_storage.sql` | Row-level security, Realtime subscriptions, Storage buckets |
 | `017_setup_wizard.sql` | `complete_setup()` RPC for the first-run wizard |
 | `018_tenants.sql` | Tenant registry, `tenant_id` column on all tenant-owned tables, tenant-scoped RLS policies |
-| `019_onboarding_rpc.sql` | `finalizeOnboarding()` RPC for project setup |
-| `020_rpc_tenant_scoped.sql` | Tenant-scoped RPCs: `lease_command`, `consume_gateway_token`, `spawn_due_task_instances`, `complete_setup`, `recompute_agent_budget` |
+| `019_rls_tenant_scoped.sql` | Tenant-scoped RLS policies and JWT helper |
+| `020_rpc_tenant_scoped.sql` | Tenant-scoped RPCs: `lease_command`, `consume_gateway_token`, `spawn_due_task_instances`, `complete_setup`, `recompute_agent_budget`, `spawn_routine_schedule_items` |
 | `021_status_enums_schema_version.sql` | `agent_status` and `gateway_status` enum migration, `_schema_version` table |
+| `022_agent_heartbeat_cron.sql` | Agent schedule routines cron job |
+| `023_entity_links.sql` | Universal polymorphic entity linking table |
+| `025_routines.sql` | Routines (scheduled agent workflows) |
+| `026_collections.sql` | Custom collections and records |
+| `027_file_processing.sql` | File processing pipeline for knowledge items |
+| `028_source_connections.sql` | External source connections for knowledge sync |
+| `029_routines_extension.sql` | Routine extensions and scheduling |
+| `030_modular_workspace.sql` | Modular workspace onboarding |
 
 For a fresh Supabase project, run all files in filename order from the SQL Editor. The onboarding wizard handles this automatically — it concatenates all files and lets you copy/paste a single SQL blob.
 
@@ -4567,28 +5221,42 @@ The `agent_usage_rollup` trigger updates `agent_budgets` after each usage row. B
 - `streams` — task grouping and workflow lanes.
 - `task_series` — recurring task definitions. Series-level `model_override` and `thinking_override` propagate to spawned instances.
 - `comments` — polymorphic comments with mention support.
-- `task_attachments` — links from tasks to documents/assets/files.
+- `entity_links` — universal polymorphic links from tasks (and other entities) to knowledge items, contacts, organizations, collection records, and URLs.
 
 Task assignment and comment mention triggers enqueue `agent_inbox_items` for affected agents. When a task has model/thinking overrides, they are included in the inbox item's `context` JSONB and passed to the agent's session at wake time.
 
-### Documents and Assets
+### Knowledge
 
-- `documents` — rich-text knowledge base documents, folders, tags, pinned state, and metadata.
-- `document_folders` — folder hierarchy.
-- `assets` — operational files and references such as SOPs, research, images, videos, audio, templates, scripts, spreadsheets, and links.
-- `asset_folders` — asset folder hierarchy.
+- `knowledge_items` — unified knowledge store for pages, playbooks, files, and sources. Supports scope (`workspace` or `agent`), pinning, folders, tags, embeddings, and full-text search.
+- `knowledge_folders` — folder hierarchy for organizing knowledge items.
+- `knowledge_item_agents` — junction table linking agent-scoped items to specific agents.
+- `knowledge_chunks` — chunked content with per-chunk embeddings for granular retrieval. References `knowledge_item_id`.
 
-Boot-context tags are plain document tags:
+Boot context is controlled by scope and pinning:
 
-- `boot:all` includes a document for every agent.
-- `boot:` includes a document for one agent.
+- A **workspace-scoped, pinned** item is included in every agent's startup context.
+- An **agent-scoped** item assigned to specific agents via `knowledge_item_agents` is included only for those agents.
 
-### Automations
+Important RPCs:
 
-- `automation_rules` — event-driven rules that turn CRM/task/comment changes into agent inbox items.
+- `search_knowledge_items(...)` — semantic vector search over items.
+- `search_knowledge_items_text(...)` — full-text search over items.
+- `search_knowledge_chunks(...)` / `search_knowledge_chunks_text(...)` — search at the chunk level, joining back to the parent item.
+- `lease_knowledge_items_for_indexing(...)` — atomic lease for the embedder daemon.
+- `mark_knowledge_item_indexed(...)` / `mark_knowledge_item_failed(...)` — embedding pipeline status updates.
+
+### Entity Links
+
+- `entity_links` — universal polymorphic linking table. Any owner (task, routine, collection_record, agent) can link to any target (knowledge_item, collection_record, contact, organization, task, or URL).
+
+Entity links replace the earlier task-specific attachments with a generalized model. When an agent claims a task, it receives all linked entities as context.
+
+### Routines
+
+- `routines` — event-driven and schedule-driven rules that turn CRM/task/comment changes or cron ticks into agent inbox items.
 - `agent_inbox_items` — stores the resulting work items, lease state, retry counters, dedup keys, and failure state.
 
-Contact automation rules are evaluated by database functions on contact insert/update.
+Event routines are evaluated by the `process_routine_event` database function on contact insert/update. Schedule routines use `spawn_routine_schedule_items` via pg_cron to create inbox items at defined intervals.
 
 ### Configuration Tables
 
@@ -4631,7 +5299,7 @@ Fresh project:
 
 1. Create a Supabase project.
 2. Open SQL Editor.
-3. Run every `.sql` file in `db/migrations/` in filename order (`001` through `021`). Or use the onboarding wizard, which concatenates them all into a single copy-paste blob.
+3. Run every `.sql` file in `db/migrations/` in filename order (`001` through `030`). Or use the onboarding wizard, which concatenates them all into a single copy-paste blob.
 4. Create an auth user and disable public signup unless needed.
 
 Existing project:
@@ -4663,18 +5331,26 @@ Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main
 | `007_agents.sql` | Agent metadata and org chart |
 | `008_interactions.sql` | Contact interaction timeline |
 | `009_tasks_streams.sql` | Tasks, streams, recurrence |
-| `010_comments_attachments.sql` | Comments and attachments |
-| `011_assets_documents.sql` | Documents and assets |
+| `010_comments_attachments.sql` | Polymorphic comments |
+| `011_assets_documents.sql` | Knowledge items, chunks, search RPCs, and draft sets |
 | `012_audit_notifications.sql` | Audit log and notifications |
-| `013_agent_inbox.sql` | Inbox queue and automation triggers |
+| `013_agent_inbox.sql` | Inbox queue and routine triggers |
 | `014_agent_commands.sql` | Command queue and lifecycle RPCs |
 | `015_usage_budgets.sql` | Usage tracking and budgets |
 | `016_rls_realtime_storage.sql` | RLS policies, Realtime, Storage |
 | `017_setup_wizard.sql` | First-run setup RPC |
 | `018_tenants.sql` | Tenant registry and tenant_id columns |
-| `019_onboarding_rpc.sql` | `finalizeOnboarding()` RPC |
+| `019_rls_tenant_scoped.sql` | Tenant-scoped RLS policies and JWT helper |
 | `020_rpc_tenant_scoped.sql` | Tenant-scoped RPCs |
 | `021_status_enums_schema_version.sql` | Status enums and schema version tracking |
+| `022_agent_heartbeat_cron.sql` | Agent schedule routines cron job |
+| `023_entity_links.sql` | Universal polymorphic entity linking |
+| `025_routines.sql` | Routines (scheduled agent workflows) |
+| `026_collections.sql` | Custom collections and records |
+| `027_file_processing.sql` | File processing pipeline |
+| `028_source_connections.sql` | External source connections |
+| `029_routines_extension.sql` | Routine extensions |
+| `030_modular_workspace.sql` | Modular workspace onboarding |
 
 ## Migration CLI
 
@@ -4754,10 +5430,10 @@ Source: https://docs.yourhq.ai/reference/docker-services
 
 > The containers in the HQ Compose stack and what each one does.
 
-HQ's default Compose stack has four services that work together.
+HQ's default Compose stack has five services that work together.
 
   - **ui**: 
-    **Next.js dashboard.** Renders the workspace — agents, CRM, tasks, documents, settings — and writes to Supabase through server actions. Port `3000`.
+    **Next.js dashboard.** Renders the workspace — agents, CRM, tasks, knowledge, routines, settings — and writes to Supabase through server actions. Port `3000`.
   
 
   - **gateway**: 
@@ -4772,14 +5448,18 @@ HQ's default Compose stack has four services that work together.
     **Command daemon.** Watches `agent_commands`, leases commands for the local gateway, executes lifecycle and auth operations, and reports results back to Supabase.
   
 
+  - **embedder**: 
+    **Knowledge indexing daemon.** Runs FastEmbed locally, starts downloading/loading the BGE model on boot, serves `/embed` inside Docker, and indexes pending knowledge items into searchable knowledge chunks.
+  
+
 ## Shared state
 
-The `gateway`, `dispatcher`, and `runner` containers share the `gateway-state` Docker volume (mounted at `/home/openclaw/.openclaw`). This volume holds OpenClaw config, the bare git repo, agent worktrees, browser profiles, and auth state.
+The `gateway`, `dispatcher`, and `runner` containers share the `gateway-state` Docker volume (mounted at `/home/openclaw/.openclaw`). This volume holds OpenClaw config, the bare git repo, agent worktrees, browser profiles, and auth state. The `embedder` uses `gateway-embedding-cache` for downloaded local embedding models, so restarts reuse the cached BGE files.
 
 The `runner` additionally mounts `/var/run/docker.sock` so it can restart sibling containers when needed.
 
 > 
-  For single-host installs, all four services run together via `docker compose up -d`. For multi-host setups, run `ui` separately from the gateway services. See [Add a gateway](/self-host/add-gateway).
+  For single-host installs, all five services run together via `docker compose up -d`. For multi-host setups, run `ui` separately from the gateway services. See [Add a gateway](/self-host/add-gateway).
 
 ---
 
@@ -5507,7 +6187,7 @@ Source: https://docs.yourhq.ai/development/repo-structure
 yourhq/
   apps/ui/              Next.js dashboard (App Router, Tailwind, shadcn)
   gateway/              Gateway image, files API, daemons, lifecycle scripts
-  db/migrations/        Supabase SQL migrations (001–017)
+  db/migrations/        Supabase SQL migrations (001–030)
   templates/            Agent template library (15 templates)
   installer/            Interactive install scripts
   docs-site/            Mintlify documentation source
@@ -6631,6 +7311,12 @@ Source: https://docs.yourhq.ai/troubleshooting/common-issues
     - Access noVNC via Tailscale (direct peer-to-peer, much better throughput than going via public internet)
     - In the noVNC UI (top-left gear icon): set quality to `6` and compression to `9` — cuts bandwidth ~3x
   
+
+---
+
+## Tired of debugging infrastructure?
+
+If you'd rather focus on agents than Docker and networking, [HQ hosted](/hosted/getting-started) runs the same platform without any infrastructure to manage.
 
 ---
 

@@ -8,18 +8,18 @@ import { AgentDetailTabs } from "@/components/agents/agent-detail-tabs";
 interface Props {
   agent: Agent;
   allAgents: Agent[];
-  bootDocuments: {
+  contextKnowledge: {
     id: string;
     title: string;
-    icon: string | null;
-    tags: string[];
+    kind: string;
+    scope: string;
   }[];
 }
 
 export function AgentDetailClient({
   agent,
   allAgents,
-  bootDocuments,
+  contextKnowledge,
 }: Props) {
   const router = useRouter();
   const [key, setKey] = useState(0);
@@ -34,7 +34,7 @@ export function AgentDetailClient({
       key={key}
       agent={agent}
       allAgents={allAgents}
-      bootDocuments={bootDocuments}
+      contextKnowledge={contextKnowledge}
       onAgentUpdated={handleUpdated}
     />
   );

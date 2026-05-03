@@ -7,7 +7,7 @@ Where HQ is now, what ships in v0.1, and what comes after.
 ### Core platform
 
 - One repo (`yourhq/yourhq`) for UI, gateway, dispatcher, runner, templates, migrations, installer, and docs
-- `docker-compose.yml` stack with four services and Docker healthchecks on all of them
+- `docker-compose.yml` stack with five services and Docker healthchecks on all of them
 - Interactive `installer/install.sh` with local, Tailscale, and public networking modes
 - Gateway runtime with OpenClaw, Chrome/Chromium, Xtigervnc, XFCE desktop, noVNC, and files API
 - `RUNTIME_MODE` env var (`docker` | `systemd` | `e2b`) for portable entrypoint behavior
@@ -36,7 +36,7 @@ Where HQ is now, what ships in v0.1, and what comes after.
 - Supabase validation during onboarding
 - Account creation and sign-in flow
 - Workspace setup wizard with presets for owner profile, pipeline, fields, and streams
-- CRM, tasks, documents, assets, automations, notifications, activity, and settings pages
+- CRM, tasks, knowledge, routines, collections, notifications, activity, and settings pages
 
 ### Gateway and provider operations
 
@@ -57,9 +57,13 @@ Where HQ is now, what ships in v0.1, and what comes after.
 - Multi-channel support (Telegram, Discord, Slack, None) with per-channel credential provisioning and pairing
 - Agent file browser and editor
 - Agent operations and command history
-- Agent boot-context documents through `boot:all` and `boot:<agent-slug>` tags
+- Unified knowledge system with scope-based agent boot context (workspace pinned + agent-scoped items)
+- Collections for custom structured data
+- Entity links for universal cross-entity references
+- File processing pipeline for knowledge items
+- Source connections for external knowledge sync
 - Agent triggers and inbox history
-- Per-agent heartbeat scheduling with cron presets (15 min to daily) via pg_cron
+- Schedule routines with cron presets (15 min to daily) via pg_cron
 - Inline model and provider default selection
 - Agent org chart through `reports_to_id`
 - Runtime delegation context for managers and direct reports

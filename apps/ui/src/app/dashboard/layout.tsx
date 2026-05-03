@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { getRegistry } from "@/lib/projects/registry";
+import { listSwitcherProjects } from "@/lib/projects";
 
 export const dynamic = "force-dynamic";
 
@@ -19,29 +19,40 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  // Redirect to setup wizard if workspace is not initialized
-  const { data: workspace } = await supabase
-    .from("workspace")
-    .select("initialized")
-    .limit(1)
-    .maybeSingle();
+  // Redirect to setup wizard if workspace is not initialized.
+  // In hosted mode, the worker's provisioner calls complete_setup() so this
+  // should already be true by the time the user reaches the dashboard.
+  if (process.env.DEPLOYMENT_MODE !== "hosted") {
+    const { data: workspace } = await supabase
+      .from("workspace")
+      .select("initialized")
+      .limit(1)
+      .maybeSingle();
 
-  if (!workspace || !workspace.initialized) {
-    redirect("/setup");
+    if (!workspace || !workspace.initialized) {
+      redirect("/setup");
+    }
   }
 
-  const registry = await getRegistry();
-  const switcherProjects = registry.projects.map((p) => ({
-    id: p.id,
-    label: p.label,
-    emoji: p.emoji,
-  }));
+  const { activeProjectId, projects } = await listSwitcherProjects();
+  const isHosted = process.env.DEPLOYMENT_MODE === "hosted";
+
+  const { data: ws } = await supabase
+    .from("workspace")
+    .select("settings")
+    .limit(1)
+    .maybeSingle();
+  const modules = (ws?.settings as Record<string, unknown>)?.modules as
+    | Record<string, boolean>
+    | undefined;
 
   return (
     <DashboardShell
       user={user}
-      activeProjectId={registry.activeProjectId}
-      projects={switcherProjects}
+      activeProjectId={activeProjectId}
+      projects={projects}
+      isHosted={isHosted}
+      modules={modules}
     >
       {children}
     </DashboardShell>

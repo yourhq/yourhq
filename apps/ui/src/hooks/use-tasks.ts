@@ -122,18 +122,19 @@ export function useTasks() {
     if (!error && data) {
       const taskList = data as unknown as Task[];
 
-      // Batch-fetch attachment counts
+      // Batch-fetch link counts
       if (taskList.length > 0) {
         const taskIds = taskList.map((t) => t.id);
-        const { data: attRows } = await supabase
-          .from("task_attachments")
-          .select("task_id")
-          .in("task_id", taskIds);
+        const { data: linkRows } = await supabase
+          .from("entity_links")
+          .select("owner_id")
+          .eq("owner_type", "task")
+          .in("owner_id", taskIds);
 
-        if (attRows) {
+        if (linkRows) {
           const countMap = new Map<string, number>();
-          for (const row of attRows) {
-            countMap.set(row.task_id, (countMap.get(row.task_id) ?? 0) + 1);
+          for (const row of linkRows) {
+            countMap.set(row.owner_id, (countMap.get(row.owner_id) ?? 0) + 1);
           }
           for (const task of taskList) {
             task.attachment_count = countMap.get(task.id) ?? 0;
@@ -154,11 +155,12 @@ export function useTasks() {
   // Real-time: sync tasks via single-row refetch (has stream + agent JOINs)
   const taskPostProcess = useCallback(
     async (task: Task): Promise<Task> => {
-      const { data: attRows } = await supabase
-        .from("task_attachments")
-        .select("task_id")
-        .eq("task_id", task.id);
-      task.attachment_count = attRows?.length ?? 0;
+      const { data: linkRows } = await supabase
+        .from("entity_links")
+        .select("owner_id")
+        .eq("owner_type", "task")
+        .eq("owner_id", task.id);
+      task.attachment_count = linkRows?.length ?? 0;
       return task;
     },
     [supabase]

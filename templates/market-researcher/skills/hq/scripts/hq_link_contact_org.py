@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """Link a contact to an organization."""
-import argparse, sys, os
+import argparse
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import check_env, api_post, audit, AGENT_SLUG, output
+from hq_base import AGENT_SLUG, api_post, audit, check_env, output
+
 check_env()
 
 ap = argparse.ArgumentParser()

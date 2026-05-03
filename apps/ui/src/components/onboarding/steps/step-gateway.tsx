@@ -539,7 +539,7 @@ function LocalView({
         <div className="space-y-1">
           <div className="text-[13px] font-medium">Starting gateway containers…</div>
           <p className="text-[12px] text-muted-foreground">
-            Downloading images (gateway, dispatcher, runner). This only
+            Downloading images (gateway, dispatcher, runner, embedder). This only
             happens once.
           </p>
         </div>

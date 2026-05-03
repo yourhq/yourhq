@@ -25,7 +25,7 @@ import {
 import { useAgentBudget } from "@/hooks/use-agent-budget";
 import { BUDGET_STATUS_META } from "@/lib/usage/types";
 import type { AgentUsageSummary, AgentUsageRow } from "@/lib/usage/types";
-import { getModelDisplayName, SUBSCRIPTION_PROVIDERS } from "@/lib/models/catalog";
+import { getModelDisplayName } from "@/lib/models/catalog";
 import { AgentBudgetEditDialog } from "./agent-budget-edit-dialog";
 
 function fmtUsd(n: number): string {

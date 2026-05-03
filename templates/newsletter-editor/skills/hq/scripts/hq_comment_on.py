@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """Post a comment on any entity (task, contact, organization, etc.)."""
-import argparse, re, sys, os
+import argparse
+import os
+import re
+import sys
+
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import check_env, api_post, audit, get_agent_id, AGENT_SLUG, output
+from hq_base import AGENT_SLUG, api_post, audit, check_env, get_agent_id, output
+
 check_env()
 
 ap = argparse.ArgumentParser()
@@ -14,7 +19,8 @@ args = ap.parse_args()
 
 agent_id = get_agent_id()
 if not agent_id:
-    output({"error": "agent_not_registered"}); sys.exit(1)
+    output({"error": "agent_not_registered"})
+    sys.exit(1)
 
 mentions = list(set(re.findall(r"@[\w-]+", args.body)))
 result = api_post("comments", {

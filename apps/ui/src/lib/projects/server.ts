@@ -14,7 +14,7 @@ import { ACTIVE_PROJECT_COOKIE } from "./cookie";
 import {
   getActiveProject,
   getActiveProjectWithSecrets,
-} from "./registry";
+} from "./index";
 import type { PublicProject, ProjectWithSecrets } from "./schema";
 
 export async function readActiveProjectPublic(): Promise<PublicProject | null> {

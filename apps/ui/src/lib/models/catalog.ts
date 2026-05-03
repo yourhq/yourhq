@@ -1,4 +1,4 @@
-import type { ModelEntry, ModelCatalogGroup, ModelPricing } from "./types";
+import type { ModelEntry, ModelCatalogGroup } from "./types";
 
 // ── Canonical model definitions ──────────────────────────────────────
 // Each model appears once. The `provider` field is the canonical route

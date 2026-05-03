@@ -522,21 +522,52 @@ if [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
   # Read VNC password so we can include it in the registration metadata.
   VNC_PW_FILE="$OPENCLAW_HOME/.vnc-password"
   export REG_VNC_PW=""
-  [ -f "$VNC_PW_FILE" ] && export REG_VNC_PW="$(cat "$VNC_PW_FILE")"
+  if [ -f "$VNC_PW_FILE" ]; then
+    REG_VNC_PW="$(cat "$VNC_PW_FILE")"
+    export REG_VNC_PW
+  fi
 
-  REACHABLE_JSON=$(python3 - << PYEOF
+  # SANDBOX_HOST: in E2B mode, the worker writes /tmp/sandbox-host with
+  # the sandbox's public base URL after creation. The entrypoint waits
+  # for this file since the sandbox ID isn't known at spawn time.
+  if [ "$RUNTIME_MODE" = "e2b" ] && [ -z "${SANDBOX_HOST:-}" ]; then
+    log "Waiting for /tmp/sandbox-host (written by E2B provider) ..."
+    for _i in $(seq 1 60); do
+      [ -f /tmp/sandbox-host ] && break
+      sleep 1
+    done
+    if [ -f /tmp/sandbox-host ]; then
+      SANDBOX_HOST="$(cat /tmp/sandbox-host)"
+      export SANDBOX_HOST
+    fi
+  fi
+
+  REACHABLE_JSON=$(python3 - <<'PYEOF'
 import json, os
-base = os.environ.get("HOST_REACHABLE_URL", "http://localhost").rstrip("/")
-files_port = os.environ.get("FILES_API_PORT", "18790")
-novnc_port = "6901"
-vnc_pw = os.environ.get("REG_VNC_PW", "")
-meta = {
-    "reachable_urls": {
+sandbox_host = os.environ.get("SANDBOX_HOST", "").strip()
+if sandbox_host:
+    base = sandbox_host.rstrip("/")
+    if not base.startswith("http"):
+        base = f"https://{base}"
+    meta_urls = {
+        "base": base,
+        "files_api": base.replace("https://", "https://18790-", 1),
+        "novnc": base.replace("https://", "https://6901-", 1) + "/vnc.html?autoconnect=1&resize=remote",
+    }
+    networking_mode = "e2b"
+else:
+    base = os.environ.get("HOST_REACHABLE_URL", "http://localhost").rstrip("/")
+    files_port = os.environ.get("FILES_API_PORT", "18790")
+    meta_urls = {
         "base": base,
         "files_api": f"{base}:{files_port}",
-        "novnc": f"{base}:{novnc_port}/vnc.html?autoconnect=1&resize=remote",
-    },
-    "networking_mode": os.environ.get("NETWORKING_MODE", "local"),
+        "novnc": f"{base}:6901/vnc.html?autoconnect=1&resize=remote",
+    }
+    networking_mode = os.environ.get("NETWORKING_MODE", "local")
+vnc_pw = os.environ.get("REG_VNC_PW", "")
+meta = {
+    "reachable_urls": meta_urls,
+    "networking_mode": networking_mode,
     "version": os.environ.get("OPENCLAW_VERSION", ""),
 }
 if vnc_pw:
@@ -613,7 +644,39 @@ log "Clearing stale Chrome Singleton* locks in all agent profiles ..."
 find "$HOME/.openclaw/browser" -maxdepth 3 -name "Singleton*" -delete 2>/dev/null || true
 
 # ─────────────────────────────────────────────────────────────
-# 12. Launch OpenClaw gateway as PID 1 (well, exec'd under tini)
+# 12. In e2b mode, start daemons in-process.
+#     In docker mode they run as separate containers (dispatcher,
+#     runner in docker-compose.yml). In e2b there's one sandbox
+#     process tree — everything runs here.
+# ─────────────────────────────────────────────────────────────
+
+if [ "$RUNTIME_MODE" = "e2b" ]; then
+  DAEMON_DIR="/opt/yourhq/daemons"
+  [ -d "$DAEMON_DIR" ] || DAEMON_DIR="$(dirname "$(readlink -f "$0")")/daemons"
+
+  if [ -f "$DAEMON_DIR/inbox_dispatcher.py" ]; then
+    log "Starting inbox_dispatcher (in-process, e2b mode) ..."
+    python3 "$DAEMON_DIR/inbox_dispatcher.py" > "$HOME/inbox-dispatcher.log" 2>&1 &
+  fi
+
+  if [ -f "$DAEMON_DIR/command_runner.py" ]; then
+    log "Starting command_runner (in-process, e2b mode) ..."
+    python3 "$DAEMON_DIR/command_runner.py" > "$HOME/command-runner.log" 2>&1 &
+  fi
+
+  if [ -f "$DAEMON_DIR/file_processor.py" ]; then
+    log "Starting file_processor (in-process, e2b mode) ..."
+    python3 "$DAEMON_DIR/file_processor.py" > "$HOME/file-processor.log" 2>&1 &
+  fi
+
+  if [ -f "$DAEMON_DIR/source_sync.py" ]; then
+    log "Starting source_sync (in-process, e2b mode) ..."
+    python3 "$DAEMON_DIR/source_sync.py" > "$HOME/source-sync.log" 2>&1 &
+  fi
+fi
+
+# ─────────────────────────────────────────────────────────────
+# 13. Launch OpenClaw gateway as PID 1 (well, exec'd under tini)
 # ─────────────────────────────────────────────────────────────
 
 log "Starting openclaw gateway (foreground) ..."

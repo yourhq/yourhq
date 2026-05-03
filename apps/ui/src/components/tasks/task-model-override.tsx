@@ -4,7 +4,6 @@ import { Brain } from "lucide-react";
 import type { Agent } from "@/lib/agents/types";
 import type { ThinkingLevel } from "@/lib/models/types";
 import { THINKING_LEVELS, THINKING_LEVEL_LABELS } from "@/lib/models/types";
-import { getModelDisplayName } from "@/lib/models/catalog";
 import {
   Select,
   SelectContent,
@@ -22,21 +21,13 @@ interface Props {
 }
 
 export function TaskModelOverride({
-  modelOverride,
+  modelOverride: _modelOverride,
   thinkingOverride,
-  onModelChange,
+  onModelChange: _onModelChange,
   onThinkingChange,
-  agentId,
-  agents,
+  agentId: _agentId,
+  agents: _agents,
 }: Props) {
-  const agent = agents.find((a) => a.id === agentId);
-  const agentModel = agent?.model;
-
-  const modelLabel = modelOverride
-    ? getModelDisplayName(modelOverride)
-    : agentModel
-      ? `${getModelDisplayName(agentModel)} (default)`
-      : "Agent default";
 
   const thinkingLabel = thinkingOverride
     ? THINKING_LEVEL_LABELS[thinkingOverride as ThinkingLevel] ?? thinkingOverride

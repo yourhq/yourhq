@@ -9,7 +9,7 @@
 // can probe whether the server has a project yet.
 
 import { NextResponse } from "next/server";
-import { getActiveProject } from "@/lib/projects/registry";
+import { getActiveProject } from "@/lib/projects";
 
 export async function GET() {
   const project = await getActiveProject().catch(() => null);

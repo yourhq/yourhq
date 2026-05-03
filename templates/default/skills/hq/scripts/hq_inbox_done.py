@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Mark an inbox item as done."""
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import check_env, api_rpc, output
+from hq_base import api_rpc, check_env, output
 
 check_env()
 

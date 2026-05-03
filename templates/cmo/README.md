@@ -21,11 +21,11 @@ Default starting point for every OpenClaw agent branch. Fork this into a new bra
 
 ## Shared Knowledge
 
-Shared context (product overview, conventions, playbooks) lives in **Supabase documents**, not git. Tag documents for agent targeting:
+Shared context (product overview, conventions, playbooks) lives in **Supabase knowledge items**, not git. Knowledge items are scoped to workspace (all agents) or agent (specific agents):
 
-- `boot:all` — loaded by every agent at startup
-- `boot:{agent-slug}` — loaded by a specific agent only
-- No boot tag — available on demand via `hq_search_docs.py`
+- scope='workspace', pinned=true — loaded by every agent at startup
+- scope='agent' with agent junction — loaded by a specific agent only
+- Not pinned — available on demand via `hq_search_docs.py`
 
 ## Setup a New Agent
 
@@ -40,7 +40,6 @@ Shared context (product overview, conventions, playbooks) lives in **Supabase do
 ```
 SUPABASE_URL=https://xxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
-EMBEDDING_API_KEY=sk-...
 AGENT_SLUG=agent-slug
 ```
 
@@ -70,13 +69,13 @@ Current team values in use:
 ## Supabase Dependencies
 
 ### Tables Used
-agents, tasks, streams, comments, audit_log, contacts, interactions, organizations, contact_organizations, templates, campaigns, documents, document_folders, assets, asset_folders, task_attachments, notifications, field_definitions, pipeline_stages, draft_sets
+agents, tasks, streams, comments, audit_log, contacts, interactions, organizations, contact_organizations, templates, campaigns, knowledge_items, knowledge_folders, knowledge_chunks, collection_definitions, collection_fields, collection_records, entity_links, routines, notifications, field_definitions, pipeline_stages, draft_sets
 
 ### Required Migrations
-- `006_documents.sql` — documents + document_folders tables
-- `007_document_embeddings.sql` — pgvector extension + embedding column
-- `008_document_search_rpc.sql` — `search_documents()` Postgres function
-- `009_task_attachments.sql` — task attachment join table
+- `024_knowledge.sql` — knowledge items, folders, embeddings, and search RPCs
+- `016_rls_realtime_storage.sql` — grants, RLS, realtime, and storage
+- `018_tenants.sql` — tenant IDs and tenant-scoped knowledge source uniqueness
+- `019_rls_tenant_scoped.sql` — tenant-scoped RLS policies
 
 ### Required Extension
-- `vector` (pgvector) — enabled via migration 007
+- `vector` (pgvector) — enabled via migration 011

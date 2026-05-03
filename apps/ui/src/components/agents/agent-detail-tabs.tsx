@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import type { Agent, AgentMeta } from "@/lib/agents/types";
 import { AGENT_STATUSES, DOMAIN_LABELS } from "@/lib/agents/types";
-import { BOOT_TAG_ALL } from "@/lib/documents/boot-tags";
+import { KNOWLEDGE_KIND_COLORS } from "@/lib/knowledge/types";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -42,10 +42,10 @@ import {
   DetailSidebarPropertyGrid,
   DetailSidebarProperty,
 } from "@/components/shared/detail-sidebar";
-import { InboxSection } from "@/components/automations/inbox-section";
+import { InboxSection } from "@/components/inbox/inbox-section";
 import { AgentProvisioning } from "@/components/agents/agent-provisioning";
 import { AgentFileBrowser } from "./agent-file-browser";
-import { TriggersSection } from "./triggers-section";
+import { RoutinesSection } from "@/components/routines/routines-section";
 import { OpenDesktopModal } from "@/components/gateways/open-desktop-modal";
 import { getGatewayDesktopUrlAction } from "@/app/dashboard/settings/gateways/actions";
 import { AgentModelSection } from "@/components/agents/agent-model-section";
@@ -61,24 +61,24 @@ const agentStatusDotHex: Record<string, string> = {
   hibernating: "var(--status-neutral)",
 };
 
-interface BootDocument {
+interface ContextKnowledgeItem {
   id: string;
   title: string;
-  icon: string | null;
-  tags: string[];
+  kind: string;
+  scope: string;
 }
 
 interface AgentDetailTabsProps {
   agent: Agent;
   allAgents?: Agent[];
-  bootDocuments?: BootDocument[];
+  contextKnowledge?: ContextKnowledgeItem[];
   onAgentUpdated?: () => void;
 }
 
 export function AgentDetailTabs({
   agent,
   allAgents = [],
-  bootDocuments = [],
+  contextKnowledge = [],
   onAgentUpdated,
 }: AgentDetailTabsProps) {
   const statusLabel =
@@ -145,7 +145,7 @@ export function AgentDetailTabs({
             <AgentRailContent
               agent={agent}
               allAgents={allAgents}
-              bootDocuments={bootDocuments}
+              contextKnowledge={contextKnowledge}
               statusLabel={statusLabel}
               statusColor={statusColor}
               onOpenDesktop={openDesktop}
@@ -195,9 +195,9 @@ export function AgentDetailTabs({
                   </p>
                 )}
                 <DirectReportsSection agent={agent} allAgents={allAgents} />
-                <ContextDocsSection agent={agent} bootDocuments={bootDocuments} />
+                <ContextKnowledgeSection agent={agent} contextKnowledge={contextKnowledge} />
                 <div className="border-t border-border/50 pt-6">
-                  <TriggersSection agent={agent} onAgentUpdated={onAgentUpdated} />
+                  <RoutinesSection agent={agent} onAgentUpdated={onAgentUpdated} />
                 </div>
                 <div className="border-t border-border/50 pt-6">
                   <InboxSection agentId={agent.id} />
@@ -230,7 +230,7 @@ export function AgentDetailTabs({
           <AgentRailContent
             agent={agent}
             allAgents={allAgents}
-            bootDocuments={bootDocuments}
+            contextKnowledge={contextKnowledge}
             statusLabel={statusLabel}
             statusColor={statusColor}
             onOpenDesktop={openDesktop}
@@ -268,7 +268,7 @@ export function AgentDetailTabs({
 function AgentRailContent({
   agent,
   allAgents,
-  bootDocuments,
+  contextKnowledge,
   statusLabel,
   statusColor,
   onOpenDesktop,
@@ -276,7 +276,7 @@ function AgentRailContent({
 }: {
   agent: Agent;
   allAgents: Agent[];
-  bootDocuments: BootDocument[];
+  contextKnowledge: ContextKnowledgeItem[];
   statusLabel: string;
   statusColor: string;
   onOpenDesktop: () => void;
@@ -531,28 +531,27 @@ function AgentRailContent({
         </>
       )}
 
-      {bootDocuments.length > 0 && (
-        <DetailSidebarSection title={`Context (${bootDocuments.length})`}>
+      {contextKnowledge.length > 0 && (
+        <DetailSidebarSection title={`Knowledge (${contextKnowledge.length})`}>
           <div className="space-y-0.5">
-            {bootDocuments.slice(0, 5).map((doc) => (
+            {contextKnowledge.slice(0, 5).map((item) => (
               <Link
-                key={doc.id}
-                href={`/dashboard/documents/${doc.id}`}
+                key={item.id}
+                href={`/dashboard/knowledge/${item.id}`}
                 className="flex items-center gap-1.5 rounded px-1.5 py-1 text-[12px] text-foreground hover:bg-accent/40"
               >
-                <span className="text-[13px]">{doc.icon || "📄"}</span>
-                <span className="truncate">{doc.title}</span>
+                <span className="truncate">{item.title}</span>
                 <Badge
                   variant="secondary"
-                  className="ml-auto h-4 shrink-0 border border-purple-500/20 bg-purple-500/15 px-1.5 text-[10px] text-purple-400"
+                  className={cn("ml-auto h-4 shrink-0 px-1.5 text-[10px]", KNOWLEDGE_KIND_COLORS[item.kind as keyof typeof KNOWLEDGE_KIND_COLORS] ?? "bg-muted text-muted-foreground")}
                 >
-                  {doc.tags.includes(BOOT_TAG_ALL) ? "all" : agent.slug}
+                  {item.scope === "workspace" ? "all" : agent.slug}
                 </Badge>
               </Link>
             ))}
-            {bootDocuments.length > 5 && (
+            {contextKnowledge.length > 5 && (
               <div className="px-1.5 pt-1 text-[11px] text-muted-foreground">
-                +{bootDocuments.length - 5} more
+                +{contextKnowledge.length - 5} more
               </div>
             )}
           </div>
@@ -644,39 +643,38 @@ function DirectReportsSection({
   );
 }
 
-function ContextDocsSection({
+function ContextKnowledgeSection({
   agent,
-  bootDocuments,
+  contextKnowledge,
 }: {
   agent: Agent;
-  bootDocuments: BootDocument[];
+  contextKnowledge: ContextKnowledgeItem[];
 }) {
   return (
     <div>
       <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Context Documents
+        Knowledge
       </h2>
-      {bootDocuments.length === 0 ? (
+      {contextKnowledge.length === 0 ? (
         <p className="text-xs text-muted-foreground">
-          No context documents configured for this agent.
+          No knowledge items configured for this agent.
         </p>
       ) : (
         <div className="space-y-1">
-          {bootDocuments.map((doc) => (
+          {contextKnowledge.map((item) => (
             <Link
-              key={doc.id}
-              href={`/dashboard/documents/${doc.id}`}
+              key={item.id}
+              href={`/dashboard/knowledge/${item.id}`}
               className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent/30"
             >
-              <span className="shrink-0 text-sm">{doc.icon || "📄"}</span>
               <span className="flex-1 truncate text-foreground">
-                {doc.title}
+                {item.title}
               </span>
               <Badge
                 variant="secondary"
-                className="h-4 shrink-0 border border-purple-500/20 bg-purple-500/15 px-1.5 text-[10px] text-purple-400"
+                className={cn("h-4 shrink-0 px-1.5 text-[10px]", KNOWLEDGE_KIND_COLORS[item.kind as keyof typeof KNOWLEDGE_KIND_COLORS] ?? "bg-muted text-muted-foreground")}
               >
-                {doc.tags.includes(BOOT_TAG_ALL) ? "all agents" : agent.slug}
+                {item.scope === "workspace" ? "all agents" : agent.slug}
               </Badge>
             </Link>
           ))}

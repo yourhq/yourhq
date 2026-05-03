@@ -4,9 +4,14 @@ Update extended fields on a contact or organization.
 Atomic read-modify-write: reads current extended, merges new fields, writes back.
 Validates field keys against field_definitions.
 """
-import argparse, json, sys, os
+import argparse
+import json
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import check_env, api_get, api_patch, audit, AGENT_SLUG, output
+from hq_base import AGENT_SLUG, api_get, api_patch, audit, check_env, output
+
 check_env()
 
 ap = argparse.ArgumentParser()
@@ -37,7 +42,8 @@ if args.validate:
 # Read current extended
 current = api_get(args.table, {"select": "extended", "id": f"eq.{args.record_id}", "limit": "1"})
 if not current:
-    output({"error": "not_found", "id": args.record_id}); sys.exit(1)
+    output({"error": "not_found", "id": args.record_id})
+    sys.exit(1)
 
 extended = current[0].get("extended") or {}
 extended.update(new_fields)

@@ -1,0 +1,11 @@
+# E2B sandbox template configuration.
+# Build: `e2b template build` from the repo root.
+# The same Dockerfile serves Docker Compose and E2B — RUNTIME_MODE=e2b
+# is passed at spawn time, not baked into the image.
+
+[template]
+name = "yourhq-gateway"
+dockerfile = "gateway/Dockerfile"
+start_cmd = "/usr/local/bin/entrypoint.sh"
+memory_mb = 4096
+vcpus = 2

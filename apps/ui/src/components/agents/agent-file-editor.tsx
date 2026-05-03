@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JSONContent } from "novel";
-import { NovelEditor } from "@/components/documents/novel-editor";
-import { markdownToTiptap } from "@/lib/documents/markdown-to-tiptap";
-import { tiptapToMarkdown } from "@/lib/documents/tiptap-to-markdown";
+import { NovelEditor } from "@/components/knowledge/novel-editor";
+import { markdownToTiptap } from "@/lib/knowledge/markdown-to-tiptap";
+import { tiptapToMarkdown } from "@/lib/knowledge/tiptap-to-markdown";
 import { Button } from "@/components/ui/button";
 import { Check, FileText, GitBranch, Loader2 } from "lucide-react";
 import { toast } from "sonner";

@@ -1,0 +1,171 @@
+---
+title: "Hosted FAQ"
+description: "Common questions about HQ's hosted offering — pricing, data, cancellation, and differences from self-hosting."
+---
+
+<AccordionGroup>
+
+  {/* ───── Basics ───── */}
+
+  <Accordion title="What is HQ hosted?">
+    HQ hosted is the managed version of HQ at [yourhq.ai](https://yourhq.ai). You get the same platform as the open-source self-hosted version — agents, CRM, tasks, knowledge, routines — without managing Docker, Supabase, or any infrastructure.
+
+    You sign up, we provision a dedicated workspace (database + agent runtime), and you're ready to create agents in under two minutes.
+  </Accordion>
+
+  <Accordion title="How much does it cost?">
+    **$30/month per workspace.** This includes:
+
+    - Dedicated database (your own Supabase project)
+    - Dedicated agent runtime (sandbox)
+    - Unlimited agents, contacts, tasks, and knowledge items
+    - All features — no tier restrictions
+
+    **Model API costs are separate.** You bring your own API key (OpenAI, Anthropic, etc.) and pay your provider directly. HQ never charges for model usage.
+  </Accordion>
+
+  <Accordion title="What's included vs. the self-hosted version?">
+    Everything. The hosted version runs the same codebase as the open-source version. The only difference is who manages the infrastructure:
+
+    | | Self-hosted | Hosted |
+    |---|---|---|
+    | **You manage** | Docker, Supabase, networking, updates | Nothing |
+    | **We manage** | Nothing | Database, agent runtime, updates |
+    | **Features** | All | All |
+    | **Agents** | Unlimited | Unlimited |
+    | **Data location** | Your machine | Dedicated Supabase project (US East by default) |
+    | **Cost** | Infrastructure + model API | $30/mo + model API |
+
+    Self-hosted is free (you pay for your own infrastructure). Hosted is $30/mo and we handle infrastructure.
+  </Accordion>
+
+  <Accordion title="Can I try it before paying?">
+    Not currently — there's no free trial or free tier. If you want to evaluate HQ without paying, the [self-hosted version](/getting-started/quickstart) is free and identical in features.
+  </Accordion>
+
+</AccordionGroup>
+
+---
+
+## Data and security
+
+<AccordionGroup>
+
+  <Accordion title="Where is my data stored?">
+    Each workspace gets a **dedicated Supabase project** — your database is not shared with other customers. By default, projects are provisioned in US East (us-east-1).
+
+    Your agent runtime runs in a dedicated sandbox. Agent memory, files, Chrome profiles, and conversation history live in that sandbox.
+  </Accordion>
+
+  <Accordion title="Can you see my data?">
+    We have administrative access to the Supabase Management API (needed to provision and manage your project), but we do not access your workspace data in normal operations. Your agent conversations, CRM contacts, knowledge items, and API keys live in your dedicated project.
+
+    HQ is open source — you can audit exactly what the hosted version runs.
+  </Accordion>
+
+  <Accordion title="Are my API keys safe?">
+    Your model provider API keys (OpenAI, Anthropic, etc.) are stored in your workspace's dedicated Supabase project. They're used only to route model calls on your behalf. They're never stored in or accessible from a shared system.
+  </Accordion>
+
+  <Accordion title="Can I export my data?">
+    Data portability is on the roadmap. The goal is to let you export your full workspace and import it into a self-hosted HQ instance (or vice versa) with a single command. The database schema is identical between hosted and self-hosted.
+
+    In the meantime, your Supabase project uses standard Postgres — all your data is in standard tables with documented schemas.
+  </Accordion>
+
+</AccordionGroup>
+
+---
+
+## Account management
+
+<AccordionGroup>
+
+  <Accordion title="Can I have multiple workspaces?">
+    Yes. Each workspace is independent — separate database, agents, CRM, and billing. Add a workspace from the **Account** page. Each is billed at $30/month.
+  </Accordion>
+
+  <Accordion title="How do I cancel?">
+    Go to **Account** → click **Cancel** next to the workspace. Your workspace stays active for 30 days (grace period), then it's permanently deleted. Canceling one workspace doesn't affect others.
+
+    See [Account & billing](/hosted/account-billing) for details.
+  </Accordion>
+
+  <Accordion title="What happens to my data when I cancel?">
+    During the 30-day grace period: everything stays active. After 30 days: the agent runtime is destroyed, the Supabase project is deleted, and all data is permanently removed. This cannot be undone.
+  </Accordion>
+
+  <Accordion title="Can I switch from hosted to self-hosted (or vice versa)?">
+    Data migration between hosted and self-hosted is on the roadmap. The schema is identical, so the migration is technically straightforward — we're building a one-click tool for it.
+
+    Until then, you'd need to manually export/import your Postgres data.
+  </Accordion>
+
+  <Accordion title="How do I update my payment method?">
+    Go to **Account** → **Open Stripe**. The Stripe Customer Portal lets you update your card, view invoices, and see your next billing date.
+  </Accordion>
+
+</AccordionGroup>
+
+---
+
+## Agents and features
+
+<AccordionGroup>
+
+  <Accordion title="What model providers work with hosted HQ?">
+    All of them — the same as self-hosted. HQ is model-agnostic:
+
+    - **API key providers**: OpenAI, Anthropic, Gemini, DeepSeek, Mistral, Groq, OpenRouter, and 15+ more
+    - **OAuth providers**: OpenAI Codex, GitHub Copilot
+
+    Each agent can use a different model. You pay the provider directly through your own API key.
+
+    <Info>
+      Local models (Ollama, LM Studio) require a publicly reachable URL since the agent runtime runs in a cloud sandbox, not on your machine.
+    </Info>
+  </Accordion>
+
+  <Accordion title="Can I use Telegram, Discord, or Slack with hosted HQ?">
+    Yes. Channel setup works exactly the same as self-hosted:
+
+    - **Telegram**: create a bot at [@BotFather](https://t.me/botfather), paste the token
+    - **Discord**: create a bot in the Developer Portal, paste the token
+    - **Slack**: OAuth flow through HQ's settings
+
+    Webhooks from messaging platforms route directly to your agent runtime.
+  </Accordion>
+
+  <Accordion title="How many agents can I run?">
+    There's no hard limit on the number of agents. In practice, the runtime handles 5–10 active agents comfortably. If you need more, contact us.
+  </Accordion>
+
+  <Accordion title="Do I need to manage updates?">
+    No. We handle all infrastructure updates — database migrations, runtime updates, and security patches. Your workspace is always on the latest version.
+  </Accordion>
+
+  <Accordion title="Can I customize agent templates?">
+    Not directly in the hosted version (you don't have filesystem access to the runtime). You can customize each agent's identity, memory, skills, and behavior through the UI after creation.
+
+    If you need full template customization, the self-hosted version gives you complete filesystem access.
+  </Accordion>
+
+</AccordionGroup>
+
+---
+
+## Support
+
+<AccordionGroup>
+
+  <Accordion title="How do I get help?">
+    - **Email**: support@yourhq.ai
+    - **GitHub Issues**: [github.com/yourhq/yourhq/issues](https://github.com/yourhq/yourhq/issues) for bugs
+    - **GitHub Discussions**: [github.com/yourhq/yourhq/discussions](https://github.com/yourhq/yourhq/discussions) for questions and ideas
+  </Accordion>
+
+  <Accordion title="How do I report a security issue?">
+    Email `security@yourhq.ai`. Do not open a public GitHub issue for security vulnerabilities.
+  </Accordion>
+
+</AccordionGroup>

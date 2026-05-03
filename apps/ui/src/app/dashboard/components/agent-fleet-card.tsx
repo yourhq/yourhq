@@ -35,9 +35,18 @@ export function AgentFleetCard({
       </div>
 
       {agents.length === 0 ? (
-        <p className="py-4 text-body text-muted-foreground">
-          No agents registered.
-        </p>
+        <div className="py-6 text-center">
+          <p className="text-body text-muted-foreground">
+            No agents yet.
+          </p>
+          <Link
+            href="/dashboard/agents"
+            className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-[12px] font-medium text-background transition-colors hover:bg-foreground/90"
+          >
+            Create your first agent
+            <ChevronRight className="h-3 w-3" />
+          </Link>
+        </div>
       ) : (
         <ul className="space-y-0.5">
           {agents.slice(0, 8).map((agent) => {

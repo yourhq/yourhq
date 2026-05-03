@@ -250,7 +250,6 @@ export async function enqueueAgentCommand(
 export interface UpdateAgentInput {
   agentId: string;
   reportsToId?: string | null;
-  heartbeatCron?: string | null;
   model?: string | null;
   thinking?: string | null;
 }
@@ -270,10 +269,6 @@ export async function updateAgent(input: UpdateAgentInput): Promise<void> {
   if (!agent) throw new Error("Agent not found");
 
   const updates: Record<string, unknown> = {};
-
-  if (input.heartbeatCron !== undefined) {
-    updates.heartbeat_cron = input.heartbeatCron;
-  }
 
   if (input.model !== undefined) {
     updates.model = input.model;
@@ -329,14 +324,6 @@ export async function updateAgent(input: UpdateAgentInput): Promise<void> {
       input.reportsToId
         ? `Set manager of '${agent.slug}' to ${managerLabel}`
         : `Cleared manager of '${agent.slug}'`,
-    );
-  }
-
-  if (input.heartbeatCron !== undefined) {
-    summaryParts.push(
-      input.heartbeatCron
-        ? `Set heartbeat of '${agent.slug}' to ${input.heartbeatCron}`
-        : `Disabled heartbeat for '${agent.slug}'`,
     );
   }
 

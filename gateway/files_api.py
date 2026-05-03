@@ -31,7 +31,6 @@ import subprocess
 import sys
 import threading
 import urllib.parse
-from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 

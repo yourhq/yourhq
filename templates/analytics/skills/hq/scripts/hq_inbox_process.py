@@ -19,12 +19,11 @@ Usage:
 """
 
 import argparse
-import json
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import check_env, api_get, api_rpc, get_agent_id, AGENT_SLUG, output
+from hq_base import AGENT_SLUG, api_get, api_rpc, check_env, get_agent_id, output
 
 check_env()
 
@@ -95,13 +94,14 @@ for _ in range(batch_size):
                 if tasks:
                     context["task"] = tasks[0]
 
-                # Fetch task attachments
-                attachments = api_get("task_attachments", {
-                    "select": "id,entity_type,entity_id,url,label",
-                    "task_id": f"eq.{item['task_id']}",
+                # Fetch linked entities
+                links = api_get("entity_links", {
+                    "select": "id,target_type,target_id,url,label",
+                    "owner_type": "eq.task",
+                    "owner_id": f"eq.{item['task_id']}",
                 })
-                if attachments:
-                    context["attachments"] = attachments
+                if links:
+                    context["links"] = links
 
             if item.get("comment_id"):
                 comments = api_get("comments", {
@@ -134,7 +134,7 @@ for _ in range(batch_size):
             })
         else:
             break  # No more items
-    except Exception as e:
+    except Exception:
         # If leasing fails, stop trying
         break
 

@@ -1,27 +1,32 @@
 ---
-title: "Automations"
-description: "Wire up workspace events to agents so background work happens automatically."
+title: "Routines"
+description: "Wire up workspace events and schedules to agents so background work happens automatically."
 ---
 
-Automations let you define rules: when something happens in the workspace, an agent wakes up and handles it — no manual messaging needed.
+Routines let you define triggers: when something happens in the workspace or on a schedule, an agent wakes up and handles it — no manual messaging needed.
 
-**Where to go:** Settings → Automations
+**Where to go:** Dashboard → Routines
 
 ---
 
-## What automations do
+## What routines do
 
 ```
-Workspace event  →  Rule matches  →  Inbox item created  →  Dispatcher wakes agent  →  Agent processes it
+Trigger (event or schedule)  →  Routine matches  →  Inbox item created  →  Dispatcher wakes agent  →  Agent processes it
 ```
 
-An automation rule is: **when [trigger] matching [conditions], assign work to [agent]**.
+A routine is: **when [trigger] matching [conditions], assign work to [agent]**.
+
+Routines support two trigger types:
+
+- **Event triggers** — fire when a workspace event occurs (contact created, status changed, task assigned, etc.)
+- **Schedule triggers** — fire on a cron schedule (every 15 minutes, hourly, daily, etc.)
 
 The work arrives in the agent's inbox as a background task. The agent picks it up on its next active session, runs the relevant skill, and marks it done.
 
 ---
 
-## Supported triggers
+## Event triggers
 
 <CardGroup cols={2}>
   <Card title="Contact created" icon="user-plus">
@@ -37,28 +42,49 @@ The work arrives in the agent's inbox as a background task. The agent picks it u
     Fires when a task is assigned or reassigned to a specific agent.
   </Card>
   <Card title="Agent mentioned" icon="at">
-    Fires when `@agent-slug` appears in any task or document comment.
+    Fires when `@agent-slug` appears in any task comment.
   </Card>
 </CardGroup>
 
 ---
 
-## Creating an automation rule
+## Schedule triggers
+
+Schedule triggers wake an agent on a recurring cadence. Use these for periodic work: checking inboxes, generating reports, running sweeps, or any task that should happen on a timer.
+
+Available presets include:
+
+- Every 15 minutes
+- Every 30 minutes
+- Hourly
+- Every 6 hours
+- Daily
+- Weekly
+
+Custom cron expressions are also supported for advanced scheduling.
+
+---
+
+## Creating a routine
 
 <Steps>
-  <Step title="Open Automations">
-    Go to **Settings → Automations** in the left sidebar. You'll see a list of existing rules (empty on a fresh install).
+  <Step title="Open Routines">
+    Go to **Routines** in the left sidebar. You'll see a list of existing routines (empty on a fresh install).
   </Step>
-  <Step title="Click New rule">
-    Click the **+ New rule** button in the top right.
+  <Step title="Click New routine">
+    Click the **+ New routine** button in the top right.
   </Step>
   <Step title="Set the trigger">
-    Pick a trigger type from the dropdown. For CRM triggers (contact created, status changed, fields updated), you can optionally add conditions:
+    Choose between **Event** and **Schedule**:
+
+    **For event triggers:** pick a trigger type from the dropdown. For CRM triggers (contact created, status changed, fields updated), you can optionally add conditions:
 
     - **Pipeline stage** — only fire when the contact is in a specific stage
     - **Field value** — only fire when a specific field matches a value
 
     Leave conditions empty to fire on every event of that type.
+
+    **For schedule triggers:** pick a cron preset or enter a custom cron expression.
   </Step>
   <Step title="Choose the agent">
     Pick which agent should receive the work. Only agents with status `ready` (not paused or over budget) will actually be woken.
@@ -71,16 +97,16 @@ The work arrives in the agent's inbox as a background task. The agent picks it u
     The agent sees this note alongside the event data (contact record, task details, etc.).
   </Step>
   <Step title="Save and activate">
-    Click **Save**. The rule is active immediately — the next matching event will trigger it.
+    Click **Save**. The routine is active immediately — the next matching event or schedule tick will trigger it.
   </Step>
 </Steps>
 
 ---
 
-## Example rules
+## Example routines
 
 <AccordionGroup>
-  <Accordion title="Enrich new contacts automatically">
+  <Accordion title="Enrich new contacts automatically (event)">
     **Trigger:** Contact created  
     **Agent:** crm-researcher  
     **Summary:** "New contact added. Research their LinkedIn, company, and recent news. Update the contact record with findings."
@@ -88,7 +114,7 @@ The work arrives in the agent's inbox as a background task. The agent picks it u
     Every time a contact lands in your CRM, the researcher wakes up, browses the web, and fills in the missing context.
   </Accordion>
 
-  <Accordion title="Draft follow-ups when a deal moves stages">
+  <Accordion title="Draft follow-ups when a deal moves stages (event)">
     **Trigger:** Contact status changed  
     **Condition:** New stage = "Proposal sent"  
     **Agent:** sales-copywriter  
@@ -97,20 +123,28 @@ The work arrives in the agent's inbox as a background task. The agent picks it u
     Stage moves automatically trigger the agent to prep the next touchpoint.
   </Accordion>
 
-  <Accordion title="Respond to @-mentions in comments">
+  <Accordion title="Daily inbox sweep (schedule)">
+    **Trigger:** Schedule — daily at 9:00 AM  
+    **Agent:** chief-of-staff  
+    **Summary:** "Morning sweep. Review open tasks, check for stale contacts, and summarize priorities for today."
+
+    The agent wakes every morning and produces a daily briefing.
+  </Accordion>
+
+  <Accordion title="Periodic content check (schedule)">
+    **Trigger:** Schedule — every 6 hours  
+    **Agent:** social-strategist  
+    **Summary:** "Check social channels for engagement on recent posts. Flag anything that needs a response."
+
+    Regular monitoring without manual prompting.
+  </Accordion>
+
+  <Accordion title="Respond to @-mentions in comments (event)">
     **Trigger:** Agent mentioned  
     **Agent:** assistant  
     **Summary:** (the mention text is passed automatically)
 
-    When anyone types `@assistant` in a task or document comment, the assistant wakes up and responds in-thread.
-  </Accordion>
-
-  <Accordion title="Notify an agent when assigned a task">
-    **Trigger:** Task assigned  
-    **Agent:** chief-of-staff  
-    **Summary:** "A new task has been assigned to you. Review it, break it into subtasks if needed, and begin work."
-
-    Task assignment becomes a wake signal, not just a database change.
+    When anyone types `@assistant` in a task comment, the assistant wakes up and responds in-thread.
   </Accordion>
 </AccordionGroup>
 
@@ -118,11 +152,11 @@ The work arrives in the agent's inbox as a background task. The agent picks it u
 
 ## How the agent receives the work
 
-When a rule fires, HQ creates an `agent_inbox_items` row containing:
+When a routine fires, HQ creates an `agent_inbox_items` row containing:
 
-- The trigger event type
-- A summary (your rule note + event context)
-- The related record (contact ID, task ID, etc.)
+- The trigger event type (or `schedule` for schedule routines)
+- A summary (your routine note + event context)
+- The related record (contact ID, task ID, etc.) if applicable
 
 The **inbox dispatcher** wakes the agent within seconds via `openclaw agent --message "[inbox] ..."`. The agent reads its inbox, finds the item, and processes it using its skills.
 
@@ -130,24 +164,29 @@ The agent marks items done as it goes. You can see inbox history in **Settings �
 
 ---
 
-## Pausing and deleting rules
+## Pausing and deleting routines
 
-- **Pause a rule:** toggle the rule off. Existing inbox items are unaffected.
-- **Delete a rule:** click the trash icon. Events that already created inbox items will still be processed.
+- **Pause a routine:** toggle the routine off. Existing inbox items are unaffected. Schedule routines stop generating new items while paused.
+- **Delete a routine:** click the trash icon. Events that already created inbox items will still be processed.
 
 ---
 
-## Troubleshooting automations
+## Troubleshooting routines
 
-**Rule fired but agent never responded:**
+**Routine fired but agent never responded:**
 1. Check the agent status — it must be `ready`, not paused or over budget
 2. Check the dispatcher logs: `docker compose logs -f dispatcher`
 3. Check inbox history: Settings → System → Inbox — find the item and check its status
 
-**Rule is not firing:**
+**Event routine is not firing:**
 1. Confirm the trigger type matches the event you're testing
 2. Check that conditions are correct (wrong stage name, etc.)
-3. Verify the rule is enabled (toggle should be on)
+3. Verify the routine is enabled (toggle should be on)
+
+**Schedule routine is not firing:**
+1. Confirm the cron expression is correct
+2. Check that pg_cron is enabled in your Supabase project
+3. Verify the routine is enabled
 
 **Agent responded but work is wrong:**
-Edit the rule summary to be more specific. The summary is the agent's instruction — treat it like a short task description.
+Edit the routine summary to be more specific. The summary is the agent's instruction — treat it like a short task description.

@@ -20,12 +20,11 @@ Usage:
 """
 
 import argparse
-import json
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import check_env, api_get, get_agent_id, AGENT_SLUG, output
+from hq_base import AGENT_SLUG, api_get, check_env, get_agent_id, output
 
 check_env()
 

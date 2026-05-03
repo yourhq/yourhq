@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Dialog,
@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Kbd } from "@/components/ui/kbd";
+import { useModules } from "@/components/shared/modules-context";
 
 interface ShortcutsContextType {
   showHelp: () => void;
@@ -20,41 +21,44 @@ export function useShortcuts() {
   return useContext(ShortcutsContext);
 }
 
-const SHORTCUT_GROUPS = [
-  {
-    title: "Navigation",
-    shortcuts: [
-      { keys: ["G", "D"], description: "Go to Dashboard" },
-      { keys: ["G", "C"], description: "Go to CRM" },
-      { keys: ["G", "O"], description: "Go to Organizations" },
-      { keys: ["G", "T"], description: "Go to Tasks" },
-      { keys: ["G", "A"], description: "Go to Assets" },
-      { keys: ["G", "L"], description: "Go to Activity" },
-      { keys: ["G", "G"], description: "Go to Agents" },
-      { keys: ["G", "N"], description: "Go to Notifications" },
-      { keys: ["G", "S"], description: "Go to Settings" },
-    ],
-  },
-  {
-    title: "Actions",
-    shortcuts: [
-      { keys: ["⌘", "K"], description: "Command palette" },
-      { keys: ["⌘", "B"], description: "Toggle sidebar" },
-      { keys: ["?"], description: "Keyboard shortcuts" },
-    ],
-  },
+interface ShortcutEntry {
+  keys: string[];
+  description: string;
+  crmOnly?: boolean;
+}
+
+const NAV_SHORTCUTS: ShortcutEntry[] = [
+  { keys: ["G", "D"], description: "Go to Dashboard" },
+  { keys: ["G", "C"], description: "Go to Contacts", crmOnly: true },
+  { keys: ["G", "O"], description: "Go to Organizations", crmOnly: true },
+  { keys: ["G", "T"], description: "Go to Tasks" },
+  { keys: ["G", "A"], description: "Go to Agents" },
+  { keys: ["G", "K"], description: "Go to Knowledge" },
+  { keys: ["G", "E"], description: "Go to Collections" },
+  { keys: ["G", "R"], description: "Go to Routines" },
+  { keys: ["G", "L"], description: "Go to Activity" },
+  { keys: ["G", "N"], description: "Go to Notifications" },
+  { keys: ["G", "S"], description: "Go to Settings" },
 ];
 
-const NAV_MAP: Record<string, string> = {
-  d: "/dashboard",
-  c: "/dashboard/crm",
-  o: "/dashboard/organizations",
-  t: "/dashboard/tasks",
-  a: "/dashboard/assets",
-  l: "/dashboard/activity",
-  g: "/dashboard/agents",
-  n: "/dashboard/notifications",
-  s: "/dashboard/settings",
+const ACTION_SHORTCUTS: ShortcutEntry[] = [
+  { keys: ["⌘", "K"], description: "Command palette" },
+  { keys: ["⌘", "B"], description: "Toggle sidebar" },
+  { keys: ["?"], description: "Keyboard shortcuts" },
+];
+
+const FULL_NAV_MAP: Record<string, { href: string; crmOnly?: boolean }> = {
+  d: { href: "/dashboard" },
+  c: { href: "/dashboard/crm", crmOnly: true },
+  o: { href: "/dashboard/organizations", crmOnly: true },
+  t: { href: "/dashboard/tasks" },
+  a: { href: "/dashboard/agents" },
+  k: { href: "/dashboard/knowledge" },
+  e: { href: "/dashboard/collections" },
+  r: { href: "/dashboard/routines" },
+  l: { href: "/dashboard/activity" },
+  n: { href: "/dashboard/notifications" },
+  s: { href: "/dashboard/settings" },
 };
 
 export function KeyboardShortcutsProvider({
@@ -65,26 +69,36 @@ export function KeyboardShortcutsProvider({
   const [helpOpen, setHelpOpen] = useState(false);
   const [gPressed, setGPressed] = useState(false);
   const router = useRouter();
+  const modules = useModules();
+  const crmEnabled = modules.crm !== false;
 
   const showHelp = useCallback(() => setHelpOpen(true), []);
+
+  const shortcutGroups = useMemo(() => [
+    {
+      title: "Navigation",
+      shortcuts: NAV_SHORTCUTS.filter((s) => !s.crmOnly || crmEnabled),
+    },
+    {
+      title: "Actions",
+      shortcuts: ACTION_SHORTCUTS,
+    },
+  ], [crmEnabled]);
 
   useEffect(() => {
     let gTimer: ReturnType<typeof setTimeout> | null = null;
 
     const handler = (e: KeyboardEvent) => {
-      // Ignore when typing in inputs
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       if ((e.target as HTMLElement).isContentEditable) return;
 
-      // ? for help
       if (e.key === "?" && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         setHelpOpen((prev) => !prev);
         return;
       }
 
-      // G + key navigation
       if (e.key === "g" && !e.metaKey && !e.ctrlKey && !gPressed) {
         setGPressed(true);
         gTimer = setTimeout(() => setGPressed(false), 800);
@@ -94,10 +108,10 @@ export function KeyboardShortcutsProvider({
       if (gPressed) {
         setGPressed(false);
         if (gTimer) clearTimeout(gTimer);
-        const dest = NAV_MAP[e.key];
-        if (dest) {
+        const entry = FULL_NAV_MAP[e.key];
+        if (entry && (!entry.crmOnly || crmEnabled)) {
           e.preventDefault();
-          router.push(dest);
+          router.push(entry.href);
         }
       }
     };
@@ -107,7 +121,7 @@ export function KeyboardShortcutsProvider({
       document.removeEventListener("keydown", handler);
       if (gTimer) clearTimeout(gTimer);
     };
-  }, [gPressed, router]);
+  }, [gPressed, router, crmEnabled]);
 
   return (
     <ShortcutsContext.Provider value={{ showHelp }}>
@@ -118,7 +132,7 @@ export function KeyboardShortcutsProvider({
             <DialogTitle>Keyboard Shortcuts</DialogTitle>
           </DialogHeader>
           <div className="space-y-6">
-            {SHORTCUT_GROUPS.map((group) => (
+            {shortcutGroups.map((group) => (
               <div key={group.title}>
                 <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   {group.title}

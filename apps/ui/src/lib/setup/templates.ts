@@ -267,6 +267,10 @@ export const DEFAULT_STREAMS: StreamTemplate[] = [
 /*  user skips the three separate picker screens.                     */
 /* ------------------------------------------------------------------ */
 
+export interface WorkspaceModules {
+  crm: boolean;
+}
+
 export interface ContextPreset {
   key: string;
   label: string;
@@ -275,6 +279,8 @@ export interface ContextPreset {
   pipelineKey: string;
   fieldKey: string;
   streamNames: string[];
+  modules: WorkspaceModules;
+  collectionTemplateSlugs: string[];
 }
 
 export const CONTEXT_PRESETS: ContextPreset[] = [
@@ -286,6 +292,8 @@ export const CONTEXT_PRESETS: ContextPreset[] = [
     pipelineKey: "outreach",
     fieldKey: "creator-outreach",
     streamNames: ["Operations", "Marketing", "Content"],
+    modules: { crm: true },
+    collectionTemplateSlugs: ["content-calendar"],
   },
   {
     key: "sales",
@@ -295,6 +303,8 @@ export const CONTEXT_PRESETS: ContextPreset[] = [
     pipelineKey: "sales",
     fieldKey: "sales",
     streamNames: ["Operations", "Marketing"],
+    modules: { crm: true },
+    collectionTemplateSlugs: [],
   },
   {
     key: "recruiting",
@@ -304,6 +314,19 @@ export const CONTEXT_PRESETS: ContextPreset[] = [
     pipelineKey: "recruiting",
     fieldKey: "recruiting",
     streamNames: ["Operations"],
+    modules: { crm: true },
+    collectionTemplateSlugs: [],
+  },
+  {
+    key: "job-search",
+    label: "Job search",
+    description: "Track applications, interviews, and offers.",
+    emoji: "💼",
+    pipelineKey: "job-search",
+    fieldKey: "job-search",
+    streamNames: ["Operations"],
+    modules: { crm: false },
+    collectionTemplateSlugs: ["job-search"],
   },
   {
     key: "clients",
@@ -313,6 +336,8 @@ export const CONTEXT_PRESETS: ContextPreset[] = [
     pipelineKey: "clients",
     fieldKey: "clients",
     streamNames: ["Operations", "Content"],
+    modules: { crm: true },
+    collectionTemplateSlugs: [],
   },
   {
     key: "personal",
@@ -322,6 +347,8 @@ export const CONTEXT_PRESETS: ContextPreset[] = [
     pipelineKey: "personal",
     fieldKey: "personal",
     streamNames: ["Operations"],
+    modules: { crm: false },
+    collectionTemplateSlugs: [],
   },
   {
     key: "other",
@@ -331,6 +358,8 @@ export const CONTEXT_PRESETS: ContextPreset[] = [
     pipelineKey: "custom",
     fieldKey: "blank",
     streamNames: ["Operations"],
+    modules: { crm: true },
+    collectionTemplateSlugs: [],
   },
 ];
 

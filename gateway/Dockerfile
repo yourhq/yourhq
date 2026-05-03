@@ -178,8 +178,10 @@ COPY --chown=openclaw:openclaw gateway/entrypoint.sh /usr/local/bin/entrypoint.s
 # Registry-fallback helper used by entrypoint.sh when SUPABASE_URL /
 # SUPABASE_SERVICE_ROLE_KEY aren't set. Reads the UI's projects.json +
 # secrets.json via the shared ui-config volume (mounted at /config).
-RUN mkdir -p /opt/yourhq && chown -R openclaw:openclaw /opt/yourhq
+RUN mkdir -p /opt/yourhq/daemons && chown -R openclaw:openclaw /opt/yourhq
 COPY --chown=openclaw:openclaw gateway/daemons/registry_config.py /opt/yourhq/registry_config.py
+COPY --chown=openclaw:openclaw gateway/daemons/inbox_dispatcher.py /opt/yourhq/daemons/inbox_dispatcher.py
+COPY --chown=openclaw:openclaw gateway/daemons/command_runner.py /opt/yourhq/daemons/command_runner.py
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # noVNC (when enabled) listens on 6901 inside the container. The compose file

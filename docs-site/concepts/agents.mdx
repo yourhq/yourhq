@@ -228,7 +228,7 @@ Agents have access to (via openclaw):
 
 - **Browser** — a dedicated Chrome profile they can drive. Visit pages, screenshot, click, type. Persistent cookies.
 - **Messaging channel** — Telegram, Discord, or Slack — send/receive messages with their paired user.
-- **HQ database** — read/write contacts, tasks, documents, interactions via the service role.
+- **HQ database** — read/write contacts, tasks, knowledge items, interactions via the service role.
 - **MCP servers** — any MCP server you configure. Slack, GitHub, Notion, Google Calendar, etc.
 - **Shell** — scoped to their workspace directory.
 
@@ -244,14 +244,14 @@ Agents wake up fresh each session. Continuity comes from files in their branch:
 
 The default `AGENTS.md` prompts the agent to read these on every session start. The agent maintains them itself — the user doesn't usually touch them.
 
-For shared knowledge across agents, use Supabase documents (agents read/write the `documents` table).
+For shared knowledge across agents, use the [knowledge system](/concepts/knowledge) — workspace-scoped items are visible to all agents, and pinned items are automatically included in boot context.
 
 ## Agent-to-agent
 
-Agents see the same database, so they can see each other's tasks and documents. Coordination patterns:
+Agents see the same database, so they can see each other's tasks and knowledge. Coordination patterns:
 
-- **@-mentions in comments** — mentioning `@agent-slug` in a task or document comment enqueues an inbox item for that agent via the `enqueue_comment_mentions` trigger. Dispatcher wakes the agent.
-- **Automation rules** — `automation_rules` table can fire inbox items on CRM events. Agent A writes a contact update → rule creates inbox item for agent B.
+- **@-mentions in comments** — mentioning `@agent-slug` in a task comment enqueues an inbox item for that agent via the `enqueue_comment_mentions` trigger. Dispatcher wakes the agent.
+- **Routines** — routines can fire inbox items on CRM events or schedules. Agent A writes a contact update → routine creates inbox item for agent B.
 - **Task assignment** — assigning a task to an agent enqueues an inbox item (via `enqueue_task_assignment` trigger).
 
 The org chart adds a convention on top of these primitives: managers and direct reports coordinate through tasks instead of direct hidden calls.

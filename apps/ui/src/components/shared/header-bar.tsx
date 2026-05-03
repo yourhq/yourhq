@@ -51,8 +51,7 @@ const ENTITY_TABLE_MAP: Record<string, { table: string; column: string }> = {
   contacts: { table: "contacts", column: "name" },
   organizations: { table: "organizations", column: "name" },
   agents: { table: "agents", column: "name" },
-  documents: { table: "documents", column: "title" },
-  assets: { table: "assets", column: "name" },
+  knowledge: { table: "knowledge_items", column: "title" },
 };
 
 /**

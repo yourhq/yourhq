@@ -30,8 +30,8 @@ import os
 import re
 import subprocess
 import sys
-import time
 import threading
+import time
 from datetime import datetime, timezone
 
 try:
@@ -40,8 +40,8 @@ except ImportError:
     print("Missing: pip install websocket-client", file=sys.stderr)
     sys.exit(1)
 
-import urllib.request
 import urllib.parse
+import urllib.request
 
 try:
     from git_backup_sweep import start_backup_sweep
@@ -252,9 +252,9 @@ def build_command(action, agent_slug, payload):
             return None, "Missing pairing_code in payload"
         code = str(code).strip()
         if not validate_pairing_code(code):
-            return None, f"Invalid pairing code format"
+            return None, "Invalid pairing code format"
         channel = payload.get("channel", "telegram")
-        return ["openclaw", "pairing", "approve", channel, code], f"Approving pairing"
+        return ["openclaw", "pairing", "approve", channel, code], "Approving pairing"
 
     elif action == "update":
         if not agent_slug:
@@ -271,6 +271,8 @@ def build_command(action, agent_slug, payload):
     elif action == "restart_gateway":
         if RUNTIME_MODE == "docker":
             return ["docker", "compose", "-p", COMPOSE_PROJECT, "restart", "gateway"], "Restarting gateway (docker)"
+        if RUNTIME_MODE == "e2b":
+            return ["bash", "-c", "kill -HUP $(pgrep -f 'openclaw gateway run' | head -1) 2>/dev/null || true"], "Restarting gateway (e2b)"
         return ["openclaw", "gateway", "restart"], "Restarting gateway"
 
     elif action == "update_all":
@@ -279,11 +281,15 @@ def build_command(action, agent_slug, payload):
     elif action == "restart_dispatcher":
         if RUNTIME_MODE == "docker":
             return ["docker", "compose", "-p", COMPOSE_PROJECT, "restart", "dispatcher"], "Restarting dispatcher (docker)"
+        if RUNTIME_MODE == "e2b":
+            return ["bash", "-c", "pkill -f inbox_dispatcher.py; sleep 1; python3 /opt/yourhq/daemons/inbox_dispatcher.py &"], "Restarting dispatcher (e2b)"
         return ["systemctl", "--user", "restart", "hq-inbox-dispatcher"], "Restarting dispatcher"
 
     elif action == "update_gateway":
         if RUNTIME_MODE == "docker":
             return ["bash", "-c", f"docker compose -p {COMPOSE_PROJECT} pull && docker compose -p {COMPOSE_PROJECT} up -d"], "Updating gateway (docker pull + up)"
+        if RUNTIME_MODE == "e2b":
+            return None, "Gateway updates in e2b mode are managed by the worker service"
         return ["bash", "-c", "cd ~ && git pull && ./install.sh --update"], "Updating gateway (git pull)"
 
     else:

@@ -17,11 +17,13 @@ export type AuditAction =
 export type AuditModule =
   | "crm"
   | "tasks"
-  | "assets"
   | "agents"
-  | "documents"
-  | "automations"
-  | "settings";
+  | "knowledge"
+  | "routines"
+  | "collections"
+  | "sources"
+  | "settings"
+  | "entity_links";
 
 export interface AuditLogEntry {
   id: string;
@@ -57,19 +59,23 @@ export const AUDIT_ACTIONS: { value: AuditAction; label: string; icon: string }[
 export const MODULE_LABELS: Record<AuditModule, string> = {
   crm: "CRM",
   tasks: "Tasks",
-  assets: "Assets",
   agents: "Agents",
-  documents: "Documents",
-  automations: "Automations",
+  knowledge: "Knowledge",
+  routines: "Routines",
+  collections: "Collections",
+  sources: "Sources",
   settings: "Settings",
+  entity_links: "Entity Links",
 };
 
 export const MODULE_COLORS: Record<AuditModule, string> = {
   crm: "bg-blue-500/20 text-blue-400",
   tasks: "bg-purple-500/20 text-purple-400",
-  assets: "bg-amber-500/20 text-amber-400",
   agents: "bg-emerald-500/20 text-emerald-400",
-  documents: "bg-teal-500/20 text-teal-400",
-  automations: "bg-orange-500/20 text-orange-400",
+  knowledge: "bg-cyan-500/20 text-cyan-400",
+  routines: "bg-violet-500/20 text-violet-400",
+  collections: "bg-pink-500/20 text-pink-400",
+  sources: "bg-teal-500/20 text-teal-400",
   settings: "bg-slate-500/20 text-slate-400",
+  entity_links: "bg-indigo-500/20 text-indigo-400",
 };

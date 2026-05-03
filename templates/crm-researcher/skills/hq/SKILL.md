@@ -1,6 +1,6 @@
 ---
 name: hq
-description: Connect to the HQ via Supabase. Use when you need to register yourself, search or create documents, claim tasks, post comments, manage contacts and organizations, log interactions, or query the audit trail. Also use at session startup to register and load boot documents.
+description: Connect to the HQ via Supabase. Use when you need to register yourself, search knowledge, create/update pages and playbooks, claim tasks, post comments, manage contacts and organizations, log interactions, or query the audit trail. Also use at session startup to register and load pinned knowledge items.
 ---
 
 # HQ
@@ -14,7 +14,6 @@ These must be set in your environment:
 - `SUPABASE_URL` — Supabase project URL
 - `SUPABASE_SERVICE_ROLE_KEY` — service role key (bypasses RLS)
 - `AGENT_SLUG` — your unique identifier (matches your git branch)
-- `EMBEDDING_API_KEY` — for document vector search only (do NOT use for anything else)
 
 ## Session Startup
 
@@ -26,11 +25,11 @@ python3 skills/hq/scripts/hq_register.py
 ```
 This upserts your agent in the `agents` table and sets status to `online`.
 
-### 2. Load boot documents
+### 2. Load pinned knowledge items
 ```bash
 python3 skills/hq/scripts/hq_boot_docs.py
 ```
-This fetches all documents tagged `boot:all` and `boot:YOUR_SLUG`. Read the output — it's your shared context.
+This fetches all pinned knowledge items scoped to workspace (all agents) and agent (you specifically). Read the output — it's your shared context.
 
 ## Field & Pipeline Discovery
 
@@ -95,39 +94,39 @@ python3 skills/hq/scripts/hq_update_extended.py organizations ORG_ID \
   --data '{"deal_value": 50000}'
 ```
 
-## Documents
+## Knowledge
 
-### Search documents (semantic)
+### Search knowledge (semantic + full-text fallback)
 ```bash
 python3 skills/hq/scripts/hq_search_docs.py "your natural language query"
 ```
-Optional flags: `--tags tag1,tag2` `--folder-id UUID` `--limit 5`
+Optional flags: `--tags tag1,tag2` `--folder-id UUID` `--kind page` `--limit 5`
 
-Falls back to text search if embeddings aren't available.
+Kind filter: `page`, `playbook`, `file`, `source`. Returns matched knowledge items ranked by similarity.
 
-### Get a specific document
-```bash
-python3 skills/hq/scripts/hq_get_doc.py DOCUMENT_ID
-```
-
-### Get documents by tag
-```bash
-python3 skills/hq/scripts/hq_get_docs_by_tag.py TAG_NAME
-```
-
-### Create a document
+### Create a knowledge item
 ```bash
 python3 skills/hq/scripts/hq_create_doc.py --title "Title" --content "Content here" --tags tag1,tag2
 ```
-Optional: `--folder-id UUID`
+Optional: `--kind playbook` (default: page), `--scope agent` (default: workspace), `--folder-id UUID`
 
-Automatically generates an embedding on creation.
+Automatically requests a local embedding on creation.
 
-### Update a document
+### Update a knowledge item
 ```bash
-python3 skills/hq/scripts/hq_update_doc.py DOCUMENT_ID --title "New title" --content "New content" --tags tag1,tag2
+python3 skills/hq/scripts/hq_update_doc.py ITEM_ID --title "New title" --content "New content" --tags tag1,tag2
 ```
-Automatically re-generates the embedding.
+Automatically re-embeds on update.
+
+### Get a specific knowledge item
+```bash
+python3 skills/hq/scripts/hq_get_doc.py ITEM_ID
+```
+
+### Get knowledge items by tag
+```bash
+python3 skills/hq/scripts/hq_get_docs_by_tag.py TAG_NAME
+```
 
 ## Tasks
 
@@ -150,7 +149,7 @@ Optional: `--status todo,in_progress`
 ```bash
 python3 skills/hq/scripts/hq_claim_task.py TASK_ID
 ```
-Sets status to `in_progress`, assigns you, and fetches any attached documents/assets.
+Sets status to `in_progress`, assigns you, and fetches attached source metadata plus top relevant chunks for document attachments. Use `hq_get_knowledge_chunks.py SOURCE_ID` or `hq_get_doc.py DOCUMENT_ID` if you need more context.
 
 ### Assign a task
 ```bash
@@ -287,11 +286,11 @@ Sets task to `blocked`, posts a comment mentioning @prajoth, sends Telegram noti
 ## Rules
 
 - **Every write must be audited.** Use the audited helpers, not raw Supabase queries.
-- **Use `EMBEDDING_API_KEY` only for document embeddings.** Never for anything else.
-- **Search documents before asking.** Your knowledge base is in Supabase.
+- **Embeddings are local.** Use the knowledge scripts; no embedding API key is required.
+- **Search knowledge before asking.** The knowledge base is in Supabase and search returns matched items ranked by similarity.
 - **Discover fields before writing.** Fetch `field_definitions` to know what extended fields exist and what they mean.
 - **Use valid pipeline stages.** Fetch `pipeline_stages` before setting a contact's status.
 - **When you claim a task, read its attachments.** They're fetched automatically.
-- **Create documents for reusable knowledge.** Don't hoard context in chat.
+- **Create knowledge items for reusable info.** Use `--kind playbook` for SOPs and instructions, `--kind page` for general notes.
 - **Process your inbox without babysitting.** When woken, work through items before going idle.
 - **Escalate to unblock.** Don't sit on a stuck item — escalate and move to the next one.

@@ -22,7 +22,7 @@ No vendor lock-in. No per-seat pricing. No data leaving your infrastructure.
 - **Run anywhere Docker runs.** Laptop, Raspberry Pi, Mac mini, VPS, EC2 — same code, same experience.
 - **One UI, many gateways.** Run the UI on your laptop, gateways anywhere. Agents provision on the host you pick.
 - **Agents are real programs**, not chat wrappers. They browse, send messages, edit files, call APIs — with real memory across sessions.
-- **Operational workspace included.** CRM, tasks, docs, assets, automations, activity, notifications, usage budgets, and gateway management live in one UI.
+- **Operational workspace included.** CRM, tasks, knowledge base, collections, routines, inbox, activity, notifications, usage budgets, and gateway management live in one UI.
 - **Template library included.** Cofounder, designer, analyst, CMO, newsletter editor, and more — starting points you customize in-place.
 
 ## Install
@@ -100,7 +100,7 @@ Read the full breakdown in [the architecture docs](https://docs.yourhq.ai/concep
 Out of the box, agents have access to:
 
 - **Web browsing** — a dedicated Chrome profile they can drive autonomously
-- **Your workspace** — contacts, organizations, tasks, interactions, documents, assets
+- **Your workspace** — contacts, organizations, tasks, interactions, knowledge items, collections
 - **Messaging channels** — Telegram, Discord, or Slack — each agent gets its own channel binding
 - **Model-agnostic** — any provider: OpenAI, Anthropic, Gemini, Ollama, and 25+ others supported by OpenClaw
 - **Calendar, email, Slack, Notion** — via MCP or custom plugins
@@ -126,7 +126,7 @@ See [the networking docs](https://docs.yourhq.ai/self-host/networking) for deplo
 
 ## Current status
 
-HQ already includes the self-hosted stack, browser onboarding, multi-project registry, UI-driven gateway registration, provider connections, noVNC desktop access, agent templates, CRM, tasks, documents, automations, agent usage budgets, and agent reporting hierarchy.
+HQ already includes the self-hosted stack, browser onboarding, multi-project registry, UI-driven gateway registration, provider connections, noVNC desktop access, agent templates, CRM, tasks, knowledge base, collections, routines, source connections (Notion), file processing pipeline, modular onboarding, agent usage budgets, and agent reporting hierarchy.
 
 The remaining roadmap is mostly hardening, polish, hosted deployment, and deeper integrations. See [the roadmap](https://docs.yourhq.ai/getting-started/roadmap).
 

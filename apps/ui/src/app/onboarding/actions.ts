@@ -945,6 +945,88 @@ export async function finalizeOnboarding(): Promise<ActionResult> {
   });
   if (error) return { ok: false, error: error.message };
 
+  // Set workspace modules based on the preset
+  const modules = preset.modules ?? { crm: true };
+  await supabase
+    .from("workspace")
+    .update({
+      settings: { modules },
+    })
+    .eq("tenant_id", "00000000-0000-0000-0000-000000000000");
+
+  // Install collection templates specified by the preset
+  if (preset.collectionTemplateSlugs?.length) {
+    for (const slug of preset.collectionTemplateSlugs) {
+      const { data: tpl } = await supabase
+        .from("collection_templates")
+        .select("definition")
+        .eq("slug", slug)
+        .maybeSingle();
+      if (!tpl?.definition) continue;
+
+      const def = tpl.definition as {
+        name?: string;
+        description?: string;
+        icon?: string;
+        color?: string;
+        fields?: Array<Record<string, unknown>>;
+        views?: Array<Record<string, unknown>>;
+      };
+
+      const { data: existing } = await supabase
+        .from("collection_definitions")
+        .select("id")
+        .eq("slug", slug)
+        .eq("tenant_id", "00000000-0000-0000-0000-000000000000")
+        .maybeSingle();
+      if (existing) continue;
+
+      const { data: created } = await supabase
+        .from("collection_definitions")
+        .insert({
+          name: def.name ?? slug,
+          slug,
+          description: def.description ?? null,
+          icon: def.icon ?? null,
+          color: def.color ?? "#6b7280",
+          tenant_id: "00000000-0000-0000-0000-000000000000",
+        })
+        .select("id")
+        .single();
+      if (!created) continue;
+
+      if (def.fields?.length) {
+        await supabase.from("collection_fields").insert(
+          def.fields.map((f, i) => ({
+            collection_id: created.id,
+            field_key: f.field_key,
+            field_type: f.field_type,
+            label: f.label,
+            sort_order: f.sort_order ?? i,
+            required: f.required ?? false,
+            options: f.options ?? null,
+            is_title_field: f.is_title_field ?? false,
+            tenant_id: "00000000-0000-0000-0000-000000000000",
+          })),
+        );
+      }
+
+      if (def.views?.length) {
+        await supabase.from("collection_views").insert(
+          def.views.map((v, i) => ({
+            collection_id: created.id,
+            name: v.name,
+            view_type: v.view_type,
+            config: v.config ?? {},
+            is_default: v.is_default ?? i === 0,
+            sort_order: v.sort_order ?? i,
+            tenant_id: "00000000-0000-0000-0000-000000000000",
+          })),
+        );
+      }
+    }
+  }
+
   await patchOnboardingState({ step: "done", complete: true });
   revalidatePath("/");
   revalidatePath("/onboarding");

@@ -1,35 +1,45 @@
 #!/usr/bin/env python3
-"""Fetch boot documents tagged boot:all and boot:AGENT_SLUG."""
+"""Fetch boot knowledge: workspace pinned items + agent-scoped items."""
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import check_env, api_get, AGENT_SLUG, output
+from hq_base import api_get, check_env, get_agent_id, output
 
 check_env()
 
-# Supabase 'or' filter: tags contains boot:all OR tags contains boot:{slug}
-# Using two separate queries since PostgREST 'or' with array contains is tricky
-docs_all = api_get("documents", {
-    "select": "id,title,content,tags,folder_id",
-    "tags": f"cs.{{boot:all}}",
-})
+agent_id = get_agent_id()
 
-docs_agent = api_get("documents", {
-    "select": "id,title,content,tags,folder_id",
-    "tags": f"cs.{{boot:{AGENT_SLUG}}}",
-})
+workspace_items = api_get("knowledge_items", {
+    "select": "id,title,kind,content,plain_text,tags,scope,folder_id,updated_at",
+    "scope": "eq.workspace",
+    "pinned": "eq.true",
+    "archived_at": "is.null",
+}) or []
 
-# Dedupe by id
+agent_items = []
+if agent_id:
+    junctions = api_get("knowledge_item_agents", {
+        "select": "knowledge_item_id",
+        "agent_id": f"eq.{agent_id}",
+    }) or []
+    item_ids = [j["knowledge_item_id"] for j in junctions]
+    if item_ids:
+        agent_items = api_get("knowledge_items", {
+            "select": "id,title,kind,content,plain_text,tags,scope,folder_id,updated_at",
+            "id": f"in.({','.join(item_ids)})",
+            "archived_at": "is.null",
+        }) or []
+
 seen = set()
-docs = []
-for d in docs_all + docs_agent:
-    if d["id"] not in seen:
-        seen.add(d["id"])
-        docs.append(d)
+items = []
+for item in workspace_items + agent_items:
+    if item["id"] not in seen:
+        seen.add(item["id"])
+        items.append(item)
 
 output({
-    "boot_document_count": len(docs),
-    "documents": docs,
+    "boot_item_count": len(items),
+    "items": items,
 })
