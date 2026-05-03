@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Claim a task and fetch linked entities plus relevant knowledge chunks."""
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import check_env, api_get, api_patch, api_rpc, audit, get_agent_id, AGENT_SLUG, output
+from hq_base import AGENT_SLUG, api_get, api_patch, api_rpc, audit, check_env, get_agent_id, output
 
 check_env()
 

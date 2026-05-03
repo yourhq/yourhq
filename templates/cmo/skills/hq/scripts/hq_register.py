@@ -2,11 +2,11 @@
 """Register this agent in the HQ."""
 
 import json
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import check_env, api_post, api_get, api_patch, AGENT_SLUG, now_iso, output
+from hq_base import AGENT_SLUG, api_get, api_patch, api_post, check_env, now_iso, output
 
 check_env()
 

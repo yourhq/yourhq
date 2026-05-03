@@ -2,14 +2,19 @@
 """Update a knowledge item with automatic re-embedding."""
 
 import argparse
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 from hq_base import (
-    check_env, api_get, api_patch, audit,
-    generate_embedding, build_embedding_input,
-    AGENT_SLUG, output,
+    AGENT_SLUG,
+    api_get,
+    api_patch,
+    audit,
+    build_embedding_input,
+    check_env,
+    generate_embedding,
+    output,
 )
 
 check_env()

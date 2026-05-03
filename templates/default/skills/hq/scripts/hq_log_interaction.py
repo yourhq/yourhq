@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """Log an interaction with a contact (replaces outreach_log)."""
-import argparse, sys, os
+import argparse
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import check_env, api_post, audit, get_agent_id, AGENT_SLUG, now_iso, output
+from hq_base import AGENT_SLUG, api_post, audit, check_env, get_agent_id, now_iso, output
+
 check_env()
 
 ap = argparse.ArgumentParser()
@@ -40,6 +44,7 @@ payload = {
 
 if args.next_action_days:
     from datetime import timedelta
+
     from hq_base import datetime, timezone
     nad = datetime.now(timezone.utc) + timedelta(days=args.next_action_days)
     payload["next_action_date"] = nad.replace(microsecond=0).isoformat()

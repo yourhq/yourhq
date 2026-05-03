@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """Fetch pipeline stages for an entity type."""
-import argparse, sys, os
+import argparse
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import check_env, api_get, output
+from hq_base import api_get, check_env, output
+
 check_env()
 
 ap = argparse.ArgumentParser()

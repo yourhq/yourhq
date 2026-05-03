@@ -19,12 +19,11 @@ Usage:
 """
 
 import argparse
-import json
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import check_env, api_get, api_rpc, get_agent_id, AGENT_SLUG, output
+from hq_base import AGENT_SLUG, api_get, api_rpc, check_env, get_agent_id, output
 
 check_env()
 
@@ -135,7 +134,7 @@ for _ in range(batch_size):
             })
         else:
             break  # No more items
-    except Exception as e:
+    except Exception:
         # If leasing fails, stop trying
         break
 

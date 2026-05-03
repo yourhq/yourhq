@@ -2,14 +2,18 @@
 """Create a new knowledge item (page or playbook) with automatic embedding."""
 
 import argparse
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 from hq_base import (
-    check_env, api_post, audit, get_agent_id,
-    generate_embedding, build_embedding_input, embedding_source_hash, EMBEDDING_MODEL,
-    AGENT_SLUG, output,
+    AGENT_SLUG,
+    api_post,
+    audit,
+    build_embedding_input,
+    check_env,
+    generate_embedding,
+    output,
 )
 
 check_env()

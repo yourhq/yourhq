@@ -11,7 +11,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import check_env, api_rpc, api_get, generate_embedding, output
+from hq_base import api_get, api_rpc, check_env, generate_embedding, output
 
 check_env()
 

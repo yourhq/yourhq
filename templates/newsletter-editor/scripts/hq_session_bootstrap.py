@@ -14,7 +14,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 HQ_SCRIPTS_DIR = SCRIPT_DIR.parent / "skills" / "hq" / "scripts"
 sys.path.insert(0, str(HQ_SCRIPTS_DIR))
 
-from hq_base import check_env, api_get, api_post, api_patch, AGENT_SLUG, now_iso  # type: ignore
+from hq_base import AGENT_SLUG, api_get, api_patch, api_post, check_env, now_iso  # type: ignore
 
 MAX_RETRIES = 3
 

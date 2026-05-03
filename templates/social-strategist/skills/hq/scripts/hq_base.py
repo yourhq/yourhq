@@ -8,13 +8,13 @@ All hq_* scripts import from here. Handles:
 - Local embedding generation
 """
 
+import hashlib
 import json
 import os
 import sys
-import hashlib
+import urllib.error
 import urllib.parse
 import urllib.request
-import urllib.error
 from datetime import datetime, timezone
 from pathlib import Path
 

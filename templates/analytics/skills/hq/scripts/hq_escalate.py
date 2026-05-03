@@ -8,12 +8,12 @@ Usage:
 """
 
 import argparse
+import os
 import subprocess
 import sys
-import os
 
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import check_env, api_get, api_patch, api_post, audit, get_agent_id, AGENT_SLUG, AGENT_CHANNEL, now_iso, output
+from hq_base import AGENT_CHANNEL, AGENT_SLUG, api_get, api_patch, api_post, audit, check_env, get_agent_id, output
 
 check_env()
 

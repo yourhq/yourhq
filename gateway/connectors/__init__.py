@@ -1,11 +1,11 @@
-from .registry import get_connector, CONNECTORS
 from .base import (
     BaseConnector,
-    SourceItem,
-    SourceContent,
     BrowseResult,
     ChangesResult,
+    SourceContent,
+    SourceItem,
 )
+from .registry import CONNECTORS, get_connector
 
 __all__ = [
     "get_connector",

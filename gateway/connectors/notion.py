@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import json
-import urllib.request
 import urllib.parse
-from datetime import datetime, timezone
+import urllib.request
+from datetime import datetime
 from typing import Any
 
 from .base import (

@@ -2,11 +2,11 @@
 """Assign a task to an agent or mark it as human-assigned."""
 
 import argparse
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import check_env, api_patch, audit, AGENT_SLUG, output
+from hq_base import AGENT_SLUG, api_patch, audit, check_env, output
 
 check_env()
 
