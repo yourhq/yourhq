@@ -55,10 +55,10 @@ export function useCollectionRecords(collectionId: string) {
     updateUrl({ archived: v ? "1" : null });
   }
 
-  function setActiveViewId(v: string | null) {
+  const setActiveViewId = useCallback((v: string | null) => {
     setActiveViewIdState(v);
     updateUrl({ view: v });
-  }
+  }, []);
 
   // ── Fetchers ──────────────────────────────────────────────────
 
@@ -97,11 +97,13 @@ export function useCollectionRecords(collectionId: string) {
     setViews(data ?? []);
   }, [supabase, collectionId]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     fetchFields();
     fetchRecords();
     fetchViews();
   }, [fetchFields, fetchRecords, fetchViews]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useRealtime({
     table: "collection_records",

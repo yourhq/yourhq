@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import type { Task, TaskStatus } from "@/lib/tasks/types";
-import { STATUS_COLORS, PRIORITY_COLORS } from "@/lib/tasks/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
@@ -14,11 +13,9 @@ import {
   eachDayOfInterval,
   format,
   isSameMonth,
-  isSameDay,
   isToday,
   addMonths,
   subMonths,
-  parseISO,
 } from "date-fns";
 
 interface TaskCalendarViewProps {
@@ -40,9 +37,7 @@ const STATUS_DOT: Record<TaskStatus, string> = {
 
 export function TaskCalendarView({
   tasks,
-  loading,
   onSelect,
-  onStatusChange,
   onCreateForDate,
 }: TaskCalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());

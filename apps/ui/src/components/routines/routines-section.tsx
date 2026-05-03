@@ -39,7 +39,7 @@ interface RoutinesSectionProps {
   onAgentUpdated?: () => void;
 }
 
-export function RoutinesSection({ agent, onAgentUpdated }: RoutinesSectionProps) {
+export function RoutinesSection({ agent }: RoutinesSectionProps) {
   const { routines, loading, actions } = useAgentRoutines(agent.id);
 
   const [editingRoutineId, setEditingRoutineId] = useState<string | null>(null);

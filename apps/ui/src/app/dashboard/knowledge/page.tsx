@@ -1,10 +1,10 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SharedFolderTree } from "@/components/shared/folder-tree";
 import { computeDescendantCounts } from "@/lib/shared/folder-tree";
-import type { KnowledgeFolder, KnowledgeKind } from "@/lib/knowledge/types";
+import type { KnowledgeKind } from "@/lib/knowledge/types";
 import { KnowledgeList } from "@/components/knowledge/knowledge-list";
 import { KnowledgeGrid } from "@/components/knowledge/knowledge-grid";
 import { KnowledgeCreateMenu } from "@/components/knowledge/knowledge-create-menu";
@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Search, Archive, LayoutList, LayoutGrid, BookOpen, Upload, FolderOpen, FileUp } from "lucide-react";
+import { Search, Archive, LayoutList, LayoutGrid, BookOpen, FolderOpen, FileUp } from "lucide-react";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -41,14 +41,12 @@ function KnowledgeContent() {
   const [deleteFolderId, setDeleteFolderId] = useState<string | null>(null);
   const [pickerConnectionId, setPickerConnectionId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    if (typeof window === "undefined") return "list";
+    return (localStorage.getItem(VIEW_KEY) as ViewMode) ?? "list";
+  });
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
-
-  useEffect(() => {
-    const saved = localStorage.getItem(VIEW_KEY) as ViewMode | null;
-    if (saved && saved !== viewMode) setViewMode(saved);
-  }, []);
 
   function handleViewModeChange(value: string) {
     if (!value) return;

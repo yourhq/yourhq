@@ -1,7 +1,5 @@
 // Inbox Types — mirrors Supabase schema
 
-import type { ActorType } from "@/lib/tasks/types";
-
 export type InboxItemStatus = "pending" | "leased" | "done" | "failed" | "dead_letter";
 
 export type InboxEventType =

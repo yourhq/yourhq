@@ -34,9 +34,6 @@ function CollectionDetailContent() {
   const router = useRouter();
   const [collection, setCollection] = useState<CollectionDefinition | null>(null);
   const [collectionLoading, setCollectionLoading] = useState(true);
-  const [showImport, setShowImport] = useState(false);
-  const [showFields, setShowFields] = useState(false);
-  const [deleteRecordId, setDeleteRecordId] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();

@@ -57,11 +57,13 @@ export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
     setCurrentStage(status.provision_stage);
   }, [workspaceId]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     poll();
     const interval = setInterval(poll, 2000);
     return () => clearInterval(interval);
   }, [poll]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const current = stageIndex(currentStage);
   const isComplete = currentStage === "complete";

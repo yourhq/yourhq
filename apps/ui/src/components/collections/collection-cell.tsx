@@ -85,19 +85,20 @@ function TextCell({
   const ref = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!editing) setDraft(value ?? "");
-  }, [value, editing]);
-
-  useEffect(() => {
     if (editing) ref.current?.focus();
   }, [editing]);
+
+  function startEditing() {
+    setDraft(value ?? "");
+    setEditing(true);
+  }
 
   if (readOnly || !editing) {
     return (
       <button
         type="button"
         className="w-full text-left text-body truncate px-1.5 py-0.5 rounded hover:bg-accent/50 min-h-[28px] flex items-center"
-        onClick={() => !readOnly && setEditing(true)}
+        onClick={() => !readOnly && startEditing()}
       >
         {value || <span className="text-muted-foreground">—</span>}
       </button>
@@ -120,7 +121,6 @@ function TextCell({
         }
         if (e.key === "Escape") {
           setEditing(false);
-          setDraft(value ?? "");
         }
       }}
       className="h-7 text-body"
@@ -142,19 +142,20 @@ function NumberCell({
   const ref = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!editing) setDraft(value?.toString() ?? "");
-  }, [value, editing]);
-
-  useEffect(() => {
     if (editing) ref.current?.focus();
   }, [editing]);
+
+  function startEditing() {
+    setDraft(value?.toString() ?? "");
+    setEditing(true);
+  }
 
   if (readOnly || !editing) {
     return (
       <button
         type="button"
         className="w-full text-left text-body truncate px-1.5 py-0.5 rounded hover:bg-accent/50 min-h-[28px] flex items-center tabular-nums"
-        onClick={() => !readOnly && setEditing(true)}
+        onClick={() => !readOnly && startEditing()}
       >
         {value !== null && value !== undefined ? value : <span className="text-muted-foreground">—</span>}
       </button>
@@ -178,7 +179,6 @@ function NumberCell({
         if (e.key === "Enter") commit();
         if (e.key === "Escape") {
           setEditing(false);
-          setDraft(value?.toString() ?? "");
         }
       }}
       className="h-7 text-body tabular-nums"
@@ -200,19 +200,20 @@ function UrlCell({
   const ref = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!editing) setDraft(value ?? "");
-  }, [value, editing]);
-
-  useEffect(() => {
     if (editing) ref.current?.focus();
   }, [editing]);
+
+  function startEditing() {
+    setDraft(value ?? "");
+    setEditing(true);
+  }
 
   if (readOnly || !editing) {
     return (
       <button
         type="button"
         className="w-full text-left text-body truncate px-1.5 py-0.5 rounded hover:bg-accent/50 min-h-[28px] flex items-center gap-1"
-        onClick={() => !readOnly && setEditing(true)}
+        onClick={() => !readOnly && startEditing()}
       >
         {value ? (
           <>
@@ -251,7 +252,6 @@ function UrlCell({
         }
         if (e.key === "Escape") {
           setEditing(false);
-          setDraft(value ?? "");
         }
       }}
       className="h-7 text-body"

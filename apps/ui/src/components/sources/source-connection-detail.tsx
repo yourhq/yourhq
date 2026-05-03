@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { SourceConnection, SourceSyncRun } from "@/lib/sources/types";
 import {
@@ -74,7 +74,6 @@ export function SourceConnectionDetail({
     }
   }, [searchParams, router, initial.id, initial.account_label]);
   const [items, setItems] = useState<SourceKnowledgeItem[]>([]);
-  const [runs, setRuns] = useState<SourceSyncRun[]>([]);
   const [loadingItems, setLoadingItems] = useState(true);
   const [showDelete, setShowDelete] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
@@ -92,14 +91,17 @@ export function SourceConnectionDetail({
     await sc.actions.fetchSyncRuns(connection.id);
   }, [sc.actions, connection.id]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     refreshItems();
     refreshRuns();
   }, [refreshItems, refreshRuns]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
-  useEffect(() => {
-    setRuns(sc.syncRuns.filter((r) => r.connection_id === connection.id));
-  }, [sc.syncRuns, connection.id]);
+  const filteredRuns = useMemo(
+    () => sc.syncRuns.filter((r) => r.connection_id === connection.id),
+    [sc.syncRuns, connection.id],
+  );
 
   const handleDisconnect = async () => {
     await sc.actions.deleteConnection(connection.id);
@@ -257,7 +259,7 @@ export function SourceConnectionDetail({
               <TabButton
                 active={tab === "history"}
                 onClick={() => setTab("history")}
-                count={runs.length}
+                count={filteredRuns.length}
               >
                 Sync History
               </TabButton>
@@ -287,7 +289,7 @@ export function SourceConnectionDetail({
               }}
             />
           ) : (
-            <HistoryTab runs={runs} />
+            <HistoryTab runs={filteredRuns} />
           )}
         </div>
 

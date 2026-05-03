@@ -223,10 +223,12 @@ export function useKnowledge() {
     setLoading(false);
   }, [supabase, folderId, search, kindFilter, scopeFilter, showArchived]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     fetchFolders();
     fetchItems();
   }, [fetchFolders, fetchItems]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useRealtimeSync<KnowledgeItem>({
     table: "knowledge_items",

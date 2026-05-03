@@ -19,7 +19,7 @@ interface KnowledgeCreateDialogProps {
 
 export function KnowledgeCreateDialog({
   kind,
-  folderId,
+  folderId: _folderId,
   onSave,
   onCancel,
 }: KnowledgeCreateDialogProps) {

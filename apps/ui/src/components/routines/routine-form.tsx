@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Routine, TriggerType, RoutineCadenceType, RoutineCondition, RoutineEntityType } from "@/lib/routines/types";
 import { CADENCE_OPTIONS, SUB_DAILY_PRESETS, CONDITION_LABELS, ENTITY_TYPE_LABELS, DAYS_OF_WEEK_LABELS } from "@/lib/routines/types";
-import { humanizeRoutine } from "@/lib/routines/humanize";
 import { usePipelineStages } from "@/hooks/use-pipeline-stages";
 import { logAudit } from "@/lib/audit/log";
 import { toast } from "sonner";
@@ -24,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Bot, Clock, Zap } from "lucide-react";
+import { Clock, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface RoutineFormProps {

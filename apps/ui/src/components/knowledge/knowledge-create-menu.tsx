@@ -11,7 +11,6 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import type { SourceConnection } from "@/lib/sources/types";
-import { PROVIDER_LABELS } from "@/lib/sources/types";
 
 interface KnowledgeCreateMenuProps {
   onCreatePage: () => void;

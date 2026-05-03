@@ -315,6 +315,7 @@ export function useUniversalSearch(query: string, enabled: boolean) {
     [supabase],
   );
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!enabled) {
       setGroups([]);
@@ -331,6 +332,7 @@ export function useUniversalSearch(query: string, enabled: boolean) {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [query, enabled, search]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const totalResults = useMemo(
     () => groups.reduce((sum, g) => sum + g.results.length, 0),

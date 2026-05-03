@@ -522,7 +522,10 @@ if [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
   # Read VNC password so we can include it in the registration metadata.
   VNC_PW_FILE="$OPENCLAW_HOME/.vnc-password"
   export REG_VNC_PW=""
-  [ -f "$VNC_PW_FILE" ] && export REG_VNC_PW="$(cat "$VNC_PW_FILE")"
+  if [ -f "$VNC_PW_FILE" ]; then
+    REG_VNC_PW="$(cat "$VNC_PW_FILE")"
+    export REG_VNC_PW
+  fi
 
   # SANDBOX_HOST: in E2B mode, the worker writes /tmp/sandbox-host with
   # the sandbox's public base URL after creation. The entrypoint waits
@@ -533,10 +536,13 @@ if [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
       [ -f /tmp/sandbox-host ] && break
       sleep 1
     done
-    [ -f /tmp/sandbox-host ] && export SANDBOX_HOST="$(cat /tmp/sandbox-host)"
+    if [ -f /tmp/sandbox-host ]; then
+      SANDBOX_HOST="$(cat /tmp/sandbox-host)"
+      export SANDBOX_HOST
+    fi
   fi
 
-  REACHABLE_JSON=$(python3 - << PYEOF
+  REACHABLE_JSON=$(python3 - <<'PYEOF'
 import json, os
 sandbox_host = os.environ.get("SANDBOX_HOST", "").strip()
 if sandbox_host:
@@ -673,7 +679,7 @@ fi
 # 13. Launch OpenClaw gateway as PID 1 (well, exec'd under tini)
 # ─────────────────────────────────────────────────────────────
 
-log "Starting openclaw gateway (foreground) ...
+log "Starting openclaw gateway (foreground) ..."
 # Export the X11/XDG environment so openclaw's managed browser launcher
 # spawns Chrome into our Xtigervnc display.
 export DISPLAY=:1

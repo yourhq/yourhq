@@ -32,11 +32,10 @@ import csv
 import io
 import json
 import os
-import sys
 import time
 import traceback
-import urllib.request
 import urllib.parse
+import urllib.request
 from pathlib import Path
 
 try:
@@ -245,7 +244,7 @@ def process_item(item: dict) -> None:
         return
 
     if plain_text is None:
-        log(f"  No text extractable (image or binary), marking done with empty text")
+        log("  No text extractable (image or binary), marking done with empty text")
         plain_text = ""
 
     if len(plain_text) > MAX_TEXT_LENGTH:

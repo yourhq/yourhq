@@ -153,9 +153,11 @@ export function useEntityLinks(ownerType: OwnerType, ownerId: string) {
     setLoading(false);
   }, [supabase, ownerType, ownerId]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     fetchLinks();
   }, [fetchLinks]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function addLink(input: AddLinkInput) {
     const payload: Record<string, unknown> = {

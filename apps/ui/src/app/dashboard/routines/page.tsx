@@ -20,7 +20,7 @@ import { Plus, Repeat, Search } from "lucide-react";
 import type { TriggerType } from "@/lib/routines/types";
 
 function RoutinesContent() {
-  const { routines, allRoutines, loading, filters, actions, form } = useRoutines();
+  const { routines, loading, filters, actions, form } = useRoutines();
   const hasFilters = filters.search.trim() !== "" || filters.triggerFilter !== "all";
 
   return (

@@ -42,7 +42,6 @@ import {
 } from "@/components/ui/table";
 import { ArrowUpDown, Bot, Clock, MoreHorizontal, Pencil, Trash2, Zap } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { cn } from "@/lib/utils";
 
 interface RoutinesTableProps {
   routines: Routine[];

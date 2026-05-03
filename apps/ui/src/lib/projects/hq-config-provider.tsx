@@ -37,11 +37,11 @@ export function HqConfigProvider({
     setHqConfig(config);
   }, [config]);
 
-  // Also set synchronously on first render so createClient() works
-  // during the initial render pass (before useEffect fires).
+  /* eslint-disable react-hooks/globals */
   if (_config === null && config !== null) {
     _config = config;
   }
+  /* eslint-enable react-hooks/globals */
 
   return (
     <HqConfigContext.Provider value={config}>

@@ -429,7 +429,7 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
         submitPairingCode();
       }
     },
-    [step, handleSubmit, goNext, submitPairingCode]
+    [step, handleSubmit, goNext, submitPairingCode, gateways.length, selectedGatewayId]
   );
 
   async function handlePasteToken() {

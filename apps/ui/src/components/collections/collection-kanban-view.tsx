@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { CollectionField, CollectionRecord, SelectOption } from "@/lib/collections/types";
+import type { CollectionField, CollectionRecord } from "@/lib/collections/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Plus, MoreHorizontal, Archive, Trash2 } from "lucide-react";
@@ -29,7 +29,6 @@ export function CollectionKanbanView({
   fields,
   groupByFieldKey,
   titleField,
-  onCellChange,
   onAddRecord,
   onArchiveRecord,
   onDeleteRecord,

@@ -31,9 +31,11 @@ export function useAgentRoutines(agentId: string) {
     setLoading(false);
   }, [supabase, agentId]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     fetchRoutines();
   }, [fetchRoutines]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useRealtime({
     table: "routines",

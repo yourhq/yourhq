@@ -5,7 +5,7 @@ import { KnowledgeKindBadge } from "./knowledge-kind-badge";
 import { KnowledgeScopeBadge } from "./knowledge-scope-badge";
 import { EmbeddingStatus } from "./embedding-status";
 import { ProviderIcon } from "@/components/sources/provider-icon";
-import { MoreHorizontal, Archive, RotateCcw, Trash2, Pin, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { MoreHorizontal, Archive, RotateCcw, Trash2, Pin, Loader2, AlertCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import {
   DropdownMenu,

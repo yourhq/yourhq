@@ -1,7 +1,5 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { useEntityLinks } from "@/hooks/use-entity-links";
 import type { OwnerType, TargetType } from "@/lib/entity-links/types";
 import { EntityLinkPicker } from "./entity-link-picker";

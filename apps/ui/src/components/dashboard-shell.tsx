@@ -130,7 +130,7 @@ export function useSidebarState() {
 function CollectionsSidebarGroup({
   pinned,
   unpinned,
-  pinnedIds,
+  pinnedIds: _pinnedIds,
   expanded,
   setExpanded,
   togglePin,

@@ -59,9 +59,11 @@ export function useSidebarCollections() {
     setLoading(false);
   }, [supabase]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     fetch();
   }, [fetch]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useRealtime({
     table: "collection_definitions",

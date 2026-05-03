@@ -19,7 +19,6 @@ import {
   BookOpen,
   Activity,
   Bot,
-  Zap,
   Bell,
   Settings,
   Plus,
@@ -29,8 +28,6 @@ import {
   FileText,
   Clock,
   Repeat,
-  Globe,
-  File,
   Search,
 } from "lucide-react";
 import { useModules } from "@/components/shared/modules-context";
@@ -141,24 +138,25 @@ export function CommandPalette() {
     [crmEnabled],
   );
 
-  useEffect(() => {
-    if (open) {
+  const handleOpenChange = useCallback((next: boolean) => {
+    setOpen(next);
+    if (next) {
       setRecentItems(getRecentItems());
     } else {
       setQuery("");
     }
-  }, [open]);
+  }, []);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        setOpen((prev) => !prev);
+        handleOpenChange(!open);
       }
     };
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
-  }, []);
+  }, [handleOpenChange, open]);
 
   const navigate = useCallback(
     (href: string, item?: { id: string; type: string; title: string; subtitle?: string; icon?: string; color?: string }) => {
@@ -194,7 +192,7 @@ export function CommandPalette() {
   );
 
   return (
-    <CommandDialog open={open} onOpenChange={setOpen} showCloseButton={false}>
+    <CommandDialog open={open} onOpenChange={handleOpenChange} showCloseButton={false}>
       <CommandInput
         placeholder="Search everything..."
         value={query}

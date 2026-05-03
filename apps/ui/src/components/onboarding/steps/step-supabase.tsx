@@ -190,7 +190,7 @@ export function StepSupabase({
     }
     setInstall({ status: "ok", oneClick: true });
     return true;
-  }, [creds, resolved, dbRegion, dbPassword]);
+  }, [resolved, dbRegion, dbPassword]);
 
   const confirmInstall = useCallback(async (): Promise<boolean> => {
     setInstall((prev) => ({ ...prev, status: "running" }));

@@ -19,9 +19,9 @@ import os
 import sys
 import time
 import traceback
-import urllib.request
 import urllib.parse
-from datetime import datetime, timezone, timedelta
+import urllib.request
+from datetime import datetime, timedelta, timezone
 
 # Add gateway root to path so connectors package is importable
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -241,7 +241,7 @@ def sync_connection(connection: dict) -> None:
 
     run_id = create_sync_run(connection_id)
     if not run_id:
-        log(f"  Failed to create sync run")
+        log("  Failed to create sync run")
         return
 
     synced = 0
@@ -257,7 +257,7 @@ def sync_connection(connection: dict) -> None:
         known_ids = list(item_by_ext_id.keys())
 
         if not known_ids:
-            log(f"  No items to sync for this connection")
+            log("  No items to sync for this connection")
             complete_sync_run(run_id, 0, 0)
             update_connection_after_sync(connection_id, interval)
             return
@@ -283,7 +283,7 @@ def sync_connection(connection: dict) -> None:
 
         items_to_fetch = changes.modified
         if not items_to_fetch:
-            log(f"  No changes detected")
+            log("  No changes detected")
             complete_sync_run(run_id, 0, 0)
             update_connection_after_sync(connection_id, interval)
             return

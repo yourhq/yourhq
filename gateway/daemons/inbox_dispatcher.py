@@ -31,8 +31,8 @@ import json
 import os
 import subprocess
 import sys
-import time
 import threading
+import time
 from datetime import datetime, timezone
 
 try:
@@ -41,8 +41,8 @@ except ImportError:
     print("Missing: pip install websocket-client", file=sys.stderr)
     sys.exit(1)
 
-import urllib.request
 import urllib.parse
+import urllib.request
 
 try:
     from registry_config import resolve as resolve_hq_config

@@ -13,7 +13,6 @@ import {
   eachDayOfInterval,
   format,
   isSameMonth,
-  isSameDay,
   isToday,
   addMonths,
   subMonths,
@@ -33,12 +32,9 @@ interface CollectionCalendarViewProps {
 
 export function CollectionCalendarView({
   records,
-  fields,
   dateFieldKey,
   titleField,
   onAddRecord,
-  onArchiveRecord,
-  onDeleteRecord,
   onRecordClick,
 }: CollectionCalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -48,9 +44,12 @@ export function CollectionCalendarView({
   const calendarStart = startOfWeek(monthStart);
   const calendarEnd = endOfWeek(monthEnd);
 
+  const calendarStartTime = calendarStart.getTime();
+  const calendarEndTime = calendarEnd.getTime();
+
   const days = useMemo(
-    () => eachDayOfInterval({ start: calendarStart, end: calendarEnd }),
-    [calendarStart.getTime(), calendarEnd.getTime()],
+    () => eachDayOfInterval({ start: new Date(calendarStartTime), end: new Date(calendarEndTime) }),
+    [calendarStartTime, calendarEndTime],
   );
 
   const recordsByDate = useMemo(() => {

@@ -56,10 +56,12 @@ export function useSourceConnections() {
     [supabase],
   );
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     fetchConnections();
     fetchSyncRuns();
   }, [fetchConnections, fetchSyncRuns]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useRealtime({
     table: "source_connections",

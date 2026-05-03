@@ -30,8 +30,8 @@ import os
 import re
 import subprocess
 import sys
-import time
 import threading
+import time
 from datetime import datetime, timezone
 
 try:
@@ -40,8 +40,8 @@ except ImportError:
     print("Missing: pip install websocket-client", file=sys.stderr)
     sys.exit(1)
 
-import urllib.request
 import urllib.parse
+import urllib.request
 
 try:
     from git_backup_sweep import start_backup_sweep
@@ -252,9 +252,9 @@ def build_command(action, agent_slug, payload):
             return None, "Missing pairing_code in payload"
         code = str(code).strip()
         if not validate_pairing_code(code):
-            return None, f"Invalid pairing code format"
+            return None, "Invalid pairing code format"
         channel = payload.get("channel", "telegram")
-        return ["openclaw", "pairing", "approve", channel, code], f"Approving pairing"
+        return ["openclaw", "pairing", "approve", channel, code], "Approving pairing"
 
     elif action == "update":
         if not agent_slug:

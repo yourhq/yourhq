@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Routine, TriggerType } from "@/lib/routines/types";
 import { logAudit } from "@/lib/audit/log";
@@ -62,9 +62,11 @@ export function useRoutines() {
     setLoading(false);
   }, [supabase]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     fetchRoutines();
   }, [fetchRoutines]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useRealtime({
     table: "routines",

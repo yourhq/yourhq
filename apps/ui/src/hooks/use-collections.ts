@@ -78,10 +78,12 @@ export function useCollections() {
     setTemplates(data ?? []);
   }, [supabase]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     fetchCollections();
     fetchTemplates();
   }, [fetchCollections, fetchTemplates]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useRealtime({
     table: "collection_definitions",
