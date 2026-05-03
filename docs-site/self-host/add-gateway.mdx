@@ -87,7 +87,7 @@ Use this for development setups, unusual deployment layouts, or if you want full
     Go to **Settings → Gateways**. The new gateway should appear with a green heartbeat. If it shows "Stale" or doesn't appear, check:
 
     - `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are correct
-    - Migrations are complete (all 21 files in `db/migrations/` have been run)
+    - Migrations are complete (all 25 files in `db/migrations/` have been run)
     - The host can reach Supabase: `curl $SUPABASE_URL/rest/v1/` from inside the container
     - Gateway logs: `docker compose logs gateway | tail -50`
   </Step>

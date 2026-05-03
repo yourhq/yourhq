@@ -1,4 +1,4 @@
--- 029_routines_extension.sql — Extend routine event triggers to
+-- 024_routines_extension.sql — Extend routine event triggers to
 -- collection_records, knowledge_items, and tasks.
 --
 -- Adds Postgres AFTER INSERT/UPDATE triggers that evaluate routines
@@ -50,13 +50,12 @@ BEGIN
 
     IF v_matched THEN
       INSERT INTO public.agent_inbox_items (
-        agent_id,
-        event_type,
-        payload,
-        tenant_id
+        agent_id, agent_slug, tenant_id,
+        event_type, status, summary, context, dedup_key
       ) VALUES (
-        r.agent_id,
-        'routine_event',
+        r.agent_id, r.agent_slug, NEW.tenant_id,
+        'routine_event', 'pending',
+        COALESCE(r.instruction, r.name),
         jsonb_build_object(
           'routine_id', r.id,
           'routine_name', r.name,
@@ -69,8 +68,9 @@ BEGIN
           'old_value', CASE WHEN TG_OP = 'UPDATE' THEN v_old_value ELSE NULL END,
           'new_value', CASE WHEN r.field IS NOT NULL THEN NEW."values"->>r.field ELSE NULL END
         ),
-        NEW.tenant_id
-      );
+        'routine_event:' || r.id || ':' || NEW.id || ':' || to_char(now(), 'YYYY-MM-DD-HH24-MI')
+      )
+      ON CONFLICT (dedup_key) DO NOTHING;
 
       UPDATE public.routines
       SET last_run_at = now(), run_count = run_count + 1
@@ -116,13 +116,12 @@ BEGIN
 
     IF v_matched THEN
       INSERT INTO public.agent_inbox_items (
-        agent_id,
-        event_type,
-        payload,
-        tenant_id
+        agent_id, agent_slug, tenant_id,
+        event_type, status, summary, context, dedup_key
       ) VALUES (
-        r.agent_id,
-        'routine_event',
+        r.agent_id, r.agent_slug, NEW.tenant_id,
+        'routine_event', 'pending',
+        COALESCE(r.instruction, r.name),
         jsonb_build_object(
           'routine_id', r.id,
           'routine_name', r.name,
@@ -132,8 +131,9 @@ BEGIN
           'title', NEW.title,
           'kind', NEW.kind
         ),
-        NEW.tenant_id
-      );
+        'routine_event:' || r.id || ':' || NEW.id || ':' || to_char(now(), 'YYYY-MM-DD-HH24-MI')
+      )
+      ON CONFLICT (dedup_key) DO NOTHING;
 
       UPDATE public.routines
       SET last_run_at = now(), run_count = run_count + 1
@@ -195,13 +195,12 @@ BEGIN
 
     IF v_matched THEN
       INSERT INTO public.agent_inbox_items (
-        agent_id,
-        event_type,
-        payload,
-        tenant_id
+        agent_id, agent_slug, tenant_id,
+        event_type, status, summary, context, dedup_key
       ) VALUES (
-        r.agent_id,
-        'routine_event',
+        r.agent_id, r.agent_slug, NEW.tenant_id,
+        'routine_event', 'pending',
+        COALESCE(r.instruction, r.name),
         jsonb_build_object(
           'routine_id', r.id,
           'routine_name', r.name,
@@ -214,8 +213,9 @@ BEGIN
           'old_value', v_old_value,
           'new_value', v_new_value
         ),
-        NEW.tenant_id
-      );
+        'routine_event:' || r.id || ':' || NEW.id || ':' || to_char(now(), 'YYYY-MM-DD-HH24-MI')
+      )
+      ON CONFLICT (dedup_key) DO NOTHING;
 
       UPDATE public.routines
       SET last_run_at = now(), run_count = run_count + 1
@@ -240,5 +240,5 @@ GRANT EXECUTE ON FUNCTION process_task_routine() TO authenticated, service_role;
 
 -- ── Schema version ────────────────────────────────────────────────
 
-INSERT INTO _schema_version (version) VALUES (29)
+INSERT INTO _schema_version (version) VALUES (24)
 ON CONFLICT (version) DO NOTHING;

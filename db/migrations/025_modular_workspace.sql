@@ -1,4 +1,4 @@
--- 030_modular_workspace.sql — Workspace modules for modular onboarding.
+-- 025_modular_workspace.sql — Workspace modules for modular onboarding.
 --
 -- Adds a 'modules' key to workspace.settings JSONB with defaults.
 -- CRM module defaults to enabled for existing workspaces.
@@ -9,5 +9,5 @@ WHERE NOT (settings ? 'modules');
 
 -- ── Schema version ────────────────────────────────────────────────
 
-INSERT INTO _schema_version (version) VALUES (30)
+INSERT INTO _schema_version (version) VALUES (25)
 ON CONFLICT (version) DO NOTHING;

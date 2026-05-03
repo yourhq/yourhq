@@ -1,4 +1,4 @@
--- 028_source_connections.sql — External source connections (Notion, Google Drive).
+-- 023_source_connections.sql — External source connections (Notion, Google Drive).
 --
 -- source_connections: OAuth/API-key credentials for external services.
 -- source_sync_runs: audit trail of sync operations.
@@ -72,17 +72,34 @@ ALTER TABLE source_connections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE source_sync_runs ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Authenticated full access" ON source_connections;
-CREATE POLICY "Authenticated full access" ON source_connections
-  FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Tenant isolation" ON source_connections;
+CREATE POLICY "Tenant isolation" ON source_connections
+  FOR ALL TO authenticated
+  USING (tenant_id = public.current_tenant_id())
+  WITH CHECK (tenant_id = public.current_tenant_id());
+CREATE POLICY "Service role full access" ON source_connections
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Authenticated full access" ON source_sync_runs;
-CREATE POLICY "Authenticated full access" ON source_sync_runs
-  FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Tenant isolation" ON source_sync_runs;
+CREATE POLICY "Tenant isolation" ON source_sync_runs
+  FOR ALL TO authenticated
+  USING (tenant_id = public.current_tenant_id())
+  WITH CHECK (tenant_id = public.current_tenant_id());
+CREATE POLICY "Service role full access" ON source_sync_runs
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 -- ── Realtime ──────────────────────────────────────────────────────
 
-ALTER PUBLICATION supabase_realtime ADD TABLE source_connections;
-ALTER PUBLICATION supabase_realtime ADD TABLE source_sync_runs;
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE source_connections;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE source_sync_runs;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ── Grants ────────────────────────────────────────────────────────
 
@@ -93,5 +110,5 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON source_sync_runs TO service_role;
 
 -- ── Schema version ────────────────────────────────────────────────
 
-INSERT INTO _schema_version (version) VALUES (28)
+INSERT INTO _schema_version (version) VALUES (23)
 ON CONFLICT (version) DO NOTHING;

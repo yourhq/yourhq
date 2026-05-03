@@ -79,8 +79,8 @@ def download_file(file_url: str) -> bytes:
     if file_url.startswith("http"):
         url = file_url
     else:
-        bucket = file_url.split("/")[0] if "/" in file_url else "knowledge"
-        path = file_url.split("/", 1)[1] if "/" in file_url else file_url
+        bucket = "assets"
+        path = file_url
         url = f"{SUPABASE_URL}/storage/v1/object/{bucket}/{urllib.parse.quote(path)}"
 
     req = urllib.request.Request(

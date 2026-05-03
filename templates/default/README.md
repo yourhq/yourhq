@@ -72,10 +72,8 @@ Current team values in use:
 agents, tasks, streams, comments, audit_log, contacts, interactions, organizations, contact_organizations, templates, campaigns, knowledge_items, knowledge_folders, knowledge_chunks, collection_definitions, collection_fields, collection_records, entity_links, routines, notifications, field_definitions, pipeline_stages, draft_sets
 
 ### Required Migrations
-- `024_knowledge.sql` — knowledge items, folders, embeddings, and search RPCs
-- `016_rls_realtime_storage.sql` — grants, RLS, realtime, and storage
-- `018_tenants.sql` — tenant IDs and tenant-scoped knowledge source uniqueness
-- `019_rls_tenant_scoped.sql` — tenant-scoped RLS policies
+- `012_knowledge.sql` — knowledge items, folders, embeddings, and search RPCs
+- `004_tenants.sql` — tenant registry and tenant-scoped RLS
 
 ### Required Extension
-- `vector` (pgvector) — enabled via migration 011
+- `vector` (pgvector) — enabled via migration 001

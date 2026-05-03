@@ -500,8 +500,8 @@ Where HQ is now, what ships in v0.1, and what comes after.
 - RLS policies scoped by `tenant_id` extracted from JWT `app_metadata`
 - All RPCs and triggers updated for tenant-aware leasing and filtering
 - Status enum unification: `ready`, `error`, `paused`, `provisioning`, `hibernating` for both agents and gateways
-- `_schema_version` tracking table (currently at v22)
-- `last_heartbeat_at` on both `gateways` and `agents` tables
+- `_schema_version` tracking table (currently at v25)
+- `last_heartbeat_at` on `gateways` table
 
 ### Workspace and onboarding
 
@@ -1062,7 +1062,7 @@ You need three things. All are free to start.
   
 ### Run the migrations
 
-    In your Supabase dashboard, click **SQL Editor** in the left sidebar. Then run every `.sql` file from [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) in filename order (001 through 021).
+    In your Supabase dashboard, click **SQL Editor** in the left sidebar. Then run every `.sql` file from [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) in filename order (001 through 025).
 
     
 > 
@@ -1342,18 +1342,18 @@ HQ uses your own Supabase project as its database, auth system, real-time event 
   
 ### Run the migrations
 
-    HQ needs 21 SQL migration files applied in order. Open **SQL Editor** in your Supabase dashboard.
+    HQ needs 25 SQL migration files applied in order. Open **SQL Editor** in your Supabase dashboard.
 
     The cleanest approach is to run each file individually:
 
     1. Browse to [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) on GitHub
     2. Open `001_extensions.sql`, copy the SQL
     3. Paste into the SQL Editor, click **Run**
-    4. Repeat for `002`, `003` ... through `021`
+    4. Repeat for `002`, `003` ... through `025`
 
     
 > 
-      If you've already run the HQ installer or opened the onboarding screen, the wizard offers a **Copy all SQL** button that concatenates all 21 files into one blob you can paste and run at once.
+      If you've already run the HQ installer or opened the onboarding screen, the wizard offers a **Copy all SQL** button that concatenates all 25 files into one blob you can paste and run at once.
     
 
     
@@ -1499,7 +1499,7 @@ You need a Supabase project before running the installer.
 
 1. Sign up at [supabase.com](https://supabase.com) (free tier is fine for personal use).
 2. Create a new project. Wait ~2 minutes for provisioning.
-3. Open SQL Editor and run every `.sql` file in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) in filename order (`001` through `017`). Each file is named descriptively. The onboarding wizard handles this automatically if you set up through the browser.
+3. Open SQL Editor and run every `.sql` file in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) in filename order (`001` through `025`). Each file is named descriptively. The onboarding wizard handles this automatically if you set up through the browser.
 4. Go to Authentication → Users → Add user (check "Auto Confirm User"). Remember the email/password.
 5. Go to Project Settings → API. Copy three values:
    - Project URL
@@ -2335,7 +2335,7 @@ Use this for development setups, unusual deployment layouts, or if you want full
     Go to **Settings → Gateways**. The new gateway should appear with a green heartbeat. If it shows "Stale" or doesn't appear, check:
 
     - `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are correct
-    - Migrations are complete (all 21 files in `db/migrations/` have been run)
+    - Migrations are complete (all 25 files in `db/migrations/` have been run)
     - The host can reach Supabase: `curl $SUPABASE_URL/rest/v1/` from inside the container
     - Gateway logs: `docker compose logs gateway | tail -50`
   
@@ -4059,7 +4059,7 @@ This is the most "I see how it all fits" path through the system. Everything els
 
 4. **The UI enqueues a `provision` command** via `enqueueAgentCommand` (same file). That's an `INSERT` into `agent_commands` with `action='provision'`, `agent_slug=`, and `payload` containing the channel type, channel-specific credentials (e.g. `telegram_token`, `discord_token`, or `slack_app_token`/`slack_bot_token`), `source_template`, `name`, `description`, `emoji`, and the owner profile fields.
 
-5. **The runner wakes up.** In [`command_runner.py`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/command_runner.py), the Realtime listener on `agent_commands` sees the new row and calls `process_pending()`, which calls the `lease_command(p_gateway_slug=GATEWAY_ID)` RPC to atomically claim it. `lease_command` ([`014_agent_commands.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/014_agent_commands.sql)) does `FOR UPDATE SKIP LOCKED` so parallel runners on different gateways never steal each other's work.
+5. **The runner wakes up.** In [`command_runner.py`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/command_runner.py), the Realtime listener on `agent_commands` sees the new row and calls `process_pending()`, which calls the `lease_command(p_gateway_slug=GATEWAY_ID)` RPC to atomically claim it. `lease_command` ([`015_agent_commands.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/015_agent_commands.sql)) does `FOR UPDATE SKIP LOCKED` so parallel runners on different gateways never steal each other's work.
 
 6. **The runner builds the shell command** via `build_command('provision', …)`: it resolves the branch name from `workspace.slug` + `agent_slug`, then invokes [`gateway/scripts/add-agent.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/scripts/add-agent.sh) with `--channel`, channel-specific credential flags (e.g. `--telegram-token`, `--discord-token`, `--slack-app-token`/`--slack-bot-token`), `--source-branch`, `--slug`, and the owner-profile flags.
 
@@ -4203,14 +4203,14 @@ Supabase is the backbone. Every piece of coordination — commands, inbox items,
 
 The structures to know:
 
-- **`agent_commands`** — command queue consumed by the runner. Schema in [`014_agent_commands.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/014_agent_commands.sql). Action enum covers `provision`, `update`, `remove`, `approve_pairing`, `restart_gateway`, `restart_dispatcher`, `update_all`, `update_gateway`, `set_agent_model`, `list_models`, and the `auth_*` connection actions. `lease_command(p_lease_seconds, p_gateway_slug)` is the atomic claim; `start_command`, `complete_command`, `fail_command` report back. Rows persist forever (with `stdout`/`stderr`) for the command-history UI.
-- **`agent_inbox_items`** — background-work queue consumed by agents, not the runner. Inserted by Postgres triggers on `tasks` (task assignment / reassignment), `comments` (@-mentions), and `contacts` (via routines). The dispatcher wakes agents; the agent's own session claims work via `lease_inbox_item(p_agent_id, p_lease_seconds)` (see [`013_agent_inbox.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/013_agent_inbox.sql)) and reports via `complete_inbox_item` / `fail_inbox_item`. `dedup_key` + unique constraint prevents duplicates. `attempt_count < max_attempts` bounds retries before dead-lettering.
+- **`agent_commands`** — command queue consumed by the runner. Schema in [`015_agent_commands.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/015_agent_commands.sql). Action enum covers `provision`, `update`, `remove`, `approve_pairing`, `restart_gateway`, `restart_dispatcher`, `update_all`, `update_gateway`, `set_agent_model`, `list_models`, and the `auth_*` connection actions. `lease_command(p_lease_seconds, p_gateway_slug)` is the atomic claim; `start_command`, `complete_command`, `fail_command` report back. Rows persist forever (with `stdout`/`stderr`) for the command-history UI.
+- **`agent_inbox_items`** — background-work queue consumed by agents, not the runner. Inserted by Postgres triggers on `tasks` (task assignment / reassignment), `comments` (@-mentions), and `contacts` (via routines). The dispatcher wakes agents; the agent's own session claims work via `lease_inbox_item(p_agent_id, p_lease_seconds)` (see [`014_agent_inbox.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/014_agent_inbox.sql)) and reports via `complete_inbox_item` / `fail_inbox_item`. `dedup_key` + unique constraint prevents duplicates. `attempt_count < max_attempts` bounds retries before dead-lettering.
 - **`gateways`** — registry of known gateway hosts. Each row has `slug`, `label`, `status`, `last_seen_at`, and `meta.reachable_urls`. Seeded with a `default` row so single-gateway installs work without setup.
 - **`gateway_registration_tokens`** — single-use token records minted by the UI when adding a gateway. The plaintext token is shown once in the installer command; the database stores only the hash and expiry metadata.
-- **`agent_usage` / `agent_budgets`** — usage source-of-truth and per-agent current-period rollup from [`015_usage_budgets.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/015_usage_budgets.sql). Runtime usage is logged by the HQ bootstrap OpenClaw plugin; hard budget cutoffs are enforced both before replies and before dispatcher wakes.
-- **`agents.reports_to_id`** — lightweight org chart from [`007_agents.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/007_agents.sql). The `agent_reports_chain` RPC lets the UI prevent cycles before saving manager changes.
+- **`agent_usage` / `agent_budgets`** — usage source-of-truth and per-agent current-period rollup from [`016_usage_budgets.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/016_usage_budgets.sql). Runtime usage is logged by the HQ bootstrap OpenClaw plugin; hard budget cutoffs are enforced both before replies and before dispatcher wakes.
+- **`agents.reports_to_id`** — lightweight org chart from [`008_agents.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/008_agents.sql). The `agent_reports_chain` RPC lets the UI prevent cycles before saving manager changes.
 - **Realtime**. Both daemons open a WebSocket to `/realtime/v1/websocket` and subscribe to `postgres_changes` on `agent_commands` / `agent_inbox_items` INSERT. Fallback poll every `POLL_INTERVAL` (30 s runner) / `RECONCILE_INTERVAL` (120 s dispatcher) catches anything Realtime missed during a reconnect.
-- **Triggers worth knowing**: `enqueue_task_assignment` enqueues inbox items when a task is assigned; `enqueue_comment_mentions` does the same for @-mentions; `process_routine_event` runs routines on contact inserts/updates. All three are defined in [`013_agent_inbox.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/013_agent_inbox.sql).
+- **Triggers worth knowing**: `enqueue_task_assignment` enqueues inbox items when a task is assigned (defined in [`014_agent_inbox.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/014_agent_inbox.sql)); `enqueue_comment_mentions` does the same for @-mentions (in [`011_comments.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/011_comments.sql)); `process_routine_event` runs routines on contact inserts/updates (in [`020_routines.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/020_routines.sql)).
 
 ## 13. Extensibility
 
@@ -5134,33 +5134,29 @@ HQ stores shared state in one Supabase project per workspace. The SQL source of 
 |------|----------|
 | `001_extensions.sql` | Required Postgres extensions (`vector`, `pg_cron`, `pgcrypto`) |
 | `002_enums.sql` | Shared enum types used across tables |
-| `003_shared_functions.sql` | `set_updated_at()` trigger function |
-| `004_workspace.sql` | Workspace settings, pipeline stages, field definitions, seed row |
-| `005_crm.sql` | Tags, campaigns, contacts, organizations, templates |
-| `006_gateways.sql` | Gateway hosts, registration tokens, `consume_gateway_token()` RPC |
-| `007_agents.sql` | Agent registry, org-chart hierarchy, `agent_reports_chain()` RPC |
-| `008_interactions.sql` | Contact interaction timeline and sync triggers |
-| `009_tasks_streams.sql` | Streams, tasks, recurring task series, and scheduling |
-| `010_comments_attachments.sql` | Polymorphic comments |
-| `011_assets_documents.sql` | Knowledge items, chunks, semantic/full-text search, and draft sets |
-| `012_audit_notifications.sql` | Audit log and notification tables |
-| `013_agent_inbox.sql` | Agent inbox queue, inbox triggers, and routines |
-| `014_agent_commands.sql` | Command queue for agent lifecycle and system operations |
-| `015_usage_budgets.sql` | LLM usage logging, per-agent budgets, and enforcement |
-| `016_rls_realtime_storage.sql` | Row-level security, Realtime subscriptions, Storage buckets |
-| `017_setup_wizard.sql` | `complete_setup()` RPC for the first-run wizard |
-| `018_tenants.sql` | Tenant registry, `tenant_id` column on all tenant-owned tables, tenant-scoped RLS policies |
-| `019_rls_tenant_scoped.sql` | Tenant-scoped RLS policies and JWT helper |
-| `020_rpc_tenant_scoped.sql` | Tenant-scoped RPCs: `lease_command`, `consume_gateway_token`, `spawn_due_task_instances`, `complete_setup`, `recompute_agent_budget`, `spawn_routine_schedule_items` |
-| `021_status_enums_schema_version.sql` | `agent_status` and `gateway_status` enum migration, `_schema_version` table |
-| `022_agent_heartbeat_cron.sql` | Agent schedule routines cron job |
-| `023_entity_links.sql` | Universal polymorphic entity linking table |
-| `025_routines.sql` | Routines (scheduled agent workflows) |
-| `026_collections.sql` | Custom collections and records |
-| `027_file_processing.sql` | File processing pipeline for knowledge items |
-| `028_source_connections.sql` | External source connections for knowledge sync |
-| `029_routines_extension.sql` | Routine extensions and scheduling |
-| `030_modular_workspace.sql` | Modular workspace onboarding |
+| `003_shared_functions.sql` | `set_updated_at()`, `current_tenant_id()`, `is_valid_timezone()`, `_schema_version` table |
+| `004_tenants.sql` | Tenant registry, default tenant seed, JWT signup trigger, tenant-scoped RLS |
+| `005_workspace.sql` | Workspace settings, pipeline stages, field definitions, seed row |
+| `006_crm.sql` | Tags, campaigns, contacts, organizations, templates, draft sets |
+| `007_gateways.sql` | Gateway hosts, registration tokens, `consume_gateway_token()` RPC |
+| `008_agents.sql` | Agent registry, org-chart hierarchy, `agent_reports_chain()` RPC |
+| `009_interactions.sql` | Contact interaction timeline and sync triggers |
+| `010_tasks_streams.sql` | Streams, tasks, recurring task series, and scheduling |
+| `011_comments.sql` | Polymorphic comments with @-mention inbox triggers |
+| `012_knowledge.sql` | Knowledge items, chunks, semantic/full-text search RPCs |
+| `013_audit_notifications.sql` | Audit log and notification tables |
+| `014_agent_inbox.sql` | Agent inbox queue, lease/complete/fail RPCs, task assignment triggers |
+| `015_agent_commands.sql` | Command queue for agent lifecycle and system operations |
+| `016_usage_budgets.sql` | LLM usage logging, per-agent budgets, daily usage RPC, and enforcement |
+| `017_rls_realtime_storage.sql` | Storage bucket setup |
+| `018_setup_wizard.sql` | `complete_setup()` RPC for the first-run wizard |
+| `019_entity_links.sql` | Universal polymorphic entity linking table |
+| `020_routines.sql` | Routines (scheduled and event-driven agent workflows) |
+| `021_collections.sql` | Custom collections, fields, records, and views |
+| `022_file_processing.sql` | File processing pipeline for knowledge items |
+| `023_source_connections.sql` | External source connections for knowledge sync |
+| `024_routines_extension.sql` | Event triggers for collections, knowledge items, and tasks |
+| `025_modular_workspace.sql` | Modular workspace onboarding |
 
 For a fresh Supabase project, run all files in filename order from the SQL Editor. The onboarding wizard handles this automatically — it concatenates all files and lets you copy/paste a single SQL blob.
 
@@ -5207,6 +5203,11 @@ Important RPCs:
 
 The `agent_usage_rollup` trigger updates `agent_budgets` after each usage row. Budget status changes can create `budget.warned` and `budget.exceeded` notifications.
 
+Important RPCs:
+
+- `recompute_agent_budget(...)` — recalculates the budget rollup from raw usage data.
+- `get_agent_daily_usage(...)` — returns daily spend and token aggregates for the current period.
+
 ### CRM
 
 - `contacts` — people records, core fields, pipeline status, priority, relationship strength, and `extended` custom data.
@@ -5244,6 +5245,19 @@ Important RPCs:
 - `search_knowledge_chunks(...)` / `search_knowledge_chunks_text(...)` — search at the chunk level, joining back to the parent item.
 - `lease_knowledge_items_for_indexing(...)` — atomic lease for the embedder daemon.
 - `mark_knowledge_item_indexed(...)` / `mark_knowledge_item_failed(...)` — embedding pipeline status updates.
+- `lease_knowledge_items_for_processing(...)` / `mark_knowledge_item_processed(...)` — file processing pipeline.
+
+### Collections
+
+- `collection_definitions` — user-defined table schemas with typed fields.
+- `collection_fields` — field definitions for each collection (text, number, date, select, etc.).
+- `collection_records` — JSONB-backed rows belonging to a collection.
+- `collection_views` — saved views (table, kanban, calendar) with filters and sorting.
+
+### Source Connections
+
+- `source_connections` — external source integrations (Notion, Google Drive) with credentials and sync schedules.
+- `source_sync_runs` — sync execution history and status tracking.
 
 ### Entity Links
 
@@ -5253,10 +5267,10 @@ Entity links replace the earlier task-specific attachments with a generalized mo
 
 ### Routines
 
-- `routines` — event-driven and schedule-driven rules that turn CRM/task/comment changes or cron ticks into agent inbox items.
+- `routines` — event-driven and schedule-driven rules that turn CRM/task/collection/knowledge changes or cron ticks into agent inbox items.
 - `agent_inbox_items` — stores the resulting work items, lease state, retry counters, dedup keys, and failure state.
 
-Event routines are evaluated by the `process_routine_event` database function on contact insert/update. Schedule routines use `spawn_routine_schedule_items` via pg_cron to create inbox items at defined intervals.
+Event routines are evaluated by trigger functions on contacts, tasks, knowledge items, and collection records. Schedule routines use `spawn_routine_schedule_items` via pg_cron to create inbox items at defined intervals.
 
 ### Configuration Tables
 
@@ -5268,21 +5282,21 @@ These are configured from the UI and read by forms, tables, kanban views, filter
 
 ### Status Enums
 
-**`agent_status`:** `ready`, `error`, `paused`, `provisioning`, `hibernating`
+**`agent_status`:** `ready`, `busy`, `error`, `provisioning`, `hibernating`
 
 **`gateway_status`:** `ready`, `error`, `paused`, `provisioning`, `hibernating`
 
 | Status | Meaning | Set by |
 |---|---|---|
 | `ready` | Operational, heartbeat active | Daemon heartbeat |
+| `busy` | Actively processing work | Agent runtime |
 | `error` | Crashed or unreachable | Stale detection / manual |
-| `paused` | User-initiated pause | UI pause button |
 | `provisioning` | Being set up | Provisioning flow |
 | `hibernating` | System-initiated sleep | Idle detector (hosted) |
 
 ### Schema Version
 
-The `_schema_version` table tracks the current schema version. The UI reads `EXPECTED_SCHEMA_VERSION` and compares it to the applied version to show update banners when migrations are pending.
+The `_schema_version` table tracks the current schema version (currently at v25). The UI reads `EXPECTED_SCHEMA_VERSION` and compares it to the applied version to show update banners when migrations are pending.
 
 ## Realtime
 
@@ -5299,7 +5313,7 @@ Fresh project:
 
 1. Create a Supabase project.
 2. Open SQL Editor.
-3. Run every `.sql` file in `db/migrations/` in filename order (`001` through `030`). Or use the onboarding wizard, which concatenates them all into a single copy-paste blob.
+3. Run every `.sql` file in `db/migrations/` in filename order (`001` through `025`). Or use the onboarding wizard, which concatenates them all into a single copy-paste blob.
 4. Create an auth user and disable public signup unless needed.
 
 Existing project:
@@ -5322,35 +5336,31 @@ Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main
 
 | File | Domain |
 |---|---|
-| `001_extensions.sql` | Postgres extensions |
+| `001_extensions.sql` | Postgres extensions (pgvector, pg_cron, pgcrypto) |
 | `002_enums.sql` | Shared enum types |
-| `003_shared_functions.sql` | Common trigger functions |
-| `004_workspace.sql` | Workspace, pipeline, fields |
-| `005_crm.sql` | Contacts, organizations, campaigns |
-| `006_gateways.sql` | Gateway registry and tokens |
-| `007_agents.sql` | Agent metadata and org chart |
-| `008_interactions.sql` | Contact interaction timeline |
-| `009_tasks_streams.sql` | Tasks, streams, recurrence |
-| `010_comments_attachments.sql` | Polymorphic comments |
-| `011_assets_documents.sql` | Knowledge items, chunks, search RPCs, and draft sets |
-| `012_audit_notifications.sql` | Audit log and notifications |
-| `013_agent_inbox.sql` | Inbox queue and routine triggers |
-| `014_agent_commands.sql` | Command queue and lifecycle RPCs |
-| `015_usage_budgets.sql` | Usage tracking and budgets |
-| `016_rls_realtime_storage.sql` | RLS policies, Realtime, Storage |
-| `017_setup_wizard.sql` | First-run setup RPC |
-| `018_tenants.sql` | Tenant registry and tenant_id columns |
-| `019_rls_tenant_scoped.sql` | Tenant-scoped RLS policies and JWT helper |
-| `020_rpc_tenant_scoped.sql` | Tenant-scoped RPCs |
-| `021_status_enums_schema_version.sql` | Status enums and schema version tracking |
-| `022_agent_heartbeat_cron.sql` | Agent schedule routines cron job |
-| `023_entity_links.sql` | Universal polymorphic entity linking |
-| `025_routines.sql` | Routines (scheduled agent workflows) |
-| `026_collections.sql` | Custom collections and records |
-| `027_file_processing.sql` | File processing pipeline |
-| `028_source_connections.sql` | External source connections |
-| `029_routines_extension.sql` | Routine extensions |
-| `030_modular_workspace.sql` | Modular workspace onboarding |
+| `003_shared_functions.sql` | Common trigger functions and schema version tracking |
+| `004_tenants.sql` | Tenant registry, default tenant, JWT signup trigger |
+| `005_workspace.sql` | Workspace settings, pipeline stages, field definitions |
+| `006_crm.sql` | Contacts, organizations, campaigns, templates, draft sets |
+| `007_gateways.sql` | Gateway registry, registration tokens, `consume_gateway_token()` RPC |
+| `008_agents.sql` | Agent metadata, org chart, `agent_reports_chain()` RPC |
+| `009_interactions.sql` | Contact interaction timeline and sync triggers |
+| `010_tasks_streams.sql` | Streams, tasks, recurring task series, and scheduling |
+| `011_comments.sql` | Polymorphic comments with @-mention triggers |
+| `012_knowledge.sql` | Knowledge items, chunks, semantic/full-text search RPCs |
+| `013_audit_notifications.sql` | Audit log and notification tables |
+| `014_agent_inbox.sql` | Agent inbox queue, lease RPCs, and task/comment triggers |
+| `015_agent_commands.sql` | Command queue and lifecycle RPCs |
+| `016_usage_budgets.sql` | LLM usage logging, per-agent budgets, and enforcement |
+| `017_rls_realtime_storage.sql` | Storage bucket setup |
+| `018_setup_wizard.sql` | `complete_setup()` RPC for the first-run wizard |
+| `019_entity_links.sql` | Universal polymorphic entity linking |
+| `020_routines.sql` | Routines (scheduled and event-driven agent workflows) |
+| `021_collections.sql` | Custom collections, fields, records, and views |
+| `022_file_processing.sql` | File processing pipeline for knowledge items |
+| `023_source_connections.sql` | External source connections (Notion, Google Drive) |
+| `024_routines_extension.sql` | Event triggers for collections, knowledge, and tasks |
+| `025_modular_workspace.sql` | Modular workspace onboarding |
 
 ## Migration CLI
 
@@ -6187,7 +6197,7 @@ Source: https://docs.yourhq.ai/development/repo-structure
 yourhq/
   apps/ui/              Next.js dashboard (App Router, Tailwind, shadcn)
   gateway/              Gateway image, files API, daemons, lifecycle scripts
-  db/migrations/        Supabase SQL migrations (001–030)
+  db/migrations/        Supabase SQL migrations (001–025)
   templates/            Agent template library (15 templates)
   installer/            Interactive install scripts
   docs-site/            Mintlify documentation source
@@ -6622,9 +6632,9 @@ The `runner` service mounts `/var/run/docker.sock` so it can execute `docker com
 
 A tighter future alternative is [docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy) with a narrowed action allowlist. Contributions welcome.
 
-### RLS is "authenticated full access"
+### RLS and tenant isolation
 
-The Supabase migrations grant the `authenticated` role broad read/write access. HQ is designed as single-user admin software — if you have a Supabase account, you're an admin. **Make sure Supabase email signup is disabled or invite-only**, otherwise anyone who signs up for your Supabase project gets full HQ access. The project registry isolates workspaces by Supabase project; fine-grained per-role permissions are not implemented.
+Every table uses tenant-scoped RLS policies — authenticated users can only access rows where `tenant_id` matches the JWT's `app_metadata.tenant_id`. Self-hosted installs use a single default tenant, so in practice all authenticated users see all data. HQ is designed as single-user admin software — if you have a Supabase account, you're an admin. **Make sure Supabase email signup is disabled or invite-only**, otherwise anyone who signs up for your Supabase project gets full HQ access. The project registry isolates workspaces by Supabase project; fine-grained per-role permissions are not implemented.
 
 ### Default port bindings are loopback-only
 
