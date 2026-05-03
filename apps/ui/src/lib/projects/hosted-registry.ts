@@ -117,6 +117,7 @@ export async function getProvisionStatus(workspaceId: string): Promise<{
   provision_error: string | null;
   subscription_status: string;
   e2b_sandbox_status: string;
+  auto_login_url: string | null;
 } | null> {
   const res = await fetch(
     `${WORKER_URL}/workspaces/${workspaceId}/status`,

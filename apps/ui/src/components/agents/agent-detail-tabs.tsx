@@ -609,6 +609,28 @@ function DirectReportsSection({
     [allAgents, agent.id],
   );
 
+  const hasManager = !!agent.reports_to_id;
+  const isAlone = !hasManager && reports.length === 0;
+
+  if (isAlone) {
+    return (
+      <div className="rounded-lg border border-border/50 bg-accent/20 p-4">
+        <p className="text-[13px] text-muted-foreground">
+          <span className="font-medium text-foreground">{agent.name}</span> works independently.
+          As your workload grows, you can build a team.
+        </p>
+        <div className="mt-3 flex gap-2">
+          <Link
+            href="/dashboard/agents?create=true"
+            className="text-[12px] font-medium text-foreground underline underline-offset-4 hover:no-underline"
+          >
+            + Add a specialist
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (reports.length === 0) return null;
 
   return (

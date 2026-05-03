@@ -850,8 +850,8 @@ import {
   PIPELINE_TEMPLATES,
   FIELD_TEMPLATES,
   DEFAULT_STREAMS,
-  CONTEXT_PRESETS,
   DEFAULT_CONTEXT_PRESET,
+  findPreset,
 } from "@/lib/setup/templates";
 
 export async function finalizeOnboarding(): Promise<ActionResult> {
@@ -872,8 +872,7 @@ export async function finalizeOnboarding(): Promise<ActionResult> {
   // Resolve the context preset — chosen on the "what will you use HQ for?"
   // screen. Drives pipeline, fields, and streams in one shot.
   const presetKey = (data.contextPresetKey as string | undefined) ?? null;
-  const preset =
-    CONTEXT_PRESETS.find((p) => p.key === presetKey) ?? DEFAULT_CONTEXT_PRESET;
+  const preset = presetKey ? findPreset(presetKey) : DEFAULT_CONTEXT_PRESET;
 
   const pipelineKey = preset.pipelineKey;
   const fieldKey = preset.fieldKey;

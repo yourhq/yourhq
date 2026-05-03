@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { ActivityItem } from "@/components/activity/activity-item";
 
+import { FirstVisitHint } from "@/components/onboarding/first-visit-hint";
 import { AlertBanner } from "./components/alert-banner";
 import { StatStrip } from "./components/stat-strip";
 import { NeedsAttention } from "./components/needs-attention";
@@ -72,6 +73,11 @@ export default function DashboardPage() {
 
       <div className="flex-1 overflow-auto">
         <div className="mx-auto w-full max-w-5xl p-5">
+          <FirstVisitHint
+            pageKey="dashboard"
+            title="Welcome to your command center"
+            description="This is your workspace overview — agent activity, tasks, and key metrics at a glance."
+          />
           {/* Loading skeleton */}
           {loading && !stats && (
             <div className="flex h-40 items-center justify-center">

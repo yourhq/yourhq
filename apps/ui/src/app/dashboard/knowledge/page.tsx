@@ -13,6 +13,7 @@ import { useKnowledge } from "@/hooks/use-knowledge";
 import { useSourceConnections } from "@/hooks/use-source-connections";
 import { SourceContentPicker } from "@/components/sources/source-content-picker";
 import { PageHeader } from "@/components/shared/page-header";
+import { FirstVisitHint } from "@/components/onboarding/first-visit-hint";
 import { EmptyState } from "@/components/shared/empty-state";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { Input } from "@/components/ui/input";
@@ -173,6 +174,14 @@ function KnowledgeContent() {
             />
           }
         />
+
+        <div className="px-3 pt-3">
+          <FirstVisitHint
+            pageKey="knowledge"
+            title="Give your agents context"
+            description="Add pages, playbooks, or files here. Agents reference this knowledge when working on tasks."
+          />
+        </div>
 
         {/* Toolbar */}
         <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30">

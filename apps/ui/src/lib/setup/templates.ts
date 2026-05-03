@@ -285,8 +285,8 @@ export interface ContextPreset {
 
 export const CONTEXT_PRESETS: ContextPreset[] = [
   {
-    key: "growth",
-    label: "Growth & outreach",
+    key: "reach",
+    label: "Find & reach people",
     description: "Cold outreach, content partnerships, creator collabs.",
     emoji: "🚀",
     pipelineKey: "outreach",
@@ -296,8 +296,8 @@ export const CONTEXT_PRESETS: ContextPreset[] = [
     collectionTemplateSlugs: ["content-calendar"],
   },
   {
-    key: "sales",
-    label: "Sales pipeline",
+    key: "deals",
+    label: "Close deals",
     description: "Deal flow, follow-ups, proposals, revenue tracking.",
     emoji: "💸",
     pipelineKey: "sales",
@@ -307,8 +307,8 @@ export const CONTEXT_PRESETS: ContextPreset[] = [
     collectionTemplateSlugs: [],
   },
   {
-    key: "recruiting",
-    label: "Recruiting",
+    key: "hire",
+    label: "Hire people",
     description: "Sourcing candidates, interviews, offers, onboarding.",
     emoji: "🧑‍💼",
     pipelineKey: "recruiting",
@@ -318,19 +318,19 @@ export const CONTEXT_PRESETS: ContextPreset[] = [
     collectionTemplateSlugs: [],
   },
   {
-    key: "job-search",
-    label: "Job search",
-    description: "Track applications, interviews, and offers.",
-    emoji: "💼",
-    pipelineKey: "job-search",
-    fieldKey: "job-search",
-    streamNames: ["Operations"],
+    key: "publish",
+    label: "Publish content",
+    description: "Write, repurpose, and publish across formats and platforms.",
+    emoji: "✍️",
+    pipelineKey: "custom",
+    fieldKey: "blank",
+    streamNames: ["Operations", "Content"],
     modules: { crm: false },
-    collectionTemplateSlugs: ["job-search"],
+    collectionTemplateSlugs: ["content-calendar"],
   },
   {
-    key: "clients",
-    label: "Client & consulting work",
+    key: "run",
+    label: "Run client work",
     description: "Client accounts, project tracking, deliverables.",
     emoji: "🤝",
     pipelineKey: "clients",
@@ -340,18 +340,7 @@ export const CONTEXT_PRESETS: ContextPreset[] = [
     collectionTemplateSlugs: [],
   },
   {
-    key: "personal",
-    label: "Personal ops",
-    description: "Contacts, notes, and life admin.",
-    emoji: "🧭",
-    pipelineKey: "personal",
-    fieldKey: "personal",
-    streamNames: ["Operations"],
-    modules: { crm: false },
-    collectionTemplateSlugs: [],
-  },
-  {
-    key: "other",
+    key: "explore",
     label: "Something else",
     description: "Start blank — customize everything in Settings later.",
     emoji: "✏️",
@@ -362,6 +351,27 @@ export const CONTEXT_PRESETS: ContextPreset[] = [
     collectionTemplateSlugs: [],
   },
 ];
+
+// Legacy key aliases — the worker and signup flow may still pass old keys.
+// Maps old preset key → new key for backward compatibility.
+export const PRESET_KEY_ALIASES: Record<string, string> = {
+  growth: "reach",
+  sales: "deals",
+  recruiting: "hire",
+  clients: "run",
+  other: "explore",
+  personal: "explore",
+  "job-search": "explore",
+};
+
+export function resolvePresetKey(key: string): string {
+  return PRESET_KEY_ALIASES[key] ?? key;
+}
+
+export function findPreset(key: string): ContextPreset {
+  const resolved = resolvePresetKey(key);
+  return CONTEXT_PRESETS.find((p) => p.key === resolved) ?? CONTEXT_PRESETS[CONTEXT_PRESETS.length - 1];
+}
 
 export const DEFAULT_CONTEXT_PRESET: ContextPreset =
   CONTEXT_PRESETS[0];

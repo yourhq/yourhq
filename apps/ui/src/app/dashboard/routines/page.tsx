@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Repeat, Search } from "lucide-react";
+import { FirstVisitHint } from "@/components/onboarding/first-visit-hint";
 import type { TriggerType } from "@/lib/routines/types";
 
 function RoutinesContent() {
@@ -36,6 +37,14 @@ function RoutinesContent() {
           </Button>
         }
       />
+
+      <div className="px-5 pt-3">
+        <FirstVisitHint
+          pageKey="routines"
+          title="Automate recurring work"
+          description="Routines run on a schedule or trigger when something changes — so agents work even when you're not looking."
+        />
+      </div>
 
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-5 py-2 border-b border-border/30">

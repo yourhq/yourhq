@@ -68,6 +68,15 @@ export const BUNDLED_TEMPLATES: AgentTemplate[] = [
     "capabilities": []
   },
   {
+    "branch": "template/ghostwriter",
+    "name": "Ghostwriter",
+    "description": "Versatile content writer — drafts, outlines, repurposes across formats and platforms.",
+    "emoji": "🦎",
+    "team": "content",
+    "domains": [],
+    "capabilities": []
+  },
+  {
     "branch": "template/market-researcher",
     "name": "Market Researcher",
     "description": "External intelligence agent who scans markets, spots patterns, and surfaces meaningful signals.",
