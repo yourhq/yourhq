@@ -5,13 +5,16 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import api_get, check_env, output
+from hq_base import api_get, check_env, output, require_crm
 
 check_env()
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--entity-type", default="contact")
 args = ap.parse_args()
+
+if args.entity_type == "contact":
+    require_crm()
 
 fields = api_get("field_definitions", {
     "entity_type": f"eq.{args.entity_type}",

@@ -7,7 +7,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import AGENT_SLUG, api_post, audit, check_env, output
+from hq_base import AGENT_SLUG, api_post, audit, check_env, output, require_crm
 
 check_env()
 
@@ -17,6 +17,9 @@ ap.add_argument("--data", required=True, help="JSON object to insert")
 ap.add_argument("--module", required=True)
 ap.add_argument("--entity-type", required=True)
 args = ap.parse_args()
+
+if args.table in ("contacts", "organizations"):
+    require_crm()
 
 payload = json.loads(args.data)
 result = api_post(args.table, payload)

@@ -9,6 +9,7 @@ import type { WizardState } from "../setup-wizard";
 function slugify(value: string): string {
   return value
     .toLowerCase()
+    .replace(/['']s\b/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 40);

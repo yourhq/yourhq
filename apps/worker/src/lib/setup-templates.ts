@@ -7,15 +7,16 @@ export interface ContextPreset {
   pipelineKey: string;
   fieldKey: string;
   streamNames: string[];
+  modules: { crm: boolean };
 }
 
 export const CONTEXT_PRESETS: ContextPreset[] = [
-  { key: "growth", pipelineKey: "outreach", fieldKey: "creator-outreach", streamNames: ["Operations", "Marketing", "Content"] },
-  { key: "sales", pipelineKey: "sales", fieldKey: "sales", streamNames: ["Operations", "Marketing"] },
-  { key: "recruiting", pipelineKey: "recruiting", fieldKey: "recruiting", streamNames: ["Operations"] },
-  { key: "clients", pipelineKey: "clients", fieldKey: "clients", streamNames: ["Operations", "Content"] },
-  { key: "personal", pipelineKey: "personal", fieldKey: "personal", streamNames: ["Operations"] },
-  { key: "other", pipelineKey: "custom", fieldKey: "blank", streamNames: ["Operations"] },
+  { key: "growth", pipelineKey: "outreach", fieldKey: "creator-outreach", streamNames: ["Operations", "Marketing", "Content"], modules: { crm: true } },
+  { key: "sales", pipelineKey: "sales", fieldKey: "sales", streamNames: ["Operations", "Marketing"], modules: { crm: true } },
+  { key: "recruiting", pipelineKey: "recruiting", fieldKey: "recruiting", streamNames: ["Operations"], modules: { crm: true } },
+  { key: "clients", pipelineKey: "clients", fieldKey: "clients", streamNames: ["Operations", "Content"], modules: { crm: true } },
+  { key: "personal", pipelineKey: "personal", fieldKey: "personal", streamNames: ["Operations"], modules: { crm: false } },
+  { key: "other", pipelineKey: "custom", fieldKey: "blank", streamNames: ["Operations"], modules: { crm: true } },
 ];
 
 export interface PipelineStage {
@@ -147,5 +148,5 @@ export function resolvePreset(presetKey: string) {
       return { name, description: null, type: "custom", color: "#6b7280", icon: null, sort_order: i };
     });
 
-  return { stages, fields, streams };
+  return { stages, fields, streams, modules: preset.modules };
 }

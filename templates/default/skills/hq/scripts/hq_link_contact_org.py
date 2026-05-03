@@ -5,9 +5,10 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import AGENT_SLUG, api_post, audit, check_env, output
+from hq_base import AGENT_SLUG, api_post, audit, check_env, output, require_crm
 
 check_env()
+require_crm()
 
 ap = argparse.ArgumentParser()
 ap.add_argument("contact_id")

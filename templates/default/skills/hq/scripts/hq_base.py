@@ -279,6 +279,34 @@ def embedding_source_hash(text):
     return hashlib.sha256((text or "").encode("utf-8")).hexdigest()
 
 
+# ── Module guards ─────────────────────────────────────────────────────
+
+_workspace_modules_cache = None
+
+
+def get_workspace_modules():
+    global _workspace_modules_cache
+    if _workspace_modules_cache is not None:
+        return _workspace_modules_cache
+    try:
+        rows = api_get("workspace", {"select": "settings", "limit": "1"})
+        if rows:
+            settings = rows[0].get("settings") or {}
+            _workspace_modules_cache = settings.get("modules", {"crm": True})
+        else:
+            _workspace_modules_cache = {"crm": True}
+    except Exception:
+        _workspace_modules_cache = {"crm": True}
+    return _workspace_modules_cache
+
+
+def require_crm():
+    modules = get_workspace_modules()
+    if not modules.get("crm", True):
+        print(json.dumps({"error": "crm_disabled", "message": "CRM module is not enabled in this workspace. Enable it in Settings > Modules."}))
+        sys.exit(0)
+
+
 # ── Output helper ──────────────────────────────────────────────────────
 
 def output(data):

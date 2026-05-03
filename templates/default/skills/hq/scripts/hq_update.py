@@ -7,7 +7,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import AGENT_SLUG, api_get, api_patch, audit, check_env, output
+from hq_base import AGENT_SLUG, api_get, api_patch, audit, check_env, output, require_crm
 
 check_env()
 
@@ -18,6 +18,9 @@ ap.add_argument("--data", required=True, help="JSON object with fields to update
 ap.add_argument("--module", required=True)
 ap.add_argument("--entity-type", required=True)
 args = ap.parse_args()
+
+if args.table in ("contacts", "organizations"):
+    require_crm()
 
 changes = json.loads(args.data)
 

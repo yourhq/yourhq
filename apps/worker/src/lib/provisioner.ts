@@ -135,6 +135,7 @@ export async function provisionWorkspace(
 
     const slug = workspace.label
       .toLowerCase()
+      .replace(/['']s\b/g, "")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "")
       .slice(0, 40) || "workspace";
@@ -151,6 +152,15 @@ export async function provisionWorkspace(
       p_streams: streams,
     });
     if (setupError) throw new Error(`Workspace setup failed: ${setupError.message}`);
+
+    // ── 5c. Set workspace modules based on preset ──
+    const { modules } = resolvePreset(presetKey);
+    if (modules) {
+      await tenantClient
+        .from("workspace")
+        .update({ settings: { modules } })
+        .eq("tenant_id", "00000000-0000-0000-0000-000000000000");
+    }
 
     // ── 6. Spawn E2B sandbox ──
     await setStage(workspaceId, "starting_sandbox");

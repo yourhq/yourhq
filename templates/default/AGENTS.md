@@ -61,6 +61,18 @@ HQ knowledge in Supabase is your shared context. Knowledge items come in four ki
 - When you claim a task, linked items are fetched automatically
 - Read linked knowledge items before starting work
 
+### Workspace Configuration
+
+At session start, HQ injects your workspace configuration including:
+- Which modules are enabled (CRM, Collections, Routines)
+- Pipeline stages and their order
+- Available contact fields and their types
+- Task streams
+
+Always reference this configuration when working with workspace data.
+Do not attempt to use modules marked as disabled.
+When creating or updating contacts, use only the defined pipeline stages and fields.
+
 ### Actor Tracking
 
 Every action you take in Supabase must identify you:
