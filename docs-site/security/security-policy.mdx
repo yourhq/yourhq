@@ -46,9 +46,9 @@ The `runner` service mounts `/var/run/docker.sock` so it can execute `docker com
 
 A tighter future alternative is [docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy) with a narrowed action allowlist. Contributions welcome.
 
-### RLS is "authenticated full access"
+### RLS and tenant isolation
 
-The Supabase migrations grant the `authenticated` role broad read/write access. HQ is designed as single-user admin software — if you have a Supabase account, you're an admin. **Make sure Supabase email signup is disabled or invite-only**, otherwise anyone who signs up for your Supabase project gets full HQ access. The project registry isolates workspaces by Supabase project; fine-grained per-role permissions are not implemented.
+Every table uses tenant-scoped RLS policies — authenticated users can only access rows where `tenant_id` matches the JWT's `app_metadata.tenant_id`. Self-hosted installs use a single default tenant, so in practice all authenticated users see all data. HQ is designed as single-user admin software — if you have a Supabase account, you're an admin. **Make sure Supabase email signup is disabled or invite-only**, otherwise anyone who signs up for your Supabase project gets full HQ access. The project registry isolates workspaces by Supabase project; fine-grained per-role permissions are not implemented.
 
 ### Default port bindings are loopback-only
 

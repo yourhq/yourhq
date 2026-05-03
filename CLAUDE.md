@@ -80,22 +80,22 @@ Daemons:
 
 ## Database
 
-`db/migrations/` contains 30 ordered migrations (001–030). Key tables:
+`db/migrations/` contains 25 ordered migrations (001–025). Key tables:
 
 - `gateways` — one row per gateway host. Seeded with a `default` row so single-gateway setups work immediately.
 - `agents` — agent definitions with `gateway_id`, `reports_to_id` hierarchy.
 - `knowledge_folders` / `knowledge_items` / `knowledge_item_agents` / `knowledge_chunks` — unified knowledge system. Items have `kind` (page/playbook/file/source), `scope` (workspace/agent), embedding pipeline fields. Agent-scoped items use the junction table.
 - `entity_links` — universal polymorphic linking. Any owner (task, routine, collection_record, agent) can link to any target (knowledge_item, collection_record, contact, organization, task, url).
-- `routines` — scheduled and event-driven agent behaviors. Replaces old automation_rules + heartbeat_cron. Has `trigger_type` (schedule/event), cadence fields (sub-daily to monthly), and event fields (entity_type, field, condition, value).
+- `routines` — scheduled and event-driven agent behaviors. Has `trigger_type` (schedule/event), cadence fields (sub-daily to monthly), and event fields (entity_type, field, condition, value).
 - `collection_definitions` / `collection_fields` / `collection_records` / `collection_views` — user-defined tables with typed JSONB fields and saved views (table/kanban/calendar).
 - `source_connections` / `source_sync_runs` — external source integrations (Notion, Google Drive).
 - `agent_commands` / `agent_inbox_items` — command queue and inbox for agent execution.
 - `agent_usage` / `agent_budgets` — append-only LLM usage plus per-agent budget rollups.
 - `tenants` — multi-tenant support via `tenant_id` on all tables, scoped RLS via `current_tenant_id()`.
 
-Key RPCs: `search_knowledge_items()`, `search_knowledge_chunks()`, `lease_knowledge_items_for_indexing()`, `lease_knowledge_items_for_processing()`, `routine_next_occurrence()`, `spawn_routine_schedule_items()`, `lease_command()`.
+Key RPCs: `search_knowledge_items()`, `search_knowledge_chunks()`, `lease_knowledge_items_for_indexing()`, `lease_knowledge_items_for_processing()`, `routine_next_occurrence()`, `spawn_routine_schedule_items()`, `lease_command()`, `get_agent_daily_usage()`.
 
-RLS: OSS uses `"Authenticated full access"`. Hosted uses tenant-scoped policies via `current_tenant_id()` JWT claim.
+RLS: All tables use tenant-scoped policies via `current_tenant_id()` JWT claim. OSS uses a single default tenant (`00000000-0000-0000-0000-000000000000`). The `service_role` key bypasses RLS.
 
 ## Conventions
 

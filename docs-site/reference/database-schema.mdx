@@ -8,33 +8,29 @@ HQ stores shared state in one Supabase project per workspace. The SQL source of 
 |------|----------|
 | `001_extensions.sql` | Required Postgres extensions (`vector`, `pg_cron`, `pgcrypto`) |
 | `002_enums.sql` | Shared enum types used across tables |
-| `003_shared_functions.sql` | `set_updated_at()` trigger function |
-| `004_workspace.sql` | Workspace settings, pipeline stages, field definitions, seed row |
-| `005_crm.sql` | Tags, campaigns, contacts, organizations, templates |
-| `006_gateways.sql` | Gateway hosts, registration tokens, `consume_gateway_token()` RPC |
-| `007_agents.sql` | Agent registry, org-chart hierarchy, `agent_reports_chain()` RPC |
-| `008_interactions.sql` | Contact interaction timeline and sync triggers |
-| `009_tasks_streams.sql` | Streams, tasks, recurring task series, and scheduling |
-| `010_comments_attachments.sql` | Polymorphic comments |
-| `011_assets_documents.sql` | Knowledge items, chunks, semantic/full-text search, and draft sets |
-| `012_audit_notifications.sql` | Audit log and notification tables |
-| `013_agent_inbox.sql` | Agent inbox queue, inbox triggers, and routines |
-| `014_agent_commands.sql` | Command queue for agent lifecycle and system operations |
-| `015_usage_budgets.sql` | LLM usage logging, per-agent budgets, and enforcement |
-| `016_rls_realtime_storage.sql` | Row-level security, Realtime subscriptions, Storage buckets |
-| `017_setup_wizard.sql` | `complete_setup()` RPC for the first-run wizard |
-| `018_tenants.sql` | Tenant registry, `tenant_id` column on all tenant-owned tables, tenant-scoped RLS policies |
-| `019_rls_tenant_scoped.sql` | Tenant-scoped RLS policies and JWT helper |
-| `020_rpc_tenant_scoped.sql` | Tenant-scoped RPCs: `lease_command`, `consume_gateway_token`, `spawn_due_task_instances`, `complete_setup`, `recompute_agent_budget`, `spawn_routine_schedule_items` |
-| `021_status_enums_schema_version.sql` | `agent_status` and `gateway_status` enum migration, `_schema_version` table |
-| `022_agent_heartbeat_cron.sql` | Agent schedule routines cron job |
-| `023_entity_links.sql` | Universal polymorphic entity linking table |
-| `025_routines.sql` | Routines (scheduled agent workflows) |
-| `026_collections.sql` | Custom collections and records |
-| `027_file_processing.sql` | File processing pipeline for knowledge items |
-| `028_source_connections.sql` | External source connections for knowledge sync |
-| `029_routines_extension.sql` | Routine extensions and scheduling |
-| `030_modular_workspace.sql` | Modular workspace onboarding |
+| `003_shared_functions.sql` | `set_updated_at()`, `current_tenant_id()`, `is_valid_timezone()`, `_schema_version` table |
+| `004_tenants.sql` | Tenant registry, default tenant seed, JWT signup trigger, tenant-scoped RLS |
+| `005_workspace.sql` | Workspace settings, pipeline stages, field definitions, seed row |
+| `006_crm.sql` | Tags, campaigns, contacts, organizations, templates, draft sets |
+| `007_gateways.sql` | Gateway hosts, registration tokens, `consume_gateway_token()` RPC |
+| `008_agents.sql` | Agent registry, org-chart hierarchy, `agent_reports_chain()` RPC |
+| `009_interactions.sql` | Contact interaction timeline and sync triggers |
+| `010_tasks_streams.sql` | Streams, tasks, recurring task series, and scheduling |
+| `011_comments.sql` | Polymorphic comments with @-mention inbox triggers |
+| `012_knowledge.sql` | Knowledge items, chunks, semantic/full-text search RPCs |
+| `013_audit_notifications.sql` | Audit log and notification tables |
+| `014_agent_inbox.sql` | Agent inbox queue, lease/complete/fail RPCs, task assignment triggers |
+| `015_agent_commands.sql` | Command queue for agent lifecycle and system operations |
+| `016_usage_budgets.sql` | LLM usage logging, per-agent budgets, daily usage RPC, and enforcement |
+| `017_rls_realtime_storage.sql` | Storage bucket setup |
+| `018_setup_wizard.sql` | `complete_setup()` RPC for the first-run wizard |
+| `019_entity_links.sql` | Universal polymorphic entity linking table |
+| `020_routines.sql` | Routines (scheduled and event-driven agent workflows) |
+| `021_collections.sql` | Custom collections, fields, records, and views |
+| `022_file_processing.sql` | File processing pipeline for knowledge items |
+| `023_source_connections.sql` | External source connections for knowledge sync |
+| `024_routines_extension.sql` | Event triggers for collections, knowledge items, and tasks |
+| `025_modular_workspace.sql` | Modular workspace onboarding |
 
 For a fresh Supabase project, run all files in filename order from the SQL Editor. The onboarding wizard handles this automatically — it concatenates all files and lets you copy/paste a single SQL blob.
 
@@ -81,6 +77,11 @@ Important RPCs:
 
 The `agent_usage_rollup` trigger updates `agent_budgets` after each usage row. Budget status changes can create `budget.warned` and `budget.exceeded` notifications.
 
+Important RPCs:
+
+- `recompute_agent_budget(...)` — recalculates the budget rollup from raw usage data.
+- `get_agent_daily_usage(...)` — returns daily spend and token aggregates for the current period.
+
 ### CRM
 
 - `contacts` — people records, core fields, pipeline status, priority, relationship strength, and `extended` custom data.
@@ -118,6 +119,19 @@ Important RPCs:
 - `search_knowledge_chunks(...)` / `search_knowledge_chunks_text(...)` — search at the chunk level, joining back to the parent item.
 - `lease_knowledge_items_for_indexing(...)` — atomic lease for the embedder daemon.
 - `mark_knowledge_item_indexed(...)` / `mark_knowledge_item_failed(...)` — embedding pipeline status updates.
+- `lease_knowledge_items_for_processing(...)` / `mark_knowledge_item_processed(...)` — file processing pipeline.
+
+### Collections
+
+- `collection_definitions` — user-defined table schemas with typed fields.
+- `collection_fields` — field definitions for each collection (text, number, date, select, etc.).
+- `collection_records` — JSONB-backed rows belonging to a collection.
+- `collection_views` — saved views (table, kanban, calendar) with filters and sorting.
+
+### Source Connections
+
+- `source_connections` — external source integrations (Notion, Google Drive) with credentials and sync schedules.
+- `source_sync_runs` — sync execution history and status tracking.
 
 ### Entity Links
 
@@ -127,10 +141,10 @@ Entity links replace the earlier task-specific attachments with a generalized mo
 
 ### Routines
 
-- `routines` — event-driven and schedule-driven rules that turn CRM/task/comment changes or cron ticks into agent inbox items.
+- `routines` — event-driven and schedule-driven rules that turn CRM/task/collection/knowledge changes or cron ticks into agent inbox items.
 - `agent_inbox_items` — stores the resulting work items, lease state, retry counters, dedup keys, and failure state.
 
-Event routines are evaluated by the `process_routine_event` database function on contact insert/update. Schedule routines use `spawn_routine_schedule_items` via pg_cron to create inbox items at defined intervals.
+Event routines are evaluated by trigger functions on contacts, tasks, knowledge items, and collection records. Schedule routines use `spawn_routine_schedule_items` via pg_cron to create inbox items at defined intervals.
 
 ### Configuration Tables
 
@@ -142,21 +156,21 @@ These are configured from the UI and read by forms, tables, kanban views, filter
 
 ### Status Enums
 
-**`agent_status`:** `ready`, `error`, `paused`, `provisioning`, `hibernating`
+**`agent_status`:** `ready`, `busy`, `error`, `provisioning`, `hibernating`
 
 **`gateway_status`:** `ready`, `error`, `paused`, `provisioning`, `hibernating`
 
 | Status | Meaning | Set by |
 |---|---|---|
 | `ready` | Operational, heartbeat active | Daemon heartbeat |
+| `busy` | Actively processing work | Agent runtime |
 | `error` | Crashed or unreachable | Stale detection / manual |
-| `paused` | User-initiated pause | UI pause button |
 | `provisioning` | Being set up | Provisioning flow |
 | `hibernating` | System-initiated sleep | Idle detector (hosted) |
 
 ### Schema Version
 
-The `_schema_version` table tracks the current schema version. The UI reads `EXPECTED_SCHEMA_VERSION` and compares it to the applied version to show update banners when migrations are pending.
+The `_schema_version` table tracks the current schema version (currently at v25). The UI reads `EXPECTED_SCHEMA_VERSION` and compares it to the applied version to show update banners when migrations are pending.
 
 ## Realtime
 
@@ -173,7 +187,7 @@ Fresh project:
 
 1. Create a Supabase project.
 2. Open SQL Editor.
-3. Run every `.sql` file in `db/migrations/` in filename order (`001` through `030`). Or use the onboarding wizard, which concatenates them all into a single copy-paste blob.
+3. Run every `.sql` file in `db/migrations/` in filename order (`001` through `025`). Or use the onboarding wizard, which concatenates them all into a single copy-paste blob.
 4. Create an auth user and disable public signup unless needed.
 
 Existing project:

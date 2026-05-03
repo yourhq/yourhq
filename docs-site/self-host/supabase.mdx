@@ -18,17 +18,17 @@ HQ uses your own Supabase project as its database, auth system, real-time event 
     Go to [supabase.com](https://supabase.com), create an account, and click **New project**. Choose a name, a strong database password (save it somewhere), and the region closest to you. Provisioning takes about 2 minutes.
   </Step>
   <Step title="Run the migrations">
-    HQ needs 21 SQL migration files applied in order. Open **SQL Editor** in your Supabase dashboard.
+    HQ needs 25 SQL migration files applied in order. Open **SQL Editor** in your Supabase dashboard.
 
     The cleanest approach is to run each file individually:
 
     1. Browse to [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) on GitHub
     2. Open `001_extensions.sql`, copy the SQL
     3. Paste into the SQL Editor, click **Run**
-    4. Repeat for `002`, `003` ... through `021`
+    4. Repeat for `002`, `003` ... through `025`
 
     <Tip>
-      If you've already run the HQ installer or opened the onboarding screen, the wizard offers a **Copy all SQL** button that concatenates all 21 files into one blob you can paste and run at once.
+      If you've already run the HQ installer or opened the onboarding screen, the wizard offers a **Copy all SQL** button that concatenates all 25 files into one blob you can paste and run at once.
     </Tip>
 
     <Warning>
