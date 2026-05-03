@@ -15,6 +15,23 @@ from hq_base import check_env, api_rpc, api_get, generate_embedding, output
 
 check_env()
 
+SOURCE_URL_PATTERNS = {
+    "notion": "https://notion.so/{id}",
+    "google_drive": "https://drive.google.com/file/d/{id}",
+}
+
+def enrich_source_urls(results):
+    for r in results:
+        meta = r.get("meta") or {}
+        if meta.get("source_url"):
+            r["source_url"] = meta["source_url"]
+        elif r.get("source_external_id") and r.get("kind") == "source":
+            provider = meta.get("provider")
+            if provider and provider in SOURCE_URL_PATTERNS:
+                ext_id = r["source_external_id"].replace("-", "")
+                r["source_url"] = SOURCE_URL_PATTERNS[provider].format(id=ext_id)
+    return results
+
 ap = argparse.ArgumentParser()
 ap.add_argument("query")
 ap.add_argument("--tags", default=None, help="Comma-separated tags to filter by")
@@ -35,7 +52,7 @@ try:
             "filter_folder_id": args.folder_id,
             "filter_kind": args.kind,
         })
-        output({"method": "semantic", "count": len(rows or []), "results": rows or []})
+        output({"method": "semantic", "count": len(rows or []), "results": enrich_source_urls(rows or [])})
         sys.exit(0)
 except Exception as e:
     print(f"[search] semantic search failed, falling back to full-text: {e}", file=sys.stderr)
@@ -48,7 +65,7 @@ try:
         "filter_folder_id": args.folder_id,
         "filter_kind": args.kind,
     })
-    output({"method": "full_text", "count": len(rows or []), "results": rows or []})
+    output({"method": "full_text", "count": len(rows or []), "results": enrich_source_urls(rows or [])})
 except Exception as e:
     print(f"[search] text RPC failed, falling back to title scan: {e}", file=sys.stderr)
     words = args.query.split()

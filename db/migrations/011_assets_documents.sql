@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS knowledge_items (
   source_external_id    text,
   source_sync_status    text CHECK (source_sync_status IS NULL OR source_sync_status IN ('synced', 'stale', 'error', 'source_deleted')),
   source_synced_at      timestamptz,
+  content_hash          text,
   scope                 text NOT NULL DEFAULT 'workspace' CHECK (scope IN ('workspace', 'agent')),
   tags                  text[] NOT NULL DEFAULT '{}',
   pinned                boolean DEFAULT false,
@@ -86,6 +87,8 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_items_embedding_status
 CREATE INDEX IF NOT EXISTS idx_knowledge_items_search_vector ON knowledge_items USING gin(search_vector);
 CREATE INDEX IF NOT EXISTS idx_knowledge_items_processing
   ON knowledge_items(processing_status) WHERE processing_status IN ('ready', 'processing');
+CREATE INDEX IF NOT EXISTS idx_knowledge_items_source_conn
+  ON knowledge_items(source_connection_id) WHERE source_connection_id IS NOT NULL;
 
 DROP TRIGGER IF EXISTS knowledge_items_updated_at ON knowledge_items;
 CREATE TRIGGER knowledge_items_updated_at
@@ -210,7 +213,9 @@ CREATE OR REPLACE FUNCTION search_knowledge_items(
 )
 RETURNS TABLE (
   id uuid, title text, kind text, content jsonb, tags text[], folder_id uuid,
-  scope text, updated_at timestamptz, meta jsonb, similarity float
+  scope text, updated_at timestamptz, meta jsonb,
+  source_connection_id uuid, source_external_id text,
+  similarity float
 )
 LANGUAGE plpgsql
 SET search_path = ''
@@ -220,6 +225,7 @@ BEGIN
   SELECT
     ki.id, ki.title, ki.kind, ki.content, ki.tags, ki.folder_id,
     ki.scope, ki.updated_at, ki.meta,
+    ki.source_connection_id, ki.source_external_id,
     1 - (ki.embedding <=> query_embedding) AS similarity
   FROM public.knowledge_items ki
   WHERE ki.embedding IS NOT NULL
@@ -241,7 +247,9 @@ CREATE OR REPLACE FUNCTION search_knowledge_items_text(
 )
 RETURNS TABLE (
   id uuid, title text, kind text, content jsonb, tags text[], folder_id uuid,
-  scope text, updated_at timestamptz, meta jsonb, similarity float
+  scope text, updated_at timestamptz, meta jsonb,
+  source_connection_id uuid, source_external_id text,
+  similarity float
 )
 LANGUAGE plpgsql
 SET search_path = ''
@@ -254,6 +262,7 @@ BEGIN
     SELECT
       ki.id, ki.title, ki.kind, ki.content, ki.tags, ki.folder_id,
       ki.scope, ki.updated_at, ki.meta,
+      ki.source_connection_id, ki.source_external_id,
       0::float AS similarity
     FROM public.knowledge_items ki
     WHERE ki.archived_at IS NULL
@@ -272,6 +281,7 @@ BEGIN
   SELECT
     ki.id, ki.title, ki.kind, ki.content, ki.tags, ki.folder_id,
     ki.scope, ki.updated_at, ki.meta,
+    ki.source_connection_id, ki.source_external_id,
     ts_rank_cd(ki.search_vector, query.tsquery)::float AS similarity
   FROM public.knowledge_items ki
   CROSS JOIN query

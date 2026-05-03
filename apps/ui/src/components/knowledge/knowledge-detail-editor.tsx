@@ -15,12 +15,14 @@ import {
   Archive,
   Check,
   Download,
+  ExternalLink,
   FolderOpen,
   Globe2,
   Bot,
   Loader2,
   Pin,
   PinOff,
+  RefreshCw,
   Tag,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -36,6 +38,10 @@ import { shouldReembed, withPendingEmbedding } from "@/lib/knowledge/embedding";
 import { convertMarkdownContent } from "@/lib/knowledge/markdown-to-tiptap";
 import { downloadAsMarkdown } from "@/lib/knowledge/export-markdown";
 import { buildFolderTree, flattenFolderTree, getFolderPath } from "@/lib/knowledge/tree";
+import { getSourceUrl, PROVIDER_LABELS } from "@/lib/sources/types";
+import type { SourceProvider } from "@/lib/sources/types";
+import { ProviderIcon } from "@/components/sources/provider-icon";
+import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 
 interface KnowledgeDetailEditorProps {
@@ -376,9 +382,74 @@ export function KnowledgeDetailEditor({
                 </div>
               )}
             </div>
+          ) : item.kind === "source" ? (
+            <SourceDetailView item={item} />
           ) : null}
         </div>
       </div>
+    </div>
+  );
+}
+
+function SourceDetailView({ item }: { item: KnowledgeItem }) {
+  const provider = (item.meta as Record<string, unknown>)?.provider as SourceProvider | undefined;
+  const sourceUrl =
+    (item.meta as Record<string, unknown>)?.source_url as string | undefined
+    ?? (item.source_external_id && provider
+      ? getSourceUrl(provider, item.source_external_id)
+      : null);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/30 px-4 py-3 text-[13px] text-muted-foreground">
+        {provider && <ProviderIcon provider={provider} className="h-4 w-4" />}
+        <span>
+          This content is synced from {provider ? PROVIDER_LABELS[provider] : "an external source"}.
+          Edits should be made in the original.
+        </span>
+        {sourceUrl && (
+          <a
+            href={sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-auto inline-flex items-center gap-1 text-primary hover:underline shrink-0"
+          >
+            Open in {provider ? PROVIDER_LABELS[provider] : "source"}
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        )}
+      </div>
+
+      {item.source_sync_status === "source_deleted" && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-[13px] text-red-400">
+          This item has been deleted in the source and will no longer receive updates.
+        </div>
+      )}
+
+      {item.source_sync_status === "error" && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-[13px] text-red-400">
+          The last sync failed. The content below may be outdated.
+        </div>
+      )}
+
+      <div className="flex items-center gap-4 text-[12px] text-muted-foreground">
+        {item.source_synced_at && (
+          <span className="flex items-center gap-1">
+            <RefreshCw className="h-3 w-3" />
+            Synced {formatDistanceToNow(new Date(item.source_synced_at), { addSuffix: true })}
+          </span>
+        )}
+      </div>
+
+      {item.plain_text ? (
+        <div className="prose prose-invert prose-sm max-w-none whitespace-pre-wrap text-sm text-foreground/90 leading-relaxed">
+          {item.plain_text}
+        </div>
+      ) : (
+        <div className="py-8 text-center text-sm text-muted-foreground">
+          Content not yet synced. It will appear after the next sync cycle.
+        </div>
+      )}
     </div>
   );
 }

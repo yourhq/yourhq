@@ -11,6 +11,17 @@ import { logAudit } from "@/lib/audit/log";
 import { useRealtime } from "./use-realtime";
 import { toast } from "sonner";
 
+export interface SourceKnowledgeItem {
+  id: string;
+  title: string;
+  kind: string;
+  source_external_id: string | null;
+  source_sync_status: string | null;
+  source_synced_at: string | null;
+  content_hash: string | null;
+  created_at: string;
+}
+
 export function useSourceConnections() {
   const [connections, setConnections] = useState<SourceConnection[]>([]);
   const [syncRuns, setSyncRuns] = useState<SourceSyncRun[]>([]);
@@ -33,7 +44,7 @@ export function useSourceConnections() {
         .from("source_sync_runs")
         .select("*")
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(50);
 
       if (connectionId) {
         q = q.eq("connection_id", connectionId);
@@ -60,6 +71,11 @@ export function useSourceConnections() {
     onPayload: () => fetchSyncRuns(),
   });
 
+  const getConnection = useCallback(
+    (id: string) => connections.find((c) => c.id === id) ?? null,
+    [connections],
+  );
+
   const createConnection = useCallback(
     async (input: {
       provider: SourceProvider;
@@ -85,7 +101,7 @@ export function useSourceConnections() {
         return null;
       }
 
-      await logAudit(supabase, {
+      logAudit(supabase, {
         module: "knowledge",
         entity_type: "source_connection",
         entity_id: data.id,
@@ -113,7 +129,7 @@ export function useSourceConnections() {
         return;
       }
 
-      await logAudit(supabase, {
+      logAudit(supabase, {
         module: "knowledge",
         entity_type: "source_connection",
         entity_id: id,
@@ -164,16 +180,127 @@ export function useSourceConnections() {
     [supabase],
   );
 
+  const fetchConnectionItems = useCallback(
+    async (connectionId: string): Promise<SourceKnowledgeItem[]> => {
+      const { data } = await supabase
+        .from("knowledge_items")
+        .select("id, title, kind, source_external_id, source_sync_status, source_synced_at, content_hash, created_at")
+        .eq("source_connection_id", connectionId)
+        .is("archived_at", null)
+        .order("title", { ascending: true });
+      return (data ?? []) as SourceKnowledgeItem[];
+    },
+    [supabase],
+  );
+
+  const addSyncItems = useCallback(
+    async (
+      connectionId: string,
+      items: Array<{ external_id: string; title: string; source_url: string }>,
+    ): Promise<boolean> => {
+      const conn = connections.find((c) => c.id === connectionId);
+      const provider = conn?.provider;
+      const rows = items.map((item) => ({
+        kind: "source",
+        title: item.title,
+        scope: "workspace",
+        source_connection_id: connectionId,
+        source_external_id: item.external_id,
+        source_sync_status: "stale",
+        processing_status: "done",
+        embedding_status: "pending",
+        meta: { source_url: item.source_url, provider },
+      }));
+
+      const { error } = await supabase
+        .from("knowledge_items")
+        .insert(rows);
+
+      if (error) {
+        toast.error(error.message);
+        return false;
+      }
+
+      logAudit(supabase, {
+        module: "knowledge",
+        entity_type: "source_connection",
+        entity_id: connectionId,
+        action: "updated",
+        summary: `Added ${items.length} item(s) to sync`,
+      });
+
+      toast.success(`${items.length} item(s) added to sync`);
+
+      await supabase
+        .from("source_connections")
+        .update({ next_sync_at: new Date().toISOString() })
+        .eq("id", connectionId);
+
+      return true;
+    },
+    [supabase, connections],
+  );
+
+  const stopSyncingItem = useCallback(
+    async (itemId: string) => {
+      const { error } = await supabase
+        .from("knowledge_items")
+        .update({ archived_at: new Date().toISOString() })
+        .eq("id", itemId);
+
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+
+      logAudit(supabase, {
+        module: "knowledge",
+        entity_type: "knowledge_item",
+        entity_id: itemId,
+        action: "deleted",
+        summary: "Stopped syncing source item",
+      });
+
+      toast.success("Item removed from sync");
+    },
+    [supabase],
+  );
+
+  const syncItemNow = useCallback(
+    async (itemId: string) => {
+      const { error } = await supabase
+        .from("knowledge_items")
+        .update({
+          source_sync_status: "stale",
+          embedding_status: "pending",
+        })
+        .eq("id", itemId);
+
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+
+      toast.success("Item queued for sync");
+    },
+    [supabase],
+  );
+
   return {
     connections,
     syncRuns,
     loading,
+    getConnection,
     actions: {
       createConnection,
       deleteConnection,
       updateConnection,
       triggerSync,
       fetchSyncRuns,
+      fetchConnectionItems,
+      addSyncItems,
+      stopSyncingItem,
+      syncItemNow,
     },
   };
 }

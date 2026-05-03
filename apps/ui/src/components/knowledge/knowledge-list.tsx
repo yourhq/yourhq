@@ -4,7 +4,9 @@ import type { KnowledgeItem } from "@/lib/knowledge/types";
 import { KnowledgeKindBadge } from "./knowledge-kind-badge";
 import { KnowledgeScopeBadge } from "./knowledge-scope-badge";
 import { EmbeddingStatus } from "./embedding-status";
+import { ProviderIcon } from "@/components/sources/provider-icon";
 import { MoreHorizontal, Archive, RotateCcw, Trash2, Pin, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,7 +55,11 @@ export function KnowledgeList({
             </Link>
           </div>
 
-          <KnowledgeKindBadge kind={item.kind} />
+          {item.kind === "source" && item.source_connection_id ? (
+            <SourceSyncInfo item={item} />
+          ) : (
+            <KnowledgeKindBadge kind={item.kind} />
+          )}
           <KnowledgeScopeBadge scope={item.scope} />
 
           {item.pinned && (
@@ -66,7 +72,7 @@ export function KnowledgeList({
           {item.kind === "file" && item.processing_status === "failed" && (
             <AlertCircle className="h-3 w-3 text-red-400 shrink-0" />
           )}
-          {(item.kind === "page" || item.kind === "playbook" || (item.kind === "file" && item.processing_status === "done")) && (
+          {(item.kind === "page" || item.kind === "playbook" || item.kind === "source" || (item.kind === "file" && item.processing_status === "done")) && (
             <EmbeddingStatus
               embeddingStatus={item.embedding_status}
               chunkStatus={item.chunk_status}
@@ -115,5 +121,29 @@ export function KnowledgeList({
         </div>
       ))}
     </div>
+  );
+}
+
+function SourceSyncInfo({ item }: { item: KnowledgeItem }) {
+  const provider = (item.meta as Record<string, unknown>)?.provider as string | undefined;
+
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[10px] text-muted-foreground shrink-0">
+      {provider && <ProviderIcon provider={provider} className="h-3 w-3" />}
+      {item.source_synced_at ? (
+        <span>
+          Synced{" "}
+          {formatDistanceToNow(new Date(item.source_synced_at), {
+            addSuffix: true,
+          })}
+        </span>
+      ) : item.source_sync_status === "source_deleted" ? (
+        <span className="text-red-400">Deleted in source</span>
+      ) : item.source_sync_status === "error" ? (
+        <span className="text-red-400">Sync failed</span>
+      ) : (
+        <span>Pending sync</span>
+      )}
+    </span>
   );
 }

@@ -10,18 +10,26 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import type { SourceConnection } from "@/lib/sources/types";
+import { PROVIDER_LABELS } from "@/lib/sources/types";
 
 interface KnowledgeCreateMenuProps {
   onCreatePage: () => void;
   onCreatePlaybook: () => void;
   onUploadFiles: () => void;
+  connectedSources?: SourceConnection[];
+  onPickFromSource?: (connectionId: string) => void;
 }
 
 export function KnowledgeCreateMenu({
   onCreatePage,
   onCreatePlaybook,
   onUploadFiles,
+  connectedSources,
+  onPickFromSource,
 }: KnowledgeCreateMenuProps) {
+  const activeSources = connectedSources?.filter((c) => c.status === "active") ?? [];
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -51,11 +59,30 @@ export function KnowledgeCreateMenu({
           <Upload className="h-4 w-4 text-amber-400" />
           <div className="text-sm">Upload files</div>
         </DropdownMenuItem>
+
+        {activeSources.length > 0 && onPickFromSource && (
+          <>
+            <DropdownMenuSeparator />
+            {activeSources.map((conn) => (
+              <DropdownMenuItem
+                key={conn.id}
+                onClick={() => onPickFromSource(conn.id)}
+                className="gap-2"
+              >
+                <Globe className="h-4 w-4 text-teal-400" />
+                <div className="text-sm">
+                  From {conn.account_label}
+                </div>
+              </DropdownMenuItem>
+            ))}
+          </>
+        )}
+
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild className="gap-2">
           <Link href="/dashboard/settings/sources">
-            <Globe className="h-4 w-4 text-teal-400" />
-            <div className="text-sm">Connect source</div>
+            <Globe className="h-4 w-4 text-muted-foreground" />
+            <div className="text-sm">Connect new source</div>
           </Link>
         </DropdownMenuItem>
       </DropdownMenuContent>

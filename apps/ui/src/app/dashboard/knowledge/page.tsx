@@ -10,6 +10,8 @@ import { KnowledgeGrid } from "@/components/knowledge/knowledge-grid";
 import { KnowledgeCreateMenu } from "@/components/knowledge/knowledge-create-menu";
 import { KnowledgeCreateDialog } from "@/components/knowledge/knowledge-create-dialog";
 import { useKnowledge } from "@/hooks/use-knowledge";
+import { useSourceConnections } from "@/hooks/use-source-connections";
+import { SourceContentPicker } from "@/components/sources/source-content-picker";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
@@ -32,10 +34,12 @@ const VIEW_KEY = "knowledge-view-mode";
 
 function KnowledgeContent() {
   const k = useKnowledge();
+  const sc = useSourceConnections();
   const router = useRouter();
   const [showCreate, setShowCreate] = useState<KnowledgeKind | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteFolderId, setDeleteFolderId] = useState<string | null>(null);
+  const [pickerConnectionId, setPickerConnectionId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [isDragging, setIsDragging] = useState(false);
@@ -166,6 +170,8 @@ function KnowledgeContent() {
               onCreatePage={() => setShowCreate("page")}
               onCreatePlaybook={() => setShowCreate("playbook")}
               onUploadFiles={() => fileInputRef.current?.click()}
+              connectedSources={sc.connections}
+              onPickFromSource={(connId) => setPickerConnectionId(connId)}
             />
           }
         />
@@ -321,6 +327,27 @@ function KnowledgeContent() {
         }}
         onCancel={() => setDeleteFolderId(null)}
       />
+
+      {pickerConnectionId && (() => {
+        const conn = sc.getConnection(pickerConnectionId);
+        if (!conn) return null;
+        const existingIds = new Set(
+          k.items
+            .filter((i) => i.source_connection_id === pickerConnectionId)
+            .map((i) => i.source_external_id)
+            .filter((id): id is string => id != null),
+        );
+        return (
+          <SourceContentPicker
+            open
+            connectionId={conn.id}
+            provider={conn.provider}
+            existingSyncedIds={existingIds}
+            onSync={(items) => sc.actions.addSyncItems(conn.id, items)}
+            onClose={() => setPickerConnectionId(null)}
+          />
+        );
+      })()}
     </div>
   );
 }
