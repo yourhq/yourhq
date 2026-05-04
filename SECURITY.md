@@ -19,7 +19,7 @@ We'll acknowledge within 72 hours and keep you updated on our fix. We'll credit 
 
 In scope:
 
-- The HQ UI (`apps/ui/`)
+- All service code in `apps/` (UI, migrate CLI, worker)
 - The gateway image and its daemons (`gateway/`)
 - The Supabase migration and its triggers/RPCs (`db/`)
 - The installer (`installer/`)
@@ -52,9 +52,9 @@ The Supabase migrations enforce RLS via `tenant_id` — every row is scoped to t
 
 ### Default port bindings are loopback-only
 
-`docker compose up -d` without the installer binds all HQ services (UI, noVNC, files-API) to `127.0.0.1`. The installer's "Tailscale" or "Public" mode explicitly flips them to `0.0.0.0`. This is deliberate — if you `docker compose up` blindly on a cloud VM, nothing is publicly reachable.
+`docker compose up -d` without the installer binds all HQ services (UI, files-API) to `127.0.0.1`. This is deliberate — if you `docker compose up` blindly on a cloud VM, nothing is publicly reachable. noVNC is not host-exposed at all — the UI proxies it through `/api/novnc` over Docker's internal network.
 
-If you override `UI_HOST_PORT`, `NOVNC_HOST_PORT`, or `FILES_API_HOST_PORT` to `0.0.0.0:*` manually, you're exposing those services to every interface on the host. Make sure you have a firewall, reverse proxy, or Tailscale between them and the internet.
+If you override `UI_HOST_PORT` or `FILES_API_HOST_PORT` to `0.0.0.0:*` manually, you're exposing those services to every interface on the host. Make sure you have a firewall, reverse proxy, or Tailscale between them and the internet.
 
 ### The installer runs `curl | bash`
 

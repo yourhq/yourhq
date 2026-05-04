@@ -23,7 +23,7 @@ No vendor lock-in. No per-seat pricing. No data leaving your infrastructure.
 - **One UI, many gateways.** Run the UI on your laptop, gateways anywhere. Agents provision on the host you pick.
 - **Agents are real programs**, not chat wrappers. They browse, send messages, edit files, call APIs — with real memory across sessions.
 - **Operational workspace included.** CRM, tasks, knowledge base, collections, routines, inbox, activity, notifications, usage budgets, and gateway management live in one UI.
-- **Template library included.** Cofounder, designer, analyst, CMO, newsletter editor, and more — starting points you customize in-place.
+- **Template library included.** 16 templates — cofounder, designer, analytics, CMO, ghostwriter, newsletter editor, and more — starting points you customize in-place.
 
 ## Install
 
@@ -37,11 +37,11 @@ curl -fsSL install.yourhq.ai | bash
 
 The installer:
 1. Installs Docker if missing (Linux)
-2. Picks your networking mode (local / Tailscale / public)
-3. Runs `docker compose up -d`
+2. Optionally configures GitHub sync for agent file backup
+3. Starts the UI container (`docker compose up -d ui`)
 4. Opens your browser to `http://localhost:3000`
 
-Then in the browser: paste your Supabase URL + keys in the onboarding screen, sign in, done. The gateway auto-picks up your creds in the background — no second terminal step. Takes about 5 minutes on a fresh machine.
+Then in the browser: paste your Supabase URL + keys in the onboarding screen, sign in, and the wizard walks you through connecting a gateway (on the same machine or a remote host). Takes about 5 minutes on a fresh machine.
 
 ### Prerequisites
 
@@ -60,10 +60,6 @@ docker compose up -d ui
 ```
 
 See [the installation docs](https://docs.yourhq.ai/self-host/installation) for every install path in detail.
-
-## Screenshots
-
-_Coming soon — see [yourhq.ai](https://yourhq.ai) for screenshots and demo._
 
 ## Architecture
 
@@ -85,15 +81,32 @@ _Coming soon — see [yourhq.ai](https://yourhq.ai) for screenshots and demo._
            └──────────┘  └──────────┘  └──────────┘
 ```
 
-Each gateway host runs:
-- **OpenClaw** — the agent runtime
-- **Chrome + noVNC** — a full desktop with a browser each agent can drive
-- **Python daemons** — wake agents when there's new work; execute lifecycle commands
-- **Files API** — lets the UI read and edit agent worktree files safely
+Each gateway host runs six services:
+- **Gateway** — OpenClaw agent runtime, Chrome, XFCE desktop, noVNC, and the files API
+- **Dispatcher** — wakes agents when new inbox work arrives
+- **Runner** — executes lifecycle commands (provision, update, remove, auth)
+- **Embedder** — indexes knowledge items into searchable chunks
+- **File processor** — extracts text from uploaded files (PDF, DOCX, XLSX, etc.)
+- Plus the **UI** on whatever host you choose
 
 Agents get their own git branch, their own Chrome profile, and a shared workspace. No two agents stomp on each other.
 
 Read the full breakdown in [the architecture docs](https://docs.yourhq.ai/concepts/architecture).
+
+## Project structure
+
+```
+apps/ui/         Next.js dashboard (App Router, Tailwind, shadcn)
+apps/migrate/    Database migration runner CLI
+gateway/         Gateway image, files API, daemons, lifecycle scripts
+templates/       Agent template library (16 templates)
+db/migrations/   Supabase SQL migrations (001–025)
+installer/       Interactive install scripts (install.sh + install-gateway.sh)
+docs-site/       Documentation source (docs.yourhq.ai)
+scripts/         Operational scripts (diagnostic bundle)
+```
+
+See [the repo structure docs](https://docs.yourhq.ai/development/repo-structure) for details.
 
 ## What agents can do
 
@@ -102,7 +115,7 @@ Out of the box, agents have access to:
 - **Web browsing** — a dedicated Chrome profile they can drive autonomously
 - **Your workspace** — contacts, organizations, tasks, interactions, knowledge items, collections
 - **Messaging channels** — Telegram, Discord, or Slack — each agent gets its own channel binding
-- **Model-agnostic** — any provider: OpenAI, Anthropic, Gemini, Ollama, and 25+ others supported by OpenClaw
+- **Model-agnostic** — any provider: OpenAI, Anthropic, Gemini, Ollama, and many others via OpenClaw
 - **Calendar, email, Slack, Notion** — via MCP or custom plugins
 
 They have persistent memory across sessions, can report to and delegate to each other, can be governed by monthly usage budgets, and can write their own workflow improvements back to files.

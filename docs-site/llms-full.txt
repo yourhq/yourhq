@@ -483,7 +483,7 @@ Where HQ is now, what ships in v0.1, and what comes after.
 ### Core platform
 
 - One repo (`yourhq/yourhq`) for UI, gateway, dispatcher, runner, templates, migrations, installer, and docs
-- `docker-compose.yml` stack with five services and Docker healthchecks on all of them
+- `docker-compose.yml` stack with six services (ui, gateway, dispatcher, runner, embedder, file-processor) and Docker healthchecks on all of them
 - Interactive `installer/install.sh` with local, Tailscale, and public networking modes
 - Gateway runtime with OpenClaw, Chrome/Chromium, Xtigervnc, XFCE desktop, noVNC, and files API
 - `RUNTIME_MODE` env var (`docker` | `systemd` | `e2b`) for portable entrypoint behavior
@@ -1058,10 +1058,9 @@ Open a terminal on your Mac or Linux machine (on Windows, use WSL) and run:
 curl -fsSL install.yourhq.ai | bash
 ```
 
-The installer will ask you a few questions:
+The installer will ask you a couple of questions:
 
-1. **Networking mode** — choose **Local-only** for now. You can switch to Tailscale later.
-2. **GitHub sync** — skip this for now (press Enter).
+1. **GitHub sync** — skip this for now (press Enter). You can set it up later for off-site backup.
 
 It pulls Docker images (~1.5 GB on first run — this takes a few minutes), starts the stack, and opens your browser.
 
@@ -1071,7 +1070,7 @@ It pulls Docker images (~1.5 GB on first run — this takes a few minutes), star
   git clone https://github.com/yourhq/yourhq.git
   cd yourhq
   cp .env.example .env
-  docker compose up -d
+  docker compose up -d ui
   ```
 
 ---
@@ -1413,14 +1412,11 @@ curl -fsSL install.yourhq.ai | bash
 The installer:
 
 1. Checks that Docker is present; prompts to install it if not (Linux only).
-2. Asks which networking mode you want:
-   - **Local-only** (default) — HQ is reachable only on this machine.
-   - **Tailscale** — installs Tailscale on the host; reachable from any device on your tailnet.
-   - **Public HTTPS** — advanced; requires you to set up a reverse proxy (Caddy, nginx, etc.) yourself. HQ does not bundle one.
-3. If you pick Tailscale, asks for your auth key and optionally an exit node.
-4. Optionally asks for GitHub sync creds (skip to run without git remote).
-5. Writes `.env`, pulls images from GHCR, runs `docker compose up -d` (full stack: UI + gateway + dispatcher + runner).
-6. Opens your browser to `http://localhost:3000`.
+2. Optionally asks for GitHub sync creds (skip to run without git remote).
+3. Writes `.env`, pulls the UI image from GHCR, and runs `docker compose up -d ui`.
+4. Opens your browser to `http://localhost:3000`.
+
+The installer only starts the UI. Gateway services (agents, dispatcher, runner, embedder, file processor) are started later — either on the same machine or a remote host — through the onboarding wizard in the browser. This keeps the initial download small (~200 MB) and lets you choose where to run agents.
 
 When you first load the UI, you'll see the **Connect Supabase** onboarding screen. Paste your URL + anon key + service role key there. On success, sign in with the Supabase auth user you created, and you're in. The gateway services are already running and waiting — they auto-pick up your Supabase creds from the shared registry the moment you finish onboarding. No second install step.
 
@@ -1433,10 +1429,11 @@ git clone https://github.com/yourhq/yourhq.git
 cd yourhq
 cp .env.example .env
 # edit .env with your Supabase URL + keys, set GATEWAY_AUTH_TOKEN=$(openssl rand -hex 32)
-docker compose up -d
+docker compose up -d ui                          # UI only
+docker compose --profile gateway up -d            # add gateway services on the same host
 ```
 
-Same outcome as Path 1 without the interactive prompts. Best when you already have Tailscale set up and don't need the installer to do it for you.
+Same outcome as Path 1 without the interactive prompts. Use `--profile gateway` to start the agent runtime alongside the UI.
 
 ### Path 3: development mode
 
@@ -1482,7 +1479,7 @@ Manual process:
    - `GATEWAY_AUTH_TOKEN` matching the UI's
 3. On the gateway host: install Tailscale and join the same tailnet as the UI host.
 4. Set `HOST_REACHABLE_URL=http://` in the gateway's `.env`.
-5. `docker compose up -d gateway dispatcher runner` (skip `ui`).
+5. `docker compose --profile gateway up -d` (skip `ui`).
 6. The gateway registers itself in Supabase's `gateways` table. The UI sees it within 30 seconds.
 
 See [Networking](/self-host/networking) for the networking model and topology diagrams.
@@ -1492,7 +1489,7 @@ See [Networking](/self-host/networking) for the networking model and topology di
 - **"Docker is not installed"** on macOS/Windows: install Docker Desktop (GUI app), not the Linux installer.
 - **UI shows the onboarding screen every time I load it**: the `ui-config` volume got wiped or isn't persisting. Check `docker volume inspect yourhq-ui-config` and re-complete onboarding.
 - **"Pull access denied" on GHCR**: only relevant if the repo is private. `docker login ghcr.io -u ` with a PAT that has `read:packages` scope.
-- **`docker compose up` fails with "port already in use"**: something else is on port 3000 or 6901 on your host. Change `UI_HOST_PORT` / `NOVNC_HOST_PORT` in `.env`.
+- **`docker compose up` fails with "port already in use"**: something else is on port 3000 on your host. Change `UI_HOST_PORT` in `.env`.
 - **Onboarding wizard 500s**: CSRF origin mismatch. Set `ALLOWED_ORIGINS` in `.env` to match the host you're accessing from. Restart the UI.
 - **Onboarding validator says a table/function doesn't exist**: you haven't run all migrations. Run every file in `db/migrations/` in filename order and retry.
 
@@ -1549,9 +1546,10 @@ whether they're reachable only from loopback, from your tailnet, or from the
 public internet — is decided by two things:
 
 1. **Host port bindings in `docker-compose.yml`** (`UI_HOST_PORT`,
-   `NOVNC_HOST_PORT`, `FILES_API_HOST_PORT`). Each one looks like
+   `FILES_API_HOST_PORT`). Each one looks like
    `127.0.0.1:3000` or `0.0.0.0:3000`. `127.0.0.1` means loopback only;
-   `0.0.0.0` means every network interface the host has.
+   `0.0.0.0` means every network interface the host has. (noVNC is proxied
+   through the UI and does not need a host port.)
 2. **The host's networking setup.** If you installed Tailscale on the host,
    `0.0.0.0` now includes the Tailscale interface. If you opened firewall
    ports, it includes the public internet.
@@ -1572,11 +1570,12 @@ tomorrow) without changing HQ.
                        │                     ▼                                      │
                        │        Host port bindings (0.0.0.0 or 127.0.0.1)           │
                        │                     │                                      │
-                       │    ┌────────────────┼────────────────┐                     │
-                       │    ▼                ▼                ▼                     │
-                       │  :3000           :6901           :18790                    │
-                       │   UI             noVNC          files-API                  │
-                       │ (Next.js)      (websockify)     (Python)                   │
+                       │    ┌─────────────────┼────────────────┐                    │
+                       │    ▼                                ▼                     │
+                       │  :3000                          :18790                    │
+                       │   UI                           files-API                  │
+                       │ (Next.js)                      (Python)                   │
+                       │   └── proxies noVNC (gateway:6901, internal only)         │
                        │                                                            │
                        └────────────────────────────────────────────────────────────┘
 ```
@@ -1591,9 +1590,9 @@ right `.env` values. You can switch later by editing `.env` and running
 
 | Mode | `HOST_REACHABLE_URL` | Host port bindings | Reachable from |
 |---|---|---|---|
-| `local` (default) | `http://localhost` | `127.0.0.1:3000` / `:6901` / `:18790` | This machine only |
-| `tailscale` | `http://` | `0.0.0.0:3000` / `:6901` / `:18790` | Any tailnet device |
-| `public` | `https://` | `0.0.0.0:3000` / `:6901` / `:18790` | Anywhere — you handle TLS |
+| `local` (default) | `http://localhost` | `127.0.0.1:3000` / `:18790` | This machine only |
+| `tailscale` | `http://` | `0.0.0.0:3000` / `:18790` | Any tailnet device |
+| `public` | `https://` | `0.0.0.0:3000` / `:18790` | Anywhere — you handle TLS |
 
 ### Local-only (default)
 
@@ -1683,10 +1682,12 @@ and TLS/domain concerns live where they belong (on the host).
 | Service | Container port | Default host port | Protocol | What speaks it |
 |---|---|---|---|---|
 | UI (Next.js) | 3000 | `UI_HOST_PORT` (default `127.0.0.1:3000`) | HTTP | Your browser |
-| noVNC (websockify) | 6901 | `NOVNC_HOST_PORT` (default `127.0.0.1:6901`) | HTTP + WebSocket | Browser — opens `vnc.html` to remote-desktop into the gateway |
+| noVNC (websockify) | 6901 | — (internal only, proxied through UI) | HTTP + WebSocket | UI proxies via `/api/novnc` over Docker network |
 | Files-API (Python) | 18790 | `FILES_API_HOST_PORT` (default `127.0.0.1:18790`) | HTTP | UI's file-browser backend (agent worktrees) |
-| Gateway dispatcher | — (no listener) | — | — | Polls Supabase only |
-| Gateway runner | — (no listener) | — | — | Polls Supabase only |
+| Dispatcher | — (no listener) | — | — | Polls Supabase only |
+| Runner | — (no listener) | — | — | Polls Supabase only |
+| Embedder | 18801 | — (internal only) | HTTP | Gateway services call `/embed` internally |
+| File processor | — (no listener) | — | — | Polls Supabase only |
 
 **Supabase is not hosted by HQ.** You bring your own Supabase project; its URL
 and keys go into `.env`. Nothing in HQ runs on Supabase's behalf.
@@ -1699,13 +1700,15 @@ required for them.
 
 ## 4. Host bindings via compose
 
-Three env vars in `.env` control the host side of the port mappings:
+Two env vars in `.env` control the host side of the port mappings:
 
 ```env
-UI_HOST_PORT=127.0.0.1:3000        # local:       127.0.0.1:3000
-NOVNC_HOST_PORT=127.0.0.1:6901     # tailscale:   0.0.0.0:6901
-FILES_API_HOST_PORT=127.0.0.1:18790  # public:     0.0.0.0:18790
+UI_HOST_PORT=127.0.0.1:3000          # local:       127.0.0.1:3000
+FILES_API_HOST_PORT=127.0.0.1:18790  # tailscale:   0.0.0.0:18790
 ```
+
+noVNC no longer needs a host port — the UI proxies it through `/api/novnc`
+over Docker's internal network.
 
 The installer writes these for you. Change by hand if you want non-standard
 bindings (e.g. bind only to a specific LAN interface, or use a different host
@@ -1720,9 +1723,8 @@ UI_HOST_PORT=127.0.0.1:8080
 # UI on a specific LAN IP (your home server's 192.168.x.y)
 UI_HOST_PORT=192.168.1.50:3000
 
-# Gateway noVNC off (e.g. headless CI host)
-NOVNC_HOST_PORT=127.0.0.1:6901
-NOVNC_BIND=off   # also stops websockify inside the container
+# Disable noVNC entirely (e.g. headless CI host)
+NOVNC_BIND=off   # stops websockify inside the container
 ```
 
 After editing, `docker compose up -d` reapplies the mapping.
@@ -1749,8 +1751,7 @@ flag passed to `tailscale up`).
 With MagicDNS on, from any tailnet device you can visit:
 
 ```
-http://yourhq-myserver:3000     # UI
-http://yourhq-myserver:6901/vnc.html?autoconnect=1&resize=remote  # noVNC
+http://yourhq-myserver:3000     # UI (noVNC is accessed through the UI desktop modal)
 ```
 
 Why the installer writes the **IP** (`http://100.x.y.z`) into
@@ -1800,8 +1801,8 @@ Shared rules:
 └─────────────────────────────────────────────────────────┘
 ```
 
-One `docker compose up -d`. The UI reaches the gateway over Docker's internal
-network via the `gateway:18790` DNS name — no host port needed.
+One `docker compose --profile gateway up -d`. The UI reaches the gateway over
+Docker's internal network via the `gateway:18790` DNS name — no host port needed.
 
 ### Topology B: UI on laptop, gateway on a VPS
 
@@ -1809,10 +1810,10 @@ network via the `gateway:18790` DNS name — no host port needed.
 ┌── host: laptop ──────┐            ┌── host: EC2 / Hetzner ──────┐
 │                        │            │                               │
 │  Docker: ui only       │            │  Docker: gateway+dispatcher   │
-│                        │            │          +runner              │
+│                        │            │   +runner+embedder            │
+│                        │            │   +file-processor             │
 │  UI @ localhost:3000   │  Tailscale │                               │
 │                        │◄──────────►│  files-API @ 100.x.y.z:18790  │
-│                        │            │  noVNC     @ 100.x.y.z:6901   │
 └────────────────────────┘            └───────────────────────────────┘
           │                                          │
           └────────── Supabase (shared) ─────────────┘
@@ -1836,7 +1837,7 @@ On the VPS:
 curl -fsSL https://raw.githubusercontent.com/yourhq/yourhq/main/installer/install.sh | bash
 # Pick Tailscale, provide auth key, then when it starts services:
 # edit .env to set GATEWAY_ID=vps-gateway and run without ui
-docker compose up -d gateway dispatcher runner
+docker compose --profile gateway up -d
 ```
 
 ### Topology C: one UI, multiple gateways
@@ -1985,10 +1986,9 @@ model changes. A few things to know:
   users) puts an email-gated login in front of everything. Configure it on
   your Cloudflare Tunnel or in front of Caddy. That way an unauthenticated
   attacker can't even reach the Next.js app.
-- **Don't expose noVNC or files-API publicly.** These are internal surfaces
-  with weaker auth. Keep them on Tailscale or loopback. If you use a reverse
-  proxy, only proxy port 3000 (the UI); leave `NOVNC_HOST_PORT` and
-  `FILES_API_HOST_PORT` on `127.0.0.1` or `100.x.y.z` (tailnet).
+- **Don't expose the files-API publicly.** It has weaker auth than the UI.
+  Keep `FILES_API_HOST_PORT` on `127.0.0.1` or `100.x.y.z` (tailnet).
+  noVNC is already internal-only (proxied through the UI, not host-exposed).
 - **Gateway auth token.** The files-API on port 18790 checks
   `GATEWAY_AUTH_TOKEN`. Generate a long one (`openssl rand -hex 32`) and
   don't commit it. If it leaks, anyone who can reach port 18790 can read and
@@ -2244,7 +2244,7 @@ When you create a new agent, HQ asks which gateway it should run on. The agent's
 The runner daemon has likely stopped. Check: `docker compose logs -f runner | tail -50`. Restart: `docker compose restart runner`.
 
 **Gateway registered but agents won't provision:**
-The `dispatcher` or `runner` may not be running. Check all five services: `docker compose ps`. If any show `Restarting`, tail their logs.
+The `dispatcher` or `runner` may not be running. Check all six services: `docker compose ps`. If any show `Restarting`, tail their logs.
 
 **Token expired before you ran the command:**
 Close the Add Gateway dialog and open it again — this generates a fresh token with a new 10-minute window.
@@ -2374,7 +2374,7 @@ If `NOVNC_BIND != "off"`, starts:
 websockify --web=/usr/share/novnc 0.0.0.0:6901 localhost:5901
 ```
 
-Inside the container websockify always binds `0.0.0.0:6901`. The Docker host port mapping (`NOVNC_HOST_PORT`) decides whether port 6901 is reachable from outside the host.
+Inside the container websockify always binds `0.0.0.0:6901`. Port 6901 is not mapped to the host — the UI proxies noVNC through its own `/api/novnc` route over Docker's internal network (`gateway:6901`).
 
 Set `NOVNC_BIND=off` to skip noVNC entirely (e.g. on a headless host where you never need remote desktop).
 
@@ -2568,7 +2568,7 @@ docker compose logs -f runner
 docker compose logs -f dispatcher
 ```
 
-All five services should show `Status: Up`. If a container is in `Restarting` state, tail its logs to find the error.
+All six services should show `Status: Up` (ui, gateway, dispatcher, runner, embedder, file-processor). If a container is in `Restarting` state, tail its logs to find the error.
 
 ### Gateway heartbeat
 
@@ -2794,7 +2794,7 @@ Source: https://docs.yourhq.ai/guides/create-agent
   
 ### Pick a template
 
-    Choose a starting role — cofounder, designer, analyst, newsletter writer, or any of the 15 bundled templates. Each template comes with pre-configured identity, skills, and tools.
+    Choose a starting role — cofounder, designer, analytics, ghostwriter, newsletter writer, or any of the 16 bundled templates. Each template comes with pre-configured identity, skills, and tools.
   
 
   
@@ -3642,7 +3642,7 @@ The agent detail page includes:
 
 ## Agent Templates
 
-Templates are role-specific starting points for agents. The repository ships templates for roles such as assistant, analytics, chief of staff, CMO, cofounder, CRM researcher, designer, market researcher, newsletter editor, newsletter writer, sales copywriter, script writer, social strategist, and social writer.
+Templates are role-specific starting points for agents. The repository ships 16 templates: default, assistant, analytics, chief of staff, CMO, cofounder, CRM researcher, designer, ghostwriter, market researcher, newsletter editor, newsletter writer, sales copywriter, script writer, social strategist, and social writer.
 
 Each template includes files such as:
 
@@ -3778,11 +3778,13 @@ Inbox items have retry state, attempt counts, lease fields, done/failed/dead-let
 
 A gateway is a Docker host that runs agents. One workspace can have multiple gateways.
 
-The gateway stack includes:
+The gateway stack includes five services (all behind the `gateway` Compose profile):
 
-- Gateway container with OpenClaw, Chrome/Chromium, XFCE, noVNC, and the files API.
-- Dispatcher daemon for agent inbox work.
-- Runner daemon for lifecycle and operations commands.
+- **Gateway** container with OpenClaw, Chrome/Chromium, XFCE, noVNC, and the files API.
+- **Dispatcher** daemon for agent inbox work.
+- **Runner** daemon for lifecycle and operations commands.
+- **Embedder** daemon for knowledge indexing and vector search.
+- **File processor** daemon for extracting text from uploaded files (PDF, DOCX, XLSX, etc.).
 - A shared `gateway-state` volume for OpenClaw config, git repo, worktrees, browser profiles, desktop files, plugins, and auth state.
 
 The Settings -> Gateways UI supports:
@@ -3957,17 +3959,18 @@ This is a **single-user** design. RLS on Supabase is "authenticated full access"
 
 Every arrow on the left of the diagram is a Supabase API call. The only direct UI↔gateway link is the files-API (right side), which is an authenticated HTTP request from the UI's server process into each gateway's `files_api.py`. Nothing is peer-to-peer; there is no central control plane outside Supabase.
 
-## 3. The five services
+## 3. The six services
 
-All five services live in the same monorepo ([`docker-compose.yml`](https://github.com/yourhq/yourhq/blob/main/docker-compose.yml)). The UI ships as one container and the gateway profile ships the agent runtime, dispatcher, runner, and embedder, all bundled in a single Compose project by default. Larger installs can run the UI and gateway services on separate hosts against the same Supabase project.
+All six services live in the same monorepo ([`docker-compose.yml`](https://github.com/yourhq/yourhq/blob/main/docker-compose.yml)). The UI ships as one container. The five gateway services — gateway, dispatcher, runner, embedder, and file-processor — are behind a Compose `gateway` profile, so they only pull and run on machines that actually host agents. Start them with `docker compose --profile gateway up -d`. Larger installs can run the UI and gateway services on separate hosts against the same Supabase project.
 
 | Service | Role | Key files | Ports | Reads from Supabase | Writes to Supabase |
 |---|---|---|---|---|---|
 | `ui` | The Next.js admin dashboard. Renders the CRM, tasks, agents, knowledge, settings, routines. Issues server actions that enqueue commands and proxy file edits. | [`apps/ui/`](https://github.com/yourhq/yourhq/tree/main/apps/ui/) — App Router under `src/app/`; server actions in `src/app/dashboard/*/actions.ts`; gateway proxy in [`src/lib/agent-repo/gateway-backend.ts`](https://github.com/yourhq/yourhq/tree/main/apps/ui/src/lib/agent-repo/gateway-backend.ts); auth middleware in [`src/middleware.ts`](https://github.com/yourhq/yourhq/tree/main/apps/ui/src/middleware.ts) | `3000` (host) | everything (uses authenticated user's session + service role for privileged inserts) | contacts, tasks, agents, `agent_commands`, `agent_inbox_items`, `audit_log`, `routines`, everything |
-| `gateway` | The container that hosts the agents. Runs Xtigervnc + XFCE + Chrome + OpenClaw gateway + the files-API. Exposes a remote desktop (noVNC) and a file browser (`files-api`). | [`gateway/entrypoint.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/entrypoint.sh), [`gateway/files_api.py`](https://github.com/yourhq/yourhq/tree/main/gateway/files_api.py), [`gateway/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/Dockerfile) | `6901` (noVNC), `18790` (files-API) | `workspace.slug` at boot to prefix branches | `gateways` row upsert at boot with reachable URLs |
+| `gateway` | The container that hosts the agents. Runs Xtigervnc + XFCE + Chrome + OpenClaw gateway + the files-API. noVNC runs inside the container and is proxied through the UI (no host port). | [`gateway/entrypoint.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/entrypoint.sh), [`gateway/files_api.py`](https://github.com/yourhq/yourhq/tree/main/gateway/files_api.py), [`gateway/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/Dockerfile) | `18790` (files-API) | `workspace.slug` at boot to prefix branches | `gateways` row upsert at boot with reachable URLs |
 | `dispatcher` | Python daemon. Subscribes to `agent_inbox_items` INSERT events and wakes the owning agent via `openclaw agent --agent …`. Only wakes agents bound to this gateway. | [`gateway/daemons/inbox_dispatcher.py`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/inbox_dispatcher.py), [`gateway/dispatcher/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/dispatcher/Dockerfile) | none | `agent_inbox_items`, `agents`, `gateways`, `workspace` | `agent_inbox_items.last_wake_*` |
 | `runner` | Python daemon. Subscribes to `agent_commands` INSERT events, leases via `lease_command(gateway_slug=…)`, executes `add-agent.sh` / `update-agent.sh` / `docker compose restart …`, reports back stdout/stderr/exit code. | [`gateway/daemons/command_runner.py`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/command_runner.py), [`gateway/runner/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/runner/Dockerfile), [`gateway/scripts/add-agent.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/scripts/add-agent.sh) | none | `agent_commands`, `workspace`, `gateways` | `agent_commands.status/stdout/stderr`, `gateways.last_seen_at` (30 s heartbeat) |
 | `embedder` | Python daemon. Eagerly downloads/loads the local BGE model, serves embeddings over an internal HTTP endpoint, and indexes pending knowledge items into searchable chunks. Supports pages, playbooks, files, and external sources. | [`gateway/embedder/`](https://github.com/yourhq/yourhq/tree/main/gateway/embedder) | none | `knowledge_items` via `lease_knowledge_items_for_indexing` RPC | `knowledge_chunks`, `knowledge_items.embedding`, indexing status metadata |
+| `file-processor` | Python daemon. Leases uploaded knowledge files (PDF, DOCX, XLSX, CSV, PPTX, TXT), extracts plain text, and triggers embedding. Runs independently so file processing doesn't block other gateway operations. | [`gateway/file-processor/`](https://github.com/yourhq/yourhq/tree/main/gateway/file-processor) | none | `knowledge_items` via `lease_knowledge_items_for_processing` RPC | `knowledge_items.plain_text`, processing status |
 
 The `gateway`, `dispatcher`, and `runner` containers all share the Docker volume `gateway-state` (mounted at `/home/openclaw/.openclaw`). That volume is where OpenClaw's config, the bare git repo, per-agent worktrees, browser profiles, and the VNC state live. The `embedder` uses `gateway-embedding-cache` for downloaded local embedding models. The runner additionally mounts `/var/run/docker.sock` so it can restart sibling containers.
 
@@ -4049,16 +4052,18 @@ The `gateway` container is deliberately fat in Phase 1 — it's one image that r
 - **XDG dirs** (`XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_CACHE_HOME`, `XDG_RUNTIME_DIR`) exported explicitly; some glib builds don't apply `$HOME/.config` fallbacks in containers.
 - **autocutsel** × 2 — keeps CLIPBOARD and PRIMARY selections in sync so noVNC's clipboard panel reaches Chrome and the terminal.
 - **Chrome (amd64) or Chromium (arm64)** — started per-agent via desktop shortcuts (`$HOME/.openclaw/Desktop/Chrome-.desktop`), one shortcut per agent, each with its own `--user-data-dir` and `--remote-debugging-port` (CDP port, 18801+).
-- **websockify → noVNC** on `0.0.0.0:6901` in-container. The host port mapping (`NOVNC_HOST_PORT` in `.env`) decides whether 6901 is reachable on localhost only or on the host's tailnet/public interface.
+- **websockify → noVNC** on `0.0.0.0:6901` in-container. Port 6901 is not mapped to the host — the UI proxies noVNC through its own `/api/novnc` route over Docker's internal network (`gateway:6901`).
 - **files_api.py** on `0.0.0.0:18790` in-container, gated by `GATEWAY_AUTH_TOKEN`.
 - **openclaw gateway run** as PID 1 under tini. Invoked with `exec` at the end of `entrypoint.sh` so signals propagate cleanly.
 
 **Why one container for all of that?** OpenClaw, Chrome, and the window manager share a single X display and a single file system namespace — splitting them into separate containers would mean cross-container DISPLAY forwarding, shared XDG, shared user-data-dirs, and shared `openclaw.json`, all over Docker networking. Not impossible, but a lot of moving parts for little benefit when the whole stack is owned by one operator.
 
-**Volumes.** Two named volumes per Compose project:
+**Volumes.** Four named volumes per Compose project:
 
+- `ui-config` (mounted at `/config` in the UI container): project registry (`projects.json`, `secrets.json`). Also mounted read-only in gateway services so they can read Supabase creds without `.env` edits.
 - `gateway-state` (mounted at `/home/openclaw/.openclaw` in gateway, dispatcher read-only, runner read-write): holds `openclaw.json`, `repo.git` (bare), `workspace-/` (worktrees), `browser//user-data/`, `Desktop/`, `plugins/`, `shared-auth/`, `.vnc-password`.
 - `gateway-chrome-profile` (mounted at `/home/openclaw/.config/google-chrome`): Chrome's own profile dir. Kept separate so you can blow it away without destroying agent workspaces.
+- `gateway-embedding-cache` (mounted at `/models` in the embedder): cached BGE model files so restarts don't re-download.
 
 ## 8. The agent workspace model
 
@@ -4086,7 +4091,7 @@ Three modes are shipped:
 | `tailscale` | `http://` | `0.0.0.0:*` | Anyone on your tailnet; loopback still works. Tailscale is installed **on the host**, not in the container. |
 | `public` | `https://` | `0.0.0.0:*` (fronted by host Caddy/nginx) | The internet, via your host's reverse proxy. |
 
-The installer ([`installer/install.sh`](https://github.com/yourhq/yourhq/tree/main/installer/install.sh)) asks once, sets `NETWORKING_MODE` and `HOST_REACHABLE_URL` in `.env`, and Compose port mappings (`UI_HOST_PORT`, `NOVNC_HOST_PORT`, `FILES_API_HOST_PORT`) do the rest.
+The installer ([`installer/install.sh`](https://github.com/yourhq/yourhq/tree/main/installer/install.sh)) writes `NETWORKING_MODE` and `HOST_REACHABLE_URL` in `.env`, and Compose port mappings (`UI_HOST_PORT`, `FILES_API_HOST_PORT`) do the rest. noVNC is proxied through the UI and does not need a host port.
 
 **Why do gateways register their own URLs?** In step 9 of the entrypoint, the gateway upserts its row in the `gateways` table with `meta.reachable_urls.{base,files_api,novnc}` set from `HOST_REACHABLE_URL`. That's how the UI — which may live on a completely different machine — knows what hostname to hit for this specific gateway's file browser and desktop. The UI never hard-codes a gateway URL; it reads `gateways.meta.reachable_urls`.
 
@@ -4096,9 +4101,9 @@ Full details in [Networking](/self-host/networking).
 
 Because the only shared state is Supabase and gateways publish their own reachable URLs, the same code handles three deployment shapes with no conditionals:
 
-**Single-host, everything local.** UI and gateway on the same machine. `GATEWAY_URL=http://gateway:18790` (Docker DNS). `NOVNC_HOST_PORT=127.0.0.1:6901`. `docker compose up -d`. This is what the installer sets up by default.
+**Single-host, everything local.** UI and gateway on the same machine. `GATEWAY_URL=http://gateway:18790` (Docker DNS). `docker compose --profile gateway up -d`. This is what the onboarding wizard sets up when you pick "This machine."
 
-**Split UI / gateway.** UI on your laptop, gateway on an always-on host (Mac mini, VPS, Raspberry Pi). Both hosts have Tailscale. On the gateway host: `docker compose up -d gateway dispatcher runner`. On the laptop: `docker compose up -d ui` with `GATEWAY_URL=http://100.x.y.z:18790` (the gateway host's tailnet IP). Same `GATEWAY_AUTH_TOKEN` on both sides.
+**Split UI / gateway.** UI on your laptop, gateway on an always-on host (Mac mini, VPS, Raspberry Pi). Both hosts have Tailscale. On the gateway host: `docker compose --profile gateway up -d`. On the laptop: `docker compose up -d ui` with `GATEWAY_URL=http://100.x.y.z:18790` (the gateway host's tailnet IP). Same `GATEWAY_AUTH_TOKEN` on both sides.
 
 **Multi-gateway.** Multiple gateway hosts against the same Supabase. Each gets its own `GATEWAY_ID` (`laptop`, `mac-mini`, `vps-eu`) and registers its own row in the `gateways` table at boot. Each agent has a `gateway_id` FK; the runner filters `lease_command` by its own gateway slug (`lease_command(p_gateway_slug=$GATEWAY_ID)`), and the dispatcher filters inbox items by caching the set of local agent IDs ([`refresh_local_agents`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/inbox_dispatcher.py) in `inbox_dispatcher.py`). No gateway ever picks up another gateway's work.
 
@@ -4109,7 +4114,7 @@ Adding another gateway is normally UI-driven:
 3. The operator runs that command on the gateway host.
 4. The gateway writes its row to Supabase and starts heartbeating.
 
-Manual registration still works for development or advanced operators: set a unique `GATEWAY_ID`, point the host at the same Supabase project, and run `docker compose up -d gateway dispatcher runner`.
+Manual registration still works for development or advanced operators: set a unique `GATEWAY_ID`, point the host at the same Supabase project, and run `docker compose --profile gateway up -d`.
 
 ## 11. Trust model / security boundaries
 
@@ -4161,7 +4166,7 @@ The UI is designed to be configured, not coded, for most everyday changes:
 - **Self-hosted hardening.** Better migration tooling, stronger validation around project setup, and clearer gateway health diagnostics.
 - **Hosted offering.** Account management, automated Supabase/gateway provisioning, billing, and managed operations in front of the same core runtime.
 - **Integrations.** More MCP-first integrations, richer provider auth UX, optional email/calendar/Slack/Notion flows, and deeper routine primitives.
-- **Docs site.** The markdown docs in this repository should remain the source of truth and can later be rendered at `docs.yourhq.ai`.
+- **Docs site.** The docs site at [docs.yourhq.ai](https://docs.yourhq.ai) is live and rendered from the `docs-site/` directory in this repo.
 
 Roadmap items should be tracked in [ROADMAP.md](/getting-started/roadmap) and issues, not as stale phase labels in docs.
 
@@ -4828,11 +4833,9 @@ Host-level networking decisions: local-only vs Tailscale vs public HTTPS. The in
 
 - **`UI_HOST_PORT`** — **Optional**. Default `127.0.0.1:3000` (loopback-only, safe). The installer flips this to `0.0.0.0:3000` when you pick Tailscale or Public mode. Manually override to `0.0.0.0:3000` when you want the host's network interfaces (Tailscale, public) to decide reachability.
 
-- **`NOVNC_HOST_PORT`** — **Optional**. Same shape as `UI_HOST_PORT`, default `127.0.0.1:6901`. Installer flips to `0.0.0.0:6901` for Tailscale/Public modes. Keep loopback-only unless you trust the host's network — noVNC only has a generated VNC password as auth and should never be on the public internet without a reverse proxy.
-
 - **`FILES_API_HOST_PORT`** — **Optional**. Default `127.0.0.1:18790` (loopback-only). The files-API only needs to be reachable from outside the host when the UI lives on a different machine (Tailscale cross-host). Single-host installs can leave it on loopback — the UI reaches it internally via Docker DNS (`http://gateway:18790`).
 
-- **`NOVNC_BIND`** — **Optional**. Default `local`. One of `local` (websockify binds `0.0.0.0:6901` inside the container, Docker port-mapping decides real exposure) or `off` (don't start noVNC at all). Override to `off` if you don't need remote desktop.
+- **`NOVNC_BIND`** — **Optional**. Default `local`. One of `local` (websockify binds `0.0.0.0:6901` inside the container; the UI proxies it through `/api/novnc` over Docker's internal network) or `off` (don't start noVNC at all). Port 6901 is not mapped to the host. Override to `off` if you don't need remote desktop.
 
 - **`VNC_PASSWORD`** — **Optional, secret**. Empty. The VNC password for the in-container desktop. Auto-generated on first boot if empty; the generated value is saved to `$OPENCLAW_HOME/.vnc-password` inside the `gateway-state` volume. Override if you want a specific known password.
 
@@ -5030,7 +5033,7 @@ docker compose up -d dispatcher runner
 
 ### Networking / port-binding changes
 
-`UI_HOST_PORT`, `NOVNC_HOST_PORT`, `FILES_API_HOST_PORT` — changing a port binding doesn't register with a plain `up -d`; Compose considers the container "already running" with no relevant change. Force recreation:
+`UI_HOST_PORT`, `FILES_API_HOST_PORT` — changing a port binding doesn't register with a plain `up -d`; Compose considers the container "already running" with no relevant change. Force recreation:
 
 ```bash
 docker compose up -d --force-recreate
@@ -5402,14 +5405,14 @@ Source: https://docs.yourhq.ai/reference/docker-services
 
 > The containers in the HQ Compose stack and what each one does.
 
-HQ's default Compose stack has five services that work together.
+HQ's default Compose stack has six services that work together. The UI runs on its own; the other five are gateway services that run agents and process data.
 
   - **ui**: 
     **Next.js dashboard.** Renders the workspace — agents, CRM, tasks, knowledge, routines, settings — and writes to Supabase through server actions. Port `3000`.
   
 
   - **gateway**: 
-    **Agent runtime host.** Runs OpenClaw, Chrome/Chromium, XFCE desktop, noVNC, and the files API. This is where agents live. Ports `6901` (noVNC), `18790` (files API).
+    **Agent runtime host.** Runs OpenClaw, Chrome/Chromium, XFCE desktop, noVNC, and the files API. This is where agents live. Port `18790` (files API). noVNC runs inside the container and is proxied through the UI — no host port needed.
   
 
   - **dispatcher**: 
@@ -5424,6 +5427,10 @@ HQ's default Compose stack has five services that work together.
     **Knowledge indexing daemon.** Runs FastEmbed locally, starts downloading/loading the BGE model on boot, serves `/embed` inside Docker, and indexes pending knowledge items into searchable knowledge chunks.
   
 
+  - **file-processor**: 
+    **File processing daemon.** Leases uploaded knowledge files (PDF, DOCX, XLSX, CSV, PPTX, TXT), extracts plain text, and triggers embedding. Runs independently so file processing doesn't block other gateway operations.
+  
+
 ## Shared state
 
 The `gateway`, `dispatcher`, and `runner` containers share the `gateway-state` Docker volume (mounted at `/home/openclaw/.openclaw`). This volume holds OpenClaw config, the bare git repo, agent worktrees, browser profiles, and auth state. The `embedder` uses `gateway-embedding-cache` for downloaded local embedding models, so restarts reuse the cached BGE files.
@@ -5431,7 +5438,7 @@ The `gateway`, `dispatcher`, and `runner` containers share the `gateway-state` D
 The `runner` additionally mounts `/var/run/docker.sock` so it can restart sibling containers when needed.
 
 > 
-  For single-host installs, all five services run together via `docker compose up -d`. For multi-host setups, run `ui` separately from the gateway services. See [Add a gateway](/self-host/add-gateway).
+  For single-host installs, start everything with `docker compose --profile gateway up -d`. For multi-host setups, run `docker compose up -d ui` separately from the gateway services. See [Add a gateway](/self-host/add-gateway).
 
 ---
 
@@ -6158,11 +6165,14 @@ Source: https://docs.yourhq.ai/development/repo-structure
 ```text
 yourhq/
   apps/ui/              Next.js dashboard (App Router, Tailwind, shadcn)
-  gateway/              Gateway image, files API, daemons, lifecycle scripts
+  apps/migrate/         Database migration runner CLI (yourhq-migrate)
+  apps/worker/          Hosted-mode worker service (Stripe, E2B, Resend) — behind `hosted` profile
+  gateway/              Gateway image, files API, daemons, connectors, lifecycle scripts
   db/migrations/        Supabase SQL migrations (001–025)
-  templates/            Agent template library (15 templates)
-  installer/            Interactive install scripts
-  docs-site/            Mintlify documentation source
+  templates/            Agent template library (16 templates)
+  installer/            Interactive install scripts (install.sh + install-gateway.sh)
+  docs-site/            Mintlify documentation source (docs.yourhq.ai)
+  scripts/              Operational scripts (diagnostic-bundle.sh)
   .github/workflows/    CI and image publishing
 ```
 
@@ -6358,7 +6368,7 @@ Recommended: **GitHub Codespaces** on this repo's default branch.
 - Wait ~3 min for the devcontainer to boot.
 - The `postCreateCommand` installs UI deps, copies `.env.example` → `.env`, and prints a quick-start banner.
 
-Ports forwarded automatically: `3000` (UI), `6901` (noVNC).
+Ports forwarded automatically: `3000` (UI). noVNC is proxied through the UI — no separate port needed.
 
 You'll also need a **throwaway Supabase project** — do not point this at production while testing. Go to [supabase.com](https://supabase.com), create a free project, and run every SQL file in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) in filename order. Then copy the URL, anon key, and service role key for browser onboarding.
 
@@ -6406,14 +6416,14 @@ Expected:
 Bring up gateway + dispatcher + runner. UI stays off for this stage.
 
 ```bash
-docker compose up -d gateway dispatcher runner
-docker compose logs -f gateway dispatcher runner
+docker compose --profile gateway up -d
+docker compose logs -f gateway dispatcher runner embedder file-processor
 ```
 
 Expected sequence in `gateway` logs:
 1. `First boot — initializing bare repo at /home/openclaw/.openclaw/repo.git`
-2. `Seeding templates from /opt/templates ... ✓ seeded branch default`, then ~14 more templates.
-3. `Starting Xvfb :1 ...`
+2. `Seeding templates from /opt/templates ... ✓ seeded branch default`, then 15 more templates (16 total).
+3. `Starting Xtigervnc :1 ...`
 4. `Running openclaw onboard ...` (may take 30–60s).
 5. `Patching openclaw.json ...`
 6. `Starting VNC server on :1 ...`
@@ -6464,11 +6474,9 @@ For Telegram/Discord: send a DM to the bot. Expect a pairing code reply. Paste t
 
 ## Stage 6 — noVNC desktop view
 
-Codespaces forwards port 6901. Click the forwarded URL from the Ports tab.
+Open the UI and navigate to an agent's detail page → click the **Desktop** button (or Settings → Gateways → Desktop).
 
-Expected: the noVNC web client loads. Click Connect. Desktop shows Xvfb + (probably) the agent's Chrome window if an agent is running.
-
-Note: because Tailscale is disabled in Codespaces, `NOVNC_BIND` falls back to `local` (127.0.0.1 inside the container). The port-forwarded URL works because Codespaces proxies through.
+Expected: the noVNC modal loads inside the UI. The XFCE desktop appears with (probably) the agent's Chrome window if an agent is running. The UI proxies noVNC through `/api/novnc` — no separate port needed.
 
 ## Tear down
 
@@ -6489,7 +6497,7 @@ docker compose down -v        # stops + removes volumes (clean slate)
 Once everything above passes, spin up a small VPS ($5/mo on Hetzner) or EC2 t3.small. SSH in and run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yourhq/yourhq/initial/installer/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/yourhq/yourhq/main/installer/install.sh | bash
 ```
 
 This exercises the real OSS install UX. Validates: Docker install prereq check, interactive prompts, `.env` generation, image pull from GHCR, first-boot on a host you didn't pre-configure. Tear down the VPS after.
@@ -6602,7 +6610,7 @@ Every table uses tenant-scoped RLS policies — authenticated users can only acc
 
 `docker compose up -d` without the installer binds all HQ services (UI, noVNC, files-API) to `127.0.0.1`. The installer's "Tailscale" or "Public" mode explicitly flips them to `0.0.0.0`. This is deliberate — if you `docker compose up` blindly on a cloud VM, nothing is publicly reachable.
 
-If you override `UI_HOST_PORT`, `NOVNC_HOST_PORT`, or `FILES_API_HOST_PORT` to `0.0.0.0:*` manually, you're exposing those services to every interface on the host. Make sure you have a firewall, reverse proxy, or Tailscale between them and the internet.
+If you override `UI_HOST_PORT` or `FILES_API_HOST_PORT` to `0.0.0.0:*` manually, you're exposing those services to every interface on the host. Make sure you have a firewall, reverse proxy, or Tailscale between them and the internet. noVNC is not host-exposed — the UI proxies it through `/api/novnc` over Docker's internal network.
 
 ### The installer runs `curl | bash`
 
@@ -6778,7 +6786,6 @@ Source: https://docs.yourhq.ai/troubleshooting/common-issues
 
     ```
     UI_HOST_PORT=0.0.0.0:3000
-    NOVNC_HOST_PORT=0.0.0.0:6901
     FILES_API_HOST_PORT=0.0.0.0:18790
     HOST_REACHABLE_URL=http://100.x.y.z    # your Tailscale IP
     NETWORKING_MODE=tailscale
@@ -6908,10 +6915,7 @@ Source: https://docs.yourhq.ai/troubleshooting/common-issues
     NOVNC_BIND=local
     ```
 
-    `NOVNC_BIND=local` makes websockify bind to `0.0.0.0:6901` inside the container. Control external access separately with `NOVNC_HOST_PORT`:
-
-    - `NOVNC_HOST_PORT=127.0.0.1:6901` — localhost only
-    - `NOVNC_HOST_PORT=0.0.0.0:6901` — reachable from tailnet/public
+    `NOVNC_BIND=local` makes websockify bind to `0.0.0.0:6901` inside the container. Port 6901 is not mapped to the host — the UI proxies noVNC through its own `/api/novnc` route over Docker's internal network.
 
     Then: `docker compose up -d --force-recreate gateway`
   

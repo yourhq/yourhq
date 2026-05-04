@@ -62,14 +62,11 @@ curl -fsSL install.yourhq.ai | bash
 The installer:
 
 1. Checks that Docker is present; prompts to install it if not (Linux only).
-2. Asks which networking mode you want:
-   - **Local-only** (default) — HQ is reachable only on this machine.
-   - **Tailscale** — installs Tailscale on the host; reachable from any device on your tailnet.
-   - **Public HTTPS** — advanced; requires you to set up a reverse proxy (Caddy, nginx, etc.) yourself. HQ does not bundle one.
-3. If you pick Tailscale, asks for your auth key and optionally an exit node.
-4. Optionally asks for GitHub sync creds (skip to run without git remote).
-5. Writes `.env`, pulls images from GHCR, runs `docker compose up -d` (full stack: UI + gateway + dispatcher + runner).
-6. Opens your browser to `http://localhost:3000`.
+2. Optionally asks for GitHub sync creds (skip to run without git remote).
+3. Writes `.env`, pulls the UI image from GHCR, and runs `docker compose up -d ui`.
+4. Opens your browser to `http://localhost:3000`.
+
+The installer only starts the UI. Gateway services (agents, dispatcher, runner, embedder, file processor) are started later — either on the same machine or a remote host — through the onboarding wizard in the browser. This keeps the initial download small (~200 MB) and lets you choose where to run agents.
 
 When you first load the UI, you'll see the **Connect Supabase** onboarding screen. Paste your URL + anon key + service role key there. On success, sign in with the Supabase auth user you created, and you're in. The gateway services are already running and waiting — they auto-pick up your Supabase creds from the shared registry the moment you finish onboarding. No second install step.
 
@@ -82,10 +79,11 @@ git clone https://github.com/yourhq/yourhq.git
 cd yourhq
 cp .env.example .env
 # edit .env with your Supabase URL + keys, set GATEWAY_AUTH_TOKEN=$(openssl rand -hex 32)
-docker compose up -d
+docker compose up -d ui                          # UI only
+docker compose --profile gateway up -d            # add gateway services on the same host
 ```
 
-Same outcome as Path 1 without the interactive prompts. Best when you already have Tailscale set up and don't need the installer to do it for you.
+Same outcome as Path 1 without the interactive prompts. Use `--profile gateway` to start the agent runtime alongside the UI.
 
 ### Path 3: development mode
 
@@ -131,7 +129,7 @@ Manual process:
    - `GATEWAY_AUTH_TOKEN` matching the UI's
 3. On the gateway host: install Tailscale and join the same tailnet as the UI host.
 4. Set `HOST_REACHABLE_URL=http://<gateway-host-tailscale-ip>` in the gateway's `.env`.
-5. `docker compose up -d gateway dispatcher runner` (skip `ui`).
+5. `docker compose --profile gateway up -d` (skip `ui`).
 6. The gateway registers itself in Supabase's `gateways` table. The UI sees it within 30 seconds.
 
 See [Networking](/self-host/networking) for the networking model and topology diagrams.
@@ -141,7 +139,7 @@ See [Networking](/self-host/networking) for the networking model and topology di
 - **"Docker is not installed"** on macOS/Windows: install Docker Desktop (GUI app), not the Linux installer.
 - **UI shows the onboarding screen every time I load it**: the `ui-config` volume got wiped or isn't persisting. Check `docker volume inspect yourhq-ui-config` and re-complete onboarding.
 - **"Pull access denied" on GHCR**: only relevant if the repo is private. `docker login ghcr.io -u <your-gh-user>` with a PAT that has `read:packages` scope.
-- **`docker compose up` fails with "port already in use"**: something else is on port 3000 or 6901 on your host. Change `UI_HOST_PORT` / `NOVNC_HOST_PORT` in `.env`.
+- **`docker compose up` fails with "port already in use"**: something else is on port 3000 on your host. Change `UI_HOST_PORT` in `.env`.
 - **Onboarding wizard 500s**: CSRF origin mismatch. Set `ALLOWED_ORIGINS` in `.env` to match the host you're accessing from. Restart the UI.
 - **Onboarding validator says a table/function doesn't exist**: you haven't run all migrations. Run every file in `db/migrations/` in filename order and retry.
 

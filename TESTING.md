@@ -10,7 +10,7 @@ Recommended: **GitHub Codespaces** on this repo's default branch.
 - Wait ~3 min for the devcontainer to boot.
 - The `postCreateCommand` installs UI deps, copies `.env.example` → `.env`, and prints a quick-start banner.
 
-Ports forwarded automatically: `3000` (UI), `6901` (noVNC).
+Ports forwarded automatically: `3000` (UI). noVNC is proxied through the UI — no separate port needed.
 
 You'll also need a **throwaway Supabase project** — do not point this at production while testing. Go to [supabase.com](https://supabase.com), create a free project, and run every SQL file in [`db/migrations/`](db/migrations/) in filename order. Then copy the URL, anon key, and service role key for browser onboarding.
 
@@ -58,14 +58,14 @@ Expected:
 Bring up gateway + dispatcher + runner. UI stays off for this stage.
 
 ```bash
-docker compose up -d gateway dispatcher runner
-docker compose logs -f gateway dispatcher runner
+docker compose --profile gateway up -d
+docker compose logs -f gateway dispatcher runner embedder file-processor
 ```
 
 Expected sequence in `gateway` logs:
 1. `First boot — initializing bare repo at /home/openclaw/.openclaw/repo.git`
-2. `Seeding templates from /opt/templates ... ✓ seeded branch default`, then ~14 more templates.
-3. `Starting Xvfb :1 ...`
+2. `Seeding templates from /opt/templates ... ✓ seeded branch default`, then 15 more templates (16 total).
+3. `Starting Xtigervnc :1 ...`
 4. `Running openclaw onboard ...` (may take 30–60s).
 5. `Patching openclaw.json ...`
 6. `Starting VNC server on :1 ...`
@@ -116,11 +116,9 @@ Send a Telegram message to the bot. Expect a pairing code to reply. Paste the co
 
 ## Stage 6 — noVNC desktop view
 
-Codespaces forwards port 6901. Click the forwarded URL from the Ports tab.
+Open the UI and navigate to an agent's detail page → click the **Desktop** button (or Settings → Gateways → Desktop).
 
-Expected: the noVNC web client loads. Click Connect. Desktop shows Xvfb + (probably) the agent's Chrome window if an agent is running.
-
-Note: because Tailscale is disabled in Codespaces, `NOVNC_BIND` falls back to `local` (127.0.0.1 inside the container). The port-forwarded URL works because Codespaces proxies through.
+Expected: the noVNC modal loads inside the UI. The XFCE desktop appears with (probably) the agent's Chrome window if an agent is running. The UI proxies noVNC through `/api/novnc` — no separate port needed.
 
 ## Tear down
 
@@ -141,7 +139,7 @@ docker compose down -v        # stops + removes volumes (clean slate)
 Once everything above passes, spin up a small VPS ($5/mo on Hetzner) or EC2 t3.small. SSH in and run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yourhq/yourhq/initial/installer/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/yourhq/yourhq/main/installer/install.sh | bash
 ```
 
 This exercises the real OSS install UX. Validates: Docker install prereq check, interactive prompts, `.env` generation, image pull from GHCR, first-boot on a host you didn't pre-configure. Tear down the VPS after.

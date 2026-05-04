@@ -58,17 +58,18 @@ This is a **single-user** design. RLS on Supabase is "authenticated full access"
 
 Every arrow on the left of the diagram is a Supabase API call. The only direct UI↔gateway link is the files-API (right side), which is an authenticated HTTP request from the UI's server process into each gateway's `files_api.py`. Nothing is peer-to-peer; there is no central control plane outside Supabase.
 
-## 3. The five services
+## 3. The six services
 
-All five services live in the same monorepo ([`docker-compose.yml`](https://github.com/yourhq/yourhq/blob/main/docker-compose.yml)). The UI ships as one container and the gateway profile ships the agent runtime, dispatcher, runner, and embedder, all bundled in a single Compose project by default. Larger installs can run the UI and gateway services on separate hosts against the same Supabase project.
+All six services live in the same monorepo ([`docker-compose.yml`](https://github.com/yourhq/yourhq/blob/main/docker-compose.yml)). The UI ships as one container. The five gateway services — gateway, dispatcher, runner, embedder, and file-processor — are behind a Compose `gateway` profile, so they only pull and run on machines that actually host agents. Start them with `docker compose --profile gateway up -d`. Larger installs can run the UI and gateway services on separate hosts against the same Supabase project.
 
 | Service | Role | Key files | Ports | Reads from Supabase | Writes to Supabase |
 |---|---|---|---|---|---|
 | `ui` | The Next.js admin dashboard. Renders the CRM, tasks, agents, knowledge, settings, routines. Issues server actions that enqueue commands and proxy file edits. | [`apps/ui/`](https://github.com/yourhq/yourhq/tree/main/apps/ui/) — App Router under `src/app/`; server actions in `src/app/dashboard/*/actions.ts`; gateway proxy in [`src/lib/agent-repo/gateway-backend.ts`](https://github.com/yourhq/yourhq/tree/main/apps/ui/src/lib/agent-repo/gateway-backend.ts); auth middleware in [`src/middleware.ts`](https://github.com/yourhq/yourhq/tree/main/apps/ui/src/middleware.ts) | `3000` (host) | everything (uses authenticated user's session + service role for privileged inserts) | contacts, tasks, agents, `agent_commands`, `agent_inbox_items`, `audit_log`, `routines`, everything |
-| `gateway` | The container that hosts the agents. Runs Xtigervnc + XFCE + Chrome + OpenClaw gateway + the files-API. Exposes a remote desktop (noVNC) and a file browser (`files-api`). | [`gateway/entrypoint.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/entrypoint.sh), [`gateway/files_api.py`](https://github.com/yourhq/yourhq/tree/main/gateway/files_api.py), [`gateway/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/Dockerfile) | `6901` (noVNC), `18790` (files-API) | `workspace.slug` at boot to prefix branches | `gateways` row upsert at boot with reachable URLs |
+| `gateway` | The container that hosts the agents. Runs Xtigervnc + XFCE + Chrome + OpenClaw gateway + the files-API. noVNC runs inside the container and is proxied through the UI (no host port). | [`gateway/entrypoint.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/entrypoint.sh), [`gateway/files_api.py`](https://github.com/yourhq/yourhq/tree/main/gateway/files_api.py), [`gateway/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/Dockerfile) | `18790` (files-API) | `workspace.slug` at boot to prefix branches | `gateways` row upsert at boot with reachable URLs |
 | `dispatcher` | Python daemon. Subscribes to `agent_inbox_items` INSERT events and wakes the owning agent via `openclaw agent --agent …`. Only wakes agents bound to this gateway. | [`gateway/daemons/inbox_dispatcher.py`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/inbox_dispatcher.py), [`gateway/dispatcher/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/dispatcher/Dockerfile) | none | `agent_inbox_items`, `agents`, `gateways`, `workspace` | `agent_inbox_items.last_wake_*` |
 | `runner` | Python daemon. Subscribes to `agent_commands` INSERT events, leases via `lease_command(gateway_slug=…)`, executes `add-agent.sh` / `update-agent.sh` / `docker compose restart …`, reports back stdout/stderr/exit code. | [`gateway/daemons/command_runner.py`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/command_runner.py), [`gateway/runner/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/runner/Dockerfile), [`gateway/scripts/add-agent.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/scripts/add-agent.sh) | none | `agent_commands`, `workspace`, `gateways` | `agent_commands.status/stdout/stderr`, `gateways.last_seen_at` (30 s heartbeat) |
 | `embedder` | Python daemon. Eagerly downloads/loads the local BGE model, serves embeddings over an internal HTTP endpoint, and indexes pending knowledge items into searchable chunks. Supports pages, playbooks, files, and external sources. | [`gateway/embedder/`](https://github.com/yourhq/yourhq/tree/main/gateway/embedder) | none | `knowledge_items` via `lease_knowledge_items_for_indexing` RPC | `knowledge_chunks`, `knowledge_items.embedding`, indexing status metadata |
+| `file-processor` | Python daemon. Leases uploaded knowledge files (PDF, DOCX, XLSX, CSV, PPTX, TXT), extracts plain text, and triggers embedding. Runs independently so file processing doesn't block other gateway operations. | [`gateway/file-processor/`](https://github.com/yourhq/yourhq/tree/main/gateway/file-processor) | none | `knowledge_items` via `lease_knowledge_items_for_processing` RPC | `knowledge_items.plain_text`, processing status |
 
 The `gateway`, `dispatcher`, and `runner` containers all share the Docker volume `gateway-state` (mounted at `/home/openclaw/.openclaw`). That volume is where OpenClaw's config, the bare git repo, per-agent worktrees, browser profiles, and the VNC state live. The `embedder` uses `gateway-embedding-cache` for downloaded local embedding models. The runner additionally mounts `/var/run/docker.sock` so it can restart sibling containers.
 
@@ -150,16 +151,18 @@ The `gateway` container is deliberately fat in Phase 1 — it's one image that r
 - **XDG dirs** (`XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_CACHE_HOME`, `XDG_RUNTIME_DIR`) exported explicitly; some glib builds don't apply `$HOME/.config` fallbacks in containers.
 - **autocutsel** × 2 — keeps CLIPBOARD and PRIMARY selections in sync so noVNC's clipboard panel reaches Chrome and the terminal.
 - **Chrome (amd64) or Chromium (arm64)** — started per-agent via desktop shortcuts (`$HOME/.openclaw/Desktop/Chrome-<slug>.desktop`), one shortcut per agent, each with its own `--user-data-dir` and `--remote-debugging-port` (CDP port, 18801+).
-- **websockify → noVNC** on `0.0.0.0:6901` in-container. The host port mapping (`NOVNC_HOST_PORT` in `.env`) decides whether 6901 is reachable on localhost only or on the host's tailnet/public interface.
+- **websockify → noVNC** on `0.0.0.0:6901` in-container. Port 6901 is not mapped to the host — the UI proxies noVNC through its own `/api/novnc` route over Docker's internal network (`gateway:6901`).
 - **files_api.py** on `0.0.0.0:18790` in-container, gated by `GATEWAY_AUTH_TOKEN`.
 - **openclaw gateway run** as PID 1 under tini. Invoked with `exec` at the end of `entrypoint.sh` so signals propagate cleanly.
 
 **Why one container for all of that?** OpenClaw, Chrome, and the window manager share a single X display and a single file system namespace — splitting them into separate containers would mean cross-container DISPLAY forwarding, shared XDG, shared user-data-dirs, and shared `openclaw.json`, all over Docker networking. Not impossible, but a lot of moving parts for little benefit when the whole stack is owned by one operator.
 
-**Volumes.** Two named volumes per Compose project:
+**Volumes.** Four named volumes per Compose project:
 
+- `ui-config` (mounted at `/config` in the UI container): project registry (`projects.json`, `secrets.json`). Also mounted read-only in gateway services so they can read Supabase creds without `.env` edits.
 - `gateway-state` (mounted at `/home/openclaw/.openclaw` in gateway, dispatcher read-only, runner read-write): holds `openclaw.json`, `repo.git` (bare), `workspace-<branch>/` (worktrees), `browser/<profile>/user-data/`, `Desktop/`, `plugins/`, `shared-auth/`, `.vnc-password`.
 - `gateway-chrome-profile` (mounted at `/home/openclaw/.config/google-chrome`): Chrome's own profile dir. Kept separate so you can blow it away without destroying agent workspaces.
+- `gateway-embedding-cache` (mounted at `/models` in the embedder): cached BGE model files so restarts don't re-download.
 
 ## 8. The agent workspace model
 
@@ -187,7 +190,7 @@ Three modes are shipped:
 | `tailscale` | `http://<host-ts-ip>` | `0.0.0.0:*` | Anyone on your tailnet; loopback still works. Tailscale is installed **on the host**, not in the container. |
 | `public` | `https://<your-domain>` | `0.0.0.0:*` (fronted by host Caddy/nginx) | The internet, via your host's reverse proxy. |
 
-The installer ([`installer/install.sh`](https://github.com/yourhq/yourhq/tree/main/installer/install.sh)) asks once, sets `NETWORKING_MODE` and `HOST_REACHABLE_URL` in `.env`, and Compose port mappings (`UI_HOST_PORT`, `NOVNC_HOST_PORT`, `FILES_API_HOST_PORT`) do the rest.
+The installer ([`installer/install.sh`](https://github.com/yourhq/yourhq/tree/main/installer/install.sh)) writes `NETWORKING_MODE` and `HOST_REACHABLE_URL` in `.env`, and Compose port mappings (`UI_HOST_PORT`, `FILES_API_HOST_PORT`) do the rest. noVNC is proxied through the UI and does not need a host port.
 
 **Why do gateways register their own URLs?** In step 9 of the entrypoint, the gateway upserts its row in the `gateways` table with `meta.reachable_urls.{base,files_api,novnc}` set from `HOST_REACHABLE_URL`. That's how the UI — which may live on a completely different machine — knows what hostname to hit for this specific gateway's file browser and desktop. The UI never hard-codes a gateway URL; it reads `gateways.meta.reachable_urls`.
 
@@ -197,9 +200,9 @@ Full details in [Networking](/self-host/networking).
 
 Because the only shared state is Supabase and gateways publish their own reachable URLs, the same code handles three deployment shapes with no conditionals:
 
-**Single-host, everything local.** UI and gateway on the same machine. `GATEWAY_URL=http://gateway:18790` (Docker DNS). `NOVNC_HOST_PORT=127.0.0.1:6901`. `docker compose up -d`. This is what the installer sets up by default.
+**Single-host, everything local.** UI and gateway on the same machine. `GATEWAY_URL=http://gateway:18790` (Docker DNS). `docker compose --profile gateway up -d`. This is what the onboarding wizard sets up when you pick "This machine."
 
-**Split UI / gateway.** UI on your laptop, gateway on an always-on host (Mac mini, VPS, Raspberry Pi). Both hosts have Tailscale. On the gateway host: `docker compose up -d gateway dispatcher runner`. On the laptop: `docker compose up -d ui` with `GATEWAY_URL=http://100.x.y.z:18790` (the gateway host's tailnet IP). Same `GATEWAY_AUTH_TOKEN` on both sides.
+**Split UI / gateway.** UI on your laptop, gateway on an always-on host (Mac mini, VPS, Raspberry Pi). Both hosts have Tailscale. On the gateway host: `docker compose --profile gateway up -d`. On the laptop: `docker compose up -d ui` with `GATEWAY_URL=http://100.x.y.z:18790` (the gateway host's tailnet IP). Same `GATEWAY_AUTH_TOKEN` on both sides.
 
 **Multi-gateway.** Multiple gateway hosts against the same Supabase. Each gets its own `GATEWAY_ID` (`laptop`, `mac-mini`, `vps-eu`) and registers its own row in the `gateways` table at boot. Each agent has a `gateway_id` FK; the runner filters `lease_command` by its own gateway slug (`lease_command(p_gateway_slug=$GATEWAY_ID)`), and the dispatcher filters inbox items by caching the set of local agent IDs ([`refresh_local_agents`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/inbox_dispatcher.py) in `inbox_dispatcher.py`). No gateway ever picks up another gateway's work.
 
@@ -210,7 +213,7 @@ Adding another gateway is normally UI-driven:
 3. The operator runs that command on the gateway host.
 4. The gateway writes its row to Supabase and starts heartbeating.
 
-Manual registration still works for development or advanced operators: set a unique `GATEWAY_ID`, point the host at the same Supabase project, and run `docker compose up -d gateway dispatcher runner`.
+Manual registration still works for development or advanced operators: set a unique `GATEWAY_ID`, point the host at the same Supabase project, and run `docker compose --profile gateway up -d`.
 
 ## 11. Trust model / security boundaries
 
@@ -262,7 +265,7 @@ The UI is designed to be configured, not coded, for most everyday changes:
 - **Self-hosted hardening.** Better migration tooling, stronger validation around project setup, and clearer gateway health diagnostics.
 - **Hosted offering.** Account management, automated Supabase/gateway provisioning, billing, and managed operations in front of the same core runtime.
 - **Integrations.** More MCP-first integrations, richer provider auth UX, optional email/calendar/Slack/Notion flows, and deeper routine primitives.
-- **Docs site.** The markdown docs in this repository should remain the source of truth and can later be rendered at `docs.yourhq.ai`.
+- **Docs site.** The docs site at [docs.yourhq.ai](https://docs.yourhq.ai) is live and rendered from the `docs-site/` directory in this repo.
 
 Roadmap items should be tracked in [ROADMAP.md](/getting-started/roadmap) and issues, not as stale phase labels in docs.
 

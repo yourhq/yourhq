@@ -91,7 +91,6 @@ description: "Fixes for the most common problems. Search for the exact error tex
 
     ```
     UI_HOST_PORT=0.0.0.0:3000
-    NOVNC_HOST_PORT=0.0.0.0:6901
     FILES_API_HOST_PORT=0.0.0.0:18790
     HOST_REACHABLE_URL=http://100.x.y.z    # your Tailscale IP
     NETWORKING_MODE=tailscale
@@ -225,10 +224,7 @@ description: "Fixes for the most common problems. Search for the exact error tex
     NOVNC_BIND=local
     ```
 
-    `NOVNC_BIND=local` makes websockify bind to `0.0.0.0:6901` inside the container. Control external access separately with `NOVNC_HOST_PORT`:
-
-    - `NOVNC_HOST_PORT=127.0.0.1:6901` — localhost only
-    - `NOVNC_HOST_PORT=0.0.0.0:6901` — reachable from tailnet/public
+    `NOVNC_BIND=local` makes websockify bind to `0.0.0.0:6901` inside the container. Port 6901 is not mapped to the host — the UI proxies noVNC through its own `/api/novnc` route over Docker's internal network.
 
     Then: `docker compose up -d --force-recreate gateway`
   </Accordion>

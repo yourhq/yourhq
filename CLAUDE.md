@@ -9,7 +9,7 @@ HQ is the monorepo for the [yourhq.ai](https://yourhq.ai) platform. It contains:
 - **`templates/`** — agent template library (one directory per template).
 - **`db/migrations/`** — Postgres/Supabase SQL migrations. Run files in filename order.
 - **`installer/install.sh`** — interactive installer for OSS self-host (`curl | bash` target).
-- **`docker-compose.yml` / `docker-compose.dev.yml`** — full stack (UI + gateway + dispatcher + runner).
+- **`docker-compose.yml` / `docker-compose.dev.yml`** — full stack. UI runs standalone; gateway services (gateway, dispatcher, runner, embedder, file-processor) are behind a `gateway` Compose profile.
 
 Supabase (your own project) is the only shared state between UI and gateway — the UI writes to `agent_commands`, daemons subscribe via Realtime and execute on their host. There is no direct network link between UI and gateway.
 
@@ -24,8 +24,11 @@ Supabase (your own project) is the only shared state between UI and gateway — 
 ## Key commands
 
 ```bash
-# Production stack
-docker compose up -d
+# UI only
+docker compose up -d ui
+
+# UI + local gateway (full stack)
+docker compose --profile gateway up -d
 docker compose logs -f                 # tail all
 docker compose logs -f gateway         # one service
 
@@ -64,11 +67,10 @@ For the public-facing tour of the system, see [`docs-site/concepts/architecture.
 4. Run `openclaw onboard` on first boot.
 5. Patch `openclaw.json` (browser, channels, plugin paths).
 6. Install the hq-bootstrap plugin.
-7. Start Xvfb + fluxbox + VNC (x0vncserver).
-8. Start websockify → noVNC, binding per `$NOVNC_BIND` (local / tailscale / public).
-9. Optionally front noVNC with Caddy for TLS when `$NOVNC_BIND=public`.
-10. Upsert this gateway's row in Supabase with its reachable URLs.
-11. Exec `openclaw gateway start` as the main process.
+7. Start Xtigervnc + XFCE desktop.
+8. Start websockify → noVNC, binding per `$NOVNC_BIND` (local / off). Port 6901 is internal-only — the UI proxies it through `/api/novnc`.
+9. Upsert this gateway's row in Supabase with its reachable URLs.
+10. Exec `openclaw gateway start` as the main process.
 
 Daemons:
 

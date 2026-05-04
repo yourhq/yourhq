@@ -121,7 +121,7 @@ docker compose logs -f runner
 docker compose logs -f dispatcher
 ```
 
-All five services should show `Status: Up`. If a container is in `Restarting` state, tail its logs to find the error.
+All six services should show `Status: Up` (ui, gateway, dispatcher, runner, embedder, file-processor). If a container is in `Restarting` state, tail its logs to find the error.
 
 ### Gateway heartbeat
 

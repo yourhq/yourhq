@@ -6,11 +6,14 @@ description: "Where major parts of the HQ codebase live."
 ```text
 yourhq/
   apps/ui/              Next.js dashboard (App Router, Tailwind, shadcn)
-  gateway/              Gateway image, files API, daemons, lifecycle scripts
+  apps/migrate/         Database migration runner CLI (yourhq-migrate)
+  apps/worker/          Hosted-mode worker service (Stripe, E2B, Resend) — behind `hosted` profile
+  gateway/              Gateway image, files API, daemons, connectors, lifecycle scripts
   db/migrations/        Supabase SQL migrations (001–025)
-  templates/            Agent template library (15 templates)
-  installer/            Interactive install scripts
-  docs-site/            Mintlify documentation source
+  templates/            Agent template library (16 templates)
+  installer/            Interactive install scripts (install.sh + install-gateway.sh)
+  docs-site/            Mintlify documentation source (docs.yourhq.ai)
+  scripts/              Operational scripts (diagnostic-bundle.sh)
   .github/workflows/    CI and image publishing
 ```
 

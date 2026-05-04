@@ -45,8 +45,10 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 Edit any file under `apps/ui/` and the UI reloads automatically. Edit `gateway/entrypoint.sh` or `gateway/daemons/*` and restart the relevant service:
 
 ```bash
-docker compose restart gateway dispatcher runner
+docker compose restart gateway dispatcher runner embedder file-processor
 ```
+
+Gateway services are behind a Compose `gateway` profile. Use `docker compose --profile gateway up -d` to start them, or name them explicitly.
 
 ### Running just the UI
 
@@ -65,7 +67,7 @@ Complete browser onboarding against the local dev server, or set `HQ_CONFIG_DIR`
 Useful when iterating on the agent runtime without touching the UI:
 
 ```bash
-docker compose up -d gateway dispatcher runner
+docker compose --profile gateway up -d
 docker compose logs -f gateway
 ```
 

@@ -118,7 +118,7 @@ If `NOVNC_BIND != "off"`, starts:
 websockify --web=/usr/share/novnc 0.0.0.0:6901 localhost:5901
 ```
 
-Inside the container websockify always binds `0.0.0.0:6901`. The Docker host port mapping (`NOVNC_HOST_PORT`) decides whether port 6901 is reachable from outside the host.
+Inside the container websockify always binds `0.0.0.0:6901`. Port 6901 is not mapped to the host — the UI proxies noVNC through its own `/api/novnc` route over Docker's internal network (`gateway:6901`).
 
 Set `NOVNC_BIND=off` to skip noVNC entirely (e.g. on a headless host where you never need remote desktop).
 

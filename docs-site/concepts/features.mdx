@@ -112,7 +112,7 @@ The agent detail page includes:
 
 ## Agent Templates
 
-Templates are role-specific starting points for agents. The repository ships templates for roles such as assistant, analytics, chief of staff, CMO, cofounder, CRM researcher, designer, market researcher, newsletter editor, newsletter writer, sales copywriter, script writer, social strategist, and social writer.
+Templates are role-specific starting points for agents. The repository ships 16 templates: default, assistant, analytics, chief of staff, CMO, cofounder, CRM researcher, designer, ghostwriter, market researcher, newsletter editor, newsletter writer, sales copywriter, script writer, social strategist, and social writer.
 
 Each template includes files such as:
 
@@ -248,11 +248,13 @@ Inbox items have retry state, attempt counts, lease fields, done/failed/dead-let
 
 A gateway is a Docker host that runs agents. One workspace can have multiple gateways.
 
-The gateway stack includes:
+The gateway stack includes five services (all behind the `gateway` Compose profile):
 
-- Gateway container with OpenClaw, Chrome/Chromium, XFCE, noVNC, and the files API.
-- Dispatcher daemon for agent inbox work.
-- Runner daemon for lifecycle and operations commands.
+- **Gateway** container with OpenClaw, Chrome/Chromium, XFCE, noVNC, and the files API.
+- **Dispatcher** daemon for agent inbox work.
+- **Runner** daemon for lifecycle and operations commands.
+- **Embedder** daemon for knowledge indexing and vector search.
+- **File processor** daemon for extracting text from uploaded files (PDF, DOCX, XLSX, etc.).
 - A shared `gateway-state` volume for OpenClaw config, git repo, worktrees, browser profiles, desktop files, plugins, and auth state.
 
 The Settings -> Gateways UI supports:

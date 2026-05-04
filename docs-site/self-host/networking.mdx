@@ -21,9 +21,10 @@ whether they're reachable only from loopback, from your tailnet, or from the
 public internet — is decided by two things:
 
 1. **Host port bindings in `docker-compose.yml`** (`UI_HOST_PORT`,
-   `NOVNC_HOST_PORT`, `FILES_API_HOST_PORT`). Each one looks like
+   `FILES_API_HOST_PORT`). Each one looks like
    `127.0.0.1:3000` or `0.0.0.0:3000`. `127.0.0.1` means loopback only;
-   `0.0.0.0` means every network interface the host has.
+   `0.0.0.0` means every network interface the host has. (noVNC is proxied
+   through the UI and does not need a host port.)
 2. **The host's networking setup.** If you installed Tailscale on the host,
    `0.0.0.0` now includes the Tailscale interface. If you opened firewall
    ports, it includes the public internet.
@@ -44,11 +45,12 @@ tomorrow) without changing HQ.
                        │                     ▼                                      │
                        │        Host port bindings (0.0.0.0 or 127.0.0.1)           │
                        │                     │                                      │
-                       │    ┌────────────────┼────────────────┐                     │
-                       │    ▼                ▼                ▼                     │
-                       │  :3000           :6901           :18790                    │
-                       │   UI             noVNC          files-API                  │
-                       │ (Next.js)      (websockify)     (Python)                   │
+                       │    ┌─────────────────┼────────────────┐                    │
+                       │    ▼                                ▼                     │
+                       │  :3000                          :18790                    │
+                       │   UI                           files-API                  │
+                       │ (Next.js)                      (Python)                   │
+                       │   └── proxies noVNC (gateway:6901, internal only)         │
                        │                                                            │
                        └────────────────────────────────────────────────────────────┘
 ```
@@ -63,9 +65,9 @@ right `.env` values. You can switch later by editing `.env` and running
 
 | Mode | `HOST_REACHABLE_URL` | Host port bindings | Reachable from |
 |---|---|---|---|
-| `local` (default) | `http://localhost` | `127.0.0.1:3000` / `:6901` / `:18790` | This machine only |
-| `tailscale` | `http://<host-ts-ip>` | `0.0.0.0:3000` / `:6901` / `:18790` | Any tailnet device |
-| `public` | `https://<your-domain>` | `0.0.0.0:3000` / `:6901` / `:18790` | Anywhere — you handle TLS |
+| `local` (default) | `http://localhost` | `127.0.0.1:3000` / `:18790` | This machine only |
+| `tailscale` | `http://<host-ts-ip>` | `0.0.0.0:3000` / `:18790` | Any tailnet device |
+| `public` | `https://<your-domain>` | `0.0.0.0:3000` / `:18790` | Anywhere — you handle TLS |
 
 ### Local-only (default)
 
@@ -155,10 +157,12 @@ and TLS/domain concerns live where they belong (on the host).
 | Service | Container port | Default host port | Protocol | What speaks it |
 |---|---|---|---|---|
 | UI (Next.js) | 3000 | `UI_HOST_PORT` (default `127.0.0.1:3000`) | HTTP | Your browser |
-| noVNC (websockify) | 6901 | `NOVNC_HOST_PORT` (default `127.0.0.1:6901`) | HTTP + WebSocket | Browser — opens `vnc.html` to remote-desktop into the gateway |
+| noVNC (websockify) | 6901 | — (internal only, proxied through UI) | HTTP + WebSocket | UI proxies via `/api/novnc` over Docker network |
 | Files-API (Python) | 18790 | `FILES_API_HOST_PORT` (default `127.0.0.1:18790`) | HTTP | UI's file-browser backend (agent worktrees) |
-| Gateway dispatcher | — (no listener) | — | — | Polls Supabase only |
-| Gateway runner | — (no listener) | — | — | Polls Supabase only |
+| Dispatcher | — (no listener) | — | — | Polls Supabase only |
+| Runner | — (no listener) | — | — | Polls Supabase only |
+| Embedder | 18801 | — (internal only) | HTTP | Gateway services call `/embed` internally |
+| File processor | — (no listener) | — | — | Polls Supabase only |
 
 **Supabase is not hosted by HQ.** You bring your own Supabase project; its URL
 and keys go into `.env`. Nothing in HQ runs on Supabase's behalf.
@@ -171,13 +175,15 @@ required for them.
 
 ## 4. Host bindings via compose
 
-Three env vars in `.env` control the host side of the port mappings:
+Two env vars in `.env` control the host side of the port mappings:
 
 ```env
-UI_HOST_PORT=127.0.0.1:3000        # local:       127.0.0.1:3000
-NOVNC_HOST_PORT=127.0.0.1:6901     # tailscale:   0.0.0.0:6901
-FILES_API_HOST_PORT=127.0.0.1:18790  # public:     0.0.0.0:18790
+UI_HOST_PORT=127.0.0.1:3000          # local:       127.0.0.1:3000
+FILES_API_HOST_PORT=127.0.0.1:18790  # tailscale:   0.0.0.0:18790
 ```
+
+noVNC no longer needs a host port — the UI proxies it through `/api/novnc`
+over Docker's internal network.
 
 The installer writes these for you. Change by hand if you want non-standard
 bindings (e.g. bind only to a specific LAN interface, or use a different host
@@ -192,9 +198,8 @@ UI_HOST_PORT=127.0.0.1:8080
 # UI on a specific LAN IP (your home server's 192.168.x.y)
 UI_HOST_PORT=192.168.1.50:3000
 
-# Gateway noVNC off (e.g. headless CI host)
-NOVNC_HOST_PORT=127.0.0.1:6901
-NOVNC_BIND=off   # also stops websockify inside the container
+# Disable noVNC entirely (e.g. headless CI host)
+NOVNC_BIND=off   # stops websockify inside the container
 ```
 
 After editing, `docker compose up -d` reapplies the mapping.
@@ -221,8 +226,7 @@ flag passed to `tailscale up`).
 With MagicDNS on, from any tailnet device you can visit:
 
 ```
-http://yourhq-myserver:3000     # UI
-http://yourhq-myserver:6901/vnc.html?autoconnect=1&resize=remote  # noVNC
+http://yourhq-myserver:3000     # UI (noVNC is accessed through the UI desktop modal)
 ```
 
 Why the installer writes the **IP** (`http://100.x.y.z`) into
@@ -272,8 +276,8 @@ Shared rules:
 └─────────────────────────────────────────────────────────┘
 ```
 
-One `docker compose up -d`. The UI reaches the gateway over Docker's internal
-network via the `gateway:18790` DNS name — no host port needed.
+One `docker compose --profile gateway up -d`. The UI reaches the gateway over
+Docker's internal network via the `gateway:18790` DNS name — no host port needed.
 
 ### Topology B: UI on laptop, gateway on a VPS
 
@@ -281,10 +285,10 @@ network via the `gateway:18790` DNS name — no host port needed.
 ┌── host: laptop ──────┐            ┌── host: EC2 / Hetzner ──────┐
 │                        │            │                               │
 │  Docker: ui only       │            │  Docker: gateway+dispatcher   │
-│                        │            │          +runner              │
+│                        │            │   +runner+embedder            │
+│                        │            │   +file-processor             │
 │  UI @ localhost:3000   │  Tailscale │                               │
 │                        │◄──────────►│  files-API @ 100.x.y.z:18790  │
-│                        │            │  noVNC     @ 100.x.y.z:6901   │
 └────────────────────────┘            └───────────────────────────────┘
           │                                          │
           └────────── Supabase (shared) ─────────────┘
@@ -308,7 +312,7 @@ On the VPS:
 curl -fsSL https://raw.githubusercontent.com/yourhq/yourhq/main/installer/install.sh | bash
 # Pick Tailscale, provide auth key, then when it starts services:
 # edit .env to set GATEWAY_ID=vps-gateway and run without ui
-docker compose up -d gateway dispatcher runner
+docker compose --profile gateway up -d
 ```
 
 ### Topology C: one UI, multiple gateways
@@ -457,10 +461,9 @@ model changes. A few things to know:
   users) puts an email-gated login in front of everything. Configure it on
   your Cloudflare Tunnel or in front of Caddy. That way an unauthenticated
   attacker can't even reach the Next.js app.
-- **Don't expose noVNC or files-API publicly.** These are internal surfaces
-  with weaker auth. Keep them on Tailscale or loopback. If you use a reverse
-  proxy, only proxy port 3000 (the UI); leave `NOVNC_HOST_PORT` and
-  `FILES_API_HOST_PORT` on `127.0.0.1` or `100.x.y.z` (tailnet).
+- **Don't expose the files-API publicly.** It has weaker auth than the UI.
+  Keep `FILES_API_HOST_PORT` on `127.0.0.1` or `100.x.y.z` (tailnet).
+  noVNC is already internal-only (proxied through the UI, not host-exposed).
 - **Gateway auth token.** The files-API on port 18790 checks
   `GATEWAY_AUTH_TOKEN`. Generate a long one (`openssl rand -hex 32`) and
   don't commit it. If it leaks, anyone who can reach port 18790 can read and

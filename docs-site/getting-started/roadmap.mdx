@@ -7,7 +7,7 @@ Where HQ is now, what ships in v0.1, and what comes after.
 ### Core platform
 
 - One repo (`yourhq/yourhq`) for UI, gateway, dispatcher, runner, templates, migrations, installer, and docs
-- `docker-compose.yml` stack with five services and Docker healthchecks on all of them
+- `docker-compose.yml` stack with six services (ui, gateway, dispatcher, runner, embedder, file-processor) and Docker healthchecks on all of them
 - Interactive `installer/install.sh` with local, Tailscale, and public networking modes
 - Gateway runtime with OpenClaw, Chrome/Chromium, Xtigervnc, XFCE desktop, noVNC, and files API
 - `RUNTIME_MODE` env var (`docker` | `systemd` | `e2b`) for portable entrypoint behavior

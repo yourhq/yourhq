@@ -75,11 +75,9 @@ Host-level networking decisions: local-only vs Tailscale vs public HTTPS. The in
 
 - **`UI_HOST_PORT`** — **Optional**. Default `127.0.0.1:3000` (loopback-only, safe). The installer flips this to `0.0.0.0:3000` when you pick Tailscale or Public mode. Manually override to `0.0.0.0:3000` when you want the host's network interfaces (Tailscale, public) to decide reachability.
 
-- **`NOVNC_HOST_PORT`** — **Optional**. Same shape as `UI_HOST_PORT`, default `127.0.0.1:6901`. Installer flips to `0.0.0.0:6901` for Tailscale/Public modes. Keep loopback-only unless you trust the host's network — noVNC only has a generated VNC password as auth and should never be on the public internet without a reverse proxy.
-
 - **`FILES_API_HOST_PORT`** — **Optional**. Default `127.0.0.1:18790` (loopback-only). The files-API only needs to be reachable from outside the host when the UI lives on a different machine (Tailscale cross-host). Single-host installs can leave it on loopback — the UI reaches it internally via Docker DNS (`http://gateway:18790`).
 
-- **`NOVNC_BIND`** — **Optional**. Default `local`. One of `local` (websockify binds `0.0.0.0:6901` inside the container, Docker port-mapping decides real exposure) or `off` (don't start noVNC at all). Override to `off` if you don't need remote desktop.
+- **`NOVNC_BIND`** — **Optional**. Default `local`. One of `local` (websockify binds `0.0.0.0:6901` inside the container; the UI proxies it through `/api/novnc` over Docker's internal network) or `off` (don't start noVNC at all). Port 6901 is not mapped to the host. Override to `off` if you don't need remote desktop.
 
 - **`VNC_PASSWORD`** — **Optional, secret**. Empty. The VNC password for the in-container desktop. Auto-generated on first boot if empty; the generated value is saved to `$OPENCLAW_HOME/.vnc-password` inside the `gateway-state` volume. Override if you want a specific known password.
 
@@ -277,7 +275,7 @@ docker compose up -d dispatcher runner
 
 ### Networking / port-binding changes
 
-`UI_HOST_PORT`, `NOVNC_HOST_PORT`, `FILES_API_HOST_PORT` — changing a port binding doesn't register with a plain `up -d`; Compose considers the container "already running" with no relevant change. Force recreation:
+`UI_HOST_PORT`, `FILES_API_HOST_PORT` — changing a port binding doesn't register with a plain `up -d`; Compose considers the container "already running" with no relevant change. Force recreation:
 
 ```bash
 docker compose up -d --force-recreate

@@ -73,10 +73,9 @@ Open a terminal on your Mac or Linux machine (on Windows, use WSL) and run:
 curl -fsSL install.yourhq.ai | bash
 ```
 
-The installer will ask you a few questions:
+The installer will ask you a couple of questions:
 
-1. **Networking mode** — choose **Local-only** for now. You can switch to Tailscale later.
-2. **GitHub sync** — skip this for now (press Enter).
+1. **GitHub sync** — skip this for now (press Enter). You can set it up later for off-site backup.
 
 It pulls Docker images (~1.5 GB on first run — this takes a few minutes), starts the stack, and opens your browser.
 
@@ -86,7 +85,7 @@ It pulls Docker images (~1.5 GB on first run — this takes a few minutes), star
   git clone https://github.com/yourhq/yourhq.git
   cd yourhq
   cp .env.example .env
-  docker compose up -d
+  docker compose up -d ui
   ```
 </Tip>
 

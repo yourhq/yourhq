@@ -3,14 +3,14 @@ title: "Docker services"
 description: "The containers in the HQ Compose stack and what each one does."
 ---
 
-HQ's default Compose stack has five services that work together.
+HQ's default Compose stack has six services that work together. The UI runs on its own; the other five are gateway services that run agents and process data.
 
 <CardGroup cols={2}>
   <Card title="ui" icon="browser">
     **Next.js dashboard.** Renders the workspace — agents, CRM, tasks, knowledge, routines, settings — and writes to Supabase through server actions. Port `3000`.
   </Card>
   <Card title="gateway" icon="server">
-    **Agent runtime host.** Runs OpenClaw, Chrome/Chromium, XFCE desktop, noVNC, and the files API. This is where agents live. Ports `6901` (noVNC), `18790` (files API).
+    **Agent runtime host.** Runs OpenClaw, Chrome/Chromium, XFCE desktop, noVNC, and the files API. This is where agents live. Port `18790` (files API). noVNC runs inside the container and is proxied through the UI — no host port needed.
   </Card>
   <Card title="dispatcher" icon="inbox">
     **Inbox daemon.** Watches `agent_inbox_items` for new work, filters to agents on the local gateway, checks budget status, and wakes agents through OpenClaw.
@@ -21,6 +21,9 @@ HQ's default Compose stack has five services that work together.
   <Card title="embedder" icon="search">
     **Knowledge indexing daemon.** Runs FastEmbed locally, starts downloading/loading the BGE model on boot, serves `/embed` inside Docker, and indexes pending knowledge items into searchable knowledge chunks.
   </Card>
+  <Card title="file-processor" icon="file-import">
+    **File processing daemon.** Leases uploaded knowledge files (PDF, DOCX, XLSX, CSV, PPTX, TXT), extracts plain text, and triggers embedding. Runs independently so file processing doesn't block other gateway operations.
+  </Card>
 </CardGroup>
 
 ## Shared state
@@ -30,5 +33,5 @@ The `gateway`, `dispatcher`, and `runner` containers share the `gateway-state` D
 The `runner` additionally mounts `/var/run/docker.sock` so it can restart sibling containers when needed.
 
 <Tip>
-  For single-host installs, all five services run together via `docker compose up -d`. For multi-host setups, run `ui` separately from the gateway services. See [Add a gateway](/self-host/add-gateway).
+  For single-host installs, start everything with `docker compose --profile gateway up -d`. For multi-host setups, run `docker compose up -d ui` separately from the gateway services. See [Add a gateway](/self-host/add-gateway).
 </Tip>
