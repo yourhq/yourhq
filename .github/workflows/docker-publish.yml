@@ -38,6 +38,10 @@ jobs:
             dockerfile: gateway/dispatcher/Dockerfile
           - name: yourhq-runner
             dockerfile: gateway/runner/Dockerfile
+          - name: yourhq-embedder
+            dockerfile: gateway/embedder/Dockerfile
+          - name: yourhq-file-processor
+            dockerfile: gateway/file-processor/Dockerfile
     steps:
       - name: Checkout
         uses: actions/checkout@v4
