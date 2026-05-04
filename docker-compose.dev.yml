@@ -20,6 +20,7 @@ services:
       CHOKIDAR_USEPOLLING: "true"
     volumes:
       - ./apps/ui:/app
+      - ./db/migrations:/app/db/migrations:ro
       - ui-node-modules:/app/node_modules
       - ui-next-cache:/app/.next
       - ui-config:/config

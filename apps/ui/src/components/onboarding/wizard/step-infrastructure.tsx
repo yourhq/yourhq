@@ -299,16 +299,16 @@ export function StepInfrastructure({
                 type="password"
                 value={anonKey}
                 onChange={(e) => setAnonKey(e.target.value)}
-                placeholder="Anon key"
-                aria-label="Supabase anon key"
+                placeholder="Publishable key"
+                aria-label="Supabase publishable key"
                 className="flex h-9 w-full rounded-md border border-border/60 bg-background px-3 text-[13px] font-mono outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"
               />
               <input
                 type="password"
                 value={serviceRoleKey}
                 onChange={(e) => setServiceRoleKey(e.target.value)}
-                placeholder="Service role key"
-                aria-label="Supabase service role key"
+                placeholder="Secret key"
+                aria-label="Supabase secret key"
                 className="flex h-9 w-full rounded-md border border-border/60 bg-background px-3 text-[13px] font-mono outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"
               />
             </div>
@@ -366,7 +366,7 @@ export function StepInfrastructure({
                     and create a free account
                   </li>
                   <li>Create a new project (any region, free tier is fine)</li>
-                  <li>Copy your Project URL + API keys from Settings → API</li>
+                  <li>Copy your Project URL + API keys from Settings → Data API</li>
                 </ol>
               </div>
             )}
