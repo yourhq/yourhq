@@ -72,7 +72,6 @@ export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
 
   useEffect(() => {
     if (!isComplete) return;
-    const target = autoLoginUrl ?? "/login";
     const timer = setTimeout(() => {
       if (autoLoginUrl) {
         window.location.href = autoLoginUrl;

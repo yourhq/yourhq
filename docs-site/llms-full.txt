@@ -545,6 +545,7 @@ Where HQ is now, what ships in v0.1, and what comes after.
 - Runtime delegation context for managers and direct reports
 - Per-agent LLM usage tracking and monthly budgets
 - Budget warning, exceeded notifications, and hard cutoff enforcement
+- Agent-initiated skill learning — agents autonomously create and update playbooks during work, with human visibility on the agent detail page and version history attribution in the knowledge editor
 
 ### Observability and operations
 
@@ -3184,6 +3185,27 @@ To update: edit the item directly — changes take effect on the next session.
 
 ---
 
+## Agent-created playbooks
+
+Agents don't just consume knowledge — they create it. When an agent discovers a reusable method during work, it can autonomously create a **playbook** scoped to itself. This happens via the `hq_playbook_upsert.py` skill.
+
+**When agents create playbooks:**
+
+- After performing the same sequence 3+ times successfully
+- After a breakthrough discovery (figuring out a non-obvious method through trial and error)
+- When the user gives a reusable instruction that isn't already documented
+
+**What you see:**
+
+- The agent detail page shows a **Playbooks** section with the agent's self-created procedures
+- A blue dot indicates recent edits (within 7 days), with the one-line reason displayed below
+- The knowledge editor's **History** panel shows who made each edit (agent name + emoji vs "You")
+- The dashboard fleet card shows how many playbooks were updated this week
+
+**No approval gate.** Agents write directly. You observe via the audit trail and can edit, refine, or delete playbooks at any time through the standard knowledge editor. If you correct a playbook, the agent will respect your edits on subsequent sessions.
+
+---
+
 ## Entity links
 
 Knowledge items can be linked to tasks, routines, collection records, and agents using **entity links**. Links are bidirectional references — they show up on both the owner and the target.
@@ -3610,6 +3632,7 @@ The agent detail page includes:
 - Overview, status, capabilities, and activity.
 - **Model and thinking level** — pick any connected model and reasoning depth from the right rail. Changes take effect on the next wake, no restart needed.
 - Knowledge items (workspace pinned + agent-scoped boot context).
+- Agent playbooks — playbooks the agent created or updated autonomously, with recency indicators and edit reasons.
 - Direct reports and manager assignment.
 - Trigger and inbox history.
 - File browser/editor for the agent branch.
@@ -4400,6 +4423,18 @@ The default `AGENTS.md` prompts the agent to read these on every session start. 
 
 For shared knowledge across agents, use the [knowledge system](/concepts/knowledge) — workspace-scoped items are visible to all agents, and pinned items are automatically included in boot context.
 
+## Skill learning
+
+Agents improve over time by maintaining their own **playbooks** — reusable procedures they create when they discover a reliable method. This happens autonomously during work via `hq_playbook_upsert.py`:
+
+- **When to learn:** after performing the same sequence 3+ times successfully, or after a breakthrough discovery (trial-and-error that yielded a non-obvious method).
+- **What gets stored:** a playbook (`kind: 'playbook'`, `scope: 'agent'`) linked to the agent via the `knowledge_item_agents` junction table.
+- **Visibility:** the agent detail page shows a "Playbooks" section with recency indicators (blue dot for recent agent edits) and the one-line reason the agent provided. The knowledge editor has a History panel showing who made each edit (agent vs. human).
+
+There is no approval gate — agents write directly. Operators observe via the audit trail and can edit, refine, or delete playbooks at any time through the standard knowledge editor.
+
+The `--reason` parameter on every playbook write is surfaced in the UI. It should be a one-line explanation of what changed and why (e.g., "Added YouTube channel research method after 3 successful tasks").
+
 ## Agent-to-agent
 
 Agents see the same database, so they can see each other's tasks and knowledge. Coordination patterns:
@@ -4444,6 +4479,8 @@ Every knowledge item has a `kind` that determines how it's stored and rendered:
 | `source` | Externally synced content from a connected integration | `source_connection_id` + `source_external_id` + sync metadata |
 
 Pages and playbooks support rich editing in the UI. Files go through a processing pipeline (upload, extract text, embed). Sources sync from external integrations and track their sync status.
+
+Playbooks can also be created autonomously by agents during work via `hq_playbook_upsert.py`. When an agent discovers a reusable method, it codifies the procedure as an agent-scoped playbook. These appear on the agent detail page with edit reasons and recency indicators.
 
 ## Scope and agent access
 
@@ -4530,6 +4567,10 @@ Every agent template ships with HQ skills that interact with the knowledge syste
 |---|---|
 | `hq_session_bootstrap.py` | Fetches workspace-pinned + agent-specific items at session start |
 | `hq_boot_docs.py` | Loads boot context using scope + junction queries |
+| `hq_playbook_upsert.py` | Creates or updates agent-scoped playbooks with auto-embedding and junction linking |
+| `hq_create_doc.py` | Creates a new knowledge item (page or playbook) |
+| `hq_update_doc.py` | Updates an existing knowledge item |
+| `hq_search_docs.py` | Semantic + full-text search across all knowledge items |
 | `hq_get_knowledge_chunks.py` | Retrieves chunks for a specific knowledge item by ID |
 | `hq_claim_task.py` | Claims a task and resolves all entity links (knowledge items, contacts, orgs, collection records) |
 | `hq_inbox_process.py` | Processes inbox items and resolves linked entities |
@@ -5137,13 +5178,15 @@ Task assignment and comment mention triggers enqueue `agent_inbox_items` for aff
 
 - `knowledge_items` — unified knowledge store for pages, playbooks, files, and sources. Supports scope (`workspace` or `agent`), pinning, folders, tags, embeddings, and full-text search.
 - `knowledge_folders` — folder hierarchy for organizing knowledge items.
-- `knowledge_item_agents` — junction table linking agent-scoped items to specific agents.
+- `knowledge_item_agents` — junction table linking agent-scoped items to specific agents. Also used to track agent-created playbooks.
 - `knowledge_chunks` — chunked content with per-chunk embeddings for granular retrieval. References `knowledge_item_id`.
 
 Boot context is controlled by scope and pinning:
 
 - A **workspace-scoped, pinned** item is included in every agent's startup context.
 - An **agent-scoped** item assigned to specific agents via `knowledge_item_agents` is included only for those agents.
+
+Agents can autonomously create playbooks (`kind = 'playbook'`, `scope = 'agent'`) via `hq_playbook_upsert.py`. The script inserts into `knowledge_items`, links via `knowledge_item_agents`, and logs an audit entry with `actor_type = 'agent'`. The `audit_log.summary` field carries the agent's one-line reason, which is surfaced on the agent detail page.
 
 Important RPCs:
 
@@ -5318,8 +5361,20 @@ Templates are role-specific starting points for agents. They live in [`templates
 | `USER.md` | Owner profile placeholders (filled at provision time) |
 | `MEMORY.md` | Starting long-term context |
 | `TOOLS.md` | Tool-use guidance |
+| `HEARTBEAT.md` | Memory maintenance guidance (scheduled work now handled by Routines) |
 | `AGENTS.md` | Agent-specific instructions |
 | `skills/` | Reusable procedures and scripts |
+
+Key scripts in `skills/hq/scripts/`:
+
+| Script | Purpose |
+|---|---|
+| `hq_playbook_upsert.py` | Create or update agent-scoped playbooks with auto-embedding and junction linking |
+| `hq_search_docs.py` | Semantic + full-text search across knowledge items |
+| `hq_create_doc.py` | Create a new knowledge item (page or playbook) |
+| `hq_update_doc.py` | Update an existing knowledge item |
+| `hq_inbox_process.py` | Process background inbox items |
+| `hq_claim_task.py` | Claim and start working on a task |
 
 ## How provisioning works
 

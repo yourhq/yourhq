@@ -10,7 +10,6 @@ import { StepIntent } from "./step-intent";
 import { StepInfrastructure, type InfraStatus } from "./step-infrastructure";
 import { StepProvider } from "./step-provider";
 import { StepAgent, type AgentRecommendation } from "./step-agent";
-import { findPreset } from "@/lib/setup/templates";
 import { FIRST_TASK_SUGGESTIONS } from "@/lib/onboarding/first-task-suggestions";
 import { completeItem } from "@/lib/onboarding/progress";
 import {

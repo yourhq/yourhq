@@ -8,7 +8,6 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from hq_base import (
     AGENT_SLUG,
-    api_get,
     api_patch,
     api_post,
     audit,

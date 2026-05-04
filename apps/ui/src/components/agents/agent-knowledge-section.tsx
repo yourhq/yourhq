@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BookOpen, Plus } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -40,55 +40,62 @@ export function AgentKnowledgeSection({ agentId, agentSlug }: Props) {
   const [recentEdits, setRecentEdits] = useState<Map<string, AuditEntry>>(new Map());
   const [loading, setLoading] = useState(true);
 
-  const fetchPlaybooks = useCallback(async () => {
-    const { data: junctions } = await supabase
-      .from("knowledge_item_agents")
-      .select("knowledge_item_id")
-      .eq("agent_id", agentId);
-
-    if (!junctions?.length) {
-      setItems([]);
-      setLoading(false);
-      return;
-    }
-
-    const itemIds = junctions.map((j: { knowledge_item_id: string }) => j.knowledge_item_id);
-    const { data } = await supabase
-      .from("knowledge_items")
-      .select("id, title, kind, scope, updated_at, created_at")
-      .in("id", itemIds)
-      .eq("kind", "playbook")
-      .is("archived_at", null)
-      .order("updated_at", { ascending: false });
-
-    setItems((data ?? []) as PlaybookItem[]);
-
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - RECENCY_DAYS);
-
-    const { data: audits } = await supabase
-      .from("audit_log")
-      .select("entity_id, actor_type, actor_agent_id, action, summary, created_at")
-      .eq("entity_type", "knowledge_item")
-      .in("entity_id", itemIds)
-      .eq("actor_type", "agent")
-      .eq("actor_agent_id", agentId)
-      .gte("created_at", cutoff.toISOString())
-      .order("created_at", { ascending: false });
-
-    const editMap = new Map<string, AuditEntry>();
-    for (const a of (audits ?? []) as AuditEntry[]) {
-      if (!editMap.has(a.entity_id)) {
-        editMap.set(a.entity_id, a);
-      }
-    }
-    setRecentEdits(editMap);
-    setLoading(false);
-  }, [supabase, agentId]);
-
   useEffect(() => {
+    let cancelled = false;
+
+    async function fetchPlaybooks() {
+      const { data: junctions } = await supabase
+        .from("knowledge_item_agents")
+        .select("knowledge_item_id")
+        .eq("agent_id", agentId);
+
+      if (cancelled) return;
+
+      if (!junctions?.length) {
+        setItems([]);
+        setLoading(false);
+        return;
+      }
+
+      const itemIds = junctions.map((j: { knowledge_item_id: string }) => j.knowledge_item_id);
+      const { data } = await supabase
+        .from("knowledge_items")
+        .select("id, title, kind, scope, updated_at, created_at")
+        .in("id", itemIds)
+        .eq("kind", "playbook")
+        .is("archived_at", null)
+        .order("updated_at", { ascending: false });
+
+      if (cancelled) return;
+      setItems((data ?? []) as PlaybookItem[]);
+
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - RECENCY_DAYS);
+
+      const { data: audits } = await supabase
+        .from("audit_log")
+        .select("entity_id, actor_type, actor_agent_id, action, summary, created_at")
+        .eq("entity_type", "knowledge_item")
+        .in("entity_id", itemIds)
+        .eq("actor_type", "agent")
+        .eq("actor_agent_id", agentId)
+        .gte("created_at", cutoff.toISOString())
+        .order("created_at", { ascending: false });
+
+      if (cancelled) return;
+      const editMap = new Map<string, AuditEntry>();
+      for (const a of (audits ?? []) as AuditEntry[]) {
+        if (!editMap.has(a.entity_id)) {
+          editMap.set(a.entity_id, a);
+        }
+      }
+      setRecentEdits(editMap);
+      setLoading(false);
+    }
+
     fetchPlaybooks();
-  }, [fetchPlaybooks]);
+    return () => { cancelled = true; };
+  }, [supabase, agentId]);
 
   const cutoffDate = useMemo(() => {
     const d = new Date();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 
 export type WizardStep =
   | "welcome"
@@ -65,6 +65,24 @@ export function clearWizardSession() {
   sessionStorage.removeItem(SESSION_KEY);
 }
 
+function getInitialStep(
+  steps: WizardStep[],
+  initialStep: WizardStep | undefined,
+  session: WizardSession | null,
+): WizardStep {
+  if (initialStep) return initialStep;
+  if (session?.step && steps.includes(session.step)) return session.step;
+  return steps[0];
+}
+
+function getInitialData(
+  initialData: WizardData | undefined,
+  session: WizardSession | null,
+): WizardData {
+  if (initialData) return initialData;
+  return session?.data ?? {};
+}
+
 export function useWizardState(opts: {
   isHosted: boolean;
   initialStep?: WizardStep;
@@ -72,16 +90,11 @@ export function useWizardState(opts: {
 }) {
   const steps = opts.isHosted ? HOSTED_STEPS : OSS_STEPS;
 
-  const session = useRef(loadSession());
-  const restoredStep = session.current?.step && steps.includes(session.current.step)
-    ? session.current.step
-    : null;
-
-  const [step, setStep] = useState<WizardStep>(
-    opts.initialStep ?? restoredStep ?? steps[0],
+  const [step, setStep] = useState<WizardStep>(() =>
+    getInitialStep(steps, opts.initialStep, loadSession()),
   );
-  const [data, setData] = useState<WizardData>(
-    opts.initialData ?? session.current?.data ?? {},
+  const [data, setData] = useState<WizardData>(() =>
+    getInitialData(opts.initialData, loadSession()),
   );
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);

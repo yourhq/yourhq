@@ -8,7 +8,6 @@ import {
   AlertCircle,
   ArrowRight,
   ArrowLeft,
-  Check,
 } from "lucide-react";
 import { CONTEXT_PRESETS } from "@/lib/setup/templates";
 import { IntentCards } from "@/components/onboarding/wizard/intent-cards";

@@ -1,10 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import {
-  patchOnboardingState,
-  getActiveProjectWithSecrets,
-} from "@/lib/projects/registry";
+import { patchOnboardingState } from "@/lib/projects/registry";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateSupabaseCreds } from "@/lib/projects/validate";
 import {
@@ -20,6 +17,7 @@ import {
   createAgentWithBranch,
   enqueueAgentCommand,
 } from "@/app/dashboard/agents/actions";
+import type { CommandAction } from "@/lib/agents/types";
 
 // ─── Welcome ──────────────────────────────────────────────────────────────
 
@@ -152,7 +150,7 @@ export async function connectProvider(
   // Fire the auth_set_api_key command on the gateway
   try {
     const r = await enqueueAgentCommand({
-      action: "auth_set_api_key" as any,
+      action: "auth_set_api_key" as CommandAction,
       payload: { provider, api_key: apiKey },
     });
     await patchOnboardingState({

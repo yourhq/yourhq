@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -33,9 +33,10 @@ export function StepWelcome({ initialName, onSubmit, pending }: StepWelcomeProps
   const autoWorkspace = firstName ? `${firstName}'s HQ` : "";
   const displayedWorkspace = workspaceName || autoWorkspace;
 
-  useEffect(() => {
+  const handleNameChange = (value: string) => {
+    setName(value);
     if (!editing) setWorkspaceName("");
-  }, [name, editing]);
+  };
 
   const valid = name.trim().length > 0;
 
@@ -62,7 +63,7 @@ export function StepWelcome({ initialName, onSubmit, pending }: StepWelcomeProps
             id="owner-name"
             type="text"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => handleNameChange(e.target.value)}
             placeholder="Your name"
             autoFocus
             className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 text-[14px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"

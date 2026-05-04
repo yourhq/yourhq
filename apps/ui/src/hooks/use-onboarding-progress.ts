@@ -100,12 +100,11 @@ export function useOnboardingProgress() {
   const markComplete = useCallback(
     (key: keyof OnboardingProgress["tier1"] | keyof OnboardingProgress["tier2"]) => {
       setProgress((prev) => {
-        let next = { ...prev };
-        if (key in prev.tier1) {
-          next.tier1 = { ...prev.tier1, [key]: true };
-        } else if (key in prev.tier2) {
-          next.tier2 = { ...prev.tier2, [key]: true };
-        }
+        const next = {
+          ...prev,
+          tier1: key in prev.tier1 ? { ...prev.tier1, [key]: true } : prev.tier1,
+          tier2: key in prev.tier2 ? { ...prev.tier2, [key]: true } : prev.tier2,
+        };
         saveProgress(next);
         return next;
       });

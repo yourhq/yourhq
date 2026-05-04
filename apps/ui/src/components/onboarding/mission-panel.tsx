@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Check, ChevronDown, ChevronUp, X, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useOnboardingProgress } from "@/hooks/use-onboarding-progress";
-import { tier1Count, tier2Count, isTier1Complete } from "@/lib/onboarding/progress";
+import { tier1Count, tier2Count } from "@/lib/onboarding/progress";
 
 interface MissionItem {
   key: string;

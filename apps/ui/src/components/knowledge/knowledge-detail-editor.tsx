@@ -454,7 +454,7 @@ function KnowledgeHistoryPanel({
           .map((e: { actor_agent_id: string | null }) => e.actor_agent_id!)
       )];
 
-      let agentMap = new Map<string, { name: string; emoji?: string }>();
+      const agentMap = new Map<string, { name: string; emoji?: string }>();
       if (agentIds.length > 0) {
         const { data: agents } = await supabase
           .from("agents")

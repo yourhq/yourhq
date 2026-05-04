@@ -5,12 +5,6 @@ interface ValidateProviderRequest {
   apiKey?: string;
 }
 
-interface ValidateProviderResponse {
-  valid: boolean;
-  error?: string;
-  models?: string[];
-}
-
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as ValidateProviderRequest;
   const { provider, apiKey } = body;
