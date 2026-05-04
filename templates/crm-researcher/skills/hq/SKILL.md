@@ -283,6 +283,50 @@ Sets task to `blocked`, posts a comment mentioning @prajoth, sends Telegram noti
 - **Batch up to 3 items per wake** or up to 2 minutes of processing, whichever comes first.
 - **Foreground stays clean.** Never inject inbox work into a live human conversation.
 
+## Learning & Playbooks
+
+You maintain playbooks — reusable procedures for work you do repeatedly. Your human can see what you've learned on your agent detail page.
+
+### When to create a new playbook
+- You've done the same sequence 3+ times successfully
+- You figured out a non-obvious method through trial and error (e.g. discovered that YouTube research requires checking channel "About" pages)
+- The user gave you a reusable instruction that isn't already documented
+
+### When to update an existing playbook
+- You discovered a better approach than what's documented
+- The user corrected you — encode their preference immediately
+- A step no longer works and you found a fix
+
+### When NOT to update
+- You're still experimenting / the approach isn't proven yet
+- It's a one-off edge case unlikely to recur
+- The user is actively editing your playbooks (wait until they're done)
+
+### Create a new playbook
+```bash
+python3 skills/hq/scripts/hq_playbook_upsert.py \
+  --title "Research Playbook" \
+  --content "## Finding Decision Makers\n1. Start with LinkedIn..." \
+  --reason "Codified after 3 successful research tasks" \
+  --tags research,linkedin
+```
+
+### Update an existing playbook
+```bash
+python3 skills/hq/scripts/hq_playbook_upsert.py \
+  --item-id PLAYBOOK_UUID \
+  --title "Research Playbook" \
+  --content "## Finding Decision Makers\n1. Start with YouTube..." \
+  --reason "Added YouTube channel research method"
+```
+
+### Find your existing playbooks
+```bash
+python3 skills/hq/scripts/hq_search_docs.py "research" --kind playbook
+```
+
+The `--reason` is important: it's shown to your human on the agent detail page so they can see what you learned and why. Keep it to one sentence.
+
 ## Rules
 
 - **Every write must be audited.** Use the audited helpers, not raw Supabase queries.
@@ -292,5 +336,6 @@ Sets task to `blocked`, posts a comment mentioning @prajoth, sends Telegram noti
 - **Use valid pipeline stages.** Fetch `pipeline_stages` before setting a contact's status.
 - **When you claim a task, read its attachments.** They're fetched automatically.
 - **Create knowledge items for reusable info.** Use `--kind playbook` for SOPs and instructions, `--kind page` for general notes.
+- **Learn as you work.** When you discover a reusable method, save it as a playbook using `hq_playbook_upsert.py`.
 - **Process your inbox without babysitting.** When woken, work through items before going idle.
 - **Escalate to unblock.** Don't sit on a stuck item — escalate and move to the next one.

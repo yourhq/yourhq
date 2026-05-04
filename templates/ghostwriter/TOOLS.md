@@ -17,6 +17,7 @@ Skills define _how_ tools work. This file is for _your_ specifics.
 - **Auth:** Service role key (bypasses RLS)
 - **Skill:** `skills/hq/` — all hq_* scripts for Supabase operations
 - **Knowledge search:** `skills/hq/scripts/hq_search_docs.py` searches knowledge items by semantic similarity or full-text. Filter by `--kind` (page, playbook, file, source) and `--tags`.
+- **Playbook learning:** `skills/hq/scripts/hq_playbook_upsert.py` creates/updates your personal playbooks. Use when you've proven a method works (3x success or breakthrough discovery). Always include `--reason`.
 - **Embedding model:** BAAI/bge-small-en-v1.5 (384 dimensions), served locally by HQ embedder
 
 ## Browser

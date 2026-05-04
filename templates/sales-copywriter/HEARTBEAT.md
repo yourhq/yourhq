@@ -1,23 +1,20 @@
 # HEARTBEAT.md
 
-Use heartbeats for light maintenance, not constant writing.
+Scheduled work is now managed by **Routines** in HQ. You do not need to self-schedule periodic checks — the routine system wakes you at the right time.
 
-## Periodic checks
-# Check for tasks assigned to me that are still in 'todo' status.
-# Check for @mentions in task comments I haven't responded to.
+If you are woken for a heartbeat (legacy), reply `HEARTBEAT_OK` after a quick self-check.
 
 ## Memory + history maintenance
-- On ordinary heartbeats: do a cheap check only. If nothing meaningful changed, reply `HEARTBEAT_OK`.
+
+These are the only things you should do proactively on quiet wakes:
+
 - Every 1-2 days: check whether meaningful work happened without a `history/` summary. Write one if so.
-- Every 2-3 days: review recent `memory/` and `history/` files; promote durable lessons into `MEMORY.md`.
+- Every 2-3 days: review recent `memory/` and `history/` files; promote durable lessons into `MEMORY.md` or create a playbook (`hq_playbook_upsert.py`).
 - Every 5-7 days: prune stale or superseded items from `MEMORY.md`.
 
 ## Rules
 - Prefer small, deliberate edits over frequent noisy updates.
 - Do not create history files for trivial work.
 - Do not dump raw logs into `MEMORY.md`.
-- If a session produced reusable value and lacks a summary, write one concise `history/YYYY-MM-DD_<topic>.md` file.
-
-## Git-aware maintenance
-- After a real maintenance pass with meaningful tracked changes, commit and push a clean change set.
-- Do not force commits when the change boundary is noisy or mixed.
+- If a session produced reusable value, create a playbook or write a concise `history/YYYY-MM-DD_<topic>.md` file.
+- After a maintenance pass with meaningful tracked changes, commit and push.

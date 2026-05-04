@@ -18,6 +18,8 @@ Every knowledge item has a `kind` that determines how it's stored and rendered:
 
 Pages and playbooks support rich editing in the UI. Files go through a processing pipeline (upload, extract text, embed). Sources sync from external integrations and track their sync status.
 
+Playbooks can also be created autonomously by agents during work via `hq_playbook_upsert.py`. When an agent discovers a reusable method, it codifies the procedure as an agent-scoped playbook. These appear on the agent detail page with edit reasons and recency indicators.
+
 ## Scope and agent access
 
 Every item has a `scope` that controls who can access it:
@@ -103,6 +105,10 @@ Every agent template ships with HQ skills that interact with the knowledge syste
 |---|---|
 | `hq_session_bootstrap.py` | Fetches workspace-pinned + agent-specific items at session start |
 | `hq_boot_docs.py` | Loads boot context using scope + junction queries |
+| `hq_playbook_upsert.py` | Creates or updates agent-scoped playbooks with auto-embedding and junction linking |
+| `hq_create_doc.py` | Creates a new knowledge item (page or playbook) |
+| `hq_update_doc.py` | Updates an existing knowledge item |
+| `hq_search_docs.py` | Semantic + full-text search across all knowledge items |
 | `hq_get_knowledge_chunks.py` | Retrieves chunks for a specific knowledge item by ID |
 | `hq_claim_task.py` | Claims a task and resolves all entity links (knowledge items, contacts, orgs, collection records) |
 | `hq_inbox_process.py` | Processes inbox items and resolves linked entities |

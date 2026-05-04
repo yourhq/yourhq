@@ -102,6 +102,27 @@ To update: edit the item directly — changes take effect on the next session.
 
 ---
 
+## Agent-created playbooks
+
+Agents don't just consume knowledge — they create it. When an agent discovers a reusable method during work, it can autonomously create a **playbook** scoped to itself. This happens via the `hq_playbook_upsert.py` skill.
+
+**When agents create playbooks:**
+
+- After performing the same sequence 3+ times successfully
+- After a breakthrough discovery (figuring out a non-obvious method through trial and error)
+- When the user gives a reusable instruction that isn't already documented
+
+**What you see:**
+
+- The agent detail page shows a **Playbooks** section with the agent's self-created procedures
+- A blue dot indicates recent edits (within 7 days), with the one-line reason displayed below
+- The knowledge editor's **History** panel shows who made each edit (agent name + emoji vs "You")
+- The dashboard fleet card shows how many playbooks were updated this week
+
+**No approval gate.** Agents write directly. You observe via the audit trail and can edit, refine, or delete playbooks at any time through the standard knowledge editor. If you correct a playbook, the agent will respect your edits on subsequent sessions.
+
+---
+
 ## Entity links
 
 Knowledge items can be linked to tasks, routines, collection records, and agents using **entity links**. Links are bidirectional references — they show up on both the owner and the target.

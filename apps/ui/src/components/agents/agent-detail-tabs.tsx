@@ -51,6 +51,7 @@ import { getGatewayDesktopUrlAction } from "@/app/dashboard/settings/gateways/ac
 import { AgentModelSection } from "@/components/agents/agent-model-section";
 import { AgentUsageRail } from "./agent-usage-rail";
 import { AgentUsageTab } from "./agent-usage-tab";
+import { AgentKnowledgeSection } from "./agent-knowledge-section";
 import { updateAgent, toggleAgentPauseAction } from "@/app/dashboard/agents/actions";
 
 const agentStatusDotHex: Record<string, string> = {
@@ -195,6 +196,7 @@ export function AgentDetailTabs({
                   </p>
                 )}
                 <DirectReportsSection agent={agent} allAgents={allAgents} />
+                <AgentKnowledgeSection agentId={agent.id} agentSlug={agent.slug} />
                 <ContextKnowledgeSection agent={agent} contextKnowledge={contextKnowledge} />
                 <div className="border-t border-border/50 pt-6">
                   <RoutinesSection agent={agent} onAgentUpdated={onAgentUpdated} />
