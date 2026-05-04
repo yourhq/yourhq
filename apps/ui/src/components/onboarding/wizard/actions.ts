@@ -21,9 +21,9 @@ import {
   enqueueAgentCommand,
 } from "@/app/dashboard/agents/actions";
 
-// ─── Welcome v2 ────────────────────────────────────────────────────────────
+// ─── Welcome ──────────────────────────────────────────────────────────────
 
-export async function saveWelcomeV2(input: {
+export async function saveWelcomeStep(input: {
   ownerName: string;
   preferredName: string;
   workspaceName: string;
@@ -46,13 +46,13 @@ export async function saveWelcomeV2(input: {
   return { ok: true };
 }
 
-// ─── Intent v2 ─────────────────────────────────────────────────────────────
+// ─── Intent ───────────────────────────────────────────────────────────────
 
-export async function saveIntentV2(intentKey: string): Promise<ActionResult> {
+export async function saveIntentStep(intentKey: string): Promise<ActionResult> {
   return saveContext({ presetKey: intentKey });
 }
 
-// ─── Infrastructure v2 (OSS) ───────────────────────────────────────────────
+// ─── Infrastructure (OSS) ─────────────────────────────────────────────────
 
 const dbSchema = z.object({
   url: z.string().url(),
@@ -84,7 +84,7 @@ export async function validateAndConnectDb(input: {
   return { ok: true };
 }
 
-export async function setupGatewayV2(
+export async function setupGateway(
   placement: "local" | "remote",
 ): Promise<ActionResult> {
   await saveGatewaySetup({ placement });
@@ -105,9 +105,9 @@ export async function advanceInfrastructure(): Promise<ActionResult> {
   return advanceAfterGateway();
 }
 
-// ─── Provider v2 ───────────────────────────────────────────────────────────
+// ─── Provider ─────────────────────────────────────────────────────────────
 
-export async function connectProviderV2(
+export async function connectProvider(
   provider: string,
   apiKey: string,
 ): Promise<ActionResult> {
@@ -168,9 +168,9 @@ export async function connectProviderV2(
   return { ok: true };
 }
 
-// ─── Agent v2 ──────────────────────────────────────────────────────────────
+// ─── Agent ────────────────────────────────────────────────────────────────
 
-export async function createFirstAgentV2(input: {
+export async function createFirstAgent(input: {
   name: string;
   emoji: string;
   templateBranch: string;
@@ -218,9 +218,9 @@ export async function createFirstAgentV2(input: {
   }
 }
 
-// ─── Provision polling ─────────────────────────────────────────────────────
+// ─── Provision polling ────────────────────────────────────────────────────
 
-export async function pollAgentProvisionStatusV2(
+export async function pollAgentProvisionStatus(
   commandId: string,
 ): Promise<"pending" | "completed" | "error"> {
   const supabase = await createAdminClient();

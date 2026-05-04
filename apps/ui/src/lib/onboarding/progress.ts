@@ -45,7 +45,15 @@ export function loadProgress(): OnboardingProgress {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_PROGRESS;
-    return { ...DEFAULT_PROGRESS, ...JSON.parse(raw) };
+    const stored = JSON.parse(raw);
+    return {
+      ...DEFAULT_PROGRESS,
+      ...stored,
+      tier1: { ...DEFAULT_PROGRESS.tier1, ...stored.tier1 },
+      tier2: { ...DEFAULT_PROGRESS.tier2, ...stored.tier2 },
+      pagesVisited: stored.pagesVisited ?? [],
+      microTipsSeen: stored.microTipsSeen ?? [],
+    };
   } catch {
     return DEFAULT_PROGRESS;
   }

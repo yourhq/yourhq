@@ -23,7 +23,7 @@ export function StepIntent({
   const firstName = ownerName.split(" ")[0] || "there";
 
   return (
-    <div className="space-y-10 pt-8">
+    <div className="space-y-8">
       <div className="space-y-3">
         <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70">
           Your work

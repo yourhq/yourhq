@@ -24,6 +24,7 @@ const PAGE_KEY_MAP: Record<string, string> = {
 
 export function useOnboardingProgress() {
   const [progress, setProgress] = useState<OnboardingProgress>(loadProgress);
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const pathnameRef = useRef(pathname);
   pathnameRef.current = pathname;
@@ -35,36 +36,50 @@ export function useOnboardingProgress() {
   useEffect(() => {
     const current = loadProgress();
     setProgress(current);
+    setMounted(true);
 
-    // Detect existing users who bypassed the v2 wizard (e.g. already onboarded)
+    let cancelled = false;
+
+    // Detect existing users who bypassed the onboarding wizard
     if (!current.wizardCompleted && supabase && pathname.startsWith("/dashboard")) {
       (async () => {
-        const { count: agentCount } = await supabase.from("agents").select("id", { count: "exact", head: true });
-        if (agentCount && agentCount > 0) {
-          const updated: OnboardingProgress = {
-            ...current,
-            wizardCompleted: true,
-            tier1: { ...current.tier1, agentCreated: true, dashboardExplored: true },
-          };
-          if (agentCount > 1) updated.tier2 = { ...updated.tier2, secondAgentCreated: true };
-          const { count: taskCount } = await supabase.from("tasks").select("id", { count: "exact", head: true }).not("assignee_agent_id", "is", null);
-          if (taskCount && taskCount > 0) updated.tier1.taskAssigned = true;
-          const { count: knowledgeCount } = await supabase.from("knowledge_items").select("id", { count: "exact", head: true });
-          if (knowledgeCount && knowledgeCount > 0) updated.tier1.knowledgeCreated = true;
-          saveProgress(updated);
-          setProgress(updated);
+        try {
+          const { count: agentCount } = await supabase.from("agents").select("id", { count: "exact", head: true });
+          if (cancelled) return;
+          if (agentCount && agentCount > 0) {
+            const updated: OnboardingProgress = {
+              ...current,
+              wizardCompleted: true,
+              tier1: { ...current.tier1, agentCreated: true, dashboardExplored: true },
+            };
+            if (agentCount > 1) updated.tier2 = { ...updated.tier2, secondAgentCreated: true };
+            const { count: taskCount } = await supabase.from("tasks").select("id", { count: "exact", head: true }).not("assignee_agent_id", "is", null);
+            if (!cancelled && taskCount && taskCount > 0) updated.tier1.taskAssigned = true;
+            const { count: knowledgeCount } = await supabase.from("knowledge_items").select("id", { count: "exact", head: true });
+            if (!cancelled && knowledgeCount && knowledgeCount > 0) updated.tier1.knowledgeCreated = true;
+            if (!cancelled) {
+              saveProgress(updated);
+              setProgress(updated);
+            }
+          }
+        } catch {
+          // Non-fatal — progress just won't pre-populate
         }
       })();
     }
 
     const sync = () => setProgress(loadProgress());
     window.addEventListener("hq:onboarding-progress", sync);
-    return () => window.removeEventListener("hq:onboarding-progress", sync);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("hq:onboarding-progress", sync);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- only on mount
   }, []);
 
   // Auto-track page visits
   useEffect(() => {
+    if (!mounted) return;
     const pageKey = PAGE_KEY_MAP[pathname];
     if (!pageKey) return;
 
@@ -74,14 +89,13 @@ export function useOnboardingProgress() {
         ...prev,
         pagesVisited: [...prev.pagesVisited, pageKey],
       };
-      // dashboardExplored: visited 3+ distinct pages
       if (next.pagesVisited.length >= 3 && !next.tier1.dashboardExplored) {
         next.tier1 = { ...next.tier1, dashboardExplored: true };
       }
       saveProgress(next);
       return next;
     });
-  }, [pathname]);
+  }, [pathname, mounted]);
 
   const markComplete = useCallback(
     (key: keyof OnboardingProgress["tier1"] | keyof OnboardingProgress["tier2"]) => {
@@ -138,6 +152,7 @@ export function useOnboardingProgress() {
 
   return {
     progress,
+    mounted,
     markComplete,
     markTipSeen,
     markPageVisited,
@@ -146,6 +161,6 @@ export function useOnboardingProgress() {
     isTier1Done: isTier1Complete(progress),
     isTier2Done: isTier2Complete(progress),
     isDismissed: !!progress.dismissedAt,
-    showPanel: progress.wizardCompleted && !progress.dismissedAt && !(isTier1Complete(progress) && isTier2Complete(progress)),
+    showPanel: mounted && progress.wizardCompleted && !progress.dismissedAt && !(isTier1Complete(progress) && isTier2Complete(progress)),
   };
 }

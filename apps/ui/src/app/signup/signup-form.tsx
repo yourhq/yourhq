@@ -11,7 +11,7 @@ import {
   Check,
 } from "lucide-react";
 import { CONTEXT_PRESETS } from "@/lib/setup/templates";
-import { IntentCards } from "@/components/onboarding/v2/intent-cards";
+import { IntentCards } from "@/components/onboarding/wizard/intent-cards";
 import { cn } from "@/lib/utils";
 import { createCheckoutAction } from "./actions";
 

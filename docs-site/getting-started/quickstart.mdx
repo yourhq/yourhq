@@ -19,7 +19,7 @@ You need three things. All are free to start.
     Free at [supabase.com](https://supabase.com). This is where your workspace data lives — on your own account.
   </Card>
   <Card title="Model API key" icon="plug">
-    Any provider works. OpenAI and Anthropic are the most common. You'll add this after HQ is running.
+    Any provider works. OpenAI and Anthropic are the most common. You'll add this during the onboarding wizard.
   </Card>
 </CardGroup>
 
@@ -92,98 +92,41 @@ It pulls Docker images (~1.5 GB on first run — this takes a few minutes), star
 
 ---
 
-## Step 3 — Connect Supabase
+## Step 3 — Complete the onboarding wizard
 
-Your browser will open to `http://localhost:3000`. You'll see the **Connect Supabase** screen.
-
-Paste the three values you copied in Step 1:
-- Project URL
-- Anon public key
-- Service role key
-
-Click **Connect**. HQ validates your connection and runs a quick schema check. If it passes, you'll be taken to the login page.
-
-<Info>
-  If you see a "table does not exist" error, you missed some migration files. Go back to the SQL Editor and run any files you skipped.
-</Info>
-
-Sign in with the email and password you created in Step 1.
-
----
-
-## Step 4 — Finish the workspace wizard
-
-After signing in you'll see the **Workspace Setup** wizard. This takes about 2 minutes.
-
-- **Workspace name** — what to call your workspace (e.g. your name or company)
-- **Preset** — choose a starting template. "Personal ops" is a good default if you're unsure. You can change everything later.
-- **Owner profile** — your name, preferred name, and timezone. Agents use this to address you correctly.
-- **Pipeline stages, fields, streams** — leave these at the defaults for now.
-
-Click **Complete Setup**.
-
----
-
-## Step 5 — Connect a model provider
-
-Go to **Settings → Connections**.
-
-<Tabs>
-  <Tab title="OpenAI (recommended for first try)">
-    1. Go to [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
-    2. Create a new key
-    3. Back in HQ: click **Add connection → OpenAI → API key**
-    4. Paste your key and click **Connect**
-
-    Cost: ~$0.01–0.10 per agent conversation depending on the model.
-  </Tab>
-  <Tab title="Anthropic">
-    1. Go to [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
-    2. Create a new key
-    3. Back in HQ: click **Add connection → Anthropic → API key**
-    4. Paste your key and click **Connect**
-  </Tab>
-  <Tab title="Ollama (free, local)">
-    1. Install Ollama from [ollama.com](https://ollama.com) and pull a model: `ollama pull llama3.2`
-    2. In HQ: click **Add connection → Ollama → Local URL**
-    3. Enter `http://host.docker.internal:11434` (this is how Docker reaches your machine)
-    4. Click **Connect**
-
-    This runs entirely on your machine — no API costs.
-  </Tab>
-</Tabs>
-
----
-
-## Step 6 — Create your first agent
-
-Go to **Agents → New Agent**.
+Your browser opens to `http://localhost:3000`. Sign in with the email and password you created in Step 1, then the **onboarding wizard** walks you through everything in one flow:
 
 <Steps>
-  <Step title="Pick a template">
-    Choose a role. If you're not sure, **Assistant** is a good general-purpose starting point. Each template comes pre-loaded with skills and a personality.
+  <Step title="Welcome">
+    Enter your name and confirm your workspace name (auto-generated, editable).
   </Step>
-  <Step title="Set identity">
-    Give your agent a name. The slug (URL-friendly ID) is auto-generated. You can also set an emoji and description.
+  <Step title="Intent">
+    Pick what you'll use HQ for — outreach, deals, hiring, publishing, ops, or exploring. This seeds a recommended agent template and workspace context.
   </Step>
-  <Step title="Choose a channel">
-    This is how you'll talk to your agent:
-    - **Telegram** — easiest to set up. Create a bot at [@BotFather](https://t.me/botfather) and paste the token.
-    - **None** — skip for now and interact through tasks and routines instead.
+  <Step title="Infrastructure">
+    Paste the three Supabase values you copied in Step 1 (Project URL, anon key, service role key). Then choose where to run your gateway — "This machine" (Docker, already running) or "Remote server" (copy a one-liner to another host).
+
+    HQ validates the database connection and waits for the gateway to come online.
   </Step>
-  <Step title="Create">
-    Click **Create Agent**. HQ provisions the agent on your gateway — this takes about 60 seconds.
+  <Step title="Model provider">
+    Choose **Anthropic**, **OpenAI**, or **Ollama** and enter your API key. HQ validates it inline. For Ollama, it auto-detects the local instance — just make sure Ollama is running.
   </Step>
-  <Step title="Pair your channel (Telegram / Discord only)">
-    Send a DM to your bot. It replies with a 6-digit pairing code. Paste that code in the agent's detail page → **Pairing Code** field → click **Approve**. Your next message triggers the agent.
+  <Step title="First agent">
+    HQ recommends an agent based on your intent. Customize the name and emoji if you'd like, then create it. Optionally connect a messaging channel (Telegram, Discord, Slack) to talk to your agent via DM.
   </Step>
 </Steps>
+
+After creation, you land on the **Tasks** page with a suggested first task pre-filled.
+
+<Info>
+  If you see a "table does not exist" error during the infrastructure step, you missed some migration files. Go back to the SQL Editor and run any files you skipped.
+</Info>
 
 ---
 
 ## You're set up
 
-Your HQ is running. Here's what to explore next:
+Your HQ is running with a connected database, model provider, and first agent. Here's what to explore next:
 
 <CardGroup cols={2}>
   <Card title="Pick a model per agent" icon="sliders" href="/guides/connect-model-provider#per-agent-model-overrides">

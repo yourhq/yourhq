@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useWizardState, type WizardData } from "./use-wizard-state";
+import { useWizardState, clearWizardSession, type WizardData } from "./use-wizard-state";
 import { StepWelcome } from "./step-welcome";
 import { StepIntent } from "./step-intent";
 import { StepInfrastructure, type InfraStatus } from "./step-infrastructure";
@@ -14,13 +14,13 @@ import { findPreset } from "@/lib/setup/templates";
 import { FIRST_TASK_SUGGESTIONS } from "@/lib/onboarding/first-task-suggestions";
 import { completeItem } from "@/lib/onboarding/progress";
 import {
-  saveWelcomeV2,
-  saveIntentV2,
-  connectProviderV2,
-  createFirstAgentV2,
-  pollAgentProvisionStatusV2,
+  saveWelcomeStep,
+  saveIntentStep,
+  connectProvider,
+  createFirstAgent,
+  pollAgentProvisionStatus,
   validateAndConnectDb,
-  setupGatewayV2,
+  setupGateway,
   advanceInfrastructure,
 } from "./actions";
 
@@ -33,12 +33,12 @@ const INTENT_TO_TEMPLATE: Record<string, { branch: string; name: string; emoji: 
   explore: { branch: "template/assistant", name: "Assistant", emoji: "🐕", role: "General Assistant", description: "Routes work, tracks moving parts, and helps you stay organized." },
 };
 
-export interface OnboardingWizardV2Props {
+export interface OnboardingWizardProps {
   isHosted: boolean;
   initialData?: WizardData;
 }
 
-export function OnboardingWizardV2({ isHosted, initialData }: OnboardingWizardV2Props) {
+export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProps) {
   const router = useRouter();
   const {
     step,
@@ -80,7 +80,7 @@ export function OnboardingWizardV2({ isHosted, initialData }: OnboardingWizardV2
   const handleWelcome = useCallback(
     (vals: { ownerName: string; preferredName: string; workspaceName: string; workspaceSlug: string }) => {
       startTransition(async () => {
-        const r = await saveWelcomeV2(vals);
+        const r = await saveWelcomeStep(vals);
         if (!r.ok) return setError(r.error ?? "Something went wrong");
         patch(vals);
         advance();
@@ -93,7 +93,7 @@ export function OnboardingWizardV2({ isHosted, initialData }: OnboardingWizardV2
   const handleIntent = useCallback(
     (intentKey: string) => {
       startTransition(async () => {
-        const r = await saveIntentV2(intentKey);
+        const r = await saveIntentStep(intentKey);
         if (!r.ok) return setError(r.error ?? "Something went wrong");
         patch({ intentKey, contextPresetKey: intentKey });
         advance();
@@ -123,7 +123,7 @@ export function OnboardingWizardV2({ isHosted, initialData }: OnboardingWizardV2
     (placement: "local" | "remote") => {
       setInfraStatus((s) => ({ ...s, gateway: "starting" }));
       startTransition(async () => {
-        const r = await setupGatewayV2(placement);
+        const r = await setupGateway(placement);
         if (r.ok) {
           setInfraStatus((s) => ({ ...s, gateway: "polling" }));
           patch({ placement });
@@ -162,7 +162,7 @@ export function OnboardingWizardV2({ isHosted, initialData }: OnboardingWizardV2
       setValidating(true);
       setValidationError(null);
       startTransition(async () => {
-        const r = await connectProviderV2(provider, apiKey);
+        const r = await connectProvider(provider, apiKey);
         setValidating(false);
         if (r.ok) {
           setValidated(true);
@@ -176,11 +176,6 @@ export function OnboardingWizardV2({ isHosted, initialData }: OnboardingWizardV2
     },
     [startTransition, patch, advance],
   );
-
-  const handleProviderSkip = useCallback(() => {
-    patch({ providerId: "hosted-default" });
-    advance();
-  }, [patch, advance]);
 
   // ─── Agent ───
   const getRecommendation = (): AgentRecommendation => {
@@ -197,7 +192,7 @@ export function OnboardingWizardV2({ isHosted, initialData }: OnboardingWizardV2
 
   const handleCreateAgent = useCallback(
     async (agentData: { name: string; emoji: string; templateBranch: string }) => {
-      const r = await createFirstAgentV2(agentData);
+      const r = await createFirstAgent(agentData);
       if (!r.ok || !r.data) {
         setError(r.error ?? "Failed to create agent");
         return null;
@@ -210,7 +205,7 @@ export function OnboardingWizardV2({ isHosted, initialData }: OnboardingWizardV2
       // Start polling provision status
       if (provisionCommandId) {
         const interval = setInterval(async () => {
-          const status = await pollAgentProvisionStatusV2(provisionCommandId);
+          const status = await pollAgentProvisionStatus(provisionCommandId);
           if (status === "completed") {
             clearInterval(interval);
             setProvisionStatus("ready");
@@ -229,6 +224,8 @@ export function OnboardingWizardV2({ isHosted, initialData }: OnboardingWizardV2
   );
 
   const navigateToTasks = useCallback(() => {
+    clearWizardSession();
+
     const progress = localStorage.getItem("hq_onboarding_progress");
     const parsed = progress ? JSON.parse(progress) : {};
     parsed.wizardCompleted = true;
@@ -267,7 +264,8 @@ export function OnboardingWizardV2({ isHosted, initialData }: OnboardingWizardV2
             <button
               type="button"
               onClick={goBack}
-              className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+              aria-label="Go back"
+              className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
             >
               <ArrowLeft className="h-3 w-3" />
               <span className="hidden sm:inline">Back</span>
@@ -283,8 +281,16 @@ export function OnboardingWizardV2({ isHosted, initialData }: OnboardingWizardV2
       <main className="flex flex-1 items-start justify-center overflow-y-auto px-5 pb-24 lg:px-8">
         <div className="w-full max-w-xl pt-8">
           {error && (
-            <div className="mb-5 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">
-              {error}
+            <div className="mb-5 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-[12px] text-destructive animate-in fade-in duration-200">
+              <span className="flex-1">{error}</span>
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                className="shrink-0 p-0.5 rounded text-destructive/60 hover:text-destructive transition-colors"
+                aria-label="Dismiss error"
+              >
+                <X className="h-3 w-3" />
+              </button>
             </div>
           )}
 
@@ -321,9 +327,7 @@ export function OnboardingWizardV2({ isHosted, initialData }: OnboardingWizardV2
 
             {step === "provider" && (
               <StepProvider
-                isHosted={isHosted}
                 onSubmit={handleProvider}
-                onSkip={handleProviderSkip}
                 pending={pending}
                 validating={validating}
                 validated={validated}

@@ -1,9 +1,9 @@
 ---
 title: "Getting started with HQ"
-description: "Sign up, set up your workspace, and create your first agent — all from your browser."
+description: "Sign up, connect a model, and create your first agent — all from your browser in under 2 minutes."
 ---
 
-HQ hosted gives you the full platform without managing any infrastructure. You sign up, we provision a workspace, and you're ready to create agents in under two minutes.
+HQ hosted gives you the full platform without managing any infrastructure. You sign up, bring your own model API key, and create agents immediately.
 
 <Info>
   This guide is for the hosted version at [yourhq.ai](https://yourhq.ai). If you want to self-host HQ on your own machine, see the [self-host quickstart](/getting-started/quickstart) instead.
@@ -18,110 +18,50 @@ HQ hosted gives you the full platform without managing any infrastructure. You s
     Used for sign-in (magic link — no password to remember).
   </Card>
   <Card title="A model API key" icon="plug">
-    Any provider: OpenAI, Anthropic, Gemini, Ollama, and more. You'll add this after your workspace is ready.
+    Any provider: OpenAI, Anthropic, or Ollama. You'll connect this during the onboarding wizard.
   </Card>
 </CardGroup>
 
 ---
 
-## Step 1 — Sign up
+## Step 1 — Sign up and complete the wizard
+
+Go to [yourhq.ai](https://yourhq.ai) and click **Get started**. The onboarding wizard walks you through everything in one flow:
 
 <Steps>
-  <Step title="Go to yourhq.ai and click Get started">
-    You'll see a short onboarding flow — three screens.
+  <Step title="Welcome">
+    Enter your **name** (how agents address you) and confirm your **workspace name** (auto-generated from your first name, editable).
   </Step>
-  <Step title="Enter your details">
-    - **Your name** — how agents will address you
-    - **Workspace name** — whatever you'd like to call it (e.g. your company or project name)
-    - **Context** — pick the preset that best matches what you'll use HQ for. This seeds your pipeline stages, fields, and streams. You can change everything later.
+  <Step title="Intent">
+    Pick what you'll use HQ for: outreach, closing deals, hiring, publishing content, running operations, or just exploring. This seeds your workspace with a matching context preset and recommends your first agent template.
+  </Step>
+  <Step title="Model provider">
+    Choose **Anthropic**, **OpenAI**, or **Ollama** and enter your API key. HQ validates it inline before continuing. Your key is stored securely and never leaves your workspace infrastructure.
 
-    Presets: Growth, Sales, Recruiting, Clients, Personal, Other.
+    <Tip>
+      **Not sure which to start with?** Anthropic Claude or OpenAI GPT-4o are the most capable general-purpose choices. You can add more providers in Settings → Connections later.
+    </Tip>
   </Step>
-  <Step title="Confirm and pay">
-    Review your workspace details and proceed to checkout. HQ is **$30/month per workspace**, billed through Stripe.
+  <Step title="First agent">
+    HQ recommends an agent based on your intent (e.g. "Scout" for outreach, "Ghost" for publishing). Customize the name and emoji, then create it.
+
+    Optionally connect a messaging channel:
+    - **Telegram** — create a bot at [@BotFather](https://t.me/botfather) and paste the token
+    - **Discord** — create a bot in the [Developer Portal](https://discord.com/developers/applications) and paste the token
+    - **Slack** — paste App-Level Token and Bot Token from your [Slack app](https://api.slack.com/apps)
+    - **Skip** — interact through tasks, routines, and the remote desktop instead
   </Step>
 </Steps>
 
----
-
-## Step 2 — Watch your workspace come online
-
-After payment, you'll see a live provisioning screen. Each step checks off as it completes:
-
-1. **Creating database** — a dedicated Supabase project, just for you
-2. **Applying schema** — tables, functions, and security policies
-3. **Setting up your workspace** — your account, pipeline, and fields
-4. **Starting agent runtime** — a sandboxed environment where your agents run
-5. **Connecting gateway** — the runtime registers with your workspace
-
-This usually takes about a minute. When it's done, you'll see **"Your workspace is ready"** and a button to sign in.
+After agent creation, you land on the **Tasks** page with a suggested first task pre-filled based on your intent.
 
 ---
 
-## Step 3 — Sign in
+## Step 2 — Pair your channel (Telegram / Discord only)
 
-Check your email for a sign-in link. Click it — you'll land directly in your dashboard. No password needed; HQ uses magic links.
+If you connected Telegram or Discord, send a DM to your bot. It replies with a 6-digit pairing code. Paste that code in the agent's detail page → **Pairing Code** → click **Approve**. Your next message triggers the agent.
 
-<Tip>
-  The link expires after 1 hour. If it's gone, go to [yourhq.ai/login](https://yourhq.ai/login) and request a new one.
-</Tip>
-
----
-
-## Step 4 — Connect a model provider
-
-Go to **Settings → Connections** and add a provider. Your agents need a model to think with.
-
-<Tabs>
-  <Tab title="OpenAI (recommended for first try)">
-    1. Go to [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
-    2. Create a new key
-    3. Back in HQ: click **Add connection → OpenAI → API key**
-    4. Paste your key and click **Connect**
-
-    Cost: ~$0.01–0.10 per agent conversation depending on the model.
-  </Tab>
-  <Tab title="Anthropic">
-    1. Go to [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
-    2. Create a new key
-    3. Back in HQ: click **Add connection → Anthropic → API key**
-    4. Paste your key and click **Connect**
-  </Tab>
-  <Tab title="Other providers">
-    HQ supports 15+ providers: Gemini, DeepSeek, Mistral, Groq, OpenRouter, and more. Click **Add connection** to see the full list.
-  </Tab>
-</Tabs>
-
-<Info>
-  HQ never touches your API keys for billing. You pay the model provider directly — HQ just routes calls through your key.
-</Info>
-
----
-
-## Step 5 — Create your first agent
-
-Go to **Agents → New Agent**.
-
-<Steps>
-  <Step title="Pick a template">
-    Choose a role. **Assistant** is a good general-purpose starting point. Each template comes with pre-loaded skills, memory structure, and a personality.
-  </Step>
-  <Step title="Set identity">
-    Give your agent a name. The slug is auto-generated. You can add an emoji and description.
-  </Step>
-  <Step title="Choose a channel">
-    How you'll talk to your agent:
-    - **Telegram** — easiest. Create a bot at [@BotFather](https://t.me/botfather) and paste the token.
-    - **Discord** — create a bot in the [Discord Developer Portal](https://discord.com/developers/applications) and paste the token.
-    - **None** — skip channels and interact through tasks, routines, and the remote desktop.
-  </Step>
-  <Step title="Create">
-    Click **Create Agent**. HQ provisions the agent on your runtime — this takes about 60 seconds.
-  </Step>
-  <Step title="Pair your channel (Telegram / Discord only)">
-    Send a DM to your bot. It replies with a 6-digit pairing code. Paste that code in the agent's detail page → **Pairing Code** → click **Approve**. Your next message triggers the agent.
-  </Step>
-</Steps>
+Slack agents are active immediately — no pairing step needed.
 
 ---
 
@@ -143,3 +83,11 @@ Your hosted HQ is running. Here's what to explore next:
     Add workspaces, manage billing, or cancel.
   </Card>
 </CardGroup>
+
+---
+
+## BYO model — how it works
+
+HQ is model-agnostic with a bring-your-own-key approach. You connect your own API keys and pay the model provider directly — HQ never touches your keys for billing or proxies through our servers.
+
+You can connect multiple providers and assign different models per agent. See [Connect a model provider](/guides/connect-model-provider) for the full provider list and per-agent override options.

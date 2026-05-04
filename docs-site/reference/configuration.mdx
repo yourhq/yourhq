@@ -231,11 +231,11 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 
 A lot of yourhq's configuration is runtime-configurable via the UI, not via environment variables. Once the stack is up and you've logged in, visit:
 
-- **`/setup`** — the six-step workspace setup wizard. Seeds `workspace` (name, slug, owner profile), `pipeline_stages`, `field_definitions`, and initial `streams` in one RPC call. New workspaces are redirected here automatically until `workspace.initialized = true`.
+- **`/onboarding`** — the unified onboarding wizard (welcome → intent → infrastructure → provider → agent). Seeds workspace identity, context preset, model provider connection, and first agent in one flow. New workspaces are redirected here automatically until onboarding is complete. Progress persists across page refreshes via sessionStorage.
 
-- **`/dashboard/settings`** — add or edit pipeline stages, custom field definitions, streams, and agent identities after the initial setup. Routines are managed from `/dashboard/routines`. Most per-workspace behavior lives here, not in `.env`.
+- **`/dashboard/settings`** — add or edit pipeline stages, custom field definitions, streams, connections, and agent identities after onboarding. Routines are managed from `/dashboard/routines`. Most per-workspace behavior lives here, not in `.env`.
 
-- **`/dashboard/agents`** — the agent creation wizard (three steps: template → identity → Telegram). See [Agents](/concepts/agents) for agent-specific configuration (each agent has its own `agent.json` committed to its git branch).
+- **`/dashboard/agents`** — the agent creation wizard (template → identity → channel). See [Agents](/concepts/agents) for agent-specific configuration (each agent has its own `agent.json` committed to its git branch).
 
 Rule of thumb: if it varies between workspaces of the same deployment, it's probably in the DB and configured in the UI. If it's infrastructure-level (where Supabase lives, how the host is networked, which git remote to back up to), it's in `.env`.
 

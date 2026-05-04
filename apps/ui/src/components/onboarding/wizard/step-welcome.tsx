@@ -40,7 +40,7 @@ export function StepWelcome({ initialName, onSubmit, pending }: StepWelcomeProps
   const valid = name.trim().length > 0;
 
   return (
-    <div className="space-y-10 pt-8">
+    <div className="space-y-8">
       <div className="space-y-3">
         <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight">
           Welcome to HQ
@@ -108,10 +108,10 @@ export function StepWelcome({ initialName, onSubmit, pending }: StepWelcomeProps
                 <button
                   type="button"
                   onClick={() => setEditing(true)}
-                  className="group flex items-center gap-1.5 rounded-md px-2 py-1 text-[14px] font-medium transition-colors hover:bg-accent/40"
+                  className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[14px] font-medium transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2"
                 >
                   <span>{displayedWorkspace}</span>
-                  <span className="text-[11px] text-muted-foreground/60 opacity-0 transition-opacity group-hover:opacity-100">
+                  <span className="text-[11px] text-muted-foreground/50">
                     edit
                   </span>
                 </button>

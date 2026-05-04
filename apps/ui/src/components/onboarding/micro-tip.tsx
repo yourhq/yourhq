@@ -18,13 +18,6 @@ const POSITION_CLASSES: Record<string, string> = {
   right: "left-full top-1/2 -translate-y-1/2 ml-2",
 };
 
-const ARROW_CLASSES: Record<string, string> = {
-  top: "top-full left-1/2 -translate-x-1/2 border-l-transparent border-r-transparent border-b-transparent border-t-border/80",
-  bottom: "bottom-full left-1/2 -translate-x-1/2 border-l-transparent border-r-transparent border-t-transparent border-b-border/80",
-  left: "left-full top-1/2 -translate-y-1/2 border-t-transparent border-b-transparent border-r-transparent border-l-border/80",
-  right: "right-full top-1/2 -translate-y-1/2 border-t-transparent border-b-transparent border-l-transparent border-r-border/80",
-};
-
 export function MicroTip({
   tipKey,
   content,
@@ -40,7 +33,7 @@ export function MicroTip({
 
   useEffect(() => {
     if (!shouldShow) return;
-    const showTimer = setTimeout(() => setVisible(true), 500);
+    const showTimer = setTimeout(() => setVisible(true), 600);
     return () => clearTimeout(showTimer);
   }, [shouldShow]);
 
@@ -55,25 +48,37 @@ export function MicroTip({
     };
   }, [visible, tipKey, markTipSeen]);
 
-  const handleDismiss = () => {
-    setVisible(false);
-    markTipSeen(tipKey);
-  };
+  useEffect(() => {
+    if (!visible) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setVisible(false);
+        markTipSeen(tipKey);
+      }
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [visible, tipKey, markTipSeen]);
 
   return (
-    <div className="relative inline-block" onClick={visible ? handleDismiss : undefined}>
+    <div className="relative inline-block">
       {children}
       {visible && (
         <div
+          role="tooltip"
+          onClick={(e) => {
+            e.stopPropagation();
+            setVisible(false);
+            markTipSeen(tipKey);
+          }}
           className={cn(
-            "absolute z-50 w-48 animate-in fade-in zoom-in-95 duration-200",
+            "absolute z-50 w-48 cursor-pointer animate-in fade-in zoom-in-95 duration-200",
             POSITION_CLASSES[position],
           )}
         >
-          <div className="rounded-lg border border-border/80 bg-popover px-3 py-2 shadow-md">
-            <p className="text-[11px] text-popover-foreground leading-relaxed">{content}</p>
+          <div className="rounded-lg border border-border/60 bg-popover px-3 py-2.5 shadow-lg backdrop-blur-sm">
+            <p className="text-[12px] text-popover-foreground/90 leading-relaxed">{content}</p>
           </div>
-          <div className={cn("absolute h-0 w-0 border-[5px]", ARROW_CLASSES[position])} />
         </div>
       )}
     </div>

@@ -105,10 +105,8 @@ UI reloads on file changes under `apps/ui/`. See [Local development](/developmen
 
 1. Open `http://localhost:3000` in your browser.
 2. Log in with the Supabase auth user you created.
-3. Complete the setup wizard (workspace name, pipeline stages, custom fields, task streams).
-4. Authenticate at least one model provider from Settings → Connections. API-key providers can be added directly. Interactive providers show the login URL or device flow in the UI and complete through the command runner.
-5. Create your first agent: Agents → New Agent → pick a template → name → choose a messaging channel (Telegram, Discord, Slack, or None) → enter credentials → Create.
-6. For Telegram or Discord: send your bot a DM — it replies with a pairing code. Paste it into the agent's detail page. For Slack: the agent is active in your workspace immediately. Next message triggers the agent.
+3. Complete the onboarding wizard — it walks you through workspace identity, use case, infrastructure connection (Supabase + gateway), model provider (BYO API key), and first agent creation in one flow. See [Workspace setup](/guides/workspace-setup) for details.
+4. For Telegram or Discord agents: send your bot a DM — it replies with a pairing code. Paste it into the agent's detail page. For Slack: the agent is active immediately.
 
 ## Multi-machine setups
 
@@ -144,7 +142,7 @@ See [Networking](/self-host/networking) for the networking model and topology di
 - **UI shows the onboarding screen every time I load it**: the `ui-config` volume got wiped or isn't persisting. Check `docker volume inspect yourhq-ui-config` and re-complete onboarding.
 - **"Pull access denied" on GHCR**: only relevant if the repo is private. `docker login ghcr.io -u <your-gh-user>` with a PAT that has `read:packages` scope.
 - **`docker compose up` fails with "port already in use"**: something else is on port 3000 or 6901 on your host. Change `UI_HOST_PORT` / `NOVNC_HOST_PORT` in `.env`.
-- **Setup wizard 500s on "Complete setup"**: CSRF origin mismatch. Set `ALLOWED_ORIGINS` in `.env` to match the host you're accessing from. Restart the UI.
+- **Onboarding wizard 500s**: CSRF origin mismatch. Set `ALLOWED_ORIGINS` in `.env` to match the host you're accessing from. Restart the UI.
 - **Onboarding validator says a table/function doesn't exist**: you haven't run all migrations. Run every file in `db/migrations/` in filename order and retry.
 
 See [Troubleshooting](/troubleshooting/common-issues) for more.

@@ -39,7 +39,7 @@ export function StepInfrastructure({
   const canContinue = dbReady && gwReady;
 
   return (
-    <div className="space-y-10 pt-8">
+    <div className="space-y-8">
       <div className="space-y-3">
         <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70">
           Infrastructure
@@ -79,6 +79,7 @@ export function StepInfrastructure({
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="Project URL (https://xxx.supabase.co)"
+                aria-label="Supabase project URL"
                 className="flex h-9 w-full rounded-md border border-border/60 bg-background px-3 text-[13px] outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"
               />
               <input
@@ -86,6 +87,7 @@ export function StepInfrastructure({
                 value={anonKey}
                 onChange={(e) => setAnonKey(e.target.value)}
                 placeholder="Anon key"
+                aria-label="Supabase anon key"
                 className="flex h-9 w-full rounded-md border border-border/60 bg-background px-3 text-[13px] font-mono outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"
               />
               <input
@@ -93,6 +95,7 @@ export function StepInfrastructure({
                 value={serviceRoleKey}
                 onChange={(e) => setServiceRoleKey(e.target.value)}
                 placeholder="Service role key"
+                aria-label="Supabase service role key"
                 className="flex h-9 w-full rounded-md border border-border/60 bg-background px-3 text-[13px] font-mono outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"
               />
             </div>
@@ -116,6 +119,7 @@ export function StepInfrastructure({
                 }
                 className={cn(
                   "inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-[12px] font-medium transition-all",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2",
                   status.db === "validating"
                     ? "cursor-not-allowed bg-muted text-muted-foreground/50"
                     : "bg-foreground/[0.06] text-foreground hover:bg-foreground/[0.1]",
@@ -181,17 +185,20 @@ export function StepInfrastructure({
               The gateway is where your agents run. Pick where to host it.
             </p>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div role="radiogroup" aria-label="Gateway placement" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <button
                 type="button"
+                role="radio"
+                aria-checked={placement === "local"}
                 onClick={() => {
                   setPlacement("local");
                   onChooseGateway("local");
                 }}
                 className={cn(
                   "flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-all",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                   placement === "local"
-                    ? "border-foreground/80 bg-foreground/[0.04]"
+                    ? "border-foreground/80 bg-foreground/[0.04] ring-1 ring-foreground/10"
                     : "border-border/60 bg-card/40 hover:border-border hover:bg-card/70",
                 )}
               >
@@ -204,14 +211,17 @@ export function StepInfrastructure({
 
               <button
                 type="button"
+                role="radio"
+                aria-checked={placement === "remote"}
                 onClick={() => {
                   setPlacement("remote");
                   onChooseGateway("remote");
                 }}
                 className={cn(
                   "flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-all",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                   placement === "remote"
-                    ? "border-foreground/80 bg-foreground/[0.04]"
+                    ? "border-foreground/80 bg-foreground/[0.04] ring-1 ring-foreground/10"
                     : "border-border/60 bg-card/40 hover:border-border hover:bg-card/70",
                 )}
               >

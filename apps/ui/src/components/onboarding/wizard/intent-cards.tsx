@@ -1,5 +1,6 @@
 "use client";
 
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CONTEXT_PRESETS, type ContextPreset } from "@/lib/setup/templates";
 
@@ -19,7 +20,7 @@ const INTENT_ICONS: Record<string, string> = {
 
 export function IntentCards({ selected, onSelect }: IntentCardsProps) {
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <div role="radiogroup" aria-label="Choose your use case" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
       {CONTEXT_PRESETS.map((preset) => (
         <IntentCard
           key={preset.key}
@@ -47,11 +48,14 @@ function IntentCard({
   return (
     <button
       type="button"
+      role="radio"
+      aria-checked={selected}
       onClick={onClick}
       className={cn(
-        "group relative flex flex-col gap-2 rounded-xl border p-4 text-left transition-all duration-150",
+        "group relative flex flex-col gap-2 rounded-xl border p-4 text-left transition-all duration-150 cursor-pointer",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         selected
-          ? "border-foreground/80 bg-foreground/[0.04] shadow-[0_0_0_1px_rgba(255,255,255,0.04)]"
+          ? "border-foreground/60 bg-foreground/[0.04] ring-1 ring-foreground/10"
           : "border-border/60 bg-card/40 hover:border-border hover:bg-card/70",
       )}
     >
@@ -59,7 +63,7 @@ function IntentCard({
         <span
           className={cn(
             "flex h-8 w-8 items-center justify-center rounded-lg text-[18px] transition-all",
-            selected ? "bg-foreground/[0.08]" : "bg-muted/60",
+            selected ? "bg-foreground/[0.08] scale-105" : "bg-muted/60",
           )}
         >
           {icon}
@@ -73,7 +77,9 @@ function IntentCard({
       </p>
 
       {selected && (
-        <div className="absolute right-3 top-3 h-2 w-2 rounded-full bg-foreground" />
+        <div className="absolute right-3 top-3 flex h-4 w-4 items-center justify-center rounded-full bg-foreground text-background">
+          <Check className="h-2.5 w-2.5" strokeWidth={3} />
+        </div>
       )}
     </button>
   );

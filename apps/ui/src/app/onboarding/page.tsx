@@ -1,4 +1,4 @@
-import { OnboardingWizardV2 } from "@/components/onboarding/v2/onboarding-wizard-v2";
+import { OnboardingWizard } from "@/components/onboarding/wizard/onboarding-wizard";
 import { getOnboardingState } from "@/lib/projects/registry";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +9,7 @@ export default async function OnboardingPage() {
   const state = await getOnboardingState();
 
   return (
-    <OnboardingWizardV2
+    <OnboardingWizard
       isHosted={isHosted}
       initialData={state.data as Record<string, unknown>}
     />
