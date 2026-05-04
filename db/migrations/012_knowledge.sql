@@ -81,7 +81,6 @@ CREATE TABLE IF NOT EXISTS knowledge_items (
       'english'::regconfig,
       coalesce(title, '') || ' ' ||
       coalesce(plain_text, '') || ' ' ||
-      coalesce(content::text, '') || ' ' ||
       coalesce(array_to_string(tags, ' '), '')
     )
   ) STORED,
