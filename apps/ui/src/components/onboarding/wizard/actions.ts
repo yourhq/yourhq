@@ -11,8 +11,13 @@ import {
   startLocalGatewayAction,
   mintGatewayTokenAction,
   advanceAfterGateway,
+  prepareSchemaInstallAction,
+  runOneClickMigrationAction,
+  confirmSchemaInstalledAction,
   type ActionResult,
 } from "@/app/onboarding/actions";
+
+export { prepareSchemaInstallAction, runOneClickMigrationAction, confirmSchemaInstalledAction };
 import {
   createAgentWithBranch,
   enqueueAgentCommand,
@@ -58,18 +63,27 @@ const dbSchema = z.object({
   serviceRoleKey: z.string().min(20),
 });
 
+export interface ValidateDbResult extends ActionResult {
+  schemaNeeded?: boolean;
+  projectRef?: string | null;
+  sqlEditorUrl?: string;
+}
+
 export async function validateAndConnectDb(input: {
   url: string;
   anonKey: string;
   serviceRoleKey: string;
-}): Promise<ActionResult> {
+}): Promise<ValidateDbResult> {
   const parsed = dbSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "Check that URL and both keys are filled in." };
   }
 
   const validation = await validateSupabaseCreds(parsed.data);
-  if (!validation.ok) {
+  const schemaMissing =
+    !validation.ok && (validation.error?.includes("workspace table") ?? false);
+
+  if (!validation.ok && !schemaMissing) {
     return { ok: false, error: validation.error ?? "Connection failed" };
   }
 
@@ -79,7 +93,12 @@ export async function validateAndConnectDb(input: {
       supabaseAnonKey: parsed.data.anonKey,
     },
   });
-  return { ok: true };
+
+  if (schemaMissing) {
+    return { ok: true, schemaNeeded: true };
+  }
+
+  return { ok: true, schemaNeeded: false };
 }
 
 export async function setupGateway(

@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { useWizardState, clearWizardSession, type WizardData } from "./use-wizard-state";
 import { StepWelcome } from "./step-welcome";
 import { StepIntent } from "./step-intent";
-import { StepInfrastructure, type InfraStatus } from "./step-infrastructure";
+import { StepInfrastructure, type InfraStatus, type SchemaInstallState } from "./step-infrastructure";
 import { StepProvider } from "./step-provider";
 import { StepAgent, type AgentRecommendation } from "./step-agent";
 import { FIRST_TASK_SUGGESTIONS } from "@/lib/onboarding/first-task-suggestions";
@@ -21,6 +21,9 @@ import {
   validateAndConnectDb,
   setupGateway,
   advanceInfrastructure,
+  prepareSchemaInstallAction,
+  runOneClickMigrationAction,
+  confirmSchemaInstalledAction,
 } from "./actions";
 
 const INTENT_TO_TEMPLATE: Record<string, { branch: string; name: string; emoji: string; role: string; description: string }> = {
@@ -57,6 +60,11 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
     db: "idle",
     gateway: "idle",
   });
+  const [schemaInstall, setSchemaInstall] = useState<SchemaInstallState>({
+    phase: "idle",
+  });
+  // Stash creds for schema install sub-flow
+  const dbCredsRef = useRef<{ url: string; anonKey: string; serviceRoleKey: string } | null>(null);
 
   // Provider state
   const [validating, setValidating] = useState(false);
@@ -105,28 +113,76 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
   const handleValidateDb = useCallback(
     (url: string, anonKey: string, serviceRoleKey: string) => {
       setInfraStatus((s) => ({ ...s, db: "validating", dbError: null }));
+      setSchemaInstall({ phase: "idle" });
       startTransition(async () => {
         const r = await validateAndConnectDb({ url, anonKey, serviceRoleKey });
-        if (r.ok) {
-          setInfraStatus((s) => ({ ...s, db: "connected" }));
-          patch({ supabaseUrl: url, supabaseAnonKey: anonKey });
-        } else {
+        if (!r.ok) {
           setInfraStatus((s) => ({ ...s, db: "error", dbError: r.error }));
+          return;
+        }
+        patch({ supabaseUrl: url, supabaseAnonKey: anonKey });
+        if (r.schemaNeeded) {
+          // Stash creds so sub-flow actions can use them
+          dbCredsRef.current = { url, anonKey, serviceRoleKey };
+          // Fetch the SQL + editor link
+          const prep = await prepareSchemaInstallAction({ url, anonKey, serviceRoleKey });
+          setSchemaInstall({
+            phase: "needed",
+            projectRef: prep.projectRef ?? null,
+            sqlEditorUrl: prep.sqlEditorUrl,
+            sql: prep.sql,
+          });
+          setInfraStatus((s) => ({ ...s, db: "schema-needed" }));
+        } else {
+          setInfraStatus((s) => ({ ...s, db: "connected" }));
         }
       });
     },
     [startTransition, patch],
   );
 
+  const handleRunOneClick = useCallback(
+    (region: string, dbPassword: string) => {
+      const creds = dbCredsRef.current;
+      if (!creds) return;
+      const projectRef = schemaInstall.projectRef ?? "";
+      setSchemaInstall((s) => ({ ...s, phase: "running" }));
+      startTransition(async () => {
+        const r = await runOneClickMigrationAction({ projectRef, region, dbPassword });
+        if (r.ok) {
+          setSchemaInstall({ phase: "idle" });
+          setInfraStatus((s) => ({ ...s, db: "connected" }));
+        } else {
+          setSchemaInstall((s) => ({ ...s, phase: "needed", error: r.error, hint: r.hint }));
+        }
+      });
+    },
+    [startTransition, schemaInstall.projectRef],
+  );
+
+  const handleConfirmSchema = useCallback(() => {
+    const creds = dbCredsRef.current;
+    if (!creds) return;
+    setSchemaInstall((s) => ({ ...s, phase: "confirming" }));
+    startTransition(async () => {
+      const r = await confirmSchemaInstalledAction(creds);
+      if (r.ok) {
+        setSchemaInstall({ phase: "idle" });
+        setInfraStatus((s) => ({ ...s, db: "connected" }));
+      } else {
+        setSchemaInstall((s) => ({ ...s, phase: "needed", error: r.error, hint: r.hint }));
+      }
+    });
+  }, [startTransition]);
+
   const handleChooseGateway = useCallback(
     (placement: "local" | "remote") => {
-      setInfraStatus((s) => ({ ...s, gateway: "starting" }));
+      setInfraStatus((s) => ({ ...s, gateway: "starting", gatewayError: null, gatewayManualCmd: undefined }));
       startTransition(async () => {
         const r = await setupGateway(placement);
         if (r.ok) {
           setInfraStatus((s) => ({ ...s, gateway: "polling" }));
           patch({ placement });
-          // Poll for gateway readiness
           const interval = setInterval(async () => {
             const poll = await import("@/app/onboarding/actions").then((m) => m.pollLocalGateway());
             if (poll.status === "ready") {
@@ -140,7 +196,20 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
             ...s,
             gateway: "error",
             gatewayError: r.error,
+            gatewayManualCmd: placement === "local"
+              ? "docker compose --profile gateway up -d"
+              : undefined,
           }));
+          // Still poll — if they run the manual command the gateway will self-register
+          patch({ placement });
+          const interval = setInterval(async () => {
+            const poll = await import("@/app/onboarding/actions").then((m) => m.pollLocalGateway());
+            if (poll.status === "ready") {
+              clearInterval(interval);
+              setInfraStatus((s) => ({ ...s, gateway: "connected", gatewayError: null, gatewayManualCmd: undefined }));
+            }
+          }, 3000);
+          pollRef.current = interval;
         }
       });
     },
@@ -317,7 +386,10 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
             {step === "infrastructure" && (
               <StepInfrastructure
                 status={infraStatus}
+                schemaInstall={schemaInstall}
                 onValidateDb={handleValidateDb}
+                onRunOneClick={handleRunOneClick}
+                onConfirmSchema={handleConfirmSchema}
                 onChooseGateway={handleChooseGateway}
                 onContinue={handleInfraContinue}
                 pending={pending}
