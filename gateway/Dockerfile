@@ -24,7 +24,6 @@ ENV DEBIAN_FRONTEND=noninteractive \
     DISPLAY=:1 \
     HOME=/home/openclaw \
     OPENCLAW_VERSION=v2026.4.12 \
-    CHROME_VERSION="137.*" \
     NOVNC_VERSION=1.5.0 \
     TARGETARCH=amd64
 
@@ -66,7 +65,7 @@ RUN if [ "$TARGETARCH" = "amd64" ]; then \
       && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" \
         > /etc/apt/sources.list.d/google-chrome.list \
       && apt-get update \
-      && apt-get install -y --no-install-recommends google-chrome-stable=${CHROME_VERSION} \
+      && apt-get install -y --no-install-recommends google-chrome-stable \
       && ln -sf /usr/bin/google-chrome-stable /usr/bin/google-chrome \
       && ln -sf /usr/bin/google-chrome-stable /usr/local/bin/chromium; \
     else \
