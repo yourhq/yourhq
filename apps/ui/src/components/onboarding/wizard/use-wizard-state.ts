@@ -90,16 +90,29 @@ export function useWizardState(opts: {
 }) {
   const steps = opts.isHosted ? HOSTED_STEPS : OSS_STEPS;
 
-  const [step, setStep] = useState<WizardStep>(() =>
-    getInitialStep(steps, opts.initialStep, loadSession()),
+  // Always start with the server-safe value to avoid hydration mismatch.
+  // sessionStorage is read in a useEffect after mount.
+  const [step, setStep] = useState<WizardStep>(
+    () => getInitialStep(steps, opts.initialStep, null),
   );
-  const [data, setData] = useState<WizardData>(() =>
-    getInitialData(opts.initialData, loadSession()),
+  const [data, setData] = useState<WizardData>(
+    () => getInitialData(opts.initialData, null),
   );
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   const currentIndex = steps.indexOf(step);
+
+  // Hydrate from sessionStorage after mount (client-only)
+  useEffect(() => {
+    const session = loadSession();
+    if (!session) return;
+    const hydratedStep = getInitialStep(steps, opts.initialStep, session);
+    const hydratedData = getInitialData(opts.initialData, session);
+    setStep(hydratedStep);
+    setData(hydratedData);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     saveSession(step, data);
