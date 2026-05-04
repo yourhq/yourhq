@@ -24,6 +24,7 @@ import {
   prepareSchemaInstallAction,
   runOneClickMigrationAction,
   confirmSchemaInstalledAction,
+  saveProjectToRegistry,
 } from "./actions";
 
 const INTENT_TO_TEMPLATE: Record<string, { branch: string; name: string; emoji: string; role: string; description: string }> = {
@@ -156,6 +157,7 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
       startTransition(async () => {
         const r = await runOneClickMigrationAction({ projectRef, region, dbPassword });
         if (r.ok) {
+          await saveProjectToRegistry(creds);
           setSchemaInstall({ phase: "idle" });
           setInfraStatus((s) => ({ ...s, db: "connected" }));
         } else {
@@ -173,6 +175,7 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
     startTransition(async () => {
       const r = await confirmSchemaInstalledAction(creds);
       if (r.ok) {
+        await saveProjectToRegistry(creds);
         setSchemaInstall({ phase: "idle" });
         setInfraStatus((s) => ({ ...s, db: "connected" }));
       } else {

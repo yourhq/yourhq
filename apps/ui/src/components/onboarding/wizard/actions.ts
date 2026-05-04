@@ -1,7 +1,9 @@
 "use server";
 
 import { z } from "zod";
-import { patchOnboardingState } from "@/lib/projects/registry";
+import { patchOnboardingState, addProject, getActiveProject } from "@/lib/projects/registry";
+import { cookies } from "next/headers";
+import { ACTIVE_PROJECT_COOKIE, ACTIVE_PROJECT_COOKIE_OPTIONS } from "@/lib/projects/cookie";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateSupabaseCreds } from "@/lib/projects/validate";
 import {
@@ -98,7 +100,34 @@ export async function validateAndConnectDb(input: {
     return { ok: true, schemaNeeded: true };
   }
 
+  // Schema is present — save the project to the registry so the gateway
+  // step can look it up via getActiveProjectWithSecrets().
+  await saveProjectToRegistry(parsed.data);
+
   return { ok: true, schemaNeeded: false };
+}
+
+export async function saveProjectToRegistry(creds: {
+  url: string;
+  anonKey: string;
+  serviceRoleKey: string;
+}) {
+  const existing = await getActiveProject();
+  if (existing?.url === creds.url) return;
+
+  const project = await addProject({
+    label: "My workspace",
+    emoji: "🏠",
+    url: creds.url,
+    anonKey: creds.anonKey,
+    serviceRoleKey: creds.serviceRoleKey,
+    makeDefault: true,
+  });
+
+  const jar = await cookies();
+  jar.set(ACTIVE_PROJECT_COOKIE, project.id, ACTIVE_PROJECT_COOKIE_OPTIONS);
+
+  await patchOnboardingState({ data: { projectId: project.id } });
 }
 
 export async function setupGateway(
