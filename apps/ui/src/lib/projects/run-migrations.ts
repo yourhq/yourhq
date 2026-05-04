@@ -6,7 +6,7 @@ import pg from "pg";
 
 const MIGRATIONS_DIR =
   process.env.HQ_SCHEMA_PATH ??
-  path.resolve(process.cwd(), "../../db/migrations");
+  path.resolve(/* turbopackIgnore: true */ process.cwd(), "../../db/migrations");
 
 const TRACKING_TABLE = "_yourhq_migrations";
 
