@@ -145,7 +145,13 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
     (region: string, dbPassword: string) => {
       const creds = dbCredsRef.current;
       if (!creds) return;
-      const projectRef = schemaInstall.projectRef ?? "";
+      // Parse projectRef from URL directly as the canonical source
+      const m = creds.url.match(/https?:\/\/([a-z0-9]{20})\.supabase\.co/i);
+      const projectRef = schemaInstall.projectRef ?? (m ? m[1] : "");
+      if (!projectRef) {
+        setSchemaInstall((s) => ({ ...s, phase: "needed", error: "Couldn't determine your Supabase project ref. Use the SQL editor path instead." }));
+        return;
+      }
       setSchemaInstall((s) => ({ ...s, phase: "running" }));
       startTransition(async () => {
         const r = await runOneClickMigrationAction({ projectRef, region, dbPassword });

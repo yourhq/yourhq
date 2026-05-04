@@ -40,7 +40,7 @@ For an existing project, review each migration before applying. All files are id
 
 HQ uses a multi-project isolation model.
 
-- Each Supabase project is a fully-isolated workspace — no multi-tenant RLS gymnastics within a single database.
+- Each Supabase project is a fully-isolated workspace. Within each database, every table enforces tenant-scoped RLS via `tenant_id`.
 - Every tenant-owned table has a `tenant_id` column referencing the `tenants` table. RLS policies enforce `tenant_id = current_tenant_id()` for the `authenticated` role, where `current_tenant_id()` extracts the tenant ID from the JWT's `app_metadata`.
 - The `service_role` key bypasses RLS and has unrestricted access (used by daemons and server actions).
 - Self-hosted deployments use a single default tenant (`00000000-0000-0000-0000-000000000000`).

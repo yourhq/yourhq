@@ -18,7 +18,7 @@ An HQ project is a Supabase-backed workspace — your agents, tasks, CRM, knowle
 
 ## Multi-project support
 
-One UI install can manage multiple Supabase projects. Each project is a fully isolated workspace — HQ does not implement multi-tenant row-level isolation inside a shared database. Instead, each workspace gets its own Supabase project.
+One UI install can manage multiple Supabase projects. Each project is a fully isolated workspace with its own database, auth, and realtime. Within each database, every table enforces tenant-scoped RLS via `tenant_id`. The multi-project registry adds a second isolation layer on top — each workspace gets its own Supabase project entirely.
 
 <Tip>
   Use the project switcher in Settings → Projects to move between workspaces. Each project has its own agents, gateways, tasks, and CRM data.

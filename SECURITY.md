@@ -34,7 +34,7 @@ Out of scope:
 
 ## Trust model and known risks
 
-HQ is self-hosted single-user admin software. If you're planning to deploy it, these are the trust boundaries you should understand.
+HQ is self-hosted admin software with tenant-scoped row-level security. Self-hosted installs use a single default tenant, so all authenticated users share the workspace. If you're planning to deploy it, these are the trust boundaries you should understand.
 
 ### Supabase is fully trusted
 

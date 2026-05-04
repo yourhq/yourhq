@@ -451,12 +451,12 @@ model changes. A few things to know:
 
 - **Supabase auth is the only gate.** The UI's access control is "are you
   signed into the Supabase project?" Turn on MFA for your Supabase account.
-- **RLS is "authenticated full access."** Every policy in HQ's schema grants
-  authenticated users full CRUD on every table. That's fine for a single-user
-  workspace, dangerous for multi-user. Make your Supabase signup **invite-only**
-  (Supabase dashboard → Authentication → Sign up: disabled, then invite by
-  email). Otherwise anyone who can create a Supabase account in your project
-  gets the whole workspace.
+- **RLS is tenant-scoped.** Every table enforces RLS via `tenant_id` — users
+  can only access rows belonging to their tenant. Self-hosted installs use a
+  single default tenant, so all authenticated users share the workspace. Make
+  your Supabase signup **invite-only** (Supabase dashboard → Authentication →
+  Sign up: disabled, then invite by email). Otherwise anyone who can create a
+  Supabase account in your project gets full access to the default tenant's data.
 - **Add a second auth layer if you can.** Cloudflare Access (free for up to 50
   users) puts an email-gated login in front of everything. Configure it on
   your Cloudflare Tunnel or in front of Caddy. That way an unauthenticated

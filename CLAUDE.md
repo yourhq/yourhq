@@ -15,7 +15,7 @@ Supabase (your own project) is the only shared state between UI and gateway — 
 
 ## Architectural shape
 
-- **Multi-project UI**: one UI instance manages N independent Supabase projects via the project registry. Each Supabase is a fully-isolated workspace — no multi-tenant RLS gymnastics.
+- **Multi-project UI**: one UI instance manages N independent Supabase projects via the project registry. Each Supabase is a fully-isolated workspace. Within each database, every table enforces tenant-scoped RLS via `tenant_id`.
 - **Multi-gateway per project**: each Supabase can have multiple gateways (different hosts, different geos). Every agent has a `gateway_id`; daemons filter their command queue by their `GATEWAY_ID` env.
 - **Local-git-volume default**: each gateway owns a bare git repo in a Docker volume. Per-agent branches live there. Templates from `/opt/templates/` (baked into the gateway image) seed this repo on first boot. Optional `GIT_REMOTE_URL` lets users sync to GitHub/Gitea for backup.
 - **Remote desktop** via noVNC served from the gateway container. Tailscale is the recommended network path (private, no port exposure); public HTTPS (Caddy + Let's Encrypt) and local-only are alternatives.

@@ -1,6 +1,6 @@
 # HQ — Architecture
 
-HQ (the codebase at [`yourhq/yourhq`](https://github.com/yourhq/yourhq), hosted at [yourhq.ai](https://yourhq.ai)) is a self-hostable operations platform for running a fleet of personal AI agents. One Next.js UI manages your work — CRM, tasks, knowledge, routines — and one or more gateway hosts run the agents themselves inside Docker containers you control. The target user is a single operator (founder, solo team, power user) who wants their agents to do real work on their behalf, in their own environment, against their own Supabase project, without handing that work to someone else's multi-tenant cloud. This document is the top-to-bottom tour of how the pieces fit together. It assumes you've skimmed the [README](https://github.com/yourhq/yourhq#readme) and want to know where things actually live.
+HQ (the codebase at [`yourhq/yourhq`](https://github.com/yourhq/yourhq), hosted at [yourhq.ai](https://yourhq.ai)) is a self-hostable operations platform for running a fleet of personal AI agents. One Next.js UI manages your work — CRM, tasks, knowledge, routines — and one or more gateway hosts run the agents themselves inside Docker containers you control. The target user is a founder, solo team, or power user who wants their agents to do real work on their behalf, in their own environment, against their own Supabase project. This document is the top-to-bottom tour of how the pieces fit together. It assumes you've skimmed the [README](https://github.com/yourhq/yourhq#readme) and want to know where things actually live.
 
 For deeper dives, see:
 
@@ -17,7 +17,7 @@ For deeper dives, see:
 
 An agent, in HQ, is a long-lived workspace consisting of a git branch, a Chrome profile, an OpenClaw session, and a messaging channel (Telegram, Discord, Slack, or none). The UI never speaks to agents directly. Every instruction the UI gives — "create this agent", "edit this file", "restart this gateway" — travels through Supabase, where it becomes a row in a queue. Python daemons on each gateway host subscribe to that queue over Supabase Realtime and execute the work locally. The result: the UI can run on your laptop, on a VPS, or in a browser tab from a hotel Wi-Fi, and the gateways can run anywhere you have Docker, with no inbound connections needed between them.
 
-This is a **single-user** design. RLS on Supabase is "authenticated full access". Multi-tenant isolation is out of scope — each operator runs their own Supabase project. The hosted offering will layer account management on top of this same topology rather than redesigning it.
+Every table enforces tenant-scoped RLS via `tenant_id` — authenticated users can only access rows belonging to their tenant (extracted from the JWT's `app_metadata.tenant_id`). Self-hosted installs use a single default tenant, so all authenticated users see all data. The hosted offering layers account management and automated provisioning on top of this same topology.
 
 ## 2. System diagram
 
@@ -155,7 +155,7 @@ The `gateway` container is deliberately fat in Phase 1 — it's one image that r
 - **files_api.py** on `0.0.0.0:18790` in-container, gated by `GATEWAY_AUTH_TOKEN`.
 - **openclaw gateway run** as PID 1 under tini. Invoked with `exec` at the end of `entrypoint.sh` so signals propagate cleanly.
 
-**Why one container for all of that?** OpenClaw, Chrome, and the window manager share a single X display and a single file system namespace — splitting them into separate containers would mean cross-container DISPLAY forwarding, shared XDG, shared user-data-dirs, and shared `openclaw.json`, all over Docker networking. Not impossible, but a lot of moving parts for little benefit when the whole stack is owned by one operator.
+**Why one container for all of that?** OpenClaw, Chrome, and the window manager share a single X display and a single file system namespace — splitting them into separate containers would mean cross-container DISPLAY forwarding, shared XDG, shared user-data-dirs, and shared `openclaw.json`, all over Docker networking. Not impossible, but a lot of moving parts for little benefit when all of the gateway's processes need tight coupling anyway.
 
 **Volumes.** Four named volumes per Compose project:
 
@@ -174,7 +174,7 @@ When an agent is provisioned, `add-agent.sh`:
 2. Adds a `git worktree` for it at `$HOME/.openclaw/workspace-${workspace.slug}/<agent-slug>`.
 3. Commits the agent's personality patches (see §4 step 7).
 
-That worktree is a real checkout. The agent reads and writes it during its turn. The files-API reads and writes it when the operator edits files in the UI. Every mutation becomes a commit — "edit via UI", "create via UI", "delete via UI", "feat: initialize agent …" — so there's a full audit trail of who touched what, even though the "who" is always one operator and a handful of agents.
+That worktree is a real checkout. The agent reads and writes it during its turn. The files-API reads and writes it when the operator edits files in the UI. Every mutation becomes a commit — "edit via UI", "create via UI", "delete via UI", "feat: initialize agent …" — so there's a full audit trail of who touched what, so there's a full audit trail of every change.
 
 **Optional remote.** If `GIT_REMOTE_URL` is set (and `GIT_DEPLOY_KEY` for SSH), the gateway adds it as `origin` and fetches on boot. Push on write is not automatic; the design intent is that the remote is a backup, not a source of truth. A nightly push is a reasonable operator cron; the platform does not assume one.
 
@@ -217,10 +217,10 @@ Manual registration still works for development or advanced operators: set a uni
 
 ## 11. Trust model / security boundaries
 
-HQ is a single-operator platform. The security model reflects that — there is no per-user RLS, no multi-tenant isolation, no request-signing between services. The boundaries that do exist are:
+HQ enforces tenant-scoped RLS on every table — each row has a `tenant_id`, and policies restrict access to rows matching the JWT's `app_metadata.tenant_id`. Self-hosted installs use a single default tenant, so in practice all authenticated users share the workspace. There is no request-signing between services. The trust boundaries that matter are:
 
 - **Supabase service role key** is fully trusted. It's in the UI container, the gateway container, the dispatcher container, and the runner container. Anyone with it can read or write any row in your Supabase. Treat it as a database admin password.
-- **Supabase anon key + user session** gate the UI itself. Auth is Supabase email/password; `middleware.ts` redirects unauthenticated requests to `/login`. RLS on every table is `"Authenticated full access"` — there's only one tenant, and they get everything.
+- **Supabase anon key + user session** gate the UI itself. Auth is Supabase email/password; `middleware.ts` redirects unauthenticated requests to `/login`. RLS on every table restricts access to the user's `tenant_id` (from `app_metadata`). In a default self-hosted install with one tenant, all authenticated users see all data — so keep Supabase signup disabled or invite-only.
 - **`GATEWAY_AUTH_TOKEN`** is the one pre-shared secret between UI and gateway. It gates the files-API exclusively. Constant-time compare in [`files_api.py`](https://github.com/yourhq/yourhq/tree/main/gateway/files_api.py). Generate with `openssl rand -hex 32`; rotate by updating `.env` on both sides and restarting.
 - **noVNC password** (`VNC_PASSWORD`, auto-generated if unset) gates the remote desktop. Read it out of `/home/openclaw/.openclaw/.vnc-password` in the gateway-state volume.
 - **Docker socket mount in the runner container.** The runner binds `/var/run/docker.sock` from the host so it can run `docker compose restart gateway` for the `restart_gateway` / `restart_dispatcher` / `update_all` command actions. This is a full root-equivalent on the host. Treat it as such: anyone with command-queue access (i.e. the service role key) can execute arbitrary Docker operations on the gateway host. If the runner process is ever RCE'd, the attacker owns the host. Document, don't hide.
@@ -233,7 +233,7 @@ What HQ **does not** provide: per-agent privilege separation, user-facing audit 
 
 Supabase is the backbone. Every piece of coordination — commands, inbox items, heartbeats, audit trails, realtime subscriptions, cross-agent observability — is a row in a Postgres table.
 
-**Why not a custom backend?** Three reasons. First, Realtime + Postgres triggers + RPCs cover the entire messaging surface HQ needs (enqueue, lease, complete, fail, subscribe). Second, hosting Postgres + auth + storage + realtime in one managed service that the operator already owns removes a huge ops burden versus running Redis, Postgres, a WebSocket gateway, and an auth service ourselves. Third, the operator-owned Supabase project is the natural tenant boundary — the multi-project UI is a registry of Supabase URLs, not a multi-tenant schema redesign.
+**Why not a custom backend?** Three reasons. First, Realtime + Postgres triggers + RPCs cover the entire messaging surface HQ needs (enqueue, lease, complete, fail, subscribe). Second, hosting Postgres + auth + storage + realtime in one managed service that the operator already owns removes a huge ops burden versus running Redis, Postgres, a WebSocket gateway, and an auth service ourselves. Third, the schema already enforces tenant-scoped RLS via `tenant_id` on every table — the multi-project UI adds a second isolation layer on top by giving each workspace its own Supabase project entirely.
 
 The structures to know:
 

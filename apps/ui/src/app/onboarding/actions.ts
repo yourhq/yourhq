@@ -387,7 +387,8 @@ export async function runOneClickMigrationAction(
 ): Promise<OneClickMigrationResult> {
   const parsed = oneClickSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: "Region and database password are required." };
+    const missing = parsed.error.issues.map((i) => i.path[0]).filter(Boolean);
+    return { ok: false, error: `Missing required fields: ${missing.join(", ") || "region, password, project ref"}.` };
   }
 
   const { projectRef, region, dbPassword } = parsed.data;

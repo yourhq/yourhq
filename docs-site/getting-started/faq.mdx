@@ -261,7 +261,7 @@ description: "Common questions about HQ — what it is, how it works, and how to
   </Accordion>
 
   <Accordion title="How is multi-tenancy handled?">
-    HQ does not use row-level security to isolate tenants within a single database. Instead, each workspace gets its own Supabase project — full database-level isolation. The UI's project registry lets one HQ instance switch between multiple isolated projects.
+    HQ uses tenant-scoped row-level security on every table — each row has a `tenant_id`, and RLS policies restrict access to rows matching the authenticated user's tenant. Self-hosted installs use a single default tenant. On top of that, the multi-project registry gives each workspace its own Supabase project for full database-level isolation. The UI's project switcher lets one HQ instance manage multiple isolated projects.
 
     See [Security model →](/concepts/security-model)
   </Accordion>

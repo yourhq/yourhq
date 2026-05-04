@@ -34,7 +34,7 @@ Out of scope:
 
 ## Trust model and known risks
 
-HQ is self-hosted single-user admin software. If you're planning to deploy it, these are the trust boundaries you should understand.
+HQ is self-hosted admin software with tenant-scoped row-level security. Self-hosted installs use a single default tenant, so all authenticated users share the workspace. If you're planning to deploy it, these are the trust boundaries you should understand.
 
 ### Supabase is fully trusted
 
@@ -48,7 +48,7 @@ A tighter future alternative is [docker-socket-proxy](https://github.com/Tecnati
 
 ### RLS and tenant isolation
 
-Every table uses tenant-scoped RLS policies — authenticated users can only access rows where `tenant_id` matches the JWT's `app_metadata.tenant_id`. Self-hosted installs use a single default tenant, so in practice all authenticated users see all data. HQ is designed as single-user admin software — if you have a Supabase account, you're an admin. **Make sure Supabase email signup is disabled or invite-only**, otherwise anyone who signs up for your Supabase project gets full HQ access. The project registry isolates workspaces by Supabase project; fine-grained per-role permissions are not implemented.
+Every table uses tenant-scoped RLS policies — authenticated users can only access rows where `tenant_id` matches the JWT's `app_metadata.tenant_id`. Self-hosted installs use a single default tenant, so in practice all authenticated users see all data. **Make sure Supabase email signup is disabled or invite-only**, otherwise anyone who signs up for your Supabase project gets full HQ access within the default tenant. The multi-project registry adds database-level isolation on top; fine-grained per-role permissions are not implemented.
 
 ### Default port bindings are loopback-only
 
