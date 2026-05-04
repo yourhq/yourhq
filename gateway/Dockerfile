@@ -97,7 +97,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN mkdir -p /tmp/.X11-unix /tmp/.ICE-unix \
     && chmod 1777 /tmp/.X11-unix /tmp/.ICE-unix
 
-COPY requirements.txt /tmp/requirements.txt
+COPY gateway/requirements.txt /tmp/requirements.txt
 RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements.txt
 
 RUN mkdir -p /usr/share/novnc \
