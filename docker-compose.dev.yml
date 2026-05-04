@@ -18,6 +18,7 @@ services:
     environment:
       NODE_ENV: development
       CHOKIDAR_USEPOLLING: "true"
+      HQ_SCHEMA_PATH: /app/db/migrations
     volumes:
       - ./apps/ui:/app
       - ./db/migrations:/app/db/migrations:ro
