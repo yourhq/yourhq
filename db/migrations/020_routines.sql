@@ -1,9 +1,7 @@
 -- 020_routines.sql — Unified routines: scheduled and event-driven agent behaviors.
 
--- ── Extend inbox_event_type ──────────────────────────────────────────
-
-ALTER TYPE inbox_event_type ADD VALUE IF NOT EXISTS 'routine_schedule';
-ALTER TYPE inbox_event_type ADD VALUE IF NOT EXISTS 'routine_event';
+-- Values 'routine_schedule' and 'routine_event' are included in the
+-- original enum definition in 002_enums.sql.
 
 -- ── routines table ───────────────────────────────────────────────────
 
