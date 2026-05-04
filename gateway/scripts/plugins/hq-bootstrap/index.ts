@@ -186,6 +186,97 @@ async function loadState(workspaceDir: string, sessionId: string) {
   return JSON.parse(raw);
 }
 
+interface WorkspaceConfig {
+  modules: { crm: boolean };
+  pipelineStages: { stage_key: string; label: string; is_terminal: boolean }[];
+  fields: { field_key: string; field_type: string; label: string; options: string[] | null }[];
+  streams: { name: string }[];
+}
+
+async function fetchWorkspaceConfig(): Promise<WorkspaceConfig | null> {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return null;
+
+  try {
+    const wsRows = await supabaseGet("workspace", { select: "settings", limit: "1" });
+    const settings = (wsRows[0] as any)?.settings ?? {};
+    const modules = settings.modules ?? { crm: true };
+
+    const stageRows = await supabaseGet("pipeline_stages", {
+      select: "stage_key,label,is_terminal",
+      entity_type: "eq.contact",
+      order: "sort_order.asc",
+    });
+
+    const fieldRows = await supabaseGet("field_definitions", {
+      select: "field_key,field_type,label,options",
+      entity_type: "eq.contact",
+      "archived_at": "is.null",
+      order: "sort_order.asc",
+    });
+
+    const streamRows = await supabaseGet("streams", {
+      select: "name",
+      order: "sort_order.asc",
+    });
+
+    return {
+      modules,
+      pipelineStages: stageRows as any[],
+      fields: fieldRows as any[],
+      streams: streamRows as any[],
+    };
+  } catch {
+    return null;
+  }
+}
+
+function renderWorkspaceBlock(config: WorkspaceConfig): string {
+  const parts = ["", "## Your Workspace", ""];
+
+  const enabled: string[] = [];
+  const disabled: string[] = [];
+  if (config.modules.crm) enabled.push("CRM");
+  else disabled.push("CRM");
+
+  parts.push(`**Modules enabled:** ${enabled.length > 0 ? enabled.join(", ") : "None"}`);
+  if (disabled.length > 0) parts.push(`**Modules disabled:** ${disabled.join(", ")}`);
+
+  if (config.modules.crm && config.pipelineStages.length > 0) {
+    parts.push("");
+    parts.push("### Contact Pipeline");
+    const chain = config.pipelineStages
+      .map((s) => s.is_terminal ? `${s.label} (final)` : s.label)
+      .join(" → ");
+    parts.push(chain);
+  }
+
+  if (config.modules.crm && config.fields.length > 0) {
+    parts.push("");
+    parts.push("### Contact Fields");
+    for (const f of config.fields) {
+      const opts = f.options && f.options.length > 0 ? `: ${f.options.join(", ")}` : "";
+      parts.push(`- ${f.label} (${f.field_type})${opts}`);
+    }
+  }
+
+  if (config.streams.length > 0) {
+    parts.push("");
+    parts.push("### Task Streams");
+    for (const s of config.streams) {
+      parts.push(`- ${s.name}`);
+    }
+  }
+
+  parts.push("");
+  if (config.modules.crm) {
+    parts.push("When creating or updating contacts, use only the pipeline stages and fields listed above.");
+  } else {
+    parts.push("CRM is not enabled — do not create contacts or reference pipeline stages.");
+  }
+
+  return parts.join("\n");
+}
+
 interface OrgContext {
   manager: { name: string; slug: string; description: string | null } | null;
   reports: { name: string; slug: string; description: string | null; domains: string[] }[];
@@ -475,6 +566,11 @@ export default definePluginEntry({
               org,
             );
           }
+        }
+
+        const wsConfig = await fetchWorkspaceConfig();
+        if (wsConfig) {
+          context += renderWorkspaceBlock(wsConfig);
         }
 
         return { appendSystemContext: context };

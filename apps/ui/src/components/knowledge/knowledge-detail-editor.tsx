@@ -14,6 +14,7 @@ import {
   ArrowLeft,
   Archive,
   Check,
+  Clock,
   Download,
   ExternalLink,
   FolderOpen,
@@ -24,6 +25,7 @@ import {
   PinOff,
   RefreshCw,
   Tag,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -62,6 +64,7 @@ export function KnowledgeDetailEditor({
   const [tags, setTags] = useState<string[]>(item.tags || []);
   const [pinned, setPinned] = useState(item.pinned);
   const [scope, setScope] = useState(item.scope);
+  const [showHistory, setShowHistory] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const initialContent = useMemo<JSONContent | undefined>(() => {
@@ -255,6 +258,16 @@ export function KnowledgeDetailEditor({
             variant="ghost"
             size="icon"
             className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            onClick={() => setShowHistory(!showHistory)}
+            title="History"
+          >
+            <Clock className="h-3.5 w-3.5" />
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
             onClick={handleArchive}
             title="Archive"
           >
@@ -263,22 +276,23 @@ export function KnowledgeDetailEditor({
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto">
-        <div className="mx-auto max-w-3xl px-6 py-8">
-          <textarea
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onBlur={handleTitleBlur}
-            onKeyDown={handleTitleKeyDown}
-            placeholder="Untitled"
-            className="w-full resize-none border-0 bg-transparent text-3xl font-bold text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
-            rows={1}
-            onInput={(e) => {
-              const target = e.target as HTMLTextAreaElement;
-              target.style.height = "auto";
-              target.style.height = target.scrollHeight + "px";
-            }}
-          />
+      <div className="flex flex-1 min-h-0">
+        <div className="flex-1 overflow-auto">
+          <div className="mx-auto max-w-3xl px-6 py-8">
+            <textarea
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={handleTitleBlur}
+              onKeyDown={handleTitleKeyDown}
+              placeholder="Untitled"
+              className="w-full resize-none border-0 bg-transparent text-3xl font-bold text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
+              rows={1}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = "auto";
+                target.style.height = target.scrollHeight + "px";
+              }}
+            />
 
           <div className="mt-4 mb-8 space-y-0.5">
             <div className="flex items-center gap-3 min-h-[30px]">
@@ -385,7 +399,135 @@ export function KnowledgeDetailEditor({
           ) : item.kind === "source" ? (
             <SourceDetailView item={item} />
           ) : null}
+          </div>
         </div>
+
+        {showHistory && (
+          <KnowledgeHistoryPanel
+            itemId={item.id}
+            onClose={() => setShowHistory(false)}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function KnowledgeHistoryPanel({
+  itemId,
+  onClose,
+}: {
+  itemId: string;
+  onClose: () => void;
+}) {
+  const supabase = useMemo(() => createClient(), []);
+  const [entries, setEntries] = useState<{
+    id: string;
+    created_at: string;
+    actor_type: string;
+    actor_agent_id: string | null;
+    action: string;
+    summary: string | null;
+    agent_name?: string;
+    agent_emoji?: string;
+  }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetch() {
+      const { data } = await supabase
+        .from("audit_log")
+        .select("id, created_at, actor_type, actor_agent_id, action, summary")
+        .eq("entity_type", "knowledge_item")
+        .eq("entity_id", itemId)
+        .order("created_at", { ascending: false })
+        .limit(30);
+
+      if (!data) {
+        setLoading(false);
+        return;
+      }
+
+      const agentIds = [...new Set(
+        data
+          .filter((e: { actor_agent_id: string | null }) => e.actor_agent_id)
+          .map((e: { actor_agent_id: string | null }) => e.actor_agent_id!)
+      )];
+
+      const agentMap = new Map<string, { name: string; emoji?: string }>();
+      if (agentIds.length > 0) {
+        const { data: agents } = await supabase
+          .from("agents")
+          .select("id, name, meta")
+          .in("id", agentIds);
+        for (const a of agents ?? []) {
+          const meta = a.meta as { emoji?: string } | null;
+          agentMap.set(a.id, { name: a.name, emoji: meta?.emoji });
+        }
+      }
+
+      setEntries(
+        data.map((e: { id: string; created_at: string; actor_type: string; actor_agent_id: string | null; action: string; summary: string | null }) => ({
+          ...e,
+          agent_name: e.actor_agent_id ? agentMap.get(e.actor_agent_id)?.name : undefined,
+          agent_emoji: e.actor_agent_id ? agentMap.get(e.actor_agent_id)?.emoji : undefined,
+        }))
+      );
+      setLoading(false);
+    }
+    fetch();
+  }, [supabase, itemId]);
+
+  return (
+    <div className="w-72 shrink-0 border-l border-border/50 overflow-auto">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          History
+        </h3>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5"
+          onClick={onClose}
+        >
+          <X className="h-3 w-3" />
+        </Button>
+      </div>
+
+      <div className="px-4 py-3 space-y-4">
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-10 animate-pulse rounded bg-muted/30" />
+            ))}
+          </div>
+        ) : entries.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No edit history yet.</p>
+        ) : (
+          entries.map((entry) => (
+            <div key={entry.id} className="text-xs">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <span>
+                  {formatDistanceToNow(new Date(entry.created_at), { addSuffix: true })}
+                </span>
+                <span>·</span>
+                {entry.actor_type === "agent" && entry.agent_name ? (
+                  <span className="text-foreground font-medium">
+                    {entry.agent_emoji ? `${entry.agent_emoji} ` : ""}
+                    {entry.agent_name}
+                  </span>
+                ) : (
+                  <span className="text-foreground font-medium">You</span>
+                )}
+              </div>
+              {entry.summary && (
+                <p className="mt-0.5 text-muted-foreground/80 truncate">
+                  {entry.summary}
+                </p>
+              )}
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import type {
   SourceProvider,
 } from "@/lib/sources/types";
 import { logAudit } from "@/lib/audit/log";
+import { completeItem } from "@/lib/onboarding/progress";
 import { useRealtime } from "./use-realtime";
 import { toast } from "sonner";
 
@@ -111,6 +112,7 @@ export function useSourceConnections() {
         summary: `Connected ${input.provider}: ${input.account_label}`,
       });
 
+      completeItem("sourceConnected");
       toast.success(`Connected to ${input.account_label}`);
       fetchConnections();
       return data;

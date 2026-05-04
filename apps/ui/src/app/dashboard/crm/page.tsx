@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { Users, Settings2 } from "lucide-react";
+import { FirstVisitHint } from "@/components/onboarding/first-visit-hint";
 import { ContactsTab } from "@/components/crm/contacts-tab";
 import { TemplatesTab } from "@/components/crm/templates-tab";
 import { CampaignsTab } from "@/components/crm/campaigns-tab";
@@ -64,6 +65,13 @@ function CrmContent() {
             </TabsList>
           }
         />
+        <div className="px-5 pt-3">
+          <FirstVisitHint
+            pageKey="contacts"
+            title="Your relationship network"
+            description="Contacts and organizations live here. Agents can research, enrich, and reach out on your behalf."
+          />
+        </div>
         <TabsContent value="contacts" className="flex-1 overflow-hidden">
           <ContactsTab />
         </TabsContent>

@@ -45,6 +45,7 @@ function stageIndex(stage: string | null): number {
 export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
   const [currentStage, setCurrentStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [autoLoginUrl, setAutoLoginUrl] = useState<string | null>(null);
   const router = useRouter();
 
   const poll = useCallback(async () => {
@@ -55,6 +56,7 @@ export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
       return;
     }
     setCurrentStage(status.provision_stage);
+    if (status.auto_login_url) setAutoLoginUrl(status.auto_login_url);
   }, [workspaceId]);
 
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -70,9 +72,15 @@ export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
 
   useEffect(() => {
     if (!isComplete) return;
-    const timer = setTimeout(() => router.push("/login"), 4000);
+    const timer = setTimeout(() => {
+      if (autoLoginUrl) {
+        window.location.href = autoLoginUrl;
+      } else {
+        router.push("/login");
+      }
+    }, 2000);
     return () => clearTimeout(timer);
-  }, [isComplete, router]);
+  }, [isComplete, autoLoginUrl, router]);
 
   const progressPercent = isComplete
     ? 100
@@ -105,7 +113,9 @@ export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
             </h1>
             <p className="text-[13px] text-muted-foreground">
               {isComplete
-                ? "Redirecting you to sign in…"
+                ? autoLoginUrl
+                  ? "Signing you in…"
+                  : "Redirecting you to sign in…"
                 : "This usually takes about a minute."}
             </p>
           </div>
@@ -182,10 +192,16 @@ export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
         {/* CTA when complete */}
         {isComplete && (
           <button
-            onClick={() => router.push("/login")}
+            onClick={() => {
+              if (autoLoginUrl) {
+                window.location.href = autoLoginUrl;
+              } else {
+                router.push("/login");
+              }
+            }}
             className="mt-5 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-foreground text-[13px] font-medium text-background transition-all hover:bg-foreground/90 active:scale-[0.98]"
           >
-            Sign in to your workspace
+            {autoLoginUrl ? "Enter your workspace" : "Sign in to your workspace"}
             <ArrowRight className="h-3.5 w-3.5" />
           </button>
         )}

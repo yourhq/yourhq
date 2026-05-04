@@ -11,6 +11,7 @@ import type {
 } from "@/lib/knowledge/types";
 import { collectDescendantIds, isDescendant } from "@/lib/knowledge/tree";
 import { logAudit } from "@/lib/audit/log";
+import { completeItem } from "@/lib/onboarding/progress";
 import { useRealtimeSync } from "./use-realtime-sync";
 import { useRealtime } from "./use-realtime";
 import { toast } from "sonner";
@@ -294,6 +295,7 @@ export function useKnowledge() {
         action: "created",
         summary: `Created ${input.kind} '${input.title}'`,
       });
+      completeItem("knowledgeCreated");
       fetchItems();
       return data as unknown as KnowledgeItem;
     }

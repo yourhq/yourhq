@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { completeItem, loadProgress } from "@/lib/onboarding/progress";
 import { createAgentWithBranch, enqueueAgentCommand } from "@/app/dashboard/agents/actions";
 import type { AgentChannel, AgentTemplate } from "@/lib/agents/types";
 import { useAgentCommands } from "@/hooks/use-agent-commands";
@@ -300,7 +301,12 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
         console.warn("[wizard] Could not enqueue provision command");
       }
 
-      // Agent list should update to show the new agent immediately
+      const progress = loadProgress();
+      if (progress.tier1.agentCreated) {
+        completeItem("secondAgentCreated");
+      } else {
+        completeItem("agentCreated");
+      }
       onCreated();
       setStep("provisioning");
     } catch (e) {

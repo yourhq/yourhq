@@ -392,6 +392,87 @@ export async function toggleAgentPauseAction(
   return { ok: true, newStatus };
 }
 
+// ── Agent Playbook Upsert ─────────────────────────────────────────────
+
+export interface UpsertAgentPlaybookInput {
+  agentId: string;
+  title: string;
+  content: string;
+  action: "create" | "update";
+  knowledgeItemId?: string;
+  reason: string;
+}
+
+export async function upsertAgentPlaybook(
+  input: UpsertAgentPlaybookInput
+): Promise<{ id: string; action: "created" | "updated" }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const { data: agent } = await supabase
+    .from("agents")
+    .select("id, name, slug")
+    .eq("id", input.agentId)
+    .single();
+  if (!agent) throw new Error("Agent not found");
+
+  if (input.action === "create") {
+    const { data: item, error } = await supabase
+      .from("knowledge_items")
+      .insert({
+        kind: "playbook",
+        title: input.title.trim(),
+        plain_text: input.content.trim(),
+        scope: "agent",
+      })
+      .select("id")
+      .single();
+
+    if (error || !item) throw new Error(error?.message ?? "Failed to create playbook");
+
+    await supabase.from("knowledge_item_agents").insert({
+      knowledge_item_id: item.id,
+      agent_id: agent.id,
+    });
+
+    await supabase.from("audit_log").insert({
+      actor_type: "human",
+      module: "knowledge",
+      entity_type: "knowledge_item",
+      entity_id: item.id,
+      action: "created",
+      summary: input.reason?.trim() || `Created playbook '${input.title.trim()}' for agent '${agent.name}'`,
+    });
+
+    return { id: item.id, action: "created" };
+  }
+
+  if (!input.knowledgeItemId) throw new Error("knowledgeItemId required for updates");
+
+  const { error } = await supabase
+    .from("knowledge_items")
+    .update({
+      title: input.title.trim(),
+      plain_text: input.content.trim(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.knowledgeItemId);
+
+  if (error) throw new Error(error.message);
+
+  await supabase.from("audit_log").insert({
+    actor_type: "human",
+    module: "knowledge",
+    entity_type: "knowledge_item",
+    entity_id: input.knowledgeItemId,
+    action: "updated",
+    summary: input.reason?.trim() || `Updated playbook '${input.title.trim()}' for agent '${agent.name}'`,
+  });
+
+  return { id: input.knowledgeItemId, action: "updated" };
+}
+
 // ── Set Agent Model + Thinking ─────────────────────────────────────────
 
 export async function setAgentModelAction(

@@ -7,16 +7,27 @@ export interface ContextPreset {
   pipelineKey: string;
   fieldKey: string;
   streamNames: string[];
+  modules: { crm: boolean };
 }
 
 export const CONTEXT_PRESETS: ContextPreset[] = [
-  { key: "growth", pipelineKey: "outreach", fieldKey: "creator-outreach", streamNames: ["Operations", "Marketing", "Content"] },
-  { key: "sales", pipelineKey: "sales", fieldKey: "sales", streamNames: ["Operations", "Marketing"] },
-  { key: "recruiting", pipelineKey: "recruiting", fieldKey: "recruiting", streamNames: ["Operations"] },
-  { key: "clients", pipelineKey: "clients", fieldKey: "clients", streamNames: ["Operations", "Content"] },
-  { key: "personal", pipelineKey: "personal", fieldKey: "personal", streamNames: ["Operations"] },
-  { key: "other", pipelineKey: "custom", fieldKey: "blank", streamNames: ["Operations"] },
+  { key: "reach", pipelineKey: "outreach", fieldKey: "creator-outreach", streamNames: ["Operations", "Marketing", "Content"], modules: { crm: true } },
+  { key: "deals", pipelineKey: "sales", fieldKey: "sales", streamNames: ["Operations", "Marketing"], modules: { crm: true } },
+  { key: "hire", pipelineKey: "recruiting", fieldKey: "recruiting", streamNames: ["Operations"], modules: { crm: true } },
+  { key: "publish", pipelineKey: "custom", fieldKey: "blank", streamNames: ["Operations", "Content"], modules: { crm: false } },
+  { key: "run", pipelineKey: "clients", fieldKey: "clients", streamNames: ["Operations", "Content"], modules: { crm: true } },
+  { key: "explore", pipelineKey: "custom", fieldKey: "blank", streamNames: ["Operations"], modules: { crm: true } },
 ];
+
+const PRESET_KEY_ALIASES: Record<string, string> = {
+  growth: "reach",
+  sales: "deals",
+  recruiting: "hire",
+  clients: "run",
+  other: "explore",
+  personal: "explore",
+  "job-search": "explore",
+};
 
 export interface PipelineStage {
   stage_key: string;
@@ -137,7 +148,8 @@ const ALL_STREAMS: Record<string, StreamDef> = {
 };
 
 export function resolvePreset(presetKey: string) {
-  const preset = CONTEXT_PRESETS.find((p) => p.key === presetKey) ?? CONTEXT_PRESETS[CONTEXT_PRESETS.length - 1];
+  const resolved = PRESET_KEY_ALIASES[presetKey] ?? presetKey;
+  const preset = CONTEXT_PRESETS.find((p) => p.key === resolved) ?? CONTEXT_PRESETS[CONTEXT_PRESETS.length - 1];
   const stages = PIPELINE_TEMPLATES[preset.pipelineKey] ?? PIPELINE_TEMPLATES.custom;
   const fields = FIELD_TEMPLATES[preset.fieldKey] ?? FIELD_TEMPLATES.blank;
   const streams = preset.streamNames
@@ -147,5 +159,5 @@ export function resolvePreset(presetKey: string) {
       return { name, description: null, type: "custom", color: "#6b7280", icon: null, sort_order: i };
     });
 
-  return { stages, fields, streams };
+  return { stages, fields, streams, modules: preset.modules };
 }

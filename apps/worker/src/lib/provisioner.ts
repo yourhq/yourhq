@@ -127,6 +127,23 @@ export async function provisionWorkspace(
     });
     if (authError) throw new Error(`Auth user creation failed: ${authError.message}`);
 
+    // ── 5a. Generate auto-login URL (skips email round-trip for first login) ──
+    const siteUrl = process.env.PUBLIC_SITE_URL ?? "http://localhost:3000";
+    let autoLoginUrl: string | null = null;
+    try {
+      const { data: linkData } = await tenantClient.auth.admin.generateLink({
+        type: "magiclink",
+        email,
+        options: { redirectTo: `${siteUrl}/auth/callback` },
+      });
+      if (linkData?.properties?.action_link) {
+        autoLoginUrl = linkData.properties.action_link;
+        await updateWorkspace(workspaceId, { auto_login_url: autoLoginUrl } as any);
+      }
+    } catch {
+      // Non-fatal — user can still log in via magic link email
+    }
+
     // ── 5b. Initialize workspace via complete_setup() ──
     const meta = workspace.setup_metadata ?? {};
     const ownerName = meta.ownerName || "";
@@ -135,6 +152,7 @@ export async function provisionWorkspace(
 
     const slug = workspace.label
       .toLowerCase()
+      .replace(/['']s\b/g, "")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "")
       .slice(0, 40) || "workspace";
@@ -151,6 +169,15 @@ export async function provisionWorkspace(
       p_streams: streams,
     });
     if (setupError) throw new Error(`Workspace setup failed: ${setupError.message}`);
+
+    // ── 5c. Set workspace modules based on preset ──
+    const { modules } = resolvePreset(presetKey);
+    if (modules) {
+      await tenantClient
+        .from("workspace")
+        .update({ settings: { modules } })
+        .eq("tenant_id", "00000000-0000-0000-0000-000000000000");
+    }
 
     // ── 6. Spawn E2B sandbox ──
     await setStage(workspaceId, "starting_sandbox");
@@ -201,7 +228,6 @@ export async function provisionWorkspace(
       sandbox_id: sandbox.sandboxId,
     });
 
-    const siteUrl = process.env.PUBLIC_SITE_URL ?? "http://localhost:3000";
     sendProvisioningComplete(email, workspace.label, `${siteUrl}/login`).catch(
       (err) => console.error("[provisioner] Failed to send provisioning email:", err),
     );

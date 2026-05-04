@@ -48,6 +48,7 @@ import { ProjectSwitcher } from "@/components/projects/project-switcher";
 import { SignInModal } from "@/components/auth/sign-in-modal";
 import { useAuthWatcher } from "@/hooks/use-auth-watcher";
 import { ModulesProvider } from "@/components/shared/modules-context";
+import { MissionPanel } from "@/components/onboarding/mission-panel";
 import { useSidebarCollections } from "@/hooks/use-sidebar-collections";
 import {
   Collapsible,
@@ -629,6 +630,7 @@ export function DashboardShell({
           </div>
 
           <CommandPalette />
+          <MissionPanel />
         </TooltipProvider>
       </KeyboardShortcutsProvider>
       </ModulesProvider>

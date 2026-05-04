@@ -8,7 +8,7 @@
  * need to re-run the script for every edit — just re-run when templates
  * change.
  */
-import { existsSync, readFileSync, writeFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -36,14 +36,6 @@ if (!existsSync(TEMPLATES_DIR)) {
       `before building.`
   );
   process.exit(1);
-}
-
-function isDir(p) {
-  try {
-    return statSync(p).isDirectory();
-  } catch {
-    return false;
-  }
 }
 
 function main() {

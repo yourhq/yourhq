@@ -51,6 +51,7 @@ import { getGatewayDesktopUrlAction } from "@/app/dashboard/settings/gateways/ac
 import { AgentModelSection } from "@/components/agents/agent-model-section";
 import { AgentUsageRail } from "./agent-usage-rail";
 import { AgentUsageTab } from "./agent-usage-tab";
+import { AgentKnowledgeSection } from "./agent-knowledge-section";
 import { updateAgent, toggleAgentPauseAction } from "@/app/dashboard/agents/actions";
 
 const agentStatusDotHex: Record<string, string> = {
@@ -195,6 +196,7 @@ export function AgentDetailTabs({
                   </p>
                 )}
                 <DirectReportsSection agent={agent} allAgents={allAgents} />
+                <AgentKnowledgeSection agentId={agent.id} agentSlug={agent.slug} />
                 <ContextKnowledgeSection agent={agent} contextKnowledge={contextKnowledge} />
                 <div className="border-t border-border/50 pt-6">
                   <RoutinesSection agent={agent} onAgentUpdated={onAgentUpdated} />
@@ -608,6 +610,28 @@ function DirectReportsSection({
     () => allAgents.filter((a) => a.reports_to_id === agent.id),
     [allAgents, agent.id],
   );
+
+  const hasManager = !!agent.reports_to_id;
+  const isAlone = !hasManager && reports.length === 0;
+
+  if (isAlone) {
+    return (
+      <div className="rounded-lg border border-border/50 bg-accent/20 p-4">
+        <p className="text-[13px] text-muted-foreground">
+          <span className="font-medium text-foreground">{agent.name}</span> works independently.
+          As your workload grows, you can build a team.
+        </p>
+        <div className="mt-3 flex gap-2">
+          <Link
+            href="/dashboard/agents?create=true"
+            className="text-[12px] font-medium text-foreground underline underline-offset-4 hover:no-underline"
+          >
+            + Add a specialist
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (reports.length === 0) return null;
 

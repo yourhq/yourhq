@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { Brain, ChevronDown, ExternalLink, Loader2, Plug } from "lucide-react";
 import { toast } from "sonner";
+import { MicroTip } from "@/components/onboarding/micro-tip";
 import { setAgentModelAction } from "@/app/dashboard/agents/actions";
 import {
   readConnectionsForGateway,
@@ -118,6 +119,7 @@ export function AgentModelSection({
   return (
     <div ref={containerRef} className="space-y-2">
       {/* Model selector */}
+      <MicroTip tipKey="agent-model" content="Choose which AI model this agent uses. Different models have different strengths." position="left">
       <div className="relative">
         <button
           type="button"
@@ -184,6 +186,7 @@ export function AgentModelSection({
           </div>
         )}
       </div>
+      </MicroTip>
 
       {/* Thinking selector */}
       <div className="relative">

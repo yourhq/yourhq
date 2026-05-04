@@ -1,6 +1,10 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
-import { ChevronRight } from "lucide-react";
+import { BookOpen, ChevronRight } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import type { AgentFleetItem, CommandQueueStats } from "@/lib/types/dashboard";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +23,24 @@ export function AgentFleetCard({
   agents: AgentFleetItem[];
   commandQueue: CommandQueueStats;
 }) {
+  const [playbooksUpdated, setPlaybooksUpdated] = useState<number | null>(null);
+  const supabase = useMemo(() => createClient(), []);
+
+  useEffect(() => {
+    async function fetchPlaybookMetric() {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 7);
+      const { count } = await supabase
+        .from("audit_log")
+        .select("entity_id", { count: "exact", head: true })
+        .eq("actor_type", "agent")
+        .eq("module", "knowledge")
+        .in("action", ["created", "updated"])
+        .gte("created_at", cutoff.toISOString());
+      setPlaybooksUpdated(count ?? 0);
+    }
+    if (agents.length > 0) fetchPlaybookMetric();
+  }, [supabase, agents.length]);
   const hasQueueActivity =
     commandQueue.pending > 0 || commandQueue.running > 0;
 
@@ -82,17 +104,30 @@ export function AgentFleetCard({
         </ul>
       )}
 
-      {hasQueueActivity && (
-        <div className="mt-3 border-t border-border/40 pt-3 text-[11px] text-muted-foreground">
-          Commands:{" "}
-          {commandQueue.pending > 0 && (
-            <span>{commandQueue.pending} pending</span>
+      {(hasQueueActivity || (playbooksUpdated != null && playbooksUpdated > 0)) && (
+        <div className="mt-3 border-t border-border/40 pt-3 text-[11px] text-muted-foreground space-y-1">
+          {hasQueueActivity && (
+            <div>
+              Commands:{" "}
+              {commandQueue.pending > 0 && (
+                <span>{commandQueue.pending} pending</span>
+              )}
+              {commandQueue.pending > 0 && commandQueue.running > 0 && (
+                <span> · </span>
+              )}
+              {commandQueue.running > 0 && (
+                <span>{commandQueue.running} running</span>
+              )}
+            </div>
           )}
-          {commandQueue.pending > 0 && commandQueue.running > 0 && (
-            <span> · </span>
-          )}
-          {commandQueue.running > 0 && (
-            <span>{commandQueue.running} running</span>
+          {playbooksUpdated != null && playbooksUpdated > 0 && (
+            <Link
+              href="/dashboard/activity?module=knowledge&actor=agent"
+              className="flex items-center gap-1 hover:text-foreground transition-colors"
+            >
+              <BookOpen className="h-3 w-3" />
+              {playbooksUpdated} playbook{playbooksUpdated !== 1 ? "s" : ""} updated this week
+            </Link>
           )}
         </div>
       )}

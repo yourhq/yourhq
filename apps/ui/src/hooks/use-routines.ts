@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Routine, TriggerType } from "@/lib/routines/types";
 import { logAudit } from "@/lib/audit/log";
+import { completeItem } from "@/lib/onboarding/progress";
 import { useRealtime } from "./use-realtime";
 import { toast } from "sonner";
 
@@ -134,6 +135,7 @@ export function useRoutines() {
       action: "created",
       summary: `Created routine "${routine.name}"`,
     });
+    completeItem("routineCreated");
 
     fetchRoutines();
     return routine;

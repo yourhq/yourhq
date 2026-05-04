@@ -39,33 +39,23 @@ Every HQ install connects to one or more Supabase projects. A project contains t
 
 The first boot flow is intentionally config-light:
 
-1. Start the Docker stack.
-2. Open the UI.
-3. Paste Supabase URL, anon key, and service role key.
-4. Create or sign in to a Supabase auth user.
-5. Finish the workspace setup wizard.
+1. Start the Docker stack (self-hosted) or sign up (hosted).
+2. Open the UI and sign in.
+3. Complete the onboarding wizard.
 
 After setup, the project can be managed from Settings. The UI stores project metadata in `/config/projects.json` and project secrets in `/config/secrets.json` on the `ui-config` volume. The active project is selected at runtime, so the published UI image does not need a rebuild for each user's Supabase project.
 
-## Onboarding and Setup
+## Onboarding
 
-The onboarding flow covers the infrastructure-level setup:
+The onboarding wizard consolidates all first-boot setup into a single guided flow:
 
-- Connect a Supabase project.
-- Validate that the required schema exists.
-- Create or sign in to an auth user.
-- Choose networking mode.
-- Register or bootstrap the first gateway.
-- Finish workspace setup.
+1. **Welcome** — workspace name and owner profile.
+2. **Intent** — pick a use case (outreach, deals, hiring, publishing, ops, explore). Seeds a context preset with pipeline stages, fields, and streams.
+3. **Infrastructure** (self-hosted only) — connect Supabase (URL + keys) and choose gateway placement (local Docker or remote server).
+4. **Model provider** — connect Anthropic, OpenAI, or Ollama with a BYO API key.
+5. **First agent** — create an agent from the recommended template and optionally connect a messaging channel.
 
-The workspace setup wizard then seeds:
-
-- Workspace name, slug, and owner profile.
-- Pipeline stages.
-- Custom field definitions.
-- Initial task streams.
-
-Presets are available for common use cases such as outreach, job search, recruiting, sales, client work, networking, personal operations, and blank/custom workspaces.
+After the wizard, a **Mission Panel** tracks progressive onboarding (assign a task, add knowledge, create a second agent, etc.) and auto-dismisses when complete. See [Workspace setup](/guides/workspace-setup) for full details.
 
 ## Dashboard
 
@@ -112,6 +102,7 @@ The agent detail page includes:
 - Overview, status, capabilities, and activity.
 - **Model and thinking level** — pick any connected model and reasoning depth from the right rail. Changes take effect on the next wake, no restart needed.
 - Knowledge items (workspace pinned + agent-scoped boot context).
+- Agent playbooks — playbooks the agent created or updated autonomously, with recency indicators and edit reasons.
 - Direct reports and manager assignment.
 - Trigger and inbox history.
 - File browser/editor for the agent branch.

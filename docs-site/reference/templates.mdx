@@ -15,8 +15,20 @@ Templates are role-specific starting points for agents. They live in [`templates
 | `USER.md` | Owner profile placeholders (filled at provision time) |
 | `MEMORY.md` | Starting long-term context |
 | `TOOLS.md` | Tool-use guidance |
+| `HEARTBEAT.md` | Memory maintenance guidance (scheduled work now handled by Routines) |
 | `AGENTS.md` | Agent-specific instructions |
 | `skills/` | Reusable procedures and scripts |
+
+Key scripts in `skills/hq/scripts/`:
+
+| Script | Purpose |
+|---|---|
+| `hq_playbook_upsert.py` | Create or update agent-scoped playbooks with auto-embedding and junction linking |
+| `hq_search_docs.py` | Semantic + full-text search across knowledge items |
+| `hq_create_doc.py` | Create a new knowledge item (page or playbook) |
+| `hq_update_doc.py` | Update an existing knowledge item |
+| `hq_inbox_process.py` | Process background inbox items |
+| `hq_claim_task.py` | Claim and start working on a task |
 
 ## How provisioning works
 

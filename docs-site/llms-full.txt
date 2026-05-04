@@ -112,11 +112,11 @@ Source: https://docs.yourhq.ai/getting-started/choose-your-path
 HQ is useful to different people for different reasons. Start with the path that matches what you are trying to do today.
 
   - **I want HQ without managing infrastructure**: 
-    Sign up at yourhq.ai. We handle the database, runtime, and updates — you just create agents. Ready in 2 minutes.
+    Sign up at yourhq.ai. We handle the database, runtime, and updates. Bring your own model API key and create agents in under 2 minutes.
   
 
   - **I want to self-host it**: 
-    Install on your own machine. Full control, completely free. Takes about 15 minutes.
+    Install on your own machine. Full control, completely free. The onboarding wizard walks you through everything in about 15 minutes.
   
 
   - **I want to understand the product**: 
@@ -511,7 +511,7 @@ Where HQ is now, what ships in v0.1, and what comes after.
 - Project switcher and project settings
 - Supabase validation during onboarding
 - Account creation and sign-in flow
-- Workspace setup wizard with presets for owner profile, pipeline, fields, and streams
+- Unified onboarding wizard (welcome → intent → infrastructure → provider → first agent) with session persistence, progressive disclosure, and post-wizard mission panel
 - CRM, tasks, knowledge, routines, collections, notifications, activity, and settings pages
 
 ### Gateway and provider operations
@@ -545,6 +545,7 @@ Where HQ is now, what ships in v0.1, and what comes after.
 - Runtime delegation context for managers and direct reports
 - Per-agent LLM usage tracking and monthly budgets
 - Budget warning, exceeded notifications, and hard cutoff enforcement
+- Agent-initiated skill learning — agents autonomously create and update playbooks during work, with human visibility on the agent detail page and version history attribution in the knowledge editor
 
 ### Observability and operations
 
@@ -611,9 +612,9 @@ Small items to address before tagging. None are blockers, but they'd be good to 
 
 Source: https://docs.yourhq.ai/hosted/getting-started
 
-> Sign up, set up your workspace, and create your first agent — all from your browser.
+> Sign up, connect a model, and create your first agent — all from your browser in under 2 minutes.
 
-HQ hosted gives you the full platform without managing any infrastructure. You sign up, we provision a workspace, and you're ready to create agents in under two minutes.
+HQ hosted gives you the full platform without managing any infrastructure. You sign up, bring your own model API key, and create agents immediately.
 
 > 
   This guide is for the hosted version at [yourhq.ai](https://yourhq.ai). If you want to self-host HQ on your own machine, see the [self-host quickstart](/getting-started/quickstart) instead.
@@ -627,123 +628,60 @@ HQ hosted gives you the full platform without managing any infrastructure. You s
   
 
   - **A model API key**: 
-    Any provider: OpenAI, Anthropic, Gemini, Ollama, and more. You'll add this after your workspace is ready.
+    Any provider: OpenAI, Anthropic, or Ollama. You'll connect this during the onboarding wizard.
   
 
 ---
 
-## Step 1 — Sign up
+## Step 1 — Sign up and complete the wizard
+
+Go to [yourhq.ai](https://yourhq.ai) and click **Get started**. The onboarding wizard walks you through everything in one flow:
 
   
-### Go to yourhq.ai and click Get started
+### Welcome
 
-    You'll see a short onboarding flow — three screens.
-  
-
-  
-### Enter your details
-
-    - **Your name** — how agents will address you
-    - **Workspace name** — whatever you'd like to call it (e.g. your company or project name)
-    - **Context** — pick the preset that best matches what you'll use HQ for. This seeds your pipeline stages, fields, and streams. You can change everything later.
-
-    Presets: Growth, Sales, Recruiting, Clients, Personal, Other.
+    Enter your **name** (how agents address you) and confirm your **workspace name** (auto-generated from your first name, editable).
   
 
   
-### Confirm and pay
+### Intent
 
-    Review your workspace details and proceed to checkout. HQ is **$30/month per workspace**, billed through Stripe.
+    Pick what you'll use HQ for: outreach, closing deals, hiring, publishing content, running operations, or just exploring. This seeds your workspace with a matching context preset and recommends your first agent template.
   
 
----
+  
+### Model provider
 
-## Step 2 — Watch your workspace come online
+    Choose **Anthropic**, **OpenAI**, or **Ollama** and enter your API key. HQ validates it inline before continuing. Your key is stored securely and never leaves your workspace infrastructure.
 
-After payment, you'll see a live provisioning screen. Each step checks off as it completes:
-
-1. **Creating database** — a dedicated Supabase project, just for you
-2. **Applying schema** — tables, functions, and security policies
-3. **Setting up your workspace** — your account, pipeline, and fields
-4. **Starting agent runtime** — a sandboxed environment where your agents run
-5. **Connecting gateway** — the runtime registers with your workspace
-
-This usually takes about a minute. When it's done, you'll see **"Your workspace is ready"** and a button to sign in.
-
----
-
-## Step 3 — Sign in
-
-Check your email for a sign-in link. Click it — you'll land directly in your dashboard. No password needed; HQ uses magic links.
-
+    
 > 
-  The link expires after 1 hour. If it's gone, go to [yourhq.ai/login](https://yourhq.ai/login) and request a new one.
+      **Not sure which to start with?** Anthropic Claude or OpenAI GPT-4o are the most capable general-purpose choices. You can add more providers in Settings → Connections later.
+    
+
+  
+
+  
+### First agent
+
+    HQ recommends an agent based on your intent (e.g. "Scout" for outreach, "Ghost" for publishing). Customize the name and emoji, then create it.
+
+    Optionally connect a messaging channel:
+    - **Telegram** — create a bot at [@BotFather](https://t.me/botfather) and paste the token
+    - **Discord** — create a bot in the [Developer Portal](https://discord.com/developers/applications) and paste the token
+    - **Slack** — paste App-Level Token and Bot Token from your [Slack app](https://api.slack.com/apps)
+    - **Skip** — interact through tasks, routines, and the remote desktop instead
+  
+
+After agent creation, you land on the **Tasks** page with a suggested first task pre-filled based on your intent.
 
 ---
 
-## Step 4 — Connect a model provider
+## Step 2 — Pair your channel (Telegram / Discord only)
 
-Go to **Settings → Connections** and add a provider. Your agents need a model to think with.
+If you connected Telegram or Discord, send a DM to your bot. It replies with a 6-digit pairing code. Paste that code in the agent's detail page → **Pairing Code** → click **Approve**. Your next message triggers the agent.
 
-  
-    1. Go to [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
-    2. Create a new key
-    3. Back in HQ: click **Add connection → OpenAI → API key**
-    4. Paste your key and click **Connect**
-
-    Cost: ~$0.01–0.10 per agent conversation depending on the model.
-  
-  
-    1. Go to [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
-    2. Create a new key
-    3. Back in HQ: click **Add connection → Anthropic → API key**
-    4. Paste your key and click **Connect**
-  
-  
-    HQ supports 15+ providers: Gemini, DeepSeek, Mistral, Groq, OpenRouter, and more. Click **Add connection** to see the full list.
-  
-
-> 
-  HQ never touches your API keys for billing. You pay the model provider directly — HQ just routes calls through your key.
-
----
-
-## Step 5 — Create your first agent
-
-Go to **Agents → New Agent**.
-
-  
-### Pick a template
-
-    Choose a role. **Assistant** is a good general-purpose starting point. Each template comes with pre-loaded skills, memory structure, and a personality.
-  
-
-  
-### Set identity
-
-    Give your agent a name. The slug is auto-generated. You can add an emoji and description.
-  
-
-  
-### Choose a channel
-
-    How you'll talk to your agent:
-    - **Telegram** — easiest. Create a bot at [@BotFather](https://t.me/botfather) and paste the token.
-    - **Discord** — create a bot in the [Discord Developer Portal](https://discord.com/developers/applications) and paste the token.
-    - **None** — skip channels and interact through tasks, routines, and the remote desktop.
-  
-
-  
-### Create
-
-    Click **Create Agent**. HQ provisions the agent on your runtime — this takes about 60 seconds.
-  
-
-  
-### Pair your channel (Telegram / Discord only)
-
-    Send a DM to your bot. It replies with a 6-digit pairing code. Paste that code in the agent's detail page → **Pairing Code** → click **Approve**. Your next message triggers the agent.
-  
+Slack agents are active immediately — no pairing step needed.
 
 ---
 
@@ -765,6 +703,15 @@ Your hosted HQ is running. Here's what to explore next:
 
   - **Manage your account**: 
     Add workspaces, manage billing, or cancel.
+  
+
+---
+
+## BYO model — how it works
+
+HQ is model-agnostic with a bring-your-own-key approach. You connect your own API keys and pay the model provider directly — HQ never touches your keys for billing or proxies through our servers.
+
+You can connect multiple providers and assign different models per agent. See [Connect a model provider](/guides/connect-model-provider) for the full provider list and per-agent override options.
 
 ---
 
@@ -1043,7 +990,7 @@ You need three things. All are free to start.
   
 
   - **Model API key**: 
-    Any provider works. OpenAI and Anthropic are the most common. You'll add this after HQ is running.
+    Any provider works. OpenAI and Anthropic are the most common. You'll add this during the onboarding wizard.
   
 
 > 
@@ -1129,107 +1076,52 @@ It pulls Docker images (~1.5 GB on first run — this takes a few minutes), star
 
 ---
 
-## Step 3 — Connect Supabase
+## Step 3 — Complete the onboarding wizard
 
-Your browser will open to `http://localhost:3000`. You'll see the **Connect Supabase** screen.
+Your browser opens to `http://localhost:3000`. Sign in with the email and password you created in Step 1, then the **onboarding wizard** walks you through everything in one flow:
 
-Paste the three values you copied in Step 1:
-- Project URL
-- Anon public key
-- Service role key
+  
+### Welcome
 
-Click **Connect**. HQ validates your connection and runs a quick schema check. If it passes, you'll be taken to the login page.
+    Enter your name and confirm your workspace name (auto-generated, editable).
+  
+
+  
+### Intent
+
+    Pick what you'll use HQ for — outreach, deals, hiring, publishing, ops, or exploring. This seeds a recommended agent template and workspace context.
+  
+
+  
+### Infrastructure
+
+    Paste the three Supabase values you copied in Step 1 (Project URL, anon key, service role key). Then choose where to run your gateway — "This machine" (Docker, already running) or "Remote server" (copy a one-liner to another host).
+
+    HQ validates the database connection and waits for the gateway to come online.
+  
+
+  
+### Model provider
+
+    Choose **Anthropic**, **OpenAI**, or **Ollama** and enter your API key. HQ validates it inline. For Ollama, it auto-detects the local instance — just make sure Ollama is running.
+  
+
+  
+### First agent
+
+    HQ recommends an agent based on your intent. Customize the name and emoji if you'd like, then create it. Optionally connect a messaging channel (Telegram, Discord, Slack) to talk to your agent via DM.
+  
+
+After creation, you land on the **Tasks** page with a suggested first task pre-filled.
 
 > 
-  If you see a "table does not exist" error, you missed some migration files. Go back to the SQL Editor and run any files you skipped.
-
-Sign in with the email and password you created in Step 1.
-
----
-
-## Step 4 — Finish the workspace wizard
-
-After signing in you'll see the **Workspace Setup** wizard. This takes about 2 minutes.
-
-- **Workspace name** — what to call your workspace (e.g. your name or company)
-- **Preset** — choose a starting template. "Personal ops" is a good default if you're unsure. You can change everything later.
-- **Owner profile** — your name, preferred name, and timezone. Agents use this to address you correctly.
-- **Pipeline stages, fields, streams** — leave these at the defaults for now.
-
-Click **Complete Setup**.
-
----
-
-## Step 5 — Connect a model provider
-
-Go to **Settings → Connections**.
-
-  
-    1. Go to [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
-    2. Create a new key
-    3. Back in HQ: click **Add connection → OpenAI → API key**
-    4. Paste your key and click **Connect**
-
-    Cost: ~$0.01–0.10 per agent conversation depending on the model.
-  
-  
-    1. Go to [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
-    2. Create a new key
-    3. Back in HQ: click **Add connection → Anthropic → API key**
-    4. Paste your key and click **Connect**
-  
-  
-    1. Install Ollama from [ollama.com](https://ollama.com) and pull a model: `ollama pull llama3.2`
-    2. In HQ: click **Add connection → Ollama → Local URL**
-    3. Enter `http://host.docker.internal:11434` (this is how Docker reaches your machine)
-    4. Click **Connect**
-
-    This runs entirely on your machine — no API costs.
-  
-
----
-
-## Step 6 — Create your first agent
-
-Go to **Agents → New Agent**.
-
-  
-### Pick a template
-
-    Choose a role. If you're not sure, **Assistant** is a good general-purpose starting point. Each template comes pre-loaded with skills and a personality.
-  
-
-  
-### Set identity
-
-    Give your agent a name. The slug (URL-friendly ID) is auto-generated. You can also set an emoji and description.
-  
-
-  
-### Choose a channel
-
-    This is how you'll talk to your agent:
-    - **Telegram** — easiest to set up. Create a bot at [@BotFather](https://t.me/botfather) and paste the token.
-    - **None** — skip for now and interact through tasks and routines instead.
-  
-
-  
-### Create
-
-    Click **Create Agent**. HQ provisions the agent on your gateway — this takes about 60 seconds.
-  
-
-  
-### Pair your channel (Telegram / Discord only)
-
-    Send a DM to your bot. It replies with a 6-digit pairing code. Paste that code in the agent's detail page → **Pairing Code** field → click **Approve**. Your next message triggers the agent.
-  
+  If you see a "table does not exist" error during the infrastructure step, you missed some migration files. Go back to the SQL Editor and run any files you skipped.
 
 ---
 
 ## You're set up
 
-Your HQ is running. Here's what to explore next:
+Your HQ is running with a connected database, model provider, and first agent. Here's what to explore next:
 
   - **Pick a model per agent**: 
     Assign different models and thinking levels to each agent. Mix cheap and expensive models across your fleet.
@@ -1564,10 +1456,8 @@ UI reloads on file changes under `apps/ui/`. See [Local development](/developmen
 
 1. Open `http://localhost:3000` in your browser.
 2. Log in with the Supabase auth user you created.
-3. Complete the setup wizard (workspace name, pipeline stages, custom fields, task streams).
-4. Authenticate at least one model provider from Settings → Connections. API-key providers can be added directly. Interactive providers show the login URL or device flow in the UI and complete through the command runner.
-5. Create your first agent: Agents → New Agent → pick a template → name → choose a messaging channel (Telegram, Discord, Slack, or None) → enter credentials → Create.
-6. For Telegram or Discord: send your bot a DM — it replies with a pairing code. Paste it into the agent's detail page. For Slack: the agent is active in your workspace immediately. Next message triggers the agent.
+3. Complete the onboarding wizard — it walks you through workspace identity, use case, infrastructure connection (Supabase + gateway), model provider (BYO API key), and first agent creation in one flow. See [Workspace setup](/guides/workspace-setup) for details.
+4. For Telegram or Discord agents: send your bot a DM — it replies with a pairing code. Paste it into the agent's detail page. For Slack: the agent is active immediately.
 
 ## Multi-machine setups
 
@@ -1603,7 +1493,7 @@ See [Networking](/self-host/networking) for the networking model and topology di
 - **UI shows the onboarding screen every time I load it**: the `ui-config` volume got wiped or isn't persisting. Check `docker volume inspect yourhq-ui-config` and re-complete onboarding.
 - **"Pull access denied" on GHCR**: only relevant if the repo is private. `docker login ghcr.io -u ` with a PAT that has `read:packages` scope.
 - **`docker compose up` fails with "port already in use"**: something else is on port 3000 or 6901 on your host. Change `UI_HOST_PORT` / `NOVNC_HOST_PORT` in `.env`.
-- **Setup wizard 500s on "Complete setup"**: CSRF origin mismatch. Set `ALLOWED_ORIGINS` in `.env` to match the host you're accessing from. Restart the UI.
+- **Onboarding wizard 500s**: CSRF origin mismatch. Set `ALLOWED_ORIGINS` in `.env` to match the host you're accessing from. Restart the UI.
 - **Onboarding validator says a table/function doesn't exist**: you haven't run all migrations. Run every file in `db/migrations/` in filename order and retry.
 
 See [Troubleshooting](/troubleshooting/common-issues) for more.
@@ -2773,95 +2663,116 @@ To also delete the Supabase project: go to **Supabase → Settings → General �
 
 Source: https://docs.yourhq.ai/guides/workspace-setup
 
-> Configure your workspace profile, pipeline stages, custom fields, and task streams.
+> The onboarding wizard configures your workspace, connects a model provider, and creates your first agent — all in one flow.
 
-After connecting Supabase and signing in, HQ opens the **Workspace Setup** wizard. This takes about 2 minutes and sets up the core structure of your workspace.
+When you first open HQ — whether self-hosted or on [HQ hosted](/hosted/getting-started) — you're greeted by the **onboarding wizard**. It walks you through everything in about 2 minutes: identity, use case, model provider, and first agent.
 
 > 
-  Everything you configure here can be changed later from Settings → Pipeline, Settings → Fields, and Settings → Streams. Nothing is permanent. On [HQ hosted](/hosted/getting-started), the wizard runs during signup — your workspace is pre-configured when you sign in.
+  The wizard uses the same codebase on both hosted and self-hosted. The only difference: self-hosted users see an extra **Infrastructure** step to connect Supabase and start a gateway. Hosted users skip that — it's already provisioned.
 
 ---
 
-## What the wizard configures
+## Wizard steps
 
   
-### Workspace identity
+### Welcome
 
-    Set your **workspace name** (shown in the top nav), a URL-friendly **slug**, and your **owner profile** — your name, preferred name, and timezone. Agents use your timezone to schedule work and reference times correctly.
-  
-
-  
-### Pipeline stages
-
-    Define the stages contacts move through, e.g. `Lead → Qualified → Proposal → Negotiation → Won / Lost`. These power the CRM kanban view and gate routine conditions. You can reorder, rename, or add stages from Settings → Pipeline later.
+    Enter your **name** (how agents address you) and confirm your **workspace name** (auto-generated from your first name, editable). This sets your owner profile and workspace identity.
   
 
   
-### Custom fields
+### Intent
 
-    Add extra fields to contacts and organizations beyond the defaults (name, email, phone, company). Examples: `Company size`, `Industry`, `Referral source`, `ICP score`. Field types: text, number, date, select, multi-select.
+    Tell HQ what you'll use it for: Outreach, Deals, Hiring, Publishing, Running ops, or just exploring. This seeds a recommended agent template and workspace context preset. You can change it later — nothing is locked in.
   
 
   
-### Task streams
+### Infrastructure (self-hosted only)
 
-    Create streams for grouping tasks — e.g. `Content`, `Outreach`, `Product`, `Ops`. Every task belongs to a stream. Agents also use streams to organize their work.
+    Connect your **Supabase project** (URL + anon key + service role key) and choose a **gateway placement** (this machine via Docker, or a remote server via a one-liner). HQ validates the connection and waits for the gateway to come online before continuing.
+
+    
+> 
+      Need a Supabase account? The wizard has a built-in help panel with step-by-step instructions.
+    
+
   
 
----
+  
+### Model provider
 
-## Presets
+    Choose your AI provider — **Anthropic**, **OpenAI**, or **Ollama** — and enter your API key. HQ validates the key inline before continuing. For Ollama, it auto-detects the local instance.
 
-Presets seed sensible defaults for your pipeline stages, fields, and streams so you don't have to configure from scratch. Pick one that matches your use case — you can customize everything afterward.
-
-  - **Personal ops**: 
-    General-purpose: task streams for Content, Outreach, Admin. Minimal pipeline. Good starting point if you're unsure.
+    Your key is stored on your gateway and never leaves your infrastructure. You can add more providers in Settings → Connections later.
   
 
-  - **Outreach**: 
-    Pipeline and fields for outbound sales or business development: Lead, Contacted, Qualified, Proposal, Closed.
   
+### First agent
 
-  - **Job search**: 
-    Track job applications, contacts at target companies, and follow-up tasks. Stages: Identified, Applied, Interviewing, Offer, Rejected.
-  
+    HQ recommends an agent based on your intent choice (e.g. "Scout" for outreach, "Ghost" for publishing, "Chief" for ops). You can customize the name and emoji before creating.
 
-  - **Recruiting**: 
-    Candidate pipeline with interview stages: Sourced, Screening, Interview, Offer, Hired.
-  
-
-  - **Sales**: 
-    Full sales pipeline with deal fields: company size, ARR, close date, deal stage.
-  
-
-  - **Client work**: 
-    Project-oriented setup: client contacts, project status fields, work streams per engagement.
-  
-
-  - **Blank**: 
-    Start empty. Build the pipeline and fields from scratch.
+    After creation, you can optionally connect a messaging channel (Telegram, Discord, Slack) so you can talk to your agent via DM. Or skip this and interact through tasks and routines instead.
   
 
 ---
 
-## After setup
+## After the wizard
 
-Once you complete the wizard, your workspace is active. Next steps:
+Once your first agent is provisioned, the wizard navigates you to the **Tasks** page with your first task pre-filled — a suggested starting point based on your intent choice. From here you're in the full dashboard.
 
-  - **Create your first agent**: 
-    Pick a template, set a channel (Telegram, etc.), and provision.
+The **Mission Panel** (bottom-right) tracks your onboarding progress across two tiers:
+
+### Tier 1 — Getting started
+- Agent created
+- First task assigned to an agent
+- Dashboard explored (visit 3+ pages)
+- Knowledge item added
+- Desktop viewer opened
+
+### Tier 2 — Going deeper
+- Second agent created
+- Routine created
+- Source connection added (Notion, Google Drive)
+
+The panel auto-dismisses when all items are complete, or you can dismiss it manually at any time.
+
+---
+
+## Context presets
+
+The intent you pick in the wizard seeds a **context preset** — a bundle of defaults that shape your workspace:
+
+| Intent | Preset | Recommended agent |
+|---|---|---|
+| Outreach & networking | Research & outreach pipeline | Scout |
+| Close deals | Sales research pipeline | Scout |
+| Hire people | Talent sourcing pipeline | Scout |
+| Publish content | Content writing context | Ghost |
+| Run operations | Operations coordination | Chief |
+| Explore | General assistant | Assistant |
+
+Presets configure pipeline stages, fields, and task streams. Everything is editable from Settings after onboarding.
+
+---
+
+## Changing workspace settings later
+
+Everything the wizard configures is editable:
+
+  - **Workspace identity**: 
+    Settings → General — rename workspace, update owner profile
   
 
-  - **Connect a model provider**: 
-    Add OpenAI, Anthropic, Ollama, or another provider so agents have a model to use.
+  - **Model provider**: 
+    Settings → Connections — add/remove providers, rotate keys, set per-agent models
   
 
-  - **Set up routines**: 
-    Wire workspace events and schedules to agents so background work happens automatically.
+  - **Pipeline & fields**: 
+    Settings → Pipeline — reorder stages, add custom fields
   
 
-  - **Add knowledge items**: 
-    Give agents persistent context they read before every session.
+  - **Agents**: 
+    Agents page — create more, change templates, reassign channels
 
 ---
 
@@ -2871,6 +2782,10 @@ Source: https://docs.yourhq.ai/guides/create-agent
 
 > Provision an agent from a template and connect it to a messaging channel.
 
+> 
+  Your first agent is created during the [onboarding wizard](/guides/workspace-setup#wizard-steps). This page covers creating additional agents from the Agents page.
+
+  
 ### Start the wizard
 
     Go to Agents → **New Agent**.
@@ -2944,7 +2859,10 @@ Source: https://docs.yourhq.ai/guides/connect-model-provider
 
 > Add any AI model provider to HQ. OpenAI, Anthropic, Gemini, Ollama, and 25+ more.
 
-HQ is model-agnostic. There is no required or default provider — you connect whatever you want, and agents use it. You can connect multiple providers and pick different ones per agent.
+HQ is model-agnostic with a bring-your-own-key approach. You connect your own API keys and pay the model provider directly. You can connect multiple providers and pick different ones per agent.
+
+> 
+  Your first provider is connected during the [onboarding wizard](/guides/workspace-setup#wizard-steps). This page covers adding additional providers or managing existing ones from **Settings → Connections**.
 
 **Where to go:** Settings → Connections → Add connection
 
@@ -3264,6 +3182,27 @@ To update: edit the item directly — changes take effect on the next session.
   
     Step-by-step workflows for recurring tasks — e.g., how to research a new contact, how to structure a newsletter draft, how to handle inbound inquiries. Role-specific, so assign to the relevant agents only.
   
+
+---
+
+## Agent-created playbooks
+
+Agents don't just consume knowledge — they create it. When an agent discovers a reusable method during work, it can autonomously create a **playbook** scoped to itself. This happens via the `hq_playbook_upsert.py` skill.
+
+**When agents create playbooks:**
+
+- After performing the same sequence 3+ times successfully
+- After a breakthrough discovery (figuring out a non-obvious method through trial and error)
+- When the user gives a reusable instruction that isn't already documented
+
+**What you see:**
+
+- The agent detail page shows a **Playbooks** section with the agent's self-created procedures
+- A blue dot indicates recent edits (within 7 days), with the one-line reason displayed below
+- The knowledge editor's **History** panel shows who made each edit (agent name + emoji vs "You")
+- The dashboard fleet card shows how many playbooks were updated this week
+
+**No approval gate.** Agents write directly. You observe via the audit trail and can edit, refine, or delete playbooks at any time through the standard knowledge editor. If you correct a playbook, the agent will respect your edits on subsequent sessions.
 
 ---
 
@@ -3627,33 +3566,23 @@ Every HQ install connects to one or more Supabase projects. A project contains t
 
 The first boot flow is intentionally config-light:
 
-1. Start the Docker stack.
-2. Open the UI.
-3. Paste Supabase URL, anon key, and service role key.
-4. Create or sign in to a Supabase auth user.
-5. Finish the workspace setup wizard.
+1. Start the Docker stack (self-hosted) or sign up (hosted).
+2. Open the UI and sign in.
+3. Complete the onboarding wizard.
 
 After setup, the project can be managed from Settings. The UI stores project metadata in `/config/projects.json` and project secrets in `/config/secrets.json` on the `ui-config` volume. The active project is selected at runtime, so the published UI image does not need a rebuild for each user's Supabase project.
 
-## Onboarding and Setup
+## Onboarding
 
-The onboarding flow covers the infrastructure-level setup:
+The onboarding wizard consolidates all first-boot setup into a single guided flow:
 
-- Connect a Supabase project.
-- Validate that the required schema exists.
-- Create or sign in to an auth user.
-- Choose networking mode.
-- Register or bootstrap the first gateway.
-- Finish workspace setup.
+1. **Welcome** — workspace name and owner profile.
+2. **Intent** — pick a use case (outreach, deals, hiring, publishing, ops, explore). Seeds a context preset with pipeline stages, fields, and streams.
+3. **Infrastructure** (self-hosted only) — connect Supabase (URL + keys) and choose gateway placement (local Docker or remote server).
+4. **Model provider** — connect Anthropic, OpenAI, or Ollama with a BYO API key.
+5. **First agent** — create an agent from the recommended template and optionally connect a messaging channel.
 
-The workspace setup wizard then seeds:
-
-- Workspace name, slug, and owner profile.
-- Pipeline stages.
-- Custom field definitions.
-- Initial task streams.
-
-Presets are available for common use cases such as outreach, job search, recruiting, sales, client work, networking, personal operations, and blank/custom workspaces.
+After the wizard, a **Mission Panel** tracks progressive onboarding (assign a task, add knowledge, create a second agent, etc.) and auto-dismisses when complete. See [Workspace setup](/guides/workspace-setup) for full details.
 
 ## Dashboard
 
@@ -3703,6 +3632,7 @@ The agent detail page includes:
 - Overview, status, capabilities, and activity.
 - **Model and thinking level** — pick any connected model and reasoning depth from the right rail. Changes take effect on the next wake, no restart needed.
 - Knowledge items (workspace pinned + agent-scoped boot context).
+- Agent playbooks — playbooks the agent created or updated autonomously, with recency indicators and edit reasons.
 - Direct reports and manager assignment.
 - Trigger and inbox history.
 - File browser/editor for the agent branch.
@@ -4493,6 +4423,18 @@ The default `AGENTS.md` prompts the agent to read these on every session start. 
 
 For shared knowledge across agents, use the [knowledge system](/concepts/knowledge) — workspace-scoped items are visible to all agents, and pinned items are automatically included in boot context.
 
+## Skill learning
+
+Agents improve over time by maintaining their own **playbooks** — reusable procedures they create when they discover a reliable method. This happens autonomously during work via `hq_playbook_upsert.py`:
+
+- **When to learn:** after performing the same sequence 3+ times successfully, or after a breakthrough discovery (trial-and-error that yielded a non-obvious method).
+- **What gets stored:** a playbook (`kind: 'playbook'`, `scope: 'agent'`) linked to the agent via the `knowledge_item_agents` junction table.
+- **Visibility:** the agent detail page shows a "Playbooks" section with recency indicators (blue dot for recent agent edits) and the one-line reason the agent provided. The knowledge editor has a History panel showing who made each edit (agent vs. human).
+
+There is no approval gate — agents write directly. Operators observe via the audit trail and can edit, refine, or delete playbooks at any time through the standard knowledge editor.
+
+The `--reason` parameter on every playbook write is surfaced in the UI. It should be a one-line explanation of what changed and why (e.g., "Added YouTube channel research method after 3 successful tasks").
+
 ## Agent-to-agent
 
 Agents see the same database, so they can see each other's tasks and knowledge. Coordination patterns:
@@ -4537,6 +4479,8 @@ Every knowledge item has a `kind` that determines how it's stored and rendered:
 | `source` | Externally synced content from a connected integration | `source_connection_id` + `source_external_id` + sync metadata |
 
 Pages and playbooks support rich editing in the UI. Files go through a processing pipeline (upload, extract text, embed). Sources sync from external integrations and track their sync status.
+
+Playbooks can also be created autonomously by agents during work via `hq_playbook_upsert.py`. When an agent discovers a reusable method, it codifies the procedure as an agent-scoped playbook. These appear on the agent detail page with edit reasons and recency indicators.
 
 ## Scope and agent access
 
@@ -4623,6 +4567,10 @@ Every agent template ships with HQ skills that interact with the knowledge syste
 |---|---|
 | `hq_session_bootstrap.py` | Fetches workspace-pinned + agent-specific items at session start |
 | `hq_boot_docs.py` | Loads boot context using scope + junction queries |
+| `hq_playbook_upsert.py` | Creates or updates agent-scoped playbooks with auto-embedding and junction linking |
+| `hq_create_doc.py` | Creates a new knowledge item (page or playbook) |
+| `hq_update_doc.py` | Updates an existing knowledge item |
+| `hq_search_docs.py` | Semantic + full-text search across all knowledge items |
 | `hq_get_knowledge_chunks.py` | Retrieves chunks for a specific knowledge item by ID |
 | `hq_claim_task.py` | Claims a task and resolves all entity links (knowledge items, contacts, orgs, collection records) |
 | `hq_inbox_process.py` | Processes inbox items and resolves linked entities |
@@ -5036,11 +4984,11 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 
 A lot of yourhq's configuration is runtime-configurable via the UI, not via environment variables. Once the stack is up and you've logged in, visit:
 
-- **`/setup`** — the six-step workspace setup wizard. Seeds `workspace` (name, slug, owner profile), `pipeline_stages`, `field_definitions`, and initial `streams` in one RPC call. New workspaces are redirected here automatically until `workspace.initialized = true`.
+- **`/onboarding`** — the unified onboarding wizard (welcome → intent → infrastructure → provider → agent). Seeds workspace identity, context preset, model provider connection, and first agent in one flow. New workspaces are redirected here automatically until onboarding is complete. Progress persists across page refreshes via sessionStorage.
 
-- **`/dashboard/settings`** — add or edit pipeline stages, custom field definitions, streams, and agent identities after the initial setup. Routines are managed from `/dashboard/routines`. Most per-workspace behavior lives here, not in `.env`.
+- **`/dashboard/settings`** — add or edit pipeline stages, custom field definitions, streams, connections, and agent identities after onboarding. Routines are managed from `/dashboard/routines`. Most per-workspace behavior lives here, not in `.env`.
 
-- **`/dashboard/agents`** — the agent creation wizard (three steps: template → identity → Telegram). See [Agents](/concepts/agents) for agent-specific configuration (each agent has its own `agent.json` committed to its git branch).
+- **`/dashboard/agents`** — the agent creation wizard (template → identity → channel). See [Agents](/concepts/agents) for agent-specific configuration (each agent has its own `agent.json` committed to its git branch).
 
 Rule of thumb: if it varies between workspaces of the same deployment, it's probably in the DB and configured in the UI. If it's infrastructure-level (where Supabase lives, how the host is networked, which git remote to back up to), it's in `.env`.
 
@@ -5230,13 +5178,15 @@ Task assignment and comment mention triggers enqueue `agent_inbox_items` for aff
 
 - `knowledge_items` — unified knowledge store for pages, playbooks, files, and sources. Supports scope (`workspace` or `agent`), pinning, folders, tags, embeddings, and full-text search.
 - `knowledge_folders` — folder hierarchy for organizing knowledge items.
-- `knowledge_item_agents` — junction table linking agent-scoped items to specific agents.
+- `knowledge_item_agents` — junction table linking agent-scoped items to specific agents. Also used to track agent-created playbooks.
 - `knowledge_chunks` — chunked content with per-chunk embeddings for granular retrieval. References `knowledge_item_id`.
 
 Boot context is controlled by scope and pinning:
 
 - A **workspace-scoped, pinned** item is included in every agent's startup context.
 - An **agent-scoped** item assigned to specific agents via `knowledge_item_agents` is included only for those agents.
+
+Agents can autonomously create playbooks (`kind = 'playbook'`, `scope = 'agent'`) via `hq_playbook_upsert.py`. The script inserts into `knowledge_items`, links via `knowledge_item_agents`, and logs an audit entry with `actor_type = 'agent'`. The `audit_log.summary` field carries the agent's one-line reason, which is surfaced on the agent detail page.
 
 Important RPCs:
 
@@ -5411,8 +5361,20 @@ Templates are role-specific starting points for agents. They live in [`templates
 | `USER.md` | Owner profile placeholders (filled at provision time) |
 | `MEMORY.md` | Starting long-term context |
 | `TOOLS.md` | Tool-use guidance |
+| `HEARTBEAT.md` | Memory maintenance guidance (scheduled work now handled by Routines) |
 | `AGENTS.md` | Agent-specific instructions |
 | `skills/` | Reusable procedures and scripts |
+
+Key scripts in `skills/hq/scripts/`:
+
+| Script | Purpose |
+|---|---|
+| `hq_playbook_upsert.py` | Create or update agent-scoped playbooks with auto-embedding and junction linking |
+| `hq_search_docs.py` | Semantic + full-text search across knowledge items |
+| `hq_create_doc.py` | Create a new knowledge item (page or playbook) |
+| `hq_update_doc.py` | Update an existing knowledge item |
+| `hq_inbox_process.py` | Process background inbox items |
+| `hq_claim_task.py` | Claim and start working on a task |
 
 ## How provisioning works
 
@@ -6435,9 +6397,9 @@ docker compose up -d ui
 
 Expected:
 - Open the UI, log in with the user you just created.
-- Setup wizard appears (fresh workspace, `initialized=false`).
-- Complete the wizard. Workspace marked initialized.
-- Dashboard loads. Sidebar footer says "HQ". Browser tab says "HQ".
+- Onboarding wizard appears (fresh workspace).
+- Complete the wizard (welcome → intent → infrastructure → provider → agent). Workspace marked initialized, first agent created.
+- Navigates to Tasks page with first task pre-filled. Dashboard loads. Sidebar footer says "HQ".
 
 ## Stage 3 — Gateway stack against the same Supabase
 
@@ -6778,7 +6740,7 @@ Source: https://docs.yourhq.ai/troubleshooting/common-issues
   
     **What you see**
 
-    You fill out the workspace wizard, hit Complete, and get a 500 error. `docker compose logs ui` shows `Origin mismatch` or `CSRF` error.
+    You're going through the onboarding wizard and a step fails with a 500 error. `docker compose logs ui` shows `Origin mismatch` or `CSRF` error.
 
     **Why it happens**
 

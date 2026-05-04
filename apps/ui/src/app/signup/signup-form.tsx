@@ -8,9 +8,9 @@ import {
   AlertCircle,
   ArrowRight,
   ArrowLeft,
-  Check,
 } from "lucide-react";
 import { CONTEXT_PRESETS } from "@/lib/setup/templates";
+import { IntentCards } from "@/components/onboarding/wizard/intent-cards";
 import { cn } from "@/lib/utils";
 import { createCheckoutAction } from "./actions";
 
@@ -272,48 +272,10 @@ function StepContext({
 }) {
   return (
     <div className="p-6 space-y-5">
-      <div className="grid grid-cols-2 gap-2">
-        {CONTEXT_PRESETS.map((preset) => {
-          const selected = data.contextPreset === preset.key;
-          return (
-            <button
-              key={preset.key}
-              type="button"
-              onClick={() => {
-                patch({ contextPreset: preset.key });
-              }}
-              className={cn(
-                "group relative flex flex-col gap-1.5 rounded-lg border p-3.5 text-left transition-all duration-150",
-                selected
-                  ? "border-foreground bg-foreground/[0.03] shadow-sm"
-                  : "border-border/60 hover:border-border hover:bg-accent/30",
-              )}
-            >
-              <div className="flex items-center justify-between">
-                <span
-                  className={cn(
-                    "flex h-7 w-7 items-center justify-center rounded-md text-[14px]",
-                    selected ? "bg-foreground/[0.07]" : "bg-muted/50",
-                  )}
-                >
-                  {preset.emoji}
-                </span>
-                {selected && (
-                  <div className="flex h-4 w-4 items-center justify-center rounded-full bg-foreground">
-                    <Check className="h-2.5 w-2.5 text-background" />
-                  </div>
-                )}
-              </div>
-              <span className="text-[13px] font-medium leading-tight">
-                {preset.label}
-              </span>
-              <p className="text-[11px] leading-relaxed text-muted-foreground">
-                {preset.description}
-              </p>
-            </button>
-          );
-        })}
-      </div>
+      <IntentCards
+        selected={data.contextPreset || null}
+        onSelect={(key) => patch({ contextPreset: key })}
+      />
 
       <div className="flex gap-2">
         <button

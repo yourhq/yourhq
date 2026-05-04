@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Bot, Search, X, List, GitBranch } from "lucide-react";
+import { FirstVisitHint } from "@/components/onboarding/first-visit-hint";
 import type { Agent, AgentMeta } from "@/lib/agents/types";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -107,6 +108,14 @@ function AgentsContent() {
           </Button>
         }
       />
+
+      <div className="px-5 pt-4">
+        <FirstVisitHint
+          pageKey="agents"
+          title="Your AI workforce"
+          description="Each agent has its own identity, skills, and memory. Assign tasks, connect channels, and watch them work."
+        />
+      </div>
 
       {/* Filter bar */}
       {agents.agents.length > 0 && (

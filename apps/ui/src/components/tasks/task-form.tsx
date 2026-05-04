@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { completeItem } from "@/lib/onboarding/progress";
+import { MicroTip } from "@/components/onboarding/micro-tip";
 import type { Task, TaskStatus, TaskPriority, Stream } from "@/lib/tasks/types";
 import type { Agent } from "@/lib/agents/types";
 import { TASK_STATUSES, TASK_PRIORITIES } from "@/lib/tasks/types";
@@ -84,16 +86,18 @@ interface TaskFormProps {
   onSave: () => void;
   onCancel: () => void;
   onArchive?: (id: string) => void;
+  defaultTitle?: string;
+  defaultAssignee?: string;
 }
 
-export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive }: TaskFormProps) {
+export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, defaultTitle, defaultAssignee }: TaskFormProps) {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [saving, setSaving] = useState(false);
   const titleRef = useRef<HTMLTextAreaElement>(null);
 
-  const [title, setTitle] = useState(editingTask?.title ?? "");
+  const [title, setTitle] = useState(editingTask?.title ?? defaultTitle ?? "");
   const [description, setDescription] = useState(editingTask?.description ?? "");
   const [status, setStatus] = useState<TaskStatus>(editingTask?.status ?? "todo");
   const [priority, setPriority] = useState<TaskPriority>(editingTask?.priority ?? "medium");
@@ -101,6 +105,7 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive }: 
   const [assignee, setAssignee] = useState(() => {
     if (editingTask?.assignee_type === "human") return "me";
     if (editingTask?.assignee_agent_id) return editingTask.assignee_agent_id;
+    if (defaultAssignee) return defaultAssignee;
     return "none";
   });
   const [dueDate, setDueDate] = useState<string | null>(editingTask?.due_date ?? null);
@@ -277,6 +282,9 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive }: 
           action: "created",
           summary: `Created task '${payload.title}'`,
         });
+        if (payload.assignee_agent_id) {
+          completeItem("taskAssigned");
+        }
       }
     }
 
@@ -427,20 +435,22 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive }: 
           </Select>
 
           {/* Assignee */}
-          <Select value={assignee} onValueChange={setAssignee}>
-            <SelectTrigger className="h-6 w-auto gap-1 border-border/50 bg-transparent px-2 text-xs font-normal hover:bg-accent">
-              <span className="text-muted-foreground">
-                {assignee === "none" ? "Unassigned" : assignee === "me" ? "Me" : agents.find((a) => a.id === assignee)?.name ?? "Agent"}
-              </span>
-            </SelectTrigger>
-            <SelectContent portal={false}>
-              <SelectItem value="none">Unassigned</SelectItem>
-              <SelectItem value="me">Me</SelectItem>
-              {agents.map((a) => (
-                <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <MicroTip tipKey="task-assignee" content="Assign to an agent and it starts working immediately." position="bottom">
+            <Select value={assignee} onValueChange={setAssignee}>
+              <SelectTrigger className="h-6 w-auto gap-1 border-border/50 bg-transparent px-2 text-xs font-normal hover:bg-accent">
+                <span className="text-muted-foreground">
+                  {assignee === "none" ? "Unassigned" : assignee === "me" ? "Me" : agents.find((a) => a.id === assignee)?.name ?? "Agent"}
+                </span>
+              </SelectTrigger>
+              <SelectContent portal={false}>
+                <SelectItem value="none">Unassigned</SelectItem>
+                <SelectItem value="me">Me</SelectItem>
+                {agents.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </MicroTip>
 
           {/* Due date */}
           <DatePickerButton

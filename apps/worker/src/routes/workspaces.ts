@@ -44,6 +44,7 @@ app.get("/workspaces/:id/status", async (c) => {
     provision_error: ws.provision_error,
     subscription_status: ws.subscription_status,
     e2b_sandbox_status: ws.e2b_sandbox_status,
+    auto_login_url: ws.provision_stage === "complete" ? (ws as any).auto_login_url ?? null : null,
   });
 });
 

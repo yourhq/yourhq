@@ -17,6 +17,7 @@
 import { useEffect } from "react";
 import { ExternalLink, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { completeItem } from "@/lib/onboarding/progress";
 
 interface OpenDesktopModalProps {
   open: boolean;
@@ -41,6 +42,7 @@ export function OpenDesktopModal({
   // it, but in case the modal opens with focus elsewhere).
   useEffect(() => {
     if (!open) return;
+    completeItem("desktopViewed");
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };

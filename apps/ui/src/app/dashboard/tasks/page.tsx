@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { FirstVisitHint } from "@/components/onboarding/first-visit-hint";
 import { StreamList } from "@/components/tasks/stream-list";
 import { TaskList } from "@/components/tasks/task-list";
 import { TaskFilters } from "@/components/tasks/task-filters";
@@ -63,6 +64,24 @@ function TasksContent() {
   const openSeriesId = searchParams.get("series");
   const openTaskId = searchParams.get("task");
 
+  // First-task onboarding flow: ?onboarding=first-task&title=...&agent=...
+  const isOnboardingTask = searchParams.get("onboarding") === "first-task";
+  const onboardingTitle = searchParams.get("title") ?? "";
+  const onboardingAgent = searchParams.get("agent") ?? "";
+
+  useEffect(() => {
+    if (isOnboardingTask && !tasks.form.showForm) {
+      tasks.form.openCreateForm();
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("onboarding");
+      params.delete("title");
+      params.delete("agent");
+      const qs = params.toString();
+      router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only trigger on mount when onboarding param present
+  }, [isOnboardingTask]);
+
   const openSeries = useCallback(
     (id: string) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -105,6 +124,14 @@ function TasksContent() {
         title="Tasks"
         description="Plan, assign, and track work across streams."
       />
+
+      <div className="px-5 pt-4">
+        <FirstVisitHint
+          pageKey="tasks"
+          title="Tasks are how agents get work"
+          description="Create a task, assign it to an agent, and it starts working immediately. Use streams to organize by project or priority."
+        />
+      </div>
 
       <div className="flex flex-1 min-h-0">
         {/* Stream sidebar */}
@@ -274,6 +301,8 @@ function TasksContent() {
               onSave={tasks.form.onFormSaved}
               onCancel={tasks.form.closeForm}
               onArchive={tasks.actions.handleArchiveTask}
+              defaultTitle={onboardingTitle || undefined}
+              defaultAssignee={onboardingAgent || undefined}
             />
           )}
 
