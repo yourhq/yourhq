@@ -76,14 +76,7 @@ CREATE TABLE IF NOT EXISTS knowledge_items (
   processing_status     text NOT NULL DEFAULT 'ready'
                           CHECK (processing_status IN ('ready', 'processing', 'done', 'failed')),
   processing_error      text,
-  search_vector         tsvector GENERATED ALWAYS AS (
-    to_tsvector(
-      'english'::regconfig,
-      coalesce(title, '') || ' ' ||
-      coalesce(plain_text, '') || ' ' ||
-      coalesce(array_to_string(tags, ' '), '')
-    )
-  ) STORED,
+  search_vector         tsvector,
   archived_at           timestamptz
 );
 
@@ -105,6 +98,24 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_items_source_conn
 DROP TRIGGER IF EXISTS knowledge_items_updated_at ON knowledge_items;
 CREATE TRIGGER knowledge_items_updated_at
   BEFORE UPDATE ON knowledge_items FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE FUNCTION knowledge_items_search_vector()
+RETURNS TRIGGER LANGUAGE plpgsql SET search_path = '' AS $$
+BEGIN
+  NEW.search_vector := to_tsvector(
+    'english'::regconfig,
+    coalesce(NEW.title, '') || ' ' ||
+    coalesce(NEW.plain_text, '') || ' ' ||
+    coalesce(array_to_string(NEW.tags, ' '), '')
+  );
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS knowledge_items_search_vector ON knowledge_items;
+CREATE TRIGGER knowledge_items_search_vector
+  BEFORE INSERT OR UPDATE ON knowledge_items
+  FOR EACH ROW EXECUTE FUNCTION knowledge_items_search_vector();
 
 ALTER TABLE knowledge_items ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Tenant isolation" ON knowledge_items
@@ -213,9 +224,7 @@ CREATE TABLE IF NOT EXISTS knowledge_chunks (
   embedding_leased_by text,
   embedding_leased_until timestamptz,
   embedding_updated_at timestamptz,
-  search_vector       tsvector GENERATED ALWAYS AS (
-    to_tsvector('english'::regconfig, coalesce(content, ''))
-  ) STORED,
+  search_vector       tsvector,
   CONSTRAINT knowledge_chunks_item_index_unique UNIQUE (knowledge_item_id, chunk_index)
 );
 
@@ -228,6 +237,19 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_embedding_status
 DROP TRIGGER IF EXISTS knowledge_chunks_updated_at ON knowledge_chunks;
 CREATE TRIGGER knowledge_chunks_updated_at
   BEFORE UPDATE ON knowledge_chunks FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE FUNCTION knowledge_chunks_search_vector()
+RETURNS TRIGGER LANGUAGE plpgsql SET search_path = '' AS $$
+BEGIN
+  NEW.search_vector := to_tsvector('english'::regconfig, coalesce(NEW.content, ''));
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS knowledge_chunks_search_vector ON knowledge_chunks;
+CREATE TRIGGER knowledge_chunks_search_vector
+  BEFORE INSERT OR UPDATE ON knowledge_chunks
+  FOR EACH ROW EXECUTE FUNCTION knowledge_chunks_search_vector();
 
 ALTER TABLE knowledge_chunks ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Tenant isolation" ON knowledge_chunks
