@@ -691,7 +691,7 @@ export async function startLocalGatewayAction(): Promise<ActionResult<GatewayBoo
       hint:
         "Make sure /var/run/docker.sock is mounted in the UI container " +
         "(the installer does this automatically). You can also start the " +
-        "gateway manually: `docker compose --profile gateway up -d`.",
+        "gateway manually: `docker compose --profile gateway up -d --pull always --no-build`.",
     };
   }
 

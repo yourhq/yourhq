@@ -203,7 +203,7 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
             gateway: "error",
             gatewayError: r.error,
             gatewayManualCmd: placement === "local"
-              ? "docker compose --profile gateway up -d"
+              ? "docker compose --profile gateway up -d --pull always --no-build"
               : undefined,
           }));
           // Still poll — if they run the manual command the gateway will self-register

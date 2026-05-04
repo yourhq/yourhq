@@ -73,7 +73,7 @@ export async function dockerAvailable(): Promise<boolean> {
 export async function startLocalGateway(): Promise<ComposeResult> {
   return run(
     "docker",
-    ["compose", "--profile", "gateway", "up", "-d"],
+    ["compose", "--profile", "gateway", "up", "-d", "--pull", "always", "--no-build"],
   );
 }
 
