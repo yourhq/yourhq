@@ -54,7 +54,12 @@ DO $$ BEGIN
   CREATE TYPE command_action AS ENUM (
     'start_session', 'end_session', 'restart_session', 'refresh_session',
     'execute_prompt', 'send_message', 'send_keys', 'take_screenshot',
-    'run_shell', 'upload_file', 'extract_text'
+    'run_shell', 'upload_file', 'extract_text',
+    'provision', 'approve_pairing', 'update', 'remove',
+    'restart_gateway', 'update_all', 'restart_dispatcher', 'update_gateway',
+    'auth_set_api_key', 'auth_start', 'auth_paste',
+    'auth_list', 'auth_remove', 'auth_refresh', 'auth_set_default',
+    'set_agent_model', 'list_models'
   );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 

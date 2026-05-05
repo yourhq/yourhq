@@ -20,10 +20,6 @@ import {
 } from "@/app/onboarding/actions";
 
 export { prepareSchemaInstallAction, runOneClickMigrationAction, confirmSchemaInstalledAction };
-import {
-  createAgentWithBranch,
-  enqueueAgentCommand,
-} from "@/app/dashboard/agents/actions";
 
 // ─── Welcome ──────────────────────────────────────────────────────────────
 
@@ -391,34 +387,74 @@ export async function createFirstAgent(input: {
     .slice(0, 30) || "agent";
 
   try {
-    const result = await createAgentWithBranch({
-      name: input.name,
-      slug,
-      emoji: input.emoji,
-      templateBranch: input.templateBranch,
-    });
+    const supabase = await createAdminClient();
+
+    // Workspace info for branch naming and owner profile
+    const { data: wsRow } = await supabase
+      .from("workspace")
+      .select("slug, owner_name, owner_preferred_name, owner_timezone")
+      .limit(1)
+      .maybeSingle();
+    const wsSlug = (wsRow?.slug as string | null) ?? null;
+
+    // Default gateway
+    const { data: gw } = await supabase
+      .from("gateways")
+      .select("id")
+      .limit(1)
+      .maybeSingle();
+
+    const meta = {
+      emoji: input.emoji || undefined,
+      template_branch: input.templateBranch,
+      channel: "telegram" as const,
+      telegram_token_env: `TELEGRAM_TOKEN_${slug.toUpperCase().replace(/-/g, "_")}`,
+    };
+
+    const { data: inserted, error: insertError } = await supabase
+      .from("agents")
+      .insert({
+        name: input.name,
+        slug,
+        gateway_id: gw?.id ?? null,
+        meta,
+      })
+      .select("id")
+      .single();
+
+    if (insertError || !inserted) {
+      return { ok: false, error: insertError?.message ?? "Failed to create agent" };
+    }
+
+    const agentId = inserted.id;
 
     // Enqueue provision command
-    const cmd = await enqueueAgentCommand({
-      agentId: result.agentId,
-      action: "provision",
-      payload: {
-        source_branch: input.templateBranch,
-        owner_name: result.ownerName,
-        owner_preferred_name: result.ownerPreferredName,
-        owner_timezone: result.ownerTimezone,
-      },
-    });
+    const { data: cmd, error: cmdError } = await supabase
+      .from("agent_commands")
+      .insert({
+        agent_id: agentId,
+        agent_slug: slug,
+        gateway_id: gw?.id ?? null,
+        action: "provision",
+        payload: {
+          source_branch: input.templateBranch,
+          owner_name: wsRow?.owner_name,
+          owner_preferred_name: wsRow?.owner_preferred_name,
+          owner_timezone: wsRow?.owner_timezone,
+        },
+      })
+      .select("id")
+      .single();
+
+    if (cmdError || !cmd) {
+      return { ok: false, error: cmdError?.message ?? "Failed to enqueue provision" };
+    }
 
     await patchOnboardingState({
-      data: {
-        agentId: result.agentId,
-        agentSlug: result.slug,
-        agentName: input.name,
-      },
+      data: { agentId, agentSlug: slug, agentName: input.name },
     });
 
-    return { ok: true, data: { agentId: result.agentId, provisionCommandId: cmd.commandId } };
+    return { ok: true, data: { agentId, provisionCommandId: cmd.id } };
   } catch (err) {
     return {
       ok: false,
