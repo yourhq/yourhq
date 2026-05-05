@@ -597,6 +597,19 @@ export async function submitPairingAction(input: {
       }
     }
 
+    // Timeout — the command may still be running. Check one last time
+    // and treat "running"/"pending" as likely success (the user can
+    // already talk to the bot if the pairing went through).
+    const { data: final } = await supabase
+      .from("agent_commands")
+      .select("status")
+      .eq("id", cmd.id)
+      .maybeSingle();
+    if (final?.status === "done") return { ok: true };
+    if (final?.status === "running" || final?.status === "pending") {
+      return { ok: true };
+    }
+
     return { ok: false, error: "Pairing timed out — try again" };
   } catch (err) {
     return {

@@ -613,10 +613,12 @@ export function StepAgent({
                 </div>
               )}
               {pairingStatus === "error" && (
-                <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-[11px] text-red-400">
+                <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-400">
                   <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
                   <span>
-                    Pairing failed{pairingError ? `: ${pairingError}` : ""}. Double-check the code and try again.
+                    {pairingError?.includes("timed out")
+                      ? "Pairing is taking longer than expected. If you can already message your bot, it worked — click Continue below."
+                      : `Pairing failed${pairingError ? `: ${pairingError}` : ""}. Double-check the code and try again.`}
                   </span>
                 </div>
               )}
@@ -679,7 +681,7 @@ export function StepAgent({
 
           {/* Actions */}
           <div className="flex items-center gap-3 pt-2">
-            {pairingStatus === "done" ? (
+            {pairingStatus === "done" || pairingStatus === "error" ? (
               <button
                 type="button"
                 onClick={onSkipChannel}
