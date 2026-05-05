@@ -80,6 +80,10 @@ services:
       # when the user picks "run agents on this machine" during onboarding.
       # Single-user self-hosted product; no multi-tenant concerns.
       - /var/run/docker.sock:/var/run/docker.sock
+      # Compose file + env — mounted so the UI container can run
+      # `docker compose --profile gateway up/stop` via local-compose.ts.
+      - ./docker-compose.yml:/compose/docker-compose.yml:ro
+      - ./.env:/compose/.env:ro
       # Host Tailscale socket (read-only). Used by the onboarding flow +
       # Settings → Networking to detect whether the user has Tailscale
       # running on the host and, if so, what address HQ is reachable at.
