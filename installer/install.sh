@@ -148,7 +148,7 @@ SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 # Host-network defaults. Onboarding offers to upgrade these to Tailscale
 # or public via Settings → Networking. Staying loopback-only is safe.
-UI_HOST_PORT=127.0.0.1:3000
+UI_HOST_PORT=0.0.0.0:3000
 NOVNC_HOST_PORT=127.0.0.1:6901
 FILES_API_HOST_PORT=127.0.0.1:18790
 NOVNC_BIND=local
@@ -157,10 +157,30 @@ ENVEOF
   ok "Wrote $TARGET/.env"
 fi
 
-# ── Pull + start only the UI ───────────────────────────────
+# ── GHCR auth ─────────────────────────────────────────────
+# Try an unauthenticated pull first (works for public packages).
+# If that fails and we have a GH token, log in and retry.
+# If no token is available, prompt the user.
 say ""
 info "Pulling UI image…"
-docker compose pull ui
+if ! docker compose pull ui 2>/dev/null; then
+  if [ -n "$GH_AUTH_TOKEN" ]; then
+    info "Image pull failed — authenticating to ghcr.io…"
+    echo "$GH_AUTH_TOKEN" | docker login ghcr.io -u "token" --password-stdin 2>/dev/null && \
+      ok "Logged in to ghcr.io" || { err "GHCR login failed. Check your token has read:packages scope."; exit 1; }
+    docker compose pull ui || { err "Image pull failed even after login."; exit 1; }
+  else
+    say ""
+    err "Image pull failed — the package may be private."
+    say "  Set a GitHub token with ${C}read:packages${R} scope and re-run:"
+    say "    ${C}export GH_TOKEN=ghp_xxxx${R}"
+    say "    ${C}bash installer/install.sh${R}"
+    say ""
+    say "  Create a token at: ${C}https://github.com/settings/tokens/new?scopes=read:packages${R}"
+    exit 1
+  fi
+fi
+ok "Image pulled"
 info "Starting UI…"
 docker compose up -d ui
 
