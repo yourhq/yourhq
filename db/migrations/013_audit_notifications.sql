@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
   entity_id       uuid NOT NULL,
   action          audit_action NOT NULL,
   summary         text,
+  changes         jsonb,
   meta            jsonb NOT NULL DEFAULT '{}'
 );
 
@@ -55,6 +56,7 @@ CREATE TABLE IF NOT EXISTS notifications (
   entity_id       uuid,
   actor_type      actor_type DEFAULT 'system',
   actor_agent_id  uuid REFERENCES agents(id) ON DELETE SET NULL,
+  is_read         boolean NOT NULL DEFAULT false,
   read_at         timestamptz,
   dismissed_at    timestamptz,
   meta            jsonb NOT NULL DEFAULT '{}'
