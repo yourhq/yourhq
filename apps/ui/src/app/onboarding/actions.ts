@@ -769,8 +769,11 @@ export async function pollLocalGateway(): Promise<GatewayPollResult> {
       .order("last_seen_at", { ascending: false, nullsFirst: false })
       .limit(1)
       .maybeSingle();
-    if (data?.id) {
-      return { status: "ready", gatewayId: data.id as string };
+    if (data?.id && data.last_seen_at) {
+      const age = Date.now() - new Date(data.last_seen_at as string).getTime();
+      if (age < 120_000) {
+        return { status: "ready", gatewayId: data.id as string };
+      }
     }
   } catch {
     // no supabase yet, or RPC error — fall through to compose check
