@@ -13,7 +13,18 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import AGENT_CHANNEL, AGENT_SLUG, api_get, api_patch, api_post, audit, check_env, get_agent_id, get_owner_handle, output
+from hq_base import (
+    AGENT_CHANNEL,
+    AGENT_SLUG,
+    api_get,
+    api_patch,
+    api_post,
+    audit,
+    check_env,
+    get_agent_id,
+    get_owner_handle,
+    output,
+)
 
 check_env()
 
