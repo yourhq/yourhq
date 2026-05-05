@@ -213,7 +213,7 @@ const SKIP_VALIDATION_PROVIDERS = new Set([
   "ollama", "lmstudio", "vllm", "sglang", // local
 ]);
 
-export const OAUTH_PROVIDERS = new Set([
+const OAUTH_PROVIDERS = new Set([
   "openai-codex", "github-copilot", "google-gemini-cli", "minimax-portal",
 ]);
 

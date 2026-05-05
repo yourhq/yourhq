@@ -20,12 +20,15 @@ import {
 } from "@/lib/connections/types";
 import { ProviderIcon } from "@/components/connections/provider-icons";
 import {
-  OAUTH_PROVIDERS,
   startOAuthFlow,
   submitOAuthPaste,
   pollCommandState,
   saveOAuthProvider,
 } from "./actions";
+
+const OAUTH_PROVIDERS = new Set([
+  "openai-codex", "github-copilot", "google-gemini-cli", "minimax-portal",
+]);
 
 const AUTH_SHAPE_LABELS: Record<string, string> = {
   api_key: "API key",
