@@ -81,7 +81,7 @@ function composeArgs(...extra: string[]): string[] {
 export async function startLocalGateway(): Promise<ComposeResult> {
   return run(
     "docker",
-    composeArgs("--profile", "gateway", "up", "-d", "--pull", "always", "--no-build"),
+    composeArgs("--profile", "gateway", "up", "-d", "--pull", "missing", "--no-build"),
   );
 }
 
