@@ -438,6 +438,7 @@ AS $$
 BEGIN
   UPDATE public.knowledge_items
   SET
+    chunk_status = 'failed',
     embedding_status = 'failed',
     embedding_error = left(p_error, 1000),
     embedding_leased_by = NULL,

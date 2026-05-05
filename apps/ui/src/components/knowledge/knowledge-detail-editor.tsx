@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useRealtime } from "@/hooks/use-realtime";
 import type { KnowledgeItem, KnowledgeFolder } from "@/lib/knowledge/types";
 import type { JSONContent } from "novel";
 import { logAudit } from "@/lib/audit/log";
@@ -65,7 +66,40 @@ export function KnowledgeDetailEditor({
   const [pinned, setPinned] = useState(item.pinned);
   const [scope, setScope] = useState(item.scope);
   const [showHistory, setShowHistory] = useState(false);
+  const [allAgents, setAllAgents] = useState<{ id: string; name: string; emoji?: string }[]>([]);
+  const [assignedAgentIds, setAssignedAgentIds] = useState<string[]>([]);
+  const [embeddingStatus, setEmbeddingStatus] = useState(item.embedding_status);
+  const [chunkStatus, setChunkStatus] = useState(item.chunk_status);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useRealtime({
+    table: "knowledge_items",
+    event: "UPDATE",
+    filter: `id=eq.${item.id}`,
+    onPayload: (payload) => {
+      const row = payload.new as Record<string, unknown>;
+      if (row.embedding_status) setEmbeddingStatus(row.embedding_status as typeof embeddingStatus);
+      if (row.chunk_status) setChunkStatus(row.chunk_status as typeof chunkStatus);
+    },
+  });
+
+  useEffect(() => {
+    async function loadAgents() {
+      const [{ data: agents }, { data: assigned }] = await Promise.all([
+        supabase.from("agents").select("id, name, meta").order("name"),
+        supabase.from("knowledge_item_agents").select("agent_id").eq("knowledge_item_id", item.id),
+      ]);
+      setAllAgents(
+        (agents ?? []).map((a) => ({
+          id: a.id,
+          name: a.name,
+          emoji: (a.meta as { emoji?: string } | null)?.emoji,
+        }))
+      );
+      setAssignedAgentIds((assigned ?? []).map((r) => r.agent_id));
+    }
+    loadAgents();
+  }, [supabase, item.id]);
 
   const initialContent = useMemo<JSONContent | undefined>(() => {
     if (!item.content) return undefined;
@@ -145,6 +179,27 @@ export function KnowledgeDetailEditor({
     const newScope = value as "workspace" | "agent";
     setScope(newScope);
     save({ scope: newScope });
+    if (newScope === "workspace") {
+      await supabase.from("knowledge_item_agents").delete().eq("knowledge_item_id", item.id);
+      setAssignedAgentIds([]);
+    }
+  }
+
+  async function handleToggleAgent(agentId: string) {
+    const isAssigned = assignedAgentIds.includes(agentId);
+    if (isAssigned) {
+      await supabase
+        .from("knowledge_item_agents")
+        .delete()
+        .eq("knowledge_item_id", item.id)
+        .eq("agent_id", agentId);
+      setAssignedAgentIds((prev) => prev.filter((id) => id !== agentId));
+    } else {
+      await supabase
+        .from("knowledge_item_agents")
+        .insert({ knowledge_item_id: item.id, agent_id: agentId });
+      setAssignedAgentIds((prev) => [...prev, agentId]);
+    }
   }
 
   async function handleTogglePin() {
@@ -210,8 +265,8 @@ export function KnowledgeDetailEditor({
 
         <div className="ml-auto flex items-center gap-1">
           <EmbeddingStatus
-            embeddingStatus={item.embedding_status}
-            chunkStatus={item.chunk_status}
+            embeddingStatus={embeddingStatus}
+            chunkStatus={chunkStatus}
           />
 
           <span className="text-[11px] text-muted-foreground mr-2">
@@ -349,6 +404,44 @@ export function KnowledgeDetailEditor({
                 </SelectContent>
               </Select>
             </div>
+
+            {scope === "agent" && (
+              <div className="flex items-start gap-3 min-h-[30px] pt-0.5">
+                <span className="w-24 shrink-0 flex items-center gap-1.5 text-xs text-muted-foreground select-none mt-1">
+                  <Bot className="h-3.5 w-3.5" />
+                  Agents
+                </span>
+                <div className="flex-1 min-w-0 -ml-0.5">
+                  {allAgents.length === 0 ? (
+                    <span className="text-xs text-muted-foreground/50 px-1.5">No agents</span>
+                  ) : (
+                    <div className="flex flex-wrap gap-1 px-1">
+                      {allAgents.map((a) => {
+                        const selected = assignedAgentIds.includes(a.id);
+                        return (
+                          <button
+                            key={a.id}
+                            type="button"
+                            onClick={() => handleToggleAgent(a.id)}
+                            className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
+                              selected
+                                ? "bg-primary/15 text-primary ring-1 ring-primary/30"
+                                : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                            }`}
+                          >
+                            {a.emoji && <span className="text-[11px]">{a.emoji}</span>}
+                            {a.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {scope === "agent" && assignedAgentIds.length === 0 && allAgents.length > 0 && (
+                    <p className="text-[10px] text-amber-400/70 px-1.5 mt-1">Select at least one agent</p>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="flex items-start gap-3 min-h-[30px] pt-0.5">
               <span className="w-24 shrink-0 flex items-center gap-1.5 text-xs text-muted-foreground select-none mt-1">
