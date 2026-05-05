@@ -46,6 +46,7 @@ RUN userdel -r ubuntu 2>/dev/null || true \
 COPY --chown=openclaw:openclaw gateway/daemons/command_runner.py /app/command_runner.py
 COPY --chown=openclaw:openclaw gateway/daemons/git_backup_sweep.py /app/git_backup_sweep.py
 COPY --chown=openclaw:openclaw gateway/daemons/registry_config.py /app/registry_config.py
+COPY --chown=openclaw:openclaw gateway/runner/entrypoint.sh /app/entrypoint.sh
 COPY --chown=openclaw:openclaw gateway/scripts /home/openclaw/.yourhq-infra
 
 RUN set -eux; \
@@ -60,4 +61,4 @@ RUN set -eux; \
 USER openclaw
 WORKDIR /home/openclaw
 
-ENTRYPOINT ["/usr/bin/tini", "--", "python3", "/app/command_runner.py"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/app/entrypoint.sh"]

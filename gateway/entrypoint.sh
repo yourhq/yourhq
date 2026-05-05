@@ -296,7 +296,7 @@ if [ ! -f "$CONFIG" ]; then
   openclaw onboard \
     --non-interactive --flow quickstart \
     --auth-choice skip --accept-risk --skip-health \
-    --gateway-port 18789 --gateway-bind loopback \
+    --gateway-port 18789 --gateway-bind lan \
     || log "  onboard exited non-zero — will retry next start"
 fi
 
@@ -310,6 +310,7 @@ if [ -f "$CONFIG" ]; then
   jq --arg plugin_path "$PLUGIN_DIR" '
     (if .agents.defaults.tools then del(.agents.defaults.tools) else . end) |
     .tools.profile = "full" |
+    .gateway.bind = "lan" |
     .browser.executablePath //= "/usr/bin/google-chrome-stable" |
     .browser.defaultProfile //= "openclaw" |
     .browser.noSandbox = true |

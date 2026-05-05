@@ -170,7 +170,7 @@ services:
       RECONCILE_INTERVAL: ${RECONCILE_INTERVAL:-60}
       WAKE_COOLDOWN: ${WAKE_COOLDOWN:-30}
     volumes:
-      - gateway-state:/home/openclaw/.openclaw:ro
+      - gateway-state:/home/openclaw/.openclaw
       # Read-only view of the UI's project registry for the same reason as
       # the gateway: registry-as-fallback when .env SUPABASE_* is empty.
       - ui-config:/config:ro

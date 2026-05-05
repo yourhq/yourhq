@@ -31,8 +31,9 @@ RUN userdel -r ubuntu 2>/dev/null || true \
 
 COPY --chown=openclaw:openclaw gateway/daemons/inbox_dispatcher.py /app/inbox_dispatcher.py
 COPY --chown=openclaw:openclaw gateway/daemons/registry_config.py /app/registry_config.py
+COPY --chown=openclaw:openclaw gateway/dispatcher/entrypoint.sh /app/entrypoint.sh
 
 USER openclaw
 WORKDIR /home/openclaw
 
-ENTRYPOINT ["/usr/bin/tini", "--", "python3", "/app/inbox_dispatcher.py"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/app/entrypoint.sh"]
