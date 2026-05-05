@@ -38,6 +38,7 @@ ENV NODE_ENV=production \
 #   invoked as `docker compose` — we install the plugin alongside.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       tini \
+      gosu \
       ca-certificates \
       curl \
       gnupg \
@@ -67,7 +68,10 @@ ENV HQ_SCHEMA_PATH=/app/db/migrations
 RUN mkdir -p /config && chown nextjs:nodejs /config
 VOLUME ["/config"]
 
-USER nextjs
+COPY apps/ui/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 EXPOSE 3000
 
-ENTRYPOINT ["/usr/bin/tini", "--", "node", "server.js"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
+CMD ["node", "server.js"]
