@@ -24,7 +24,6 @@ import {
   createAgentWithBranch,
   enqueueAgentCommand,
 } from "@/app/dashboard/agents/actions";
-import type { CommandAction } from "@/lib/agents/types";
 
 // ─── Welcome ──────────────────────────────────────────────────────────────
 
@@ -245,14 +244,32 @@ export async function connectProvider(
     }
   }
 
-  // Fire the auth_set_api_key command on the gateway
+  // Fire the auth_set_api_key command on the gateway (admin client —
+  // no user session exists yet during onboarding)
   try {
-    const r = await enqueueAgentCommand({
-      action: "auth_set_api_key" as CommandAction,
-      payload: { provider, api_key: apiKey },
-    });
+    const supabase = await createAdminClient();
+    const { data: gw } = await supabase
+      .from("gateways")
+      .select("id")
+      .limit(1)
+      .maybeSingle();
+
+    const { data: cmd, error } = await supabase
+      .from("agent_commands")
+      .insert({
+        gateway_id: gw?.id ?? null,
+        action: "auth_set_api_key",
+        payload: { provider, api_key: apiKey },
+      })
+      .select("id")
+      .single();
+
+    if (error || !cmd) {
+      return { ok: false, error: error?.message ?? "Failed to save provider" };
+    }
+
     await patchOnboardingState({
-      data: { providerId: provider, providerCommandId: r.commandId },
+      data: { providerId: provider, providerCommandId: cmd.id },
     });
   } catch (err) {
     return {
@@ -271,11 +288,27 @@ export async function startOAuthFlow(
   mode: "oauth_paste" | "device_code",
 ): Promise<ActionResult<{ commandId: string }>> {
   try {
-    const r = await enqueueAgentCommand({
-      action: "auth_start" as CommandAction,
-      payload: { provider, profile_name: "default", mode },
-    });
-    return { ok: true, data: { commandId: r.commandId } };
+    const supabase = await createAdminClient();
+    const { data: gw } = await supabase
+      .from("gateways")
+      .select("id")
+      .limit(1)
+      .maybeSingle();
+
+    const { data: cmd, error } = await supabase
+      .from("agent_commands")
+      .insert({
+        gateway_id: gw?.id ?? null,
+        action: "auth_start",
+        payload: { provider, profile_name: "default", mode },
+      })
+      .select("id")
+      .single();
+
+    if (error || !cmd) {
+      return { ok: false, error: error?.message ?? "Failed to start sign-in" };
+    }
+    return { ok: true, data: { commandId: cmd.id } };
   } catch (err) {
     return {
       ok: false,
@@ -289,10 +322,24 @@ export async function submitOAuthPaste(
   value: string,
 ): Promise<ActionResult> {
   try {
-    await enqueueAgentCommand({
-      action: "auth_paste" as CommandAction,
-      payload: { parent_command_id: parentCommandId, value },
-    });
+    const supabase = await createAdminClient();
+    const { data: gw } = await supabase
+      .from("gateways")
+      .select("id")
+      .limit(1)
+      .maybeSingle();
+
+    const { error } = await supabase
+      .from("agent_commands")
+      .insert({
+        gateway_id: gw?.id ?? null,
+        action: "auth_paste",
+        payload: { parent_command_id: parentCommandId, value },
+      });
+
+    if (error) {
+      return { ok: false, error: error.message };
+    }
     return { ok: true };
   } catch (err) {
     return {
