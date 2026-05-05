@@ -33,7 +33,8 @@ import {
   CollapsibleTrigger,
   CollapsibleContent,
 } from "@/components/ui/collapsible";
-import { Paperclip, MessageSquare, ChevronRight, Archive } from "lucide-react";
+import { Paperclip, MessageSquare, ChevronRight, Archive, Activity } from "lucide-react";
+import { TaskActivityFeed } from "./task-activity-feed";
 import {
   RecurrencePicker,
   DEFAULT_RECURRENCE,
@@ -507,6 +508,22 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
               </CollapsibleTrigger>
               <CollapsibleContent className="px-4 pb-3">
                 <TaskFormComments taskId={savedTaskId} />
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+        )}
+
+        {/* Activity feed — only for existing tasks */}
+        {savedTaskId && (
+          <div className="border-t border-border/50">
+            <Collapsible>
+              <CollapsibleTrigger className="flex w-full items-center gap-1.5 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <ChevronRight className="h-3 w-3 transition-transform duration-200 [[data-state=open]>&]:rotate-90" />
+                <Activity className="h-3.5 w-3.5" />
+                <span className="font-medium">Activity</span>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="px-4 pb-3">
+                <TaskActivityFeed taskId={savedTaskId} />
               </CollapsibleContent>
             </Collapsible>
           </div>

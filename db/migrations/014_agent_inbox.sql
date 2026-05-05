@@ -167,6 +167,11 @@ BEGIN
         v_agent.tenant_id
       ) ON CONFLICT (dedup_key) DO NOTHING;
     END IF;
+
+    -- Auto-transition: assigned to agent → in_progress
+    IF NEW.status = 'todo' THEN
+      UPDATE public.tasks SET status = 'in_progress' WHERE id = NEW.id AND status = 'todo';
+    END IF;
   END IF;
 
   RETURN NEW;

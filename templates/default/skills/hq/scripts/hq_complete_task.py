@@ -15,6 +15,6 @@ if len(sys.argv) < 2:
 
 task_id = sys.argv[1]
 api_patch("tasks", task_id, {"status": "done"})
-audit("tasks", "task", task_id, "status_changed",
-      summary=f"Agent '{AGENT_SLUG}' completed task")
+audit("tasks", "task", task_id, "status_changed", summary="Completed this task",
+      changes={"status": {"old": "in_progress", "new": "done"}})
 output({"status": "completed", "task_id": task_id})

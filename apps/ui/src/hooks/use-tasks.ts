@@ -8,6 +8,7 @@ import type { Task, TaskStatus } from "@/lib/tasks/types";
 import { TaskForm } from "@/components/tasks/task-form";
 import { logAudit } from "@/lib/audit/log";
 import { useRealtimeSync } from "./use-realtime-sync";
+import { useRealtime } from "./use-realtime";
 import { toast } from "sonner";
 
 export function useTasks() {
@@ -173,6 +174,31 @@ export function useTasks() {
     setItems: setTasks,
     filter: "parent_id=is.null",
     postProcess: taskPostProcess,
+  });
+
+  // Toast notifications when agent-assigned tasks change status
+  useRealtime({
+    table: "tasks",
+    event: "UPDATE",
+    onPayload: (payload) => {
+      const oldRow = payload.old as Record<string, unknown>;
+      const newRow = payload.new as Record<string, unknown>;
+      if (!oldRow || !newRow) return;
+      if (oldRow.status === newRow.status) return;
+      if (newRow.assignee_type !== "agent") return;
+
+      const title = (newRow.title as string) || "Untitled task";
+      const agentTask = tasks.find((t) => t.id === newRow.id);
+      const agentName = agentTask?.assignee_agent?.name || "Agent";
+
+      if (newRow.status === "done") {
+        toast.success(`${agentName} completed: ${title}`);
+      } else if (newRow.status === "blocked") {
+        toast.warning(`${agentName} is blocked on: ${title}`);
+      } else if (oldRow.status === "todo" && newRow.status === "in_progress") {
+        toast.info(`${agentName} started: ${title}`);
+      }
+    },
   });
 
   async function handleStatusChange(id: string, status: TaskStatus) {

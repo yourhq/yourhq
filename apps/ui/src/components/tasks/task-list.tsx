@@ -14,7 +14,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Bot,
   User,
   Calendar,
   CheckCircle2,
@@ -33,6 +32,7 @@ import {
   Trash2,
   Repeat,
 } from "lucide-react";
+import { AgentStatusChip } from "./agent-status-chip";
 import { format, isPast, isToday } from "date-fns";
 import { shortCadenceLabel } from "@/lib/tasks/cadence";
 
@@ -209,9 +209,8 @@ export function TaskList({
 
             {/* Assignee */}
             {task.assignee_type === "agent" && task.assignee_agent ? (
-              <span className="hidden shrink-0 items-center gap-1 text-[11px] text-muted-foreground md:inline-flex">
-                <Bot className="h-3 w-3" />
-                {task.assignee_agent.name}
+              <span className="hidden shrink-0 md:inline-flex">
+                <AgentStatusChip task={task} />
               </span>
             ) : task.assignee_type === "human" ? (
               <span className="hidden shrink-0 items-center gap-1 text-[11px] text-muted-foreground md:inline-flex">

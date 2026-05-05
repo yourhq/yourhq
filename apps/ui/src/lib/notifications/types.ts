@@ -5,6 +5,9 @@ export type NotificationType =
   | "stale_contact"
   | "agent_suggestion"
   | "task_reminder"
+  | "task_assigned"
+  | "task_completed"
+  | "task_blocked"
   | "system"
   | "budget.warned"
   | "budget.exceeded";
@@ -30,6 +33,9 @@ export const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
   stale_contact: "Stale contact",
   agent_suggestion: "Agent suggestion",
   task_reminder: "Task reminder",
+  task_assigned: "Task assigned",
+  task_completed: "Task completed",
+  task_blocked: "Task blocked",
   system: "System",
   "budget.warned": "Budget warning",
   "budget.exceeded": "Budget exceeded",

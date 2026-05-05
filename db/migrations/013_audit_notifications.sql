@@ -84,3 +84,66 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 ALTER TABLE notifications REPLICA IDENTITY FULL;
+
+-- ── Task status → notification trigger ────────────────────────────
+
+CREATE OR REPLACE FUNCTION notify_task_status_change()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+DECLARE
+  v_type text;
+  v_title text;
+  v_agent_name text;
+BEGIN
+  -- Assignment notification (agent assigned)
+  IF OLD.assignee_agent_id IS DISTINCT FROM NEW.assignee_agent_id AND NEW.assignee_agent_id IS NOT NULL THEN
+    SELECT name INTO v_agent_name FROM public.agents WHERE id = NEW.assignee_agent_id;
+    INSERT INTO public.notifications (tenant_id, type, title, body, entity_type, entity_id, actor_type, actor_agent_id, meta)
+    VALUES (
+      NEW.tenant_id, 'task_assigned',
+      COALESCE(v_agent_name, 'Agent') || ' assigned to task',
+      COALESCE(NEW.title, 'Untitled'),
+      'task', NEW.id, 'system', NEW.assignee_agent_id,
+      jsonb_build_object('task_title', NEW.title, 'agent_name', v_agent_name)
+    );
+  END IF;
+
+  -- Status change notifications
+  IF OLD.status IS DISTINCT FROM NEW.status THEN
+    IF NEW.status = 'done' AND NEW.assignee_agent_id IS NOT NULL THEN
+      SELECT name INTO v_agent_name FROM public.agents WHERE id = NEW.assignee_agent_id;
+      INSERT INTO public.notifications (tenant_id, type, title, body, entity_type, entity_id, actor_type, actor_agent_id, meta)
+      VALUES (
+        NEW.tenant_id, 'task_completed',
+        COALESCE(v_agent_name, 'Agent') || ' completed a task',
+        COALESCE(NEW.title, 'Untitled'),
+        'task', NEW.id, 'agent', NEW.assignee_agent_id,
+        jsonb_build_object('task_title', NEW.title, 'old_status', OLD.status, 'new_status', NEW.status)
+      );
+    ELSIF NEW.status = 'blocked' AND NEW.assignee_agent_id IS NOT NULL THEN
+      SELECT name INTO v_agent_name FROM public.agents WHERE id = NEW.assignee_agent_id;
+      INSERT INTO public.notifications (tenant_id, type, title, body, entity_type, entity_id, actor_type, actor_agent_id, meta)
+      VALUES (
+        NEW.tenant_id, 'task_blocked',
+        COALESCE(v_agent_name, 'Agent') || ' is blocked',
+        COALESCE(NEW.title, 'Untitled'),
+        'task', NEW.id, 'agent', NEW.assignee_agent_id,
+        jsonb_build_object('task_title', NEW.title, 'old_status', OLD.status, 'new_status', NEW.status)
+      );
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tasks_notify_status_change ON tasks;
+CREATE TRIGGER tasks_notify_status_change
+  AFTER UPDATE ON tasks
+  FOR EACH ROW
+  WHEN (OLD.status IS DISTINCT FROM NEW.status OR OLD.assignee_agent_id IS DISTINCT FROM NEW.assignee_agent_id)
+  EXECUTE FUNCTION notify_task_status_change();
+
+GRANT EXECUTE ON FUNCTION notify_task_status_change() TO authenticated, service_role;

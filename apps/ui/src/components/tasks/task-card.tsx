@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import {
-  Bot,
   User,
   MessageSquare,
   Calendar,
@@ -21,6 +20,7 @@ import {
   Pencil,
   Repeat,
 } from "lucide-react";
+import { AgentStatusChip } from "./agent-status-chip";
 import { format, isPast, isToday } from "date-fns";
 import { shortCadenceLabel } from "@/lib/tasks/cadence";
 
@@ -127,10 +127,7 @@ export function TaskCard({ task, onClick, onArchive }: TaskCardProps) {
         <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
           <div className="flex items-center gap-2">
             {task.assignee_type === "agent" && task.assignee_agent ? (
-              <span className="flex items-center gap-1">
-                <Bot className="h-3 w-3" />
-                {task.assignee_agent.name}
-              </span>
+              <AgentStatusChip task={task} />
             ) : task.assignee_type === "human" ? (
               <span className="flex items-center gap-1">
                 <User className="h-3 w-3" />
