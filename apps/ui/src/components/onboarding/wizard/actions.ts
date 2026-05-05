@@ -437,7 +437,8 @@ export async function createFirstAgent(input: {
         gateway_id: gw?.id ?? null,
         action: "provision",
         payload: {
-          source_branch: input.templateBranch,
+          source_template: input.templateBranch,
+          channel: "none",
           owner_name: wsRow?.owner_name,
           owner_preferred_name: wsRow?.owner_preferred_name,
           owner_timezone: wsRow?.owner_timezone,
