@@ -187,6 +187,26 @@ def get_agent_id():
     return None
 
 
+_owner_handle_cache = None
+
+
+def get_owner_handle():
+    """Resolve the workspace owner's preferred name for @mentions."""
+    global _owner_handle_cache
+    if _owner_handle_cache is not None:
+        return _owner_handle_cache
+    try:
+        rows = api_get("workspace", {"select": "owner_preferred_name,slug", "limit": "1"})
+        if rows:
+            name = rows[0].get("owner_preferred_name") or rows[0].get("slug") or "owner"
+            _owner_handle_cache = name.lower().replace(" ", "")
+        else:
+            _owner_handle_cache = "owner"
+    except Exception:
+        _owner_handle_cache = "owner"
+    return _owner_handle_cache
+
+
 # ── Audit logging ──────────────────────────────────────────────────────
 
 def audit(module, entity_type, entity_id, action, summary=None, changes=None):

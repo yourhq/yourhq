@@ -187,6 +187,26 @@ def get_agent_id():
     return None
 
 
+_owner_handle_cache = None
+
+
+def get_owner_handle():
+    """Resolve the workspace owner's preferred name for @mentions."""
+    global _owner_handle_cache
+    if _owner_handle_cache is not None:
+        return _owner_handle_cache
+    try:
+        rows = api_get("workspace", {"select": "owner_preferred_name,slug", "limit": "1"})
+        if rows:
+            name = rows[0].get("owner_preferred_name") or rows[0].get("slug") or "owner"
+            _owner_handle_cache = name.lower().replace(" ", "")
+        else:
+            _owner_handle_cache = "owner"
+    except Exception:
+        _owner_handle_cache = "owner"
+    return _owner_handle_cache
+
+
 # ── Audit logging ──────────────────────────────────────────────────────
 
 def audit(module, entity_type, entity_id, action, summary=None, changes=None):
@@ -277,6 +297,34 @@ def build_embedding_input(title, content=None, tags=None):
 
 def embedding_source_hash(text):
     return hashlib.sha256((text or "").encode("utf-8")).hexdigest()
+
+
+# ── Module guards ─────────────────────────────────────────────────────
+
+_workspace_modules_cache = None
+
+
+def get_workspace_modules():
+    global _workspace_modules_cache
+    if _workspace_modules_cache is not None:
+        return _workspace_modules_cache
+    try:
+        rows = api_get("workspace", {"select": "settings", "limit": "1"})
+        if rows:
+            settings = rows[0].get("settings") or {}
+            _workspace_modules_cache = settings.get("modules", {"crm": True})
+        else:
+            _workspace_modules_cache = {"crm": True}
+    except Exception:
+        _workspace_modules_cache = {"crm": True}
+    return _workspace_modules_cache
+
+
+def require_crm():
+    modules = get_workspace_modules()
+    if not modules.get("crm", True):
+        print(json.dumps({"error": "crm_disabled", "message": "CRM module is not enabled in this workspace. Enable it in Settings > Modules."}))
+        sys.exit(0)
 
 
 # ── Output helper ──────────────────────────────────────────────────────

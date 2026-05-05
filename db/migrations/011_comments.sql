@@ -90,6 +90,47 @@ CREATE POLICY "Service role full access" ON comments
 GRANT ALL ON comments TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION enqueue_comment_mentions() TO authenticated, service_role;
 
+-- ── Trigger: notify human when an agent posts a comment ───────────
+
+CREATE OR REPLACE FUNCTION notify_agent_comment()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+DECLARE
+  v_agent_name text;
+  v_title text;
+BEGIN
+  IF NEW.actor_type != 'agent' THEN RETURN NEW; END IF;
+
+  SELECT name INTO v_agent_name FROM public.agents WHERE id = NEW.actor_agent_id;
+
+  IF NEW.entity_type = 'task' THEN
+    SELECT title INTO v_title FROM public.tasks WHERE id = NEW.entity_id;
+  END IF;
+
+  INSERT INTO public.notifications (tenant_id, type, title, body, entity_type, entity_id, actor_type, actor_agent_id, meta)
+  VALUES (
+    NEW.tenant_id, 'agent_comment',
+    COALESCE(v_agent_name, 'Agent') || ' commented',
+    left(NEW.body, 200),
+    NEW.entity_type, NEW.entity_id, 'agent', NEW.actor_agent_id,
+    jsonb_build_object('comment_id', NEW.id, 'entity_title', v_title)
+  );
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS comments_notify_agent ON comments;
+CREATE TRIGGER comments_notify_agent
+  AFTER INSERT ON comments
+  FOR EACH ROW
+  WHEN (NEW.actor_type = 'agent')
+  EXECUTE FUNCTION notify_agent_comment();
+
+GRANT EXECUTE ON FUNCTION notify_agent_comment() TO authenticated, service_role;
+
 -- ── Realtime ──────────────────────────────────────────────────────
 
 DO $$ BEGIN

@@ -25,8 +25,9 @@ result = api_patch("tasks", task_id, {
     "assignee_agent_id": agent_id,
 })
 
-audit("tasks", "task", task_id, "assigned",
-      summary=f"Agent '{AGENT_SLUG}' claimed task")
+audit("tasks", "task", task_id, "assigned", summary="Claimed this task")
+audit("tasks", "task", task_id, "status_changed", summary="Started working on this task",
+      changes={"status": {"old": "todo", "new": "in_progress"}})
 
 links = api_get("entity_links", {
     "select": "id,target_type,target_id,url,label,meta",

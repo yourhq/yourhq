@@ -13,7 +13,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import AGENT_CHANNEL, AGENT_SLUG, api_get, api_patch, api_post, audit, check_env, get_agent_id, output
+from hq_base import AGENT_CHANNEL, AGENT_SLUG, api_get, api_patch, api_post, audit, check_env, get_agent_id, get_owner_handle, output
 
 check_env()
 
@@ -38,14 +38,15 @@ audit("tasks", "task", args.task_id, "status_changed",
 task_rows = api_get("tasks", {"select": "title", "id": f"eq.{args.task_id}", "limit": "1"})
 task_title = task_rows[0]["title"] if task_rows else "Unknown"
 
-comment_body = f"@prajoth Task blocked. Reason: {args.reason}"
+owner = get_owner_handle()
+comment_body = f"@{owner} Task blocked. Reason: {args.reason}"
 api_post("comments", {
     "entity_type": "task",
     "entity_id": args.task_id,
     "actor_type": "agent",
     "actor_agent_id": agent_id,
     "body": comment_body,
-    "mentions": ["prajoth"],
+    "mentions": [owner],
 })
 
 # 3. Notify via configured channel

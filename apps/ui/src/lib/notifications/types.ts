@@ -4,6 +4,7 @@ export type NotificationType =
   | "follow_up"
   | "stale_contact"
   | "agent_suggestion"
+  | "agent_comment"
   | "task_reminder"
   | "task_assigned"
   | "task_completed"
@@ -32,6 +33,7 @@ export const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
   follow_up: "Follow-up",
   stale_contact: "Stale contact",
   agent_suggestion: "Agent suggestion",
+  agent_comment: "Agent comment",
   task_reminder: "Task reminder",
   task_assigned: "Task assigned",
   task_completed: "Task completed",

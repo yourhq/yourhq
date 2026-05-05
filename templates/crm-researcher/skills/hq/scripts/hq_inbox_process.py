@@ -23,7 +23,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import AGENT_SLUG, api_get, api_rpc, check_env, get_agent_id, output
+from hq_base import AGENT_SLUG, api_get, api_rpc, audit, check_env, get_agent_id, output
 
 check_env()
 
@@ -93,6 +93,8 @@ for _ in range(batch_size):
                 })
                 if tasks:
                     context["task"] = tasks[0]
+                    audit("tasks", "task", item["task_id"], "updated",
+                          summary=f"Processing: {item.get('summary', 'inbox item')}")
 
                 # Fetch linked entities
                 links = api_get("entity_links", {

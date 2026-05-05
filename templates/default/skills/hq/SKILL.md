@@ -274,7 +274,7 @@ Failed items retry automatically (up to 3 attempts). After that, they go to dead
 ```bash
 python3 skills/hq/scripts/hq_escalate.py TASK_ID "Reason you're blocked"
 ```
-Sets task to `blocked`, posts a comment mentioning @prajoth, sends Telegram notification. Then mark the inbox item done and move on.
+Sets task to `blocked`, posts a comment mentioning the workspace owner, sends Telegram notification. Then mark the inbox item done and move on.
 
 ### Inbox discipline
 - **"Done" means the intake was handled**, not that the underlying task is finished. Triage it, acknowledge it, start it — then mark the inbox item done.
