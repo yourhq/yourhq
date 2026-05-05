@@ -81,7 +81,8 @@ function composeArgs(...extra: string[]): string[] {
 export async function startLocalGateway(): Promise<ComposeResult> {
   return run(
     "docker",
-    composeArgs("--profile", "gateway", "up", "-d", "--pull", "missing", "--no-build"),
+    composeArgs("up", "-d", "--pull", "missing", "--no-build",
+      "gateway", "dispatcher", "runner", "embedder", "file-processor"),
     { DOCKER_CONFIG: "/home/nextjs/.docker" },
   );
 }
@@ -89,7 +90,7 @@ export async function startLocalGateway(): Promise<ComposeResult> {
 export async function stopLocalGateway(): Promise<ComposeResult> {
   return run(
     "docker",
-    composeArgs("--profile", "gateway", "stop"),
+    composeArgs("stop", "gateway", "dispatcher", "runner", "embedder", "file-processor"),
   );
 }
 
@@ -98,11 +99,10 @@ export async function localGatewayStatus(): Promise<{
   services: { name: string; state: string }[];
 }> {
   const r = await run("docker", composeArgs(
-    "--profile",
-    "gateway",
     "ps",
     "--format",
     "json",
+    "gateway", "dispatcher", "runner", "embedder", "file-processor",
   ));
   if (!r.ok) return { running: false, services: [] };
 
