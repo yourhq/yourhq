@@ -14,7 +14,16 @@ services:
     image: node:24-slim
     build: !reset
     working_dir: /app
-    command: sh -c "command -v docker >/dev/null || (apt-get update -qq && apt-get install -y -qq --no-install-recommends ca-certificates curl gnupg >/dev/null 2>&1 && install -m 0755 -d /etc/apt/keyrings && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && echo \"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(. /etc/os-release && echo $VERSION_CODENAME) stable\" > /etc/apt/sources.list.d/docker.list && apt-get update -qq && apt-get install -y -qq --no-install-recommends docker-ce-cli docker-compose-plugin >/dev/null 2>&1) ; npm install --legacy-peer-deps && npm run dev"
+    command: >-
+      sh -c "command -v docker >/dev/null || (
+        apt-get update -qq &&
+        apt-get install -y -qq --no-install-recommends ca-certificates curl gnupg >/dev/null 2>&1 &&
+        install -m 0755 -d /etc/apt/keyrings &&
+        curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg &&
+        echo \"deb [arch=$$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $$(. /etc/os-release && echo $$VERSION_CODENAME) stable\" > /etc/apt/sources.list.d/docker.list &&
+        apt-get update -qq &&
+        apt-get install -y -qq --no-install-recommends docker-ce-cli docker-compose-plugin >/dev/null 2>&1
+      ) ; npm install --legacy-peer-deps && npm run dev"
     environment:
       NODE_ENV: development
       CHOKIDAR_USEPOLLING: "true"
