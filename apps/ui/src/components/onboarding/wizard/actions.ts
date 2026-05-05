@@ -477,7 +477,7 @@ export async function pollAgentProvisionStatus(
     .maybeSingle();
 
   if (!data) return "pending";
-  if (data.status === "completed") return "completed";
+  if (data.status === "done") return "completed";
   if (data.status === "error" || data.status === "failed") return "error";
   return "pending";
 }
