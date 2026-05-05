@@ -413,6 +413,7 @@ AS $$
 BEGIN
   UPDATE public.knowledge_items
   SET
+    chunk_status = 'indexed',
     embedding = p_embedding,
     embedding_model = p_model,
     embedding_dimensions = p_dimensions,

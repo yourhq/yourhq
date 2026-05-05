@@ -502,7 +502,7 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
                   <Activity className="h-3.5 w-3.5" />
                   <span className="font-medium">Activity</span>
                 </CollapsibleTrigger>
-                <CollapsibleContent className="px-4 sm:px-5 pb-3">
+                <CollapsibleContent forceMount className="px-4 sm:px-5 pb-3 data-[state=closed]:hidden">
                   <TaskActivityFeed taskId={savedTaskId} />
                 </CollapsibleContent>
               </Collapsible>
