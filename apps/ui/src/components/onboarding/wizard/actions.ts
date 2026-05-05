@@ -439,6 +439,8 @@ export async function createFirstAgent(input: {
         payload: {
           source_template: input.templateBranch,
           channel: "none",
+          name: input.name,
+          emoji: input.emoji,
           owner_name: wsRow?.owner_name,
           owner_preferred_name: wsRow?.owner_preferred_name,
           owner_timezone: wsRow?.owner_timezone,

@@ -113,5 +113,3 @@ RLS: All tables use tenant-scoped policies via `current_tenant_id()` JWT claim. 
 - Shipped: self-hosted stack, browser onboarding, multi-project registry, UI-driven gateway registration, provider connections, noVNC modal, usage budgets, agent hierarchy, unified knowledge (pages/playbooks/files/sources), entity links, routines (schedule + event), collections (table/kanban/calendar views), file processing pipeline, source connections (Notion), modular onboarding, task calendar view, and agent-initiated skill learning (playbook auto-creation with version history).
 - Next: Google Drive sync, public deployment docs, richer pricing coverage, template docs, and docs site generation.
 - Later: hosted offering with account management, automated provisioning, and billing.
-
-Current plan file: `/Users/prajoth/.claude/plans/resilient-dancing-koala.md`.
