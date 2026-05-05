@@ -15,4 +15,11 @@ if [ -f /compose/.env ] && ! su -s /bin/sh nextjs -c "test -r /compose/.env" 2>/
   chmod 644 /compose/.env
 fi
 
+# Copy host Docker config so nextjs can authenticate to registries.
+if [ -f /host-docker-config/config.json ]; then
+  mkdir -p /home/nextjs/.docker
+  cp /host-docker-config/config.json /home/nextjs/.docker/config.json
+  chown -R nextjs:nodejs /home/nextjs/.docker
+fi
+
 exec gosu nextjs "$@"

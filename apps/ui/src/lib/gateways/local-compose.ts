@@ -82,6 +82,7 @@ export async function startLocalGateway(): Promise<ComposeResult> {
   return run(
     "docker",
     composeArgs("--profile", "gateway", "up", "-d", "--pull", "missing", "--no-build"),
+    { DOCKER_CONFIG: "/home/nextjs/.docker" },
   );
 }
 

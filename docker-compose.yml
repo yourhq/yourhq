@@ -86,7 +86,7 @@ services:
       - ./.env:/compose/.env:ro
       # Host Docker config — needed so pulls from inside the container
       # authenticate to GHCR with the host user's credentials.
-      - ${DOCKER_CONFIG:-${HOME}/.docker}:/home/nextjs/.docker:ro
+      - ${DOCKER_CONFIG:-${HOME}/.docker}:/host-docker-config:ro
       # Host Tailscale socket (read-only). Used by the onboarding flow +
       # Settings → Networking to detect whether the user has Tailscale
       # running on the host and, if so, what address HQ is reachable at.
