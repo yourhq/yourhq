@@ -484,27 +484,35 @@ PROVIDER_DEFAULT_MODELS = {
 }
 
 
-def _set_default_model_for_provider(provider):
+def _set_default_model_for_provider(provider, force=False):
     """Best-effort: set openclaw's global default model after connecting a provider.
-    Only sets the default if no model is currently configured (first connection).
-    """
-    try:
-        probe = subprocess.run(
-            ["openclaw", "models", "status", "--json"],
-            capture_output=True, text=True, timeout=15,
-            env={**os.environ, "HOME": HOME},
-        )
-        if probe.returncode == 0 and probe.stdout.strip():
-            status = json.loads(probe.stdout)
-            if status.get("defaultModel"):
-                log(f"Default model already set to {status['defaultModel']}, skipping")
-                return
-    except Exception:
-        pass
 
+    When force=False (default), only sets if no model is currently configured.
+    When force=True, always sets (used by OAuth flows where the provider
+    determines the correct model variant, e.g. openai-codex vs openai).
+    """
     model = PROVIDER_DEFAULT_MODELS.get(provider)
     if not model:
         model = f"{provider}/default"
+
+    if not force:
+        try:
+            probe = subprocess.run(
+                ["openclaw", "models", "status", "--json"],
+                capture_output=True, text=True, timeout=15,
+                env={**os.environ, "HOME": HOME},
+            )
+            if probe.returncode == 0 and probe.stdout.strip():
+                status = json.loads(probe.stdout)
+                current = status.get("defaultModel", "")
+                if current and current == model:
+                    log(f"Default model already set to {current}, skipping")
+                    return
+                if current:
+                    log(f"Default model is {current}, updating to {model} for provider {provider}")
+        except Exception:
+            pass
+
     try:
         result = subprocess.run(
             ["openclaw", "models", "set", model],
@@ -512,7 +520,7 @@ def _set_default_model_for_provider(provider):
             env={**os.environ, "HOME": HOME},
         )
         if result.returncode == 0:
-            log(f"Set default model to {model} (first provider connected)")
+            log(f"Set default model to {model}")
         else:
             log(f"Failed to set default model to {model}: {result.stderr[:200]}")
     except Exception as e:
@@ -581,7 +589,7 @@ def handle_auth_set_api_key(cmd_id, payload):
 
         if result.returncode == 0:
             sync_to_shared_auth()
-            _set_default_model_for_provider(provider)
+            _set_default_model_for_provider(provider, force=True)
 
         # Scrub the API key from the row immediately on completion.
         scrubbed = {k: v for k, v in payload.items() if k not in ("api_key", "base_url")}
@@ -794,7 +802,7 @@ def handle_auth_start(cmd_id, payload):
     if rc == 0:
         profile_id = f"{provider}:{profile_name}"
         sync_to_shared_auth()
-        _set_default_model_for_provider(provider)
+        _set_default_model_for_provider(provider, force=True)
         patch_command_payload(cmd_id, {
             "connection_state": {"stage": "completed", "profileId": profile_id},
         })
