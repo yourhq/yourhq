@@ -14,7 +14,7 @@ services:
     image: node:24-slim
     build: !reset
     working_dir: /app
-    command: sh -c "npm install --legacy-peer-deps && npm run dev"
+    command: sh -c "command -v docker >/dev/null || (apt-get update -qq && apt-get install -y -qq --no-install-recommends docker.io >/dev/null 2>&1) ; npm install --legacy-peer-deps && npm run dev"
     environment:
       NODE_ENV: development
       CHOKIDAR_USEPOLLING: "true"
