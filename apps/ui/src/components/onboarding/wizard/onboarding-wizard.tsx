@@ -10,6 +10,7 @@ import { StepIntent } from "./step-intent";
 import { StepInfrastructure, type InfraStatus, type SchemaInstallState } from "./step-infrastructure";
 import { StepProvider } from "./step-provider";
 import { StepAgent, type AgentRecommendation } from "./step-agent";
+import { StepAccount } from "./step-account";
 import { FIRST_TASK_SUGGESTIONS } from "@/lib/onboarding/first-task-suggestions";
 import { completeItem } from "@/lib/onboarding/progress";
 import {
@@ -18,6 +19,9 @@ import {
   connectProvider,
   createFirstAgent,
   pollAgentProvisionStatus,
+  connectChannelAction,
+  submitPairingAction,
+  createAccountAndFinalize,
   validateAndConnectDb,
   setupGateway,
   advanceInfrastructure,
@@ -64,10 +68,9 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
   const [schemaInstall, setSchemaInstall] = useState<SchemaInstallState>({
     phase: "idle",
   });
-  // Stash creds for schema install sub-flow
   const dbCredsRef = useRef<{ url: string; anonKey: string; serviceRoleKey: string } | null>(null);
 
-  // Provider state — reset when navigating away from the provider step
+  // Provider state
   const [validating, setValidating] = useState(false);
   const [validated, setValidated] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -85,7 +88,13 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
   const [provisionError, setProvisionError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Cleanup polling on unmount
+  // Pairing state
+  const [pairingStatus, setPairingStatus] = useState<"idle" | "submitting" | "done" | "error">("idle");
+  const [pairingError, setPairingError] = useState<string | null>(null);
+
+  // Account step error
+  const [accountError, setAccountError] = useState<string | null>(null);
+
   useEffect(() => {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
@@ -131,9 +140,7 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
         }
         patch({ supabaseUrl: url, supabaseAnonKey: anonKey });
         if (r.schemaNeeded) {
-          // Stash creds so sub-flow actions can use them
           dbCredsRef.current = { url, anonKey, serviceRoleKey };
-          // Fetch the SQL + editor link
           const prep = await prepareSchemaInstallAction({ url, anonKey, serviceRoleKey });
           setSchemaInstall({
             phase: "needed",
@@ -154,7 +161,6 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
     (region: string, dbPassword: string) => {
       const creds = dbCredsRef.current;
       if (!creds) return;
-      // Parse projectRef from URL directly as the canonical source
       const m = creds.url.match(/https?:\/\/([a-z0-9]{20})\.supabase\.co/i);
       const projectRef = schemaInstall.projectRef ?? (m ? m[1] : "");
       if (!projectRef) {
@@ -217,7 +223,6 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
               ? "docker compose --profile gateway up -d --pull always --no-build"
               : undefined,
           }));
-          // Still poll — if they run the manual command the gateway will self-register
           patch({ placement });
           const interval = setInterval(async () => {
             const poll = await import("@/app/onboarding/actions").then((m) => m.pollLocalGateway());
@@ -286,7 +291,6 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
       patch({ agentId, agentName: agentData.name, agentEmoji: agentData.emoji });
       setProvisionStatus("provisioning");
 
-      // Start polling provision status
       if (provisionCommandId) {
         const interval = setInterval(async () => {
           const status = await pollAgentProvisionStatus(provisionCommandId);
@@ -305,6 +309,66 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
       return { agentId, provisionCommandId };
     },
     [patch, setError],
+  );
+
+  const handleConnectChannel = useCallback(
+    async (channelData: {
+      agentId: string;
+      agentSlug: string;
+      channel: "telegram" | "discord" | "slack";
+      token: string;
+      extras?: Record<string, string>;
+    }) => {
+      const r = await connectChannelAction(channelData);
+      if (!r.ok || !r.data) {
+        setError(r.error ?? "Failed to connect channel");
+        return null;
+      }
+
+      patch({ channelType: channelData.channel });
+      setProvisionStatus("provisioning");
+
+      // Poll the new provision command
+      const { provisionCommandId } = r.data;
+      if (pollRef.current) clearInterval(pollRef.current);
+      const interval = setInterval(async () => {
+        const status = await pollAgentProvisionStatus(provisionCommandId);
+        if (status === "completed") {
+          clearInterval(interval);
+          setProvisionStatus("ready");
+        } else if (status === "error") {
+          clearInterval(interval);
+          setProvisionStatus("error");
+          setProvisionError("Channel setup failed");
+        }
+      }, 3000);
+      pollRef.current = interval;
+
+      return { provisionCommandId };
+    },
+    [patch, setError],
+  );
+
+  const handleSubmitPairing = useCallback(
+    async (pairingData: {
+      agentId: string;
+      agentSlug: string;
+      channel: "telegram" | "discord" | "slack";
+      pairingCode: string;
+    }) => {
+      setPairingStatus("submitting");
+      setPairingError(null);
+      const r = await submitPairingAction(pairingData);
+      if (r.ok) {
+        setPairingStatus("done");
+        return true;
+      } else {
+        setPairingStatus("error");
+        setPairingError(r.error ?? "Pairing failed");
+        return false;
+      }
+    },
+    [],
   );
 
   const navigateToTasks = useCallback(() => {
@@ -326,17 +390,42 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
     router.push(`/dashboard/tasks?${params.toString()}`);
   }, [data.intentKey, data.agentId, router]);
 
-  const handleSubmitChannel = useCallback(
-    (channelData: { agentId: string; channelType: string; token: string }) => {
-      patch({ channelType: channelData.channelType, channelToken: channelData.token });
-      navigateToTasks();
-    },
-    [patch, navigateToTasks],
-  );
-
   const handleSkipChannel = useCallback(() => {
-    navigateToTasks();
-  }, [navigateToTasks]);
+    if (isHosted) {
+      navigateToTasks();
+    } else {
+      advance();
+    }
+  }, [isHosted, advance, navigateToTasks]);
+
+  // ─── Account (OSS only) ───
+  const handleAccount = useCallback(
+    (creds: { email: string; password: string }) => {
+      setAccountError(null);
+      startTransition(async () => {
+        const r = await createAccountAndFinalize(creds);
+        if (!r.ok) {
+          setAccountError(r.error ?? "Something went wrong");
+          return;
+        }
+
+        // Sign in client-side so the dashboard layout's getUser() finds a session
+        try {
+          const { createClient } = await import("@/lib/supabase/client");
+          const supabase = createClient();
+          await supabase.auth.signInWithPassword({
+            email: creds.email,
+            password: creds.password,
+          });
+        } catch {
+          // If sign-in fails the user can sign in manually from /login
+        }
+
+        navigateToTasks();
+      });
+    },
+    [startTransition, navigateToTasks],
+  );
 
   // ─── Render ───
   return (
@@ -426,11 +515,23 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
               <StepAgent
                 recommendation={getRecommendation()}
                 onCreateAgent={handleCreateAgent}
-                onSubmitChannel={handleSubmitChannel}
+                onConnectChannel={handleConnectChannel}
+                onSubmitPairing={handleSubmitPairing}
                 onSkipChannel={handleSkipChannel}
                 provisionStatus={provisionStatus}
                 provisionError={provisionError}
+                pairingStatus={pairingStatus}
+                pairingError={pairingError}
                 pending={pending}
+              />
+            )}
+
+            {step === "account" && (
+              <StepAccount
+                ownerName={data.preferredName ?? data.ownerName}
+                onSubmit={handleAccount}
+                pending={pending}
+                error={accountError}
               />
             )}
           </div>
@@ -440,7 +541,7 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
       {/* Progress dots */}
       <ProgressDots steps={isHosted
         ? ["welcome", "intent", "provider", "agent"]
-        : ["welcome", "intent", "infrastructure", "provider", "agent"]
+        : ["welcome", "intent", "infrastructure", "provider", "agent", "account"]
       } current={step} />
     </div>
   );

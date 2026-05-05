@@ -481,3 +481,159 @@ export async function pollAgentProvisionStatus(
   if (data.status === "error" || data.status === "failed") return "error";
   return "pending";
 }
+
+// ─── Channel connection ──────────────────────────────────────────────────
+
+export async function connectChannelAction(input: {
+  agentId: string;
+  agentSlug: string;
+  channel: string;
+  token: string;
+  extras?: Record<string, string>;
+}): Promise<ActionResult<{ provisionCommandId: string }>> {
+  try {
+    const supabase = await createAdminClient();
+    const { data: gw } = await supabase
+      .from("gateways")
+      .select("id")
+      .limit(1)
+      .maybeSingle();
+
+    const payload: Record<string, unknown> = {
+      channel: input.channel,
+    };
+    if (input.channel === "telegram") {
+      payload.telegram_token = input.token;
+    } else if (input.channel === "discord") {
+      payload.discord_token = input.token;
+      if (input.extras?.discord_server_id) payload.discord_server_id = input.extras.discord_server_id;
+      if (input.extras?.discord_user_id) payload.discord_user_id = input.extras.discord_user_id;
+    } else if (input.channel === "slack") {
+      payload.slack_app_token = input.token;
+      if (input.extras?.slack_bot_token) payload.slack_bot_token = input.extras.slack_bot_token;
+    }
+
+    const { data: cmd, error } = await supabase
+      .from("agent_commands")
+      .insert({
+        agent_id: input.agentId,
+        agent_slug: input.agentSlug,
+        gateway_id: gw?.id ?? null,
+        action: "provision",
+        payload,
+      })
+      .select("id")
+      .single();
+
+    if (error || !cmd) {
+      return { ok: false, error: error?.message ?? "Failed to connect channel" };
+    }
+
+    // Update agent meta with the channel info
+    const metaUpdate: Record<string, unknown> = { channel: input.channel };
+    if (input.channel === "telegram") {
+      metaUpdate.telegram_token_env = `TELEGRAM_TOKEN_${input.agentSlug.toUpperCase().replace(/-/g, "_")}`;
+    }
+    await supabase
+      .from("agents")
+      .update({ meta: metaUpdate })
+      .eq("id", input.agentId);
+
+    return { ok: true, data: { provisionCommandId: cmd.id } };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Failed to connect channel",
+    };
+  }
+}
+
+// ─── Pairing ─────────────────────────────────────────────────────────────
+
+export async function submitPairingAction(input: {
+  agentId: string;
+  agentSlug: string;
+  channel: string;
+  pairingCode: string;
+}): Promise<ActionResult> {
+  try {
+    const supabase = await createAdminClient();
+    const { data: gw } = await supabase
+      .from("gateways")
+      .select("id")
+      .limit(1)
+      .maybeSingle();
+
+    const { data: cmd, error } = await supabase
+      .from("agent_commands")
+      .insert({
+        agent_id: input.agentId,
+        agent_slug: input.agentSlug,
+        gateway_id: gw?.id ?? null,
+        action: "approve_pairing",
+        payload: {
+          pairing_code: input.pairingCode,
+          channel: input.channel,
+        },
+      })
+      .select("id")
+      .single();
+
+    if (error || !cmd) {
+      return { ok: false, error: error?.message ?? "Failed to submit pairing code" };
+    }
+
+    // Poll for completion (up to 15 seconds)
+    for (let i = 0; i < 10; i++) {
+      await new Promise((r) => setTimeout(r, 1500));
+      const { data: status } = await supabase
+        .from("agent_commands")
+        .select("status, error_message")
+        .eq("id", cmd.id)
+        .maybeSingle();
+      if (status?.status === "done") return { ok: true };
+      if (status?.status === "failed" || status?.status === "error") {
+        return { ok: false, error: (status.error_message as string) ?? "Pairing failed" };
+      }
+    }
+
+    return { ok: false, error: "Pairing timed out — try again" };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Failed to submit pairing code",
+    };
+  }
+}
+
+// ─── Account creation + finalize ─────────────────────────────────────────
+
+export async function createAccountAndFinalize(input: {
+  email: string;
+  password: string;
+}): Promise<ActionResult> {
+  const {
+    createAuthUserAction,
+    finalizeOnboarding,
+  } = await import("@/app/onboarding/actions");
+
+  const userResult = await createAuthUserAction({
+    authEmail: input.email,
+    authPassword: input.password,
+  });
+
+  if (!userResult.ok) {
+    if (userResult.alreadyExists) {
+      // User already exists — that's fine, just finalize
+    } else {
+      return { ok: false, error: userResult.error };
+    }
+  }
+
+  const finalizeResult = await finalizeOnboarding();
+  if (!finalizeResult.ok) {
+    return { ok: false, error: finalizeResult.error };
+  }
+
+  return { ok: true };
+}
