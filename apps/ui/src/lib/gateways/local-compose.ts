@@ -14,6 +14,7 @@
 // a clear error and the UI falls back to "copy this command yourself."
 
 import "server-only";
+import { existsSync } from "fs";
 import { spawn } from "child_process";
 
 export interface ComposeResult {
@@ -71,8 +72,7 @@ export async function dockerAvailable(): Promise<boolean> {
  * a progress indicator by calling `composeEvents()` separately.
  */
 function composeArgs(...extra: string[]): string[] {
-  const fs = require("fs");
-  if (fs.existsSync("/compose/docker-compose.yml")) {
+  if (existsSync("/compose/docker-compose.yml")) {
     return ["compose", "-f", "/compose/docker-compose.yml", "--env-file", "/compose/.env", ...extra];
   }
   return ["compose", ...extra];

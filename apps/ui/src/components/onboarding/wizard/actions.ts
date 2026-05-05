@@ -395,7 +395,7 @@ export async function createFirstAgent(input: {
       .select("slug, owner_name, owner_preferred_name, owner_timezone")
       .limit(1)
       .maybeSingle();
-    const wsSlug = (wsRow?.slug as string | null) ?? null;
+    const _wsSlug = (wsRow?.slug as string | null) ?? null;
 
     // Default gateway
     const { data: gw } = await supabase
