@@ -155,48 +155,43 @@ export function CommentForm({
       )}
 
       {/* Input row */}
-      <div className="flex gap-1.5">
-        <div className="relative flex-1">
-          <Textarea
-            ref={textareaRef}
-            value={body}
-            onChange={handleChange}
-            placeholder={placeholder}
-            rows={compact ? 1 : 2}
-            className="min-h-0 text-xs resize-none pr-2"
-            onKeyDown={(e) => {
-              if (mentionOpen) {
-                // Let mention autocomplete handle arrow keys and enter
-                if (e.key === "Escape") {
-                  e.preventDefault();
-                  setMentionOpen(false);
-                  return;
-                }
-              }
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      <div className="relative">
+        <Textarea
+          ref={textareaRef}
+          value={body}
+          onChange={handleChange}
+          placeholder={placeholder}
+          rows={compact ? 1 : 1}
+          className="min-h-0 text-xs resize-none pr-16"
+          onKeyDown={(e) => {
+            if (mentionOpen) {
+              if (e.key === "Escape") {
                 e.preventDefault();
-                handleSubmit();
+                setMentionOpen(false);
+                return;
               }
-            }}
-          />
-          <MentionAutocomplete
-            open={mentionOpen}
-            filter={mentionFilter}
-            onSelect={handleMentionSelect}
-            onClose={() => setMentionOpen(false)}
-            anchorRef={textareaRef}
-            portal={portal}
-          />
-        </div>
-
-        <div className="flex flex-col gap-1 self-end">
+            }
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              handleSubmit();
+            }
+          }}
+        />
+        <MentionAutocomplete
+          open={mentionOpen}
+          filter={mentionFilter}
+          onSelect={handleMentionSelect}
+          onClose={() => setMentionOpen(false)}
+          anchorRef={textareaRef}
+          portal={portal}
+        />
+        <div className="absolute right-1.5 bottom-1.5 flex items-center gap-0.5">
           {enableAttachments && (
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+              className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
               onClick={() => {
-                // Simple URL attachment for comments
                 const url = window.prompt("Enter URL to attach:");
                 if (url?.trim()) {
                   setAttachments((prev) => [
@@ -211,7 +206,7 @@ export function CommentForm({
           )}
           <Button
             size="icon"
-            className="h-7 w-7 shrink-0"
+            className="h-6 w-6 shrink-0"
             onClick={handleSubmit}
             disabled={submitting || !body.trim()}
           >

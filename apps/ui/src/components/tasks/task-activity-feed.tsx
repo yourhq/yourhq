@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuditLog } from "@/hooks/use-audit-log";
+import { useEntityAuditLog } from "@/hooks/use-audit-log";
 import type { AuditLogEntry } from "@/lib/audit/types";
 import { formatDistanceToNow } from "date-fns";
 import { Bot, User, ArrowRight, UserPlus, Pencil, Plus } from "lucide-react";
@@ -38,7 +38,7 @@ function EntryRow({ entry }: { entry: AuditLogEntry }) {
 }
 
 export function TaskActivityFeed({ taskId }: { taskId: string }) {
-  const { entries, loading } = useAuditLog({ entity_type: "task", entity_id: taskId });
+  const { entries, loading } = useEntityAuditLog({ entity_type: "task", entity_id: taskId });
 
   if (loading) {
     return (

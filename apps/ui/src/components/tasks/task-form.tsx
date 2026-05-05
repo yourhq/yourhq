@@ -33,7 +33,7 @@ import {
   CollapsibleTrigger,
   CollapsibleContent,
 } from "@/components/ui/collapsible";
-import { Paperclip, MessageSquare, ChevronRight, Archive, Activity } from "lucide-react";
+import { Paperclip, ChevronRight, Archive, Activity } from "lucide-react";
 import { TaskActivityFeed } from "./task-activity-feed";
 import {
   RecurrencePicker,
@@ -336,7 +336,7 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
 
   return (
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent className="sm:max-w-xl p-0 gap-0 overflow-hidden max-h-[85dvh] flex flex-col">
+      <DialogContent className="sm:max-w-xl p-0 gap-0 max-h-[95dvh] sm:max-h-[85dvh] flex flex-col">
         <DialogTitle className="sr-only">
           {editingTask ? "Edit task" : "New task"}
         </DialogTitle>
@@ -344,135 +344,136 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
           Create or edit a task with title, description, status, priority, stream, assignee, and due date.
         </DialogDescription>
 
-        {/* Scrollable content area */}
+        {/* Title + description — non-scrollable */}
+        <div className="px-4 sm:px-5 pt-4 sm:pt-5 pb-1 shrink-0">
+          <textarea
+            ref={titleRef}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={handleTitleKeyDown}
+            placeholder={editingTask ? "Task title" : "What needs to be done?"}
+            autoFocus
+            rows={1}
+            className="w-full resize-none overflow-hidden border-0 bg-transparent text-[15px] font-semibold text-foreground outline-none placeholder:text-muted-foreground/40"
+          />
+          <Textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Add a description..."
+            rows={2}
+            className="mt-1 min-h-[2.5rem] border-0 bg-transparent px-0 text-[13px] text-muted-foreground shadow-none resize-none focus-visible:ring-0 placeholder:text-muted-foreground/30"
+          />
+        </div>
+
+        {/* Property bar — non-scrollable, dropdowns can overflow */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-1.5 border-t border-border/40 px-4 sm:px-5 py-2.5 shrink-0">
+          {/* Status */}
+          <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
+            <SelectTrigger className="h-8 sm:h-6 w-auto gap-1 border-border/50 bg-transparent px-2.5 sm:px-2 text-xs font-normal hover:bg-accent rounded-md">
+              <span className="text-muted-foreground">{STATUS_ICONS[status]}</span>
+              <span>{TASK_STATUSES.find((s) => s.value === status)?.label}</span>
+            </SelectTrigger>
+            <SelectContent portal={false}>
+              {TASK_STATUSES.map((s) => (
+                <SelectItem key={s.value} value={s.value}>
+                  <span className="mr-1.5 text-muted-foreground">{STATUS_ICONS[s.value]}</span>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Priority */}
+          <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
+            <SelectTrigger className="h-8 sm:h-6 w-auto gap-1 border-border/50 bg-transparent px-2.5 sm:px-2 text-xs font-normal hover:bg-accent rounded-md">
+              <span className={cn("h-2 w-2 rounded-full", PRIORITY_COLORS[priority])} />
+              <span>{selectedPriority?.label}</span>
+            </SelectTrigger>
+            <SelectContent portal={false}>
+              {TASK_PRIORITIES.map((p) => (
+                <SelectItem key={p.value} value={p.value}>
+                  <span className={cn("mr-1.5 inline-block h-2 w-2 rounded-full", PRIORITY_COLORS[p.value])} />
+                  {p.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Stream */}
+          <Select value={streamId} onValueChange={setStreamId}>
+            <SelectTrigger className="h-8 sm:h-6 w-auto gap-1 border-border/50 bg-transparent px-2.5 sm:px-2 text-xs font-normal hover:bg-accent rounded-md">
+              {selectedStream ? (
+                <>
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: selectedStream.color }} />
+                  <span>{selectedStream.name}</span>
+                </>
+              ) : (
+                <span className="text-muted-foreground">No stream</span>
+              )}
+            </SelectTrigger>
+            <SelectContent portal={false}>
+              <SelectItem value="none">No stream</SelectItem>
+              {streams.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  <span className="mr-1.5 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
+                  {s.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Assignee */}
+          <MicroTip tipKey="task-assignee" content="Assign to an agent and it starts working immediately." position="bottom">
+            <Select value={assignee} onValueChange={setAssignee}>
+              <SelectTrigger className="h-8 sm:h-6 w-auto gap-1 border-border/50 bg-transparent px-2.5 sm:px-2 text-xs font-normal hover:bg-accent rounded-md">
+                <span className="text-muted-foreground">
+                  {assignee === "none" ? "Unassigned" : assignee === "me" ? "Me" : agents.find((a) => a.id === assignee)?.name ?? "Agent"}
+                </span>
+              </SelectTrigger>
+              <SelectContent portal={false}>
+                <SelectItem value="none">Unassigned</SelectItem>
+                <SelectItem value="me">Me</SelectItem>
+                {agents.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </MicroTip>
+
+          {/* Due date */}
+          <DatePickerButton
+            value={dueDate}
+            onChange={setDueDate}
+            placeholder="No due date"
+            portal={false}
+            className="h-8 sm:h-6 w-auto border-border/50 bg-transparent px-2.5 sm:px-2 text-xs font-normal hover:bg-accent rounded-md"
+          />
+
+          {/* Recurrence */}
+          <RecurrencePicker value={recurrence} onChange={setRecurrence} timezone={tz} />
+
+          {/* Model override — only show when assigned to an agent */}
+          {assignee !== "none" && assignee !== "me" && (
+            <TaskModelOverride
+              modelOverride={modelOverride}
+              thinkingOverride={thinkingOverride}
+              onModelChange={setModelOverride}
+              onThinkingChange={setThinkingOverride}
+              agentId={assignee}
+              agents={agents}
+            />
+          )}
+        </div>
+
+        {/* Scrollable content area — links, comments, activity */}
         <div className="flex-1 overflow-y-auto min-h-0">
-          {/* Title + description */}
-          <div className="px-5 pt-5 pb-1">
-            <textarea
-              ref={titleRef}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              onKeyDown={handleTitleKeyDown}
-              placeholder={editingTask ? "Task title" : "What needs to be done?"}
-              autoFocus
-              rows={1}
-              className="w-full resize-none overflow-hidden border-0 bg-transparent text-[15px] font-semibold text-foreground outline-none placeholder:text-muted-foreground/40"
-            />
-            <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Add a description..."
-              rows={2}
-              className="mt-1 min-h-[2.5rem] border-0 bg-transparent px-0 text-[13px] text-muted-foreground shadow-none resize-none focus-visible:ring-0 placeholder:text-muted-foreground/30"
-            />
-          </div>
-
-          {/* Property bar — Linear-style inline tokens */}
-          <div className="flex flex-wrap items-center gap-1.5 border-t border-border/40 px-5 py-2.5">
-            {/* Status */}
-            <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
-              <SelectTrigger className="h-6 w-auto gap-1 border-border/50 bg-transparent px-2 text-xs font-normal hover:bg-accent">
-                <span className="text-muted-foreground">{STATUS_ICONS[status]}</span>
-                <span>{TASK_STATUSES.find((s) => s.value === status)?.label}</span>
-              </SelectTrigger>
-              <SelectContent>
-                {TASK_STATUSES.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>
-                    <span className="mr-1.5 text-muted-foreground">{STATUS_ICONS[s.value]}</span>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Priority */}
-            <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
-              <SelectTrigger className="h-6 w-auto gap-1 border-border/50 bg-transparent px-2 text-xs font-normal hover:bg-accent">
-                <span className={cn("h-2 w-2 rounded-full", PRIORITY_COLORS[priority])} />
-                <span>{selectedPriority?.label}</span>
-              </SelectTrigger>
-              <SelectContent>
-                {TASK_PRIORITIES.map((p) => (
-                  <SelectItem key={p.value} value={p.value}>
-                    <span className={cn("mr-1.5 inline-block h-2 w-2 rounded-full", PRIORITY_COLORS[p.value])} />
-                    {p.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Stream */}
-            <Select value={streamId} onValueChange={setStreamId}>
-              <SelectTrigger className="h-6 w-auto gap-1 border-border/50 bg-transparent px-2 text-xs font-normal hover:bg-accent">
-                {selectedStream ? (
-                  <>
-                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: selectedStream.color }} />
-                    <span>{selectedStream.name}</span>
-                  </>
-                ) : (
-                  <span className="text-muted-foreground">No stream</span>
-                )}
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No stream</SelectItem>
-                {streams.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    <span className="mr-1.5 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
-                    {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Assignee */}
-            <MicroTip tipKey="task-assignee" content="Assign to an agent and it starts working immediately." position="bottom">
-              <Select value={assignee} onValueChange={setAssignee}>
-                <SelectTrigger className="h-6 w-auto gap-1 border-border/50 bg-transparent px-2 text-xs font-normal hover:bg-accent">
-                  <span className="text-muted-foreground">
-                    {assignee === "none" ? "Unassigned" : assignee === "me" ? "Me" : agents.find((a) => a.id === assignee)?.name ?? "Agent"}
-                  </span>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Unassigned</SelectItem>
-                  <SelectItem value="me">Me</SelectItem>
-                  {agents.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </MicroTip>
-
-            {/* Due date */}
-            <DatePickerButton
-              value={dueDate}
-              onChange={setDueDate}
-              placeholder="No due date"
-              className="h-6 w-auto border-border/50 bg-transparent px-2 text-xs font-normal hover:bg-accent"
-            />
-
-            {/* Recurrence */}
-            <RecurrencePicker value={recurrence} onChange={setRecurrence} timezone={tz} />
-
-            {/* Model override — only show when assigned to an agent */}
-            {assignee !== "none" && assignee !== "me" && (
-              <TaskModelOverride
-                modelOverride={modelOverride}
-                thinkingOverride={thinkingOverride}
-                onModelChange={setModelOverride}
-                onThinkingChange={setThinkingOverride}
-                agentId={assignee}
-                agents={agents}
-              />
-            )}
-          </div>
-
           {/* Links section */}
           {savedTaskId ? (
-            <div className="border-t border-border/40 px-5 py-2.5">
+            <div className="border-t border-border/40 px-4 sm:px-5 py-2.5">
               <EntityLinkList ownerType="task" ownerId={savedTaskId} />
             </div>
           ) : (
-            <div className="border-t border-border/40 px-5 py-2">
+            <div className="border-t border-border/40 px-4 sm:px-5 py-2">
               <button
                 type="button"
                 onClick={handleAttachClick}
@@ -485,13 +486,9 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
             </div>
           )}
 
-          {/* Comments — always expanded for existing tasks */}
+          {/* Comments */}
           {savedTaskId && (
-            <div className="border-t border-border/40 px-5 py-3">
-              <div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <MessageSquare className="h-3.5 w-3.5" />
-                <span className="font-medium">Comments</span>
-              </div>
+            <div className="border-t border-border/40 px-4 sm:px-5 py-3">
               <TaskFormComments taskId={savedTaskId} />
             </div>
           )}
@@ -500,12 +497,12 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
           {savedTaskId && (
             <div className="border-t border-border/40">
               <Collapsible>
-                <CollapsibleTrigger className="flex w-full items-center gap-1.5 px-5 py-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <CollapsibleTrigger className="flex w-full items-center gap-1.5 px-4 sm:px-5 py-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
                   <ChevronRight className="h-3 w-3 transition-transform duration-200 [[data-state=open]>&]:rotate-90" />
                   <Activity className="h-3.5 w-3.5" />
                   <span className="font-medium">Activity</span>
                 </CollapsibleTrigger>
-                <CollapsibleContent className="px-5 pb-3">
+                <CollapsibleContent className="px-4 sm:px-5 pb-3">
                   <TaskActivityFeed taskId={savedTaskId} />
                 </CollapsibleContent>
               </Collapsible>
@@ -514,7 +511,7 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
         </div>
 
         {/* Footer bar */}
-        <div className="flex items-center justify-between border-t border-border/40 px-5 py-2.5 shrink-0 bg-card/50">
+        <div className="flex items-center justify-between border-t border-border/40 px-4 sm:px-5 py-2.5 sm:py-2.5 shrink-0 bg-card/50">
           <div className="flex items-center gap-2">
             {editingTask && onArchive && (
               <Button

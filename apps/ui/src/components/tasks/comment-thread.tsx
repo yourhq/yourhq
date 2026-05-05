@@ -281,25 +281,25 @@ export function CommentThread({
           <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-xs font-medium text-muted-foreground">Comments</span>
         </div>
-        <div className="text-xs text-muted-foreground animate-pulse">Loading comments...</div>
+        <div className="text-xs text-muted-foreground animate-pulse">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       <div className="flex items-center gap-1.5">
         <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="text-xs font-medium text-muted-foreground">
           Comments
           {comments.length > 0 && (
-            <span className="ml-1 text-muted-foreground/60">{comments.length}</span>
+            <span className="ml-1 text-muted-foreground/50">({comments.length})</span>
           )}
         </span>
       </div>
 
-      {comments.length > 0 ? (
-        <div className="space-y-3">
+      {comments.length > 0 && (
+        <div className="space-y-2.5">
           {comments.map((comment) => (
             <CommentItem
               key={comment.id}
@@ -311,14 +311,11 @@ export function CommentThread({
             />
           ))}
         </div>
-      ) : (
-        <p className="text-xs text-muted-foreground/60">
-          No comments yet. Start a conversation.
-        </p>
       )}
 
       <CommentForm
         onSubmit={(body) => onAddComment(body)}
+        placeholder={comments.length === 0 ? "Add a comment to start a conversation..." : "Add a comment..."}
         enableAttachments
         portal={portal}
       />

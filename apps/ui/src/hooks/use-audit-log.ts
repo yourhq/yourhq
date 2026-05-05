@@ -8,51 +8,19 @@ import { useRealtime } from "./use-realtime";
 
 const PAGE_SIZE = 50;
 
-export function useAuditLog(entityFilter?: { entity_type: string; entity_id: string }) {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
+function useAuditLogCore(opts: {
+  entityFilter?: { entity_type: string; entity_id: string };
+  moduleFilter: string;
+  actorFilter: string;
+  actionFilter: string;
+}) {
+  const { entityFilter, moduleFilter, actorFilter, actionFilter } = opts;
 
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
-  const [moduleFilter, setModuleFilterState] = useState(searchParams.get("module") || "all");
-  const [actorFilter, setActorFilterState] = useState(searchParams.get("actor") || "all");
-  const [actionFilter, setActionFilterState] = useState(searchParams.get("action") || "all");
 
   const supabase = useMemo(() => createClient(), []);
-
-  const updateUrl = useCallback(
-    (overrides: Record<string, string | null>) => {
-      if (entityFilter) return; // Don't update URL for entity-scoped feeds
-      const params = new URLSearchParams(searchParams.toString());
-      for (const [key, value] of Object.entries(overrides)) {
-        if (value === null || value === "" || value === "all") {
-          params.delete(key);
-        } else {
-          params.set(key, value);
-        }
-      }
-      const qs = params.toString();
-      router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
-    },
-    [searchParams, router, pathname, entityFilter]
-  );
-
-  function setModuleFilter(value: string) {
-    setModuleFilterState(value);
-    updateUrl({ module: value === "all" ? null : value });
-  }
-
-  function setActorFilter(value: string) {
-    setActorFilterState(value);
-    updateUrl({ actor: value === "all" ? null : value });
-  }
-
-  function setActionFilter(value: string) {
-    setActionFilterState(value);
-    updateUrl({ action: value === "all" ? null : value });
-  }
 
   const fetchEntries = useCallback(async (offset = 0) => {
     if (offset === 0) setLoading(true);
@@ -97,11 +65,9 @@ export function useAuditLog(entityFilter?: { entity_type: string; entity_id: str
   }, [supabase, moduleFilter, actorFilter, actionFilter, entityFilter]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchEntries(0);
   }, [fetchEntries]);
 
-  // Real-time: prepend new audit log entries (INSERT-only, append-only table)
   useRealtime({
     table: "audit_log",
     event: "INSERT",
@@ -113,17 +79,14 @@ export function useAuditLog(entityFilter?: { entity_type: string; entity_id: str
       const id = newRow.id as string;
       if (!id) return;
 
-      // Entity-scoped: also check entity_id (realtime filter only supports one column)
       if (entityFilter && newRow.entity_id !== entityFilter.entity_id) return;
 
-      // Apply current filters client-side
       if (moduleFilter !== "all" && newRow.module !== moduleFilter) return;
       if (actionFilter !== "all" && newRow.action !== actionFilter) return;
       if (actorFilter === "human" && newRow.actor_type !== "human") return;
       if (actorFilter === "agent" && newRow.actor_type !== "agent") return;
       if (actorFilter !== "all" && actorFilter !== "human" && actorFilter !== "agent" && newRow.actor_agent_id !== actorFilter) return;
 
-      // Refetch single row with agent JOIN
       const { data, error } = await supabase
         .from("audit_log")
         .select("*, actor_agent:agents!audit_log_actor_agent_id_fkey(id, name, slug, avatar_url)")
@@ -144,11 +107,76 @@ export function useAuditLog(entityFilter?: { entity_type: string; entity_id: str
     fetchEntries(entries.length);
   }
 
+  return { entries, loading, hasMore, loadMore };
+}
+
+/**
+ * Entity-scoped audit log — no URL param sync, no Suspense boundary.
+ * Use this inside dialogs/modals to avoid flickering.
+ */
+export function useEntityAuditLog(entityFilter: { entity_type: string; entity_id: string }) {
+  return useAuditLogCore({
+    entityFilter,
+    moduleFilter: "all",
+    actorFilter: "all",
+    actionFilter: "all",
+  });
+}
+
+/**
+ * Full audit log with URL-synced filters.
+ * Only use on standalone pages (not inside dialogs).
+ */
+export function useAuditLog(entityFilter?: { entity_type: string; entity_id: string }) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [moduleFilter, setModuleFilterState] = useState(searchParams.get("module") || "all");
+  const [actorFilter, setActorFilterState] = useState(searchParams.get("actor") || "all");
+  const [actionFilter, setActionFilterState] = useState(searchParams.get("action") || "all");
+
+  const updateUrl = useCallback(
+    (overrides: Record<string, string | null>) => {
+      if (entityFilter) return;
+      const params = new URLSearchParams(searchParams.toString());
+      for (const [key, value] of Object.entries(overrides)) {
+        if (value === null || value === "" || value === "all") {
+          params.delete(key);
+        } else {
+          params.set(key, value);
+        }
+      }
+      const qs = params.toString();
+      router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+    },
+    [searchParams, router, pathname, entityFilter]
+  );
+
+  function setModuleFilter(value: string) {
+    setModuleFilterState(value);
+    updateUrl({ module: value === "all" ? null : value });
+  }
+
+  function setActorFilter(value: string) {
+    setActorFilterState(value);
+    updateUrl({ actor: value === "all" ? null : value });
+  }
+
+  function setActionFilter(value: string) {
+    setActionFilterState(value);
+    updateUrl({ action: value === "all" ? null : value });
+  }
+
+  const core = useAuditLogCore({
+    entityFilter,
+    moduleFilter,
+    actorFilter,
+    actionFilter,
+  });
+
   return {
-    entries,
-    loading,
-    hasMore,
-    loadMore,
+    ...core,
     filters: {
       moduleFilter,
       setModuleFilter,
