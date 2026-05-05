@@ -19,6 +19,11 @@ services:
       NODE_ENV: development
       CHOKIDAR_USEPOLLING: "true"
       HQ_SCHEMA_PATH: /app/db/migrations
+      GATEWAY_URL: ${GATEWAY_URL:-http://gateway:18790}
+      GATEWAY_AUTH_TOKEN: ${GATEWAY_AUTH_TOKEN:-}
+      DEPLOYMENT_MODE: ${DEPLOYMENT_MODE:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      CODESPACE_NAME: ${CODESPACE_NAME:-}
     volumes:
       - ./apps/ui:/app
       - ./db/migrations:/app/db/migrations:ro
