@@ -27,7 +27,12 @@ export async function updateSession(request: NextRequest) {
 
   const activeIdHint =
     request.cookies.get(ACTIVE_PROJECT_COOKIE)?.value ?? null;
-  const project = await getActiveProject(activeIdHint).catch(() => null);
+  const project = await getActiveProject(activeIdHint).catch((err) => {
+    console.error(`[middleware] getActiveProject error:`, err);
+    return null;
+  });
+
+  console.log(`[middleware] path=${request.nextUrl.pathname} isHosted=${isHosted} project=${project ? project.id : "null"}`);
 
   if (!project) {
     const noProjectPaths = isHosted
@@ -39,6 +44,7 @@ export async function updateSession(request: NextRequest) {
     }
     const url = request.nextUrl.clone();
     url.pathname = isHosted ? LOGIN_PATH : ONBOARDING_PATH;
+    console.log(`[middleware] no project, redirecting to ${url.pathname}`);
     return NextResponse.redirect(url);
   }
 
