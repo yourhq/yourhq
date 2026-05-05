@@ -10,4 +10,9 @@ if [ -S /var/run/docker.sock ]; then
   fi
 fi
 
+# Make mounted compose .env readable by nextjs (installer creates it 600/root).
+if [ -f /compose/.env ] && ! su -s /bin/sh nextjs -c "test -r /compose/.env" 2>/dev/null; then
+  chmod 644 /compose/.env
+fi
+
 exec gosu nextjs "$@"
