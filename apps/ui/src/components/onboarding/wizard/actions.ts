@@ -211,15 +211,19 @@ const PROVIDER_VALIDATION_ENDPOINTS: Record<string, { url: string; method?: stri
 // Providers that don't need API key validation during onboarding
 const SKIP_VALIDATION_PROVIDERS = new Set([
   "ollama", "lmstudio", "vllm", "sglang", // local
-  "openai-codex", "github-copilot", "google-gemini-cli", "minimax-portal", // oauth/device
+]);
+
+export const OAUTH_PROVIDERS = new Set([
+  "openai-codex", "github-copilot", "google-gemini-cli", "minimax-portal",
 ]);
 
 export async function connectProvider(
   provider: string,
   apiKey: string,
 ): Promise<ActionResult> {
-  // Local and OAuth providers — just record the choice
-  if (SKIP_VALIDATION_PROVIDERS.has(provider)) {
+  // Local and OAuth providers — just record the choice (OAuth auth already
+  // happened via the inline startOAuthFlow / InteractivePhase)
+  if (SKIP_VALIDATION_PROVIDERS.has(provider) || OAUTH_PROVIDERS.has(provider)) {
     await patchOnboardingState({ data: { providerId: provider } });
     return { ok: true };
   }
@@ -257,6 +261,72 @@ export async function connectProvider(
     };
   }
 
+  return { ok: true };
+}
+
+// ─── OAuth flow ──────────────────────────────────────────────────────────
+
+export async function startOAuthFlow(
+  provider: string,
+  mode: "oauth_paste" | "device_code",
+): Promise<ActionResult<{ commandId: string }>> {
+  try {
+    const r = await enqueueAgentCommand({
+      action: "auth_start" as CommandAction,
+      payload: { provider, profile_name: "default", mode },
+    });
+    return { ok: true, data: { commandId: r.commandId } };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Failed to start sign-in",
+    };
+  }
+}
+
+export async function submitOAuthPaste(
+  parentCommandId: string,
+  value: string,
+): Promise<ActionResult> {
+  try {
+    await enqueueAgentCommand({
+      action: "auth_paste" as CommandAction,
+      payload: { parent_command_id: parentCommandId, value },
+    });
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Failed to submit code",
+    };
+  }
+}
+
+export async function pollCommandState(
+  commandId: string,
+): Promise<ActionResult<{ status: string; payload: Record<string, unknown> }>> {
+  const supabase = await createAdminClient();
+  const { data, error } = await supabase
+    .from("agent_commands")
+    .select("status, payload, error_message")
+    .eq("id", commandId)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Command not found" };
+  return {
+    ok: true,
+    data: {
+      status: data.status,
+      payload: {
+        ...(data.payload as Record<string, unknown>),
+        error_message: data.error_message,
+      },
+    },
+  };
+}
+
+export async function saveOAuthProvider(provider: string): Promise<ActionResult> {
+  await patchOnboardingState({ data: { providerId: provider } });
   return { ok: true };
 }
 

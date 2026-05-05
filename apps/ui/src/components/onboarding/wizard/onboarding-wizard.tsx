@@ -67,10 +67,18 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
   // Stash creds for schema install sub-flow
   const dbCredsRef = useRef<{ url: string; anonKey: string; serviceRoleKey: string } | null>(null);
 
-  // Provider state
+  // Provider state — reset when navigating away from the provider step
   const [validating, setValidating] = useState(false);
   const [validated, setValidated] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (step !== "provider") {
+      setValidating(false);
+      setValidated(false);
+      setValidationError(null);
+    }
+  }, [step]);
 
   // Agent provisioning state
   const [provisionStatus, setProvisionStatus] = useState<"idle" | "provisioning" | "ready" | "error">("idle");
