@@ -14,7 +14,16 @@ services:
     image: node:24-slim
     build: !reset
     working_dir: /app
-    command: sh -c "npm install --legacy-peer-deps && npm run dev"
+    command: >-
+      sh -c "
+        PUBLIC_HOST=$$(hostname -f 2>/dev/null || echo '');
+        EC2_HOST=$$(curl -s --connect-timeout 1 http://169.254.169.254/latest/meta-data/public-hostname 2>/dev/null || echo '');
+        EXTRA=\"$${ALLOWED_ORIGINS:-}\";
+        [ -n \"$$PUBLIC_HOST\" ] && EXTRA=\"$$EXTRA,$$PUBLIC_HOST\";
+        [ -n \"$$EC2_HOST\" ] && EXTRA=\"$$EXTRA,$$EC2_HOST\";
+        export ALLOWED_ORIGINS=\"$$EXTRA\";
+        npm install --legacy-peer-deps && npm run dev
+      "
     environment:
       NODE_ENV: development
       CHOKIDAR_USEPOLLING: "true"

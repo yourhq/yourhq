@@ -1,9 +1,7 @@
 import type { NextConfig } from "next";
 
-// Allow Codespaces and other reverse-proxy hostnames (comma-separated) to
-// pass through Next.js's Server Actions origin check. The platform sends
-// x-forwarded-host = <codespace-name>-<port>.app.github.dev while origin
-// remains localhost:<port>, which trips the CSRF guard.
+// Allow Codespaces, EC2, and other reverse-proxy hostnames to pass through
+// Next.js's dev origin check and Server Actions CSRF guard.
 const extraAllowedOrigins = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map((o) => o.trim())
