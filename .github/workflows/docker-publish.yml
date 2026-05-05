@@ -94,6 +94,10 @@ jobs:
           BUILD_ITEMS="[]"
           MANIFEST_ITEMS="[]"
 
+          # TODO(oss-launch): change ARM64_RUNNER to "ubuntu-24.04-arm" once repo is public,
+          # then remove the QEMU setup step (if: matrix.arch_slug == 'arm64') in the build job.
+          ARM64_RUNNER="ubuntu-latest"
+
           for img in $ALL_IMAGES; do
             changed="${FILTERS[$img]}"
             if [[ "$FORCE_ALL" == "true" || "$changed" == "true" ]]; then
@@ -101,9 +105,10 @@ jobs:
               BUILD_ITEMS=$(echo "$BUILD_ITEMS" | jq -c \
                 --arg name "$img" \
                 --arg dockerfile "$dockerfile" \
+                --arg arm64_runner "$ARM64_RUNNER" \
                 '. + [
                   {name: $name, dockerfile: $dockerfile, platform: "linux/amd64", runner: "ubuntu-latest", arch_slug: "amd64"},
-                  {name: $name, dockerfile: $dockerfile, platform: "linux/arm64", runner: "ubuntu-24.04-arm", arch_slug: "arm64"}
+                  {name: $name, dockerfile: $dockerfile, platform: "linux/arm64", runner: $arm64_runner, arch_slug: "arm64"}
                 ]')
               MANIFEST_ITEMS=$(echo "$MANIFEST_ITEMS" | jq -c \
                 --arg name "$img" \
@@ -133,6 +138,10 @@ jobs:
       matrix: ${{ fromJSON(needs.changes.outputs.build-matrix) }}
     steps:
       - uses: actions/checkout@v4
+
+      # TODO(oss-launch): remove this step once arm64 builds use a native runner
+      - uses: docker/setup-qemu-action@v3
+        if: matrix.arch_slug == 'arm64'
 
       - uses: docker/setup-buildx-action@v3
 
