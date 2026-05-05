@@ -17,6 +17,10 @@ const codespacesHost = process.env.CODESPACE_NAME
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  allowedDevOrigins: [
+    ...(codespacesHost ? [codespacesHost] : []),
+    ...extraAllowedOrigins,
+  ],
   experimental: {
     serverActions: {
       allowedOrigins: [
