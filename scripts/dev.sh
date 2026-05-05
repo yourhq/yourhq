@@ -12,7 +12,11 @@ cd "$(dirname "$0")/.."
 # ── Auto-detect public hostname ──────────────────────────────
 PUBLIC_HOST=""
 
-# EC2 instance metadata (IMDSv1)
+# EC2 instance metadata (try IMDSv2 first, fall back to IMDSv1)
+IMDS_TOKEN=$(curl -s --connect-timeout 1 -X PUT -H "X-aws-ec2-metadata-token-ttl-seconds: 60" http://169.254.169.254/latest/api/token 2>/dev/null || echo "")
+if [ -n "$IMDS_TOKEN" ]; then
+  PUBLIC_HOST=$(curl -s --connect-timeout 1 -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" http://169.254.169.254/latest/meta-data/public-hostname 2>/dev/null || echo "")
+fi
 if [ -z "$PUBLIC_HOST" ]; then
   PUBLIC_HOST=$(curl -s --connect-timeout 1 http://169.254.169.254/latest/meta-data/public-hostname 2>/dev/null || echo "")
 fi
