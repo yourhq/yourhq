@@ -244,7 +244,6 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
         if (r.ok) {
           setValidated(true);
           patch({ providerId: provider });
-          // Brief pause to show success state
           setTimeout(() => advance(), 600);
         } else {
           setValidationError(r.error ?? "Could not validate key");

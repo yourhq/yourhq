@@ -114,10 +114,10 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
   {
     id: "ollama",
     displayName: "Ollama",
-    category: "open_models",
+    category: "recommended",
     authShape: "local_url",
     helpUrl: "https://ollama.com/download",
-    blurb: "Run models on your own machine. No API key needed for local hosts.",
+    blurb: "Run models on your own machine. No API key needed.",
   },
   {
     id: "lmstudio",
@@ -188,11 +188,11 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
   {
     id: "openrouter",
     displayName: "OpenRouter",
-    category: "all",
+    category: "recommended",
     authShape: "api_key",
     helpUrl: "https://openrouter.ai/keys",
     envVar: "OPENROUTER_API_KEY",
-    blurb: "Single API for many models. Useful as a fallback.",
+    blurb: "200+ models via one API key.",
   },
   {
     id: "together",

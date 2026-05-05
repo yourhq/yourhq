@@ -153,46 +153,92 @@ export async function advanceInfrastructure(): Promise<ActionResult> {
 
 // ─── Provider ─────────────────────────────────────────────────────────────
 
+const PROVIDER_VALIDATION_ENDPOINTS: Record<string, { url: string; method?: string; headers: (key: string) => Record<string, string>; body?: string; authStatuses: number[] }> = {
+  openai: {
+    url: "https://api.openai.com/v1/models",
+    headers: (key) => ({ Authorization: `Bearer ${key}` }),
+    authStatuses: [401, 403],
+  },
+  anthropic: {
+    url: "https://api.anthropic.com/v1/messages",
+    method: "POST",
+    headers: (key) => ({ "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" }),
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1, messages: [{ role: "user", content: "hi" }] }),
+    authStatuses: [401, 403],
+  },
+  google: {
+    url: "https://generativelanguage.googleapis.com/v1beta/models",
+    headers: (key) => ({ "x-goog-api-key": key }),
+    authStatuses: [400, 401, 403],
+  },
+  openrouter: {
+    url: "https://openrouter.ai/api/v1/models",
+    headers: (key) => ({ Authorization: `Bearer ${key}` }),
+    authStatuses: [401, 403],
+  },
+  deepseek: {
+    url: "https://api.deepseek.com/models",
+    headers: (key) => ({ Authorization: `Bearer ${key}` }),
+    authStatuses: [401, 403],
+  },
+  mistral: {
+    url: "https://api.mistral.ai/v1/models",
+    headers: (key) => ({ Authorization: `Bearer ${key}` }),
+    authStatuses: [401, 403],
+  },
+  groq: {
+    url: "https://api.groq.com/openai/v1/models",
+    headers: (key) => ({ Authorization: `Bearer ${key}` }),
+    authStatuses: [401, 403],
+  },
+  xai: {
+    url: "https://api.x.ai/v1/models",
+    headers: (key) => ({ Authorization: `Bearer ${key}` }),
+    authStatuses: [401, 403],
+  },
+  together: {
+    url: "https://api.together.xyz/v1/models",
+    headers: (key) => ({ Authorization: `Bearer ${key}` }),
+    authStatuses: [401, 403],
+  },
+  fireworks: {
+    url: "https://api.fireworks.ai/inference/v1/models",
+    headers: (key) => ({ Authorization: `Bearer ${key}` }),
+    authStatuses: [401, 403],
+  },
+};
+
+// Providers that don't need API key validation during onboarding
+const SKIP_VALIDATION_PROVIDERS = new Set([
+  "ollama", "lmstudio", "vllm", "sglang", // local
+  "openai-codex", "github-copilot", "google-gemini-cli", "minimax-portal", // oauth/device
+]);
+
 export async function connectProvider(
   provider: string,
   apiKey: string,
 ): Promise<ActionResult> {
-  // For Ollama, no key needed — just record the choice
-  if (provider === "ollama") {
-    await patchOnboardingState({ data: { providerId: "ollama" } });
+  // Local and OAuth providers — just record the choice
+  if (SKIP_VALIDATION_PROVIDERS.has(provider)) {
+    await patchOnboardingState({ data: { providerId: provider } });
     return { ok: true };
   }
 
-  // Validate the key by making a test call
-  try {
-    if (provider === "openai") {
-      const res = await fetch("https://api.openai.com/v1/models", {
-        headers: { Authorization: `Bearer ${apiKey}` },
+  // Validate the key if we have an endpoint for this provider
+  const validation = PROVIDER_VALIDATION_ENDPOINTS[provider];
+  if (validation) {
+    try {
+      const res = await fetch(validation.url, {
+        method: validation.method ?? "GET",
+        headers: validation.headers(apiKey),
+        ...(validation.body ? { body: validation.body } : {}),
       });
-      if (!res.ok) {
-        return { ok: false, error: "Invalid OpenAI API key" };
+      if (validation.authStatuses.includes(res.status)) {
+        return { ok: false, error: `Invalid API key` };
       }
-    } else if (provider === "anthropic") {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001",
-          max_tokens: 1,
-          messages: [{ role: "user", content: "hi" }],
-        }),
-      });
-      // 200 or 400 (bad request with valid auth) both confirm the key works
-      if (res.status === 401 || res.status === 403) {
-        return { ok: false, error: "Invalid Anthropic API key" };
-      }
+    } catch {
+      return { ok: false, error: "Could not reach the provider API" };
     }
-  } catch {
-    return { ok: false, error: "Could not reach the provider API" };
   }
 
   // Fire the auth_set_api_key command on the gateway
