@@ -54,7 +54,7 @@ services:
       # Gateway file-browser: UI talks directly to the gateway's files-API
       # over the Docker internal network (default) or Tailscale.
       GATEWAY_URL: ${GATEWAY_URL:-http://gateway:18790}
-      GATEWAY_AUTH_TOKEN: ${GATEWAY_AUTH_TOKEN}
+      GATEWAY_AUTH_TOKEN: ${GATEWAY_AUTH_TOKEN:-}
       # Hosted mode — set DEPLOYMENT_MODE=hosted to enable hosted UI routes.
       DEPLOYMENT_MODE: ${DEPLOYMENT_MODE:-}
       WORKER_URL: ${WORKER_URL:-http://worker:3001}
@@ -106,7 +106,7 @@ services:
       GITHUB_REPO_NAME: ${GITHUB_REPO_NAME:-}
       TEMPLATES_SOURCE: ${TEMPLATES_SOURCE:-}
       # Files-API (gateway-side HTTP for the UI file browser)
-      GATEWAY_AUTH_TOKEN: ${GATEWAY_AUTH_TOKEN}
+      GATEWAY_AUTH_TOKEN: ${GATEWAY_AUTH_TOKEN:-}
       FILES_API_BIND: ${FILES_API_BIND:-docker}
       FILES_API_PORT: ${FILES_API_PORT:-18790}
       # noVNC
@@ -254,18 +254,18 @@ services:
     profiles: [hosted]
     environment:
       PORT: "3001"
-      MASTER_SUPABASE_URL: ${MASTER_SUPABASE_URL}
-      MASTER_SUPABASE_SERVICE_ROLE_KEY: ${MASTER_SUPABASE_SERVICE_ROLE_KEY}
-      SUPABASE_MANAGEMENT_API_TOKEN: ${SUPABASE_MANAGEMENT_API_TOKEN}
-      SUPABASE_ORG_ID: ${SUPABASE_ORG_ID}
+      MASTER_SUPABASE_URL: ${MASTER_SUPABASE_URL:-}
+      MASTER_SUPABASE_SERVICE_ROLE_KEY: ${MASTER_SUPABASE_SERVICE_ROLE_KEY:-}
+      SUPABASE_MANAGEMENT_API_TOKEN: ${SUPABASE_MANAGEMENT_API_TOKEN:-}
+      SUPABASE_ORG_ID: ${SUPABASE_ORG_ID:-}
       SUPABASE_REGION: ${SUPABASE_REGION:-us-east-1}
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
-      STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_ID: ${STRIPE_PRICE_ID:-}
       WORKER_INTERNAL_TOKEN: ${WORKER_INTERNAL_TOKEN:-}
       PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-http://localhost:3000}
-      RESEND_API_KEY: ${RESEND_API_KEY}
-      E2B_API_KEY: ${E2B_API_KEY}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      E2B_API_KEY: ${E2B_API_KEY:-}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 1"]
       interval: 30s
