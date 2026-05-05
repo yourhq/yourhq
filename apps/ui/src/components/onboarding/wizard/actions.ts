@@ -583,9 +583,9 @@ export async function submitPairingAction(input: {
       return { ok: false, error: error?.message ?? "Failed to submit pairing code" };
     }
 
-    // Poll for completion (up to 15 seconds)
-    for (let i = 0; i < 10; i++) {
-      await new Promise((r) => setTimeout(r, 1500));
+    // Poll for completion (up to 45 seconds — pairing can take ~25s)
+    for (let i = 0; i < 15; i++) {
+      await new Promise((r) => setTimeout(r, 3000));
       const { data: status } = await supabase
         .from("agent_commands")
         .select("status, error_message")
