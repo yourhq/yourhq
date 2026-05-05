@@ -3,7 +3,7 @@
 import { useEntityAuditLog } from "@/hooks/use-audit-log";
 import type { AuditLogEntry } from "@/lib/audit/types";
 import { formatDistanceToNow } from "date-fns";
-import { Bot, User, ArrowRight, UserPlus, Pencil, Plus } from "lucide-react";
+import { Bot, ArrowRight, UserPlus, Pencil, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const actionIcons: Record<string, typeof ArrowRight> = {

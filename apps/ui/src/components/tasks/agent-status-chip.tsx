@@ -1,7 +1,7 @@
 "use client";
 
 import type { Task } from "@/lib/tasks/types";
-import { Bot, CheckCircle2, Loader } from "lucide-react";
+import { Bot, CheckCircle2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 

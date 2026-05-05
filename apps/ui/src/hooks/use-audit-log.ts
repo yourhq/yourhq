@@ -65,6 +65,7 @@ function useAuditLogCore(opts: {
   }, [supabase, moduleFilter, actorFilter, actionFilter, entityFilter]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchEntries(0);
   }, [fetchEntries]);
 
