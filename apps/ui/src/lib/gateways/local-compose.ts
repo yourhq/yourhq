@@ -70,17 +70,25 @@ export async function dockerAvailable(): Promise<boolean> {
  * which can take a minute or two on a slow connection. The UI shows
  * a progress indicator by calling `composeEvents()` separately.
  */
+function composeArgs(...extra: string[]): string[] {
+  const fs = require("fs");
+  if (fs.existsSync("/compose/docker-compose.yml")) {
+    return ["compose", "-f", "/compose/docker-compose.yml", "--env-file", "/compose/.env", ...extra];
+  }
+  return ["compose", ...extra];
+}
+
 export async function startLocalGateway(): Promise<ComposeResult> {
   return run(
     "docker",
-    ["compose", "--profile", "gateway", "up", "-d", "--pull", "always", "--no-build"],
+    composeArgs("--profile", "gateway", "up", "-d", "--pull", "always", "--no-build"),
   );
 }
 
 export async function stopLocalGateway(): Promise<ComposeResult> {
   return run(
     "docker",
-    ["compose", "--profile", "gateway", "stop"],
+    composeArgs("--profile", "gateway", "stop"),
   );
 }
 
@@ -88,14 +96,13 @@ export async function localGatewayStatus(): Promise<{
   running: boolean;
   services: { name: string; state: string }[];
 }> {
-  const r = await run("docker", [
-    "compose",
+  const r = await run("docker", composeArgs(
     "--profile",
     "gateway",
     "ps",
     "--format",
     "json",
-  ]);
+  ));
   if (!r.ok) return { running: false, services: [] };
 
   // `docker compose ps --format json` outputs one JSON object per line.

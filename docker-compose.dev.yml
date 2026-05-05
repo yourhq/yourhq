@@ -40,6 +40,8 @@ services:
       - ui-next-cache:/app/.next
       - ui-config:/config
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./docker-compose.yml:/compose/docker-compose.yml:ro
+      - ./.env:/compose/.env:ro
 
   gateway:
     volumes:
