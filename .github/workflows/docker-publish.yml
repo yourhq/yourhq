@@ -21,47 +21,173 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # ─── Phase 1: Determine which images need rebuilding ────────────
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      build-matrix: ${{ steps.set-matrix.outputs.build-matrix }}
+      manifest-matrix: ${{ steps.set-matrix.outputs.manifest-matrix }}
+      has-changes: ${{ steps.set-matrix.outputs.has-changes }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        if: github.ref_type != 'tag' && github.event_name != 'workflow_dispatch'
+        with:
+          filters: |
+            yourhq-ui:
+              - 'apps/ui/**'
+              - 'db/migrations/**'
+            yourhq-gateway:
+              - 'gateway/Dockerfile'
+              - 'gateway/entrypoint.sh'
+              - 'gateway/daemons/**'
+              - 'gateway/embedder/**'
+              - 'gateway/lifecycle/**'
+              - 'gateway/scripts/**'
+              - 'templates/**'
+            yourhq-dispatcher:
+              - 'gateway/dispatcher/**'
+              - 'gateway/daemons/inbox_dispatcher.py'
+            yourhq-runner:
+              - 'gateway/runner/**'
+              - 'gateway/daemons/command_runner.py'
+            yourhq-embedder:
+              - 'gateway/embedder/**'
+            yourhq-file-processor:
+              - 'gateway/file-processor/**'
+              - 'gateway/daemons/file_processor.py'
+
+      - name: Build matrices
+        id: set-matrix
+        env:
+          FORCE_ALL: ${{ github.ref_type == 'tag' || github.event_name == 'workflow_dispatch' }}
+          FILTER_UI: ${{ steps.filter.outputs.yourhq-ui }}
+          FILTER_GATEWAY: ${{ steps.filter.outputs.yourhq-gateway }}
+          FILTER_DISPATCHER: ${{ steps.filter.outputs.yourhq-dispatcher }}
+          FILTER_RUNNER: ${{ steps.filter.outputs.yourhq-runner }}
+          FILTER_EMBEDDER: ${{ steps.filter.outputs.yourhq-embedder }}
+          FILTER_FILE_PROCESSOR: ${{ steps.filter.outputs.yourhq-file-processor }}
+        run: |
+          declare -A DOCKERFILES=(
+            [yourhq-ui]="apps/ui/Dockerfile"
+            [yourhq-gateway]="gateway/Dockerfile"
+            [yourhq-dispatcher]="gateway/dispatcher/Dockerfile"
+            [yourhq-runner]="gateway/runner/Dockerfile"
+            [yourhq-embedder]="gateway/embedder/Dockerfile"
+            [yourhq-file-processor]="gateway/file-processor/Dockerfile"
+          )
+          declare -A FILTERS=(
+            [yourhq-ui]="$FILTER_UI"
+            [yourhq-gateway]="$FILTER_GATEWAY"
+            [yourhq-dispatcher]="$FILTER_DISPATCHER"
+            [yourhq-runner]="$FILTER_RUNNER"
+            [yourhq-embedder]="$FILTER_EMBEDDER"
+            [yourhq-file-processor]="$FILTER_FILE_PROCESSOR"
+          )
+
+          ALL_IMAGES="yourhq-ui yourhq-gateway yourhq-dispatcher yourhq-runner yourhq-embedder yourhq-file-processor"
+
+          BUILD_ITEMS="[]"
+          MANIFEST_ITEMS="[]"
+
+          for img in $ALL_IMAGES; do
+            changed="${FILTERS[$img]}"
+            if [[ "$FORCE_ALL" == "true" || "$changed" == "true" ]]; then
+              dockerfile="${DOCKERFILES[$img]}"
+              BUILD_ITEMS=$(echo "$BUILD_ITEMS" | jq -c \
+                --arg name "$img" \
+                --arg dockerfile "$dockerfile" \
+                '. + [
+                  {name: $name, dockerfile: $dockerfile, platform: "linux/amd64", runner: "ubuntu-latest", arch_slug: "amd64"},
+                  {name: $name, dockerfile: $dockerfile, platform: "linux/arm64", runner: "ubuntu-24.04-arm", arch_slug: "arm64"}
+                ]')
+              MANIFEST_ITEMS=$(echo "$MANIFEST_ITEMS" | jq -c \
+                --arg name "$img" \
+                '. + [{name: $name}]')
+            fi
+          done
+
+          HAS_CHANGES="false"
+          if [[ $(echo "$MANIFEST_ITEMS" | jq 'length') -gt 0 ]]; then
+            HAS_CHANGES="true"
+          fi
+
+          echo "build-matrix={\"include\":$BUILD_ITEMS}" >> "$GITHUB_OUTPUT"
+          echo "manifest-matrix={\"include\":$MANIFEST_ITEMS}" >> "$GITHUB_OUTPUT"
+          echo "has-changes=$HAS_CHANGES" >> "$GITHUB_OUTPUT"
+
+  # ─── Phase 2: Native per-architecture builds ────────────────────
   build:
+    needs: changes
+    if: needs.changes.outputs.has-changes == 'true'
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.changes.outputs.build-matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/${{ matrix.name }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.name }}-${{ matrix.arch_slug }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}-${{ matrix.arch_slug }}
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          echo "$digest" > "/tmp/digests/${{ matrix.arch_slug }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.name }}-${{ matrix.arch_slug }}
+          path: /tmp/digests/${{ matrix.arch_slug }}
+          if-no-files-found: error
+          retention-days: 1
+
+  # ─── Phase 3: Assemble multi-arch manifest and apply tags ───────
+  manifest:
+    needs: [changes, build]
+    if: needs.changes.outputs.has-changes == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - name: yourhq-ui
-            dockerfile: apps/ui/Dockerfile
-          - name: yourhq-gateway
-            dockerfile: gateway/Dockerfile
-          - name: yourhq-dispatcher
-            dockerfile: gateway/dispatcher/Dockerfile
-          - name: yourhq-runner
-            dockerfile: gateway/runner/Dockerfile
-          - name: yourhq-embedder
-            dockerfile: gateway/embedder/Dockerfile
-          - name: yourhq-file-processor
-            dockerfile: gateway/file-processor/Dockerfile
+      matrix: ${{ fromJSON(needs.changes.outputs.manifest-matrix) }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Compute image metadata
+      - uses: docker/metadata-action@v5
         id: meta
-        uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}
           tags: |
@@ -70,14 +196,24 @@ jobs:
             type=semver,pattern={{version}}
             type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
 
-      - name: Build and push
-        uses: docker/build-push-action@v5
+      - uses: actions/download-artifact@v4
         with:
-          context: .
-          file: ${{ matrix.dockerfile }}
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.name }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+          pattern: digest-${{ matrix.name }}-*
+          path: /tmp/digests
+          merge-multiple: true
+
+      - name: Create and push manifest
+        run: |
+          IMAGE="ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}"
+          AMD64_DIGEST=$(cat /tmp/digests/amd64)
+          ARM64_DIGEST=$(cat /tmp/digests/arm64)
+
+          TAG_ARGS=""
+          while IFS= read -r tag; do
+            [[ -z "$tag" ]] && continue
+            TAG_ARGS="$TAG_ARGS --tag $tag"
+          done <<< "${{ steps.meta.outputs.tags }}"
+
+          docker buildx imagetools create $TAG_ARGS \
+            "${IMAGE}@${AMD64_DIGEST}" \
+            "${IMAGE}@${ARM64_DIGEST}"
