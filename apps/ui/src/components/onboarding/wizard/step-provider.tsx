@@ -44,6 +44,7 @@ export interface StepProviderProps {
   validating: boolean;
   validated: boolean;
   validationError?: string | null;
+  isHosted?: boolean;
 }
 
 type OAuthPhase =
@@ -64,6 +65,7 @@ export function StepProvider({
   validating,
   validated,
   validationError,
+  isHosted,
 }: StepProviderProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState("");
@@ -289,7 +291,7 @@ export function StepProvider({
         {isSelected && isLocal && (
           <div className="px-4 pb-3 pt-2.5 animate-in fade-in slide-in-from-top-1 duration-150">
             <p className="text-[12px] text-muted-foreground">
-              We&apos;ll auto-detect {p.displayName} running on your gateway. No API key needed.
+              We&apos;ll auto-detect {p.displayName} running on your agent runtime. No API key needed.
             </p>
             {validationError && (
               <p className="mt-1.5 text-[12px] text-destructive animate-in fade-in duration-150">
@@ -482,8 +484,9 @@ export function StepProvider({
           Connect an AI provider
         </h1>
         <p className="max-w-[44ch] text-[14px] leading-relaxed text-muted-foreground">
-          Your API key stays on your gateway. HQ never sees or stores it.
-          You can connect more providers later in Settings.
+          {isHosted
+            ? "Your API key is stored securely in your private workspace. You can connect more providers later in Settings."
+            : "Your API key stays on your gateway. HQ never sees or stores it. You can connect more providers later in Settings."}
         </p>
       </div>
 

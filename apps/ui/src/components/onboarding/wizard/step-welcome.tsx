@@ -17,6 +17,7 @@ function slugify(value: string): string {
 
 export interface StepWelcomeProps {
   initialName?: string;
+  subtitle?: string;
   onSubmit: (data: {
     ownerName: string;
     preferredName: string;
@@ -26,7 +27,7 @@ export interface StepWelcomeProps {
   pending: boolean;
 }
 
-export function StepWelcome({ initialName, onSubmit, pending }: StepWelcomeProps) {
+export function StepWelcome({ initialName, subtitle, onSubmit, pending }: StepWelcomeProps) {
   const [name, setName] = useState(initialName ?? "");
   const [workspaceName, setWorkspaceName] = useState("");
   const [editing, setEditing] = useState(false);
@@ -54,7 +55,7 @@ export function StepWelcome({ initialName, onSubmit, pending }: StepWelcomeProps
             Welcome to HQ
           </h1>
           <p className="max-w-[44ch] text-[14px] leading-relaxed text-muted-foreground">
-            Set up your workspace in a few steps. Takes about 10 minutes.
+            {subtitle ?? "Set up your workspace in a few steps."}
           </p>
         </div>
       </StaggeredEntrance>

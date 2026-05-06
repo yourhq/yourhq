@@ -428,11 +428,11 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
 
   const handleSkipChannel = useCallback(() => {
     if (isHosted) {
-      navigateToTasks();
+      setShowCelebration(true);
     } else {
       advance();
     }
-  }, [isHosted, advance, navigateToTasks]);
+  }, [isHosted, advance]);
 
   // ─── Account (OSS only) ───
   const handleAccount = useCallback(
@@ -550,6 +550,11 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
               {step === "welcome" && (
                 <StepWelcome
                   initialName={data.ownerName}
+                  subtitle={
+                    isHosted
+                      ? "Set up your workspace in a few quick steps."
+                      : "Set up your workspace in a few steps. Takes about 10 minutes."
+                  }
                   onSubmit={handleWelcome}
                   pending={pending}
                 />
@@ -584,6 +589,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
                   validating={validating}
                   validated={validated}
                   validationError={validationError}
+                  isHosted={isHosted}
                 />
               )}
 
