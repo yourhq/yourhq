@@ -20,7 +20,7 @@
 
 - [ ] `npx tsc --noEmit` passes in `apps/ui/` (zero TypeScript errors)
 - [ ] `npm run lint` passes in `apps/ui/` (warnings ok, errors fail CI)
-- [ ] For gateway changes: `ruff check gateway/` is clean
+- [ ] For gateway/template changes: `ruff check gateway/ templates/` and `ruff format --check gateway/ templates/` both pass
 - [ ] For shell changes: `shellcheck` is clean (`gateway/entrypoint.sh`, `gateway/scripts/*.sh`, `installer/install.sh`)
 - [ ] No secrets, `.env` files, or `*.pem` files committed
 - [ ] If schema changed: a new file was added under `db/migrations/` (do not edit existing migrations)

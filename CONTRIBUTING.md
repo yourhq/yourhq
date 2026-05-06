@@ -100,6 +100,7 @@ Before opening a PR:
 - [ ] `docker compose -f docker-compose.yml -f docker-compose.dev.yml up` still boots the stack
 - [ ] `npx tsc --noEmit` passes (zero TS errors) in `apps/ui/`
 - [ ] `npm run lint` passes in `apps/ui/` (warnings OK, errors fail CI)
+- [ ] For gateway/template changes: `ruff check gateway/ templates/` and `ruff format --check gateway/ templates/` both pass
 - [ ] For gateway changes: `shellcheck gateway/entrypoint.sh gateway/scripts/*.sh` passes
 - [ ] You haven't committed secrets, `.env`, or `*.pem` files
 - [ ] Commit messages describe *why*, not just *what*
@@ -108,8 +109,8 @@ Open your PR against `main`. CI runs automatically. A maintainer will review wit
 
 ## Code style
 
-- **UI**: ESLint + Prettier config in `apps/ui/`. Run `npm run lint -- --fix` before committing.
-- **Python**: PEP 8, no specific linter pinned yet. Keep to what's in `gateway/daemons/*.py`.
+- **UI**: ESLint (Next.js + TypeScript config) in `apps/ui/`. Run `npm run lint:fix` before committing — autofixes formatting and the easy lint warnings.
+- **Python**: ruff for both lint and format (config in `pyproject.toml`, line length 120). Run `ruff check gateway/ templates/` and `ruff format gateway/ templates/`.
 - **Shell**: shellcheck-clean. Use `set -euo pipefail` in new scripts.
 - **TypeScript**: strict mode. No `any` unless there's a reason; then a comment explaining.
 - **Commits**: conventional-commits style preferred but not required. One PR = one logical change.
