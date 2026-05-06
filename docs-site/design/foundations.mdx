@@ -1,0 +1,264 @@
+---
+title: "Foundations"
+description: "The token inventory: color, typography, radius, motion, theming, and iconography. Single source of truth for HQ's visual language."
+---
+
+Every value in the HQ interface — every color, font size, radius, shadow, transition — resolves to a token defined in [`apps/ui/src/app/globals.css`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/globals.css). Tokens are CSS custom properties. Tailwind v4's `@theme inline` block maps them to utility classes. There is no `tailwind.config.js`; the CSS file is the theme.
+
+This page is the inventory. It is the source of truth that the [principles](/design/overview), components, and patterns docs cite.
+
+## How tokens are layered
+
+The token system has three layers, in order:
+
+1. **shadcn neutral base.** `--background`, `--foreground`, `--card`, `--popover`, `--primary`, `--secondary`, `--muted`, `--accent`, `--destructive`, `--border`, `--input`, `--ring`, the chart palette, and the sidebar palette. Defined in both `:root` (light) and `.dark`.
+2. **HQ semantic extensions.** The state, status, priority, and text tokens we layer on top: `--surface-hover`, `--surface-selected`, `--border-strong`, `--status-*`, `--priority-*`, `--text-secondary`, `--text-tertiary`. Defined in both `:root` and `.dark` so the same utilities resolve in either theme.
+3. **Motion tokens.** `--duration-fast/normal/slow`, `--ease-out`, `--ease-in-out`. Defined once in `:root` only — motion is theme-invariant.
+4. **`@theme inline` mapping.** Each token gets a `--color-*`, `--radius-*`, or font alias inside the top `@theme` block, which Tailwind v4 turns into utility classes (`bg-surface-hover`, `text-status-success`, `rounded-md`, `font-sans`, etc.).
+
+The rule: **never inline a hex**. If an existing token covers the role, use it. If a new semantic role is needed (a new status state, a new surface depth), add a token to `globals.css` and wire it through `@theme inline`.
+
+## Color
+
+All colors use the **OKLch** color space — perceptually uniform lightness, so a value at `0.72` in green and `0.71` in red read as the same brightness. We do not use `hsl()` or `rgb()`.
+
+### Base palette
+
+| Token | Light (`:root`) | Dark (`.dark`) | Used for |
+|---|---|---|---|
+| `--background` | `oklch(1 0 0)` | `oklch(0.13 0 0)` | Page background |
+| `--foreground` | `oklch(0.145 0 0)` | `oklch(0.96 0 0)` | Primary text |
+| `--card` | `oklch(1 0 0)` | `oklch(0.16 0 0)` | Card surface |
+| `--popover` | `oklch(1 0 0)` | `oklch(0.19 0 0)` | Floating surfaces (menus, tooltips) |
+| `--primary` | `oklch(0.205 0 0)` | `oklch(0.96 0 0)` | Primary action background |
+| `--primary-foreground` | `oklch(0.985 0 0)` | `oklch(0.13 0 0)` | Text on primary |
+| `--secondary` | `oklch(0.97 0 0)` | `oklch(0.2 0 0)` | Secondary action background |
+| `--muted` | `oklch(0.97 0 0)` | `oklch(0.18 0 0)` | Subdued surface |
+| `--muted-foreground` | `oklch(0.556 0 0)` | `oklch(0.62 0 0)` | Secondary text, labels |
+| `--accent` | `oklch(0.97 0 0)` | `oklch(0.22 0 0)` | Hover and selected fills on lists |
+| `--destructive` | `oklch(0.577 0.245 27.325)` | `oklch(0.704 0.191 22.216)` | Destructive actions |
+| `--border` | `oklch(0.922 0 0)` | `oklch(1 0 0 / 9%)` | Default 1px divider |
+| `--input` | `oklch(0.922 0 0)` | `oklch(1 0 0 / 10%)` | Input border |
+| `--ring` | `oklch(0.708 0 0)` | `oklch(0.65 0 0)` | Focus ring |
+
+### Surface ladder
+
+The depth system. Built from neutral-on-surface transparency so the same component reads correctly across hover, focus, selection, and divider states without parallel color stacks. Light mirrors dark with black-on-light at slightly lower opacity (black on white reads stronger than white on near-black at the same alpha).
+
+| Token | Light | Dark | Role |
+|---|---|---|---|
+| `--surface-hover` | `oklch(0 0 0 / 4%)` | `oklch(1 0 0 / 5%)` | Hover lift on rows, cells, list items |
+| `--surface-selected` | `oklch(0 0 0 / 6%)` | `oklch(1 0 0 / 8%)` | Selected/active row fill |
+| `--border` | `oklch(0.922 0 0)` | `oklch(1 0 0 / 9%)` | Default divider, list separators |
+| `--border-strong` | `oklch(0.85 0 0)` | `oklch(1 0 0 / 14%)` | Section breaks, emphasized edges |
+
+Applied via Tailwind utilities: `bg-surface-hover`, `bg-surface-selected`, `border-border`, `border-strong`.
+
+### Semantic text
+
+| Token | Light | Dark | Role |
+|---|---|---|---|
+| `--foreground` | `oklch(0.145 0 0)` | `oklch(0.96 0 0)` | Primary text |
+| `--muted-foreground` | `oklch(0.556 0 0)` | `oklch(0.62 0 0)` | Secondary text, labels |
+| `--text-secondary` | `oklch(0.556 0 0)` | `oklch(0.62 0 0)` | Same role as muted-foreground; available where you need a non-mapped utility |
+| `--text-tertiary` | `oklch(0.65 0 0)` | `oklch(0.45 0 0)` | Tertiary text — timestamps, helper hints, low-emphasis metadata |
+
+Note the inversion: in light mode `--text-tertiary` is *lighter* than `--text-secondary` (closer to background = lower contrast); in dark mode it is *darker* (also closer to background). The visual hierarchy is the same — the OKLch numbers move opposite directions because the background does.
+
+Available as `.text-secondary` and `.text-tertiary` utility classes.
+
+### Status
+
+Reserved for state, never decoration. Use these tokens for any badge, dot, or icon that conveys a record's state. Light values keep the same hue and chroma as dark but at lower lightness so they read on a white background.
+
+| Token | Light | Dark | Use for |
+|---|---|---|---|
+| `--status-success` | `oklch(0.55 0.15 162.48)` | `oklch(0.72 0.17 162.48)` | Completed, ready, healthy |
+| `--status-warning` | `oklch(0.6 0.16 70.08)` | `oklch(0.8 0.18 70.08)` | Pending, blocked, attention needed |
+| `--status-error` | `oklch(0.55 0.18 22.216)` | `oklch(0.71 0.19 22.216)` | Failed, errored, missed |
+| `--status-info` | `oklch(0.5 0.18 250)` | `oklch(0.68 0.18 250)` | Queued, informational |
+| `--status-progress` | `oklch(0.5 0.18 290)` | `oklch(0.68 0.18 290)` | Actively executing, in flight |
+| `--status-neutral` | `oklch(0.5 0 0)` | `oklch(0.62 0 0)` | Inactive, archived, idle |
+
+`--status-info` and `--status-progress` are intentionally distinct hues (blue and purple). The lifecycle of a daemon-driven record — agent commands, inbox items, source syncs — passes through queued (info) → claimed (warning) → executing (progress) → terminal (success or error). Collapsing queued and executing into one color erases meaningful information at a glance.
+
+Tailwind utilities: `text-status-success`, `bg-status-warning/20`, `border-status-error`, etc.
+
+### Priority
+
+Used by tasks and any other module that ranks records by urgency. Aligned with status tones where the meaning overlaps.
+
+| Token | Light | Dark | Level |
+|---|---|---|---|
+| `--priority-urgent` | `oklch(0.55 0.18 22.216)` | `oklch(0.71 0.19 22.216)` | Urgent |
+| `--priority-high` | `oklch(0.6 0.16 55)` | `oklch(0.78 0.17 55)` | High |
+| `--priority-medium` | `oklch(0.65 0.15 90)` | `oklch(0.83 0.17 90)` | Medium |
+| `--priority-low` | `oklch(0.5 0.13 240)` | `oklch(0.68 0.12 240)` | Low |
+
+Tailwind utilities: `text-priority-urgent`, `bg-priority-high/15`, etc.
+
+### Chart palette
+
+Five distinct hues, OKLch-balanced so adjacent series stay readable side by side.
+
+| Token | Light | Dark |
+|---|---|---|
+| `--chart-1` | `oklch(0.646 0.222 41.116)` | `oklch(0.488 0.243 264.376)` |
+| `--chart-2` | `oklch(0.6 0.118 184.704)` | `oklch(0.696 0.17 162.48)` |
+| `--chart-3` | `oklch(0.398 0.07 227.392)` | `oklch(0.769 0.188 70.08)` |
+| `--chart-4` | `oklch(0.828 0.189 84.429)` | `oklch(0.627 0.265 303.9)` |
+| `--chart-5` | `oklch(0.769 0.188 70.08)` | `oklch(0.645 0.246 16.439)` |
+
+Recharts wrapper at [`components/ui/chart.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/chart.tsx) consumes these.
+
+### Sidebar
+
+The shell sidebar has its own token group so it can sit slightly darker than the page background and still match the surface ladder.
+
+`--sidebar`, `--sidebar-foreground`, `--sidebar-primary`, `--sidebar-primary-foreground`, `--sidebar-accent`, `--sidebar-accent-foreground`, `--sidebar-border`, `--sidebar-ring`. Defined in both themes. Consumed via Tailwind utilities `bg-sidebar`, `text-sidebar-foreground`, etc.
+
+## Typography
+
+### Fonts
+
+[`apps/ui/src/app/layout.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/layout.tsx) loads Geist via `next/font/google`:
+
+- **Geist Sans** → `--font-geist-sans` → `font-sans` utility. Body, headings, controls.
+- **Geist Mono** → `--font-geist-mono` → `font-mono` utility. Code blocks, IDs, timestamps when monospaced alignment matters.
+
+OpenType features `cv11`, `ss01`, `ss03` are enabled globally in `body`. They sharpen digits and disambiguate zeros — important for tables full of IDs and counts. Antialiasing and `text-rendering: optimizeLegibility` are also set globally. Tables and any element with class `.tabular` get `font-variant-numeric: tabular-nums`.
+
+### Type scale
+
+Six steps, defined as utilities. The base is 13px — anything larger is intentional emphasis.
+
+| Class | Size | Line height | Weight | Tracking | Transform | Color |
+|---|---|---|---|---|---|---|
+| `.text-display` | 24px (1.5rem) | 1.2 | 600 | -0.02em | — | `--foreground` |
+| `.text-title` | 18px (1.125rem) | 1.3 | 600 | -0.01em | — | `--foreground` |
+| `.text-heading` | 15px (0.9375rem) | 1.4 | 600 | — | — | `--foreground` |
+| `.text-body` | 13px (0.8125rem) | 1.5 | 400 | — | — | `--foreground` |
+| `.text-label` | 11px (0.6875rem) | 1.3 | 500 | 0.04em | UPPERCASE | `--muted-foreground` |
+| `.text-caption` | 11px (0.6875rem) | 1.4 | 400 | — | — | `--muted-foreground` |
+
+When to use which:
+
+- `.text-display` — page titles in the page header.
+- `.text-title` — section headings inside a detail view, modal titles.
+- `.text-heading` — card titles, list-group headers.
+- `.text-body` — default. The base reading size.
+- `.text-label` — form labels, sidebar group headers, table column headers, metadata captions over values.
+- `.text-caption` — timestamps, helper text, "showing 12 of 84" counts.
+
+### Editor typography
+
+The Novel/TipTap editor in knowledge pages and playbooks has its own scale, defined in `globals.css` lines 265-450. H1 is 30px, H2 is 22px, H3 is 18px — larger than the app scale because long-form reading benefits from more vertical rhythm. Body lines render at `line-height: 1.7` inside `.ProseMirror`.
+
+## Radius
+
+A single base, derived scale.
+
+```css
+--radius: 0.375rem; /* 6px — base */
+
+--radius-sm: calc(var(--radius) - 4px);  /* 2px */
+--radius-md: calc(var(--radius) - 2px);  /* 4px */
+--radius-lg: var(--radius);              /* 6px */
+--radius-xl: calc(var(--radius) + 4px);  /* 10px */
+--radius-2xl: calc(var(--radius) + 8px); /* 14px */
+--radius-3xl: calc(var(--radius) + 12px);/* 18px */
+--radius-4xl: calc(var(--radius) + 16px);/* 22px */
+```
+
+Tailwind utilities: `rounded-sm`, `rounded-md`, `rounded-lg`, `rounded-xl`, `rounded-2xl`, etc.
+
+When to use which:
+
+- `rounded-md` — buttons, inputs, badges, default fills.
+- `rounded-lg` — cards, popovers, dialogs, sheets.
+- `rounded-xl` and above — hero surfaces, full-bleed panels.
+- `rounded-full` — avatars, status dots, kbd chips, single-character tokens.
+
+## Spacing
+
+Tailwind's default spacing scale (`0`, `0.5`, `1`, `1.5`, `2`, `2.5`, `3`, `4`, `5`, `6`, `8`, `10`, `12`, `16`, `20`, `24`, `32`, …) is the contract. We do not override it.
+
+Density conventions for layout:
+
+- **Form rows**: 8px gap (`gap-2`) between label and control, 12px gap (`gap-3`) between rows.
+- **Page sections**: 20px padding (`px-5`), 20px between section blocks.
+- **Card content**: 16px padding (`p-4`), 12px gap between elements.
+- **Sidebar groups**: 8px padding, items 28px tall.
+- **Toolbars and headers**: 12px gap (`gap-3`) between controls.
+
+If a layout needs an off-scale value, the right move is almost always to pick the next step up or down, not to inline a custom number.
+
+## Motion
+
+Three durations, two easings. Animation is deliberate — used to clarify state changes (a sheet sliding in, a row reordering), not to entertain. Defined once in `:root` only; motion does not change between themes.
+
+```css
+--duration-fast: 120ms;
+--duration-normal: 180ms;
+--duration-slow: 280ms;
+
+--ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+--ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+```
+
+When to use which:
+
+- **120ms** — micro-interactions: hover, focus rings, dropdown opens, tooltip appearances.
+- **180ms** — default. Most transitions, including theme accents and small position changes.
+- **280ms** — full-surface motion: sheets sliding in, drawers opening, modal mounts.
+
+`--ease-out` for entrances and most movement. `--ease-in-out` only for bidirectional transitions (something that animates in and back out the same way).
+
+The animation library is [`tw-animate-css`](https://github.com/Wombosvideo/tw-animate-css), giving us `animate-in`, `animate-out`, `fade-in-0`, `slide-in-from-top-2`, `zoom-in-95`, etc. We do **not** use Framer Motion. If a motion can be expressed as a CSS transition or a Tailwind animation utility, that is the answer.
+
+## Theming
+
+Theme switching is instant, class-driven, and does not animate. [`next-themes`](https://github.com/pacocoursey/next-themes) is wired up at the root layout with:
+
+```tsx
+<ThemeProvider
+  attribute="class"
+  defaultTheme="system"
+  enableSystem
+  disableTransitionOnChange
+>
+```
+
+The mechanism: `next-themes` toggles a `dark` class on `<html>`. The `:root` declarations in `globals.css` define the light palette. The `.dark` block overrides every token. Components reference tokens by name only — they never branch on theme.
+
+`disableTransitionOnChange` is on intentionally. We do not animate every element on the page when the user flips themes — it would be visually loud and slow. The flip is a single-frame swap.
+
+The toggle component lives at [`components/theme-toggle.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/theme-toggle.tsx) — a dropdown with Light / Dark / System and a Sun ↔ Moon icon transition.
+
+## Iconography
+
+[`lucide-react`](https://lucide.dev/) is the only icon library. No custom icon set, no second pack.
+
+- **Default size** — 16px. Set globally via `[&_svg:not([class*='size-'])]:size-4` on container components, so any icon dropped inside a button, badge, or list item without an explicit size renders at 16px.
+- **Stroke width** — Lucide default (1.5px). Don't override unless designing a one-off display element.
+- **Two icons should never mean the same thing.** If a Lucide icon is needed in two roles, pick a second icon for the second role.
+
+When choosing an icon, prefer the most literal name in Lucide. If nothing fits, the action probably needs a clearer label, not an icon at all.
+
+## Tailwind and shadcn configuration
+
+- **Tailwind v4**, no `tailwind.config.js`. Theme lives in the `@theme inline` block at the top of [`globals.css`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/globals.css).
+- **shadcn/ui** configured at [`apps/ui/components.json`](https://github.com/yourhq/yourhq/blob/main/apps/ui/components.json): style `new-york`, base color `neutral`, CSS variables enabled, no class prefix, RSC-aware, Lucide icons.
+- **Aliases** — `@/components`, `@/lib/utils`, `@/components/ui`, `@/lib`, `@/hooks`. Always import via aliases; never relative-cross paths.
+- **Plugins** — `tw-animate-css` (animation utilities), `@tailwindcss/typography` (only for the editor's `.ProseMirror` styles, not for body content).
+
+## Adding a new token
+
+When a screen needs a value that no existing token covers:
+
+1. **Confirm the role is semantic, not stylistic.** "We need a slightly darker red" is not a new token. "We need a token for the 'snoozed' state on tasks" is.
+2. **Add the variable in `globals.css`.** Both `:root` and `.dark` if the role is theme-dependent (color, surface, text). `:root` only if it is theme-invariant (motion, radius, spacing).
+3. **Wire it into `@theme inline`** with a `--color-*`, `--radius-*`, or matching alias so Tailwind utilities pick it up.
+4. **Use the Tailwind utility everywhere.** Never reach back to `var(--…)` in component code unless the value is being passed into a CSS-in-JS or inline style attribute that does not resolve utilities.
+
+The goal is that any future contributor reading [`globals.css`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/globals.css) can see the entire visual language at a glance, in one file.

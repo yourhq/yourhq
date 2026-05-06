@@ -52,10 +52,10 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 const PRIORITY_COLORS: Record<string, string> = {
-  urgent: "bg-red-500",
-  high: "bg-orange-500",
-  medium: "bg-yellow-500",
-  low: "bg-blue-500",
+  urgent: "bg-priority-urgent",
+  high: "bg-priority-high",
+  medium: "bg-priority-medium",
+  low: "bg-priority-low",
 };
 
 const STATUS_ICONS: Record<string, string> = {

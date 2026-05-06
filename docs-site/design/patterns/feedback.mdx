@@ -1,0 +1,156 @@
+---
+title: "Feedback"
+description: "Toasts, errors, empty states, loading skeletons, confirmations."
+---
+
+Feedback is how the interface tells the user what just happened, what's happening now, what went wrong, and what to do next. The five surfaces below cover those four states. Pick by intent and severity, not by what feels available.
+
+## Toasts
+
+For transient, non-blocking confirmation.
+
+Outlet: [`apps/ui/src/components/ui/sonner.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/sonner.tsx) — mounted once in the root layout, never re-mounted.
+
+Call surface: import `toast` from `sonner` and call:
+
+| Call | Use for |
+|---|---|
+| `toast.success("Contact created")` | A user-initiated action completed |
+| `toast.error("Couldn't save", { description: error.message })` | An action failed; user should know but the page still works |
+| `toast.warning("This will affect 12 records")` | A choice-pending state; usually pair with an action button on the toast |
+| `toast.loading("Importing…")` (returns id) | Long-running async; replace with `.success` / `.error` on the same id |
+| `toast(...)` | Plain neutral message — rare; usually success or error fits |
+
+The Sonner setup uses the `--popover` and `--popover-foreground` tokens, our radius, and our custom icons (CircleCheck, Info, TriangleAlert, OctagonX, Loader2). It auto-themes in dark mode.
+
+### Rules
+
+- **One toast per user action.** If a save triggers three writes, fire one summary toast — not three.
+- **Errors are user-actionable.** "Couldn't save: name is required" is good; "Internal error" is not. If you can't show the user something they can fix, log to the console and don't toast.
+- **Don't toast inline edits.** They already update the value visibly. Toast on blur only if the save failed.
+- **Don't toast on navigation.** The new screen is its own confirmation.
+- **Don't toast for mutations the user didn't initiate** (realtime echoes from agent activity, for example) — those should update the row in place.
+
+## Confirm dialogs
+
+For decisions the user must answer before continuing.
+
+[`apps/ui/src/components/shared/confirm-dialog.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/confirm-dialog.tsx)
+
+Three tones, each swapping the icon, button variant, and busy state:
+
+| Tone | When | Default icon |
+|---|---|---|
+| `default` | Neutral confirmation. "Archive this contact?" | `AlertCircle` |
+| `warning` | Reversible but consequential. "Discard unsaved changes?" | `AlertTriangle` |
+| `destructive` | Irreversible. "Delete this routine?" | `AlertTriangle` (red) |
+
+The thin preset [`ConfirmDeleteDialog`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/confirm-delete-dialog.tsx) wraps `tone="destructive"` with a "Delete" button label. Use it for any delete.
+
+### Rules
+
+- **One question per dialog.** If the user has to answer two things, you have two flows.
+- **The confirm button is specific.** "Delete contact" beats "OK". The cancel button is "Cancel" — always.
+- **Async confirms show a spinner inside the confirm button** while the call runs. The button is disabled, the cancel stays enabled.
+- **Don't double-confirm.** If a delete is reversible (move to archive), don't ask. If it's truly irreversible, ask once and trust the answer.
+
+## Error boundaries
+
+For unrecoverable failures.
+
+Root fallback: [`apps/ui/src/app/error.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/error.tsx) — catches errors that escape segment-level `error.tsx` files. Detects project-related errors via regex against the message (Supabase, project, registry, database, fetch, DNS) and offers context-aware recovery: "Switch project" and "Onboarding" links for project issues, "Try again" plus collapsible technical details otherwise.
+
+Segment-level `error.tsx` files in `app/dashboard/<module>/` cover module-specific failure modes. They should:
+
+- Render an `Alert` (or an inline `EmptyState` for list-level failures) with the user-friendly message.
+- Provide a primary "Try again" button calling `reset()`.
+- Show the digest (error ID) in monospace for support.
+- Never blame the user.
+
+Don't catch errors silently. If a server action fails inside a route, throw — the boundary handles the rest.
+
+## Empty states
+
+For lists and surfaces that legitimately have no data.
+
+[`apps/ui/src/components/shared/empty-state.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/empty-state.tsx)
+
+Variants:
+
+- **`default`** — welcoming. Use when the user has never created the thing yet. Icon, title, description, primary action ("Create your first contact"), optional secondary action ("Learn more").
+- **`filtered`** — apologetic. Use when filters are excluding all records. Icon, title ("No matches"), description, primary "Clear filters" action.
+- **`compact`** — for inline contexts (sidebars, modals, embedded panels). Smaller spacing and icon.
+
+Composition: icon in a 12px-radius bordered box, muted background. Title at `.text-heading`, description at `.text-body` muted. Actions below.
+
+### Rules
+
+- **Always include an action.** Empty states without a next step feel like dead ends. If genuinely no action exists, at least link to docs.
+- **Tone matches reason.** First-time empty is welcoming; filtered empty is apologetic; error empty is in `error.tsx`, not here.
+- **Use the module's icon.** A contacts empty state uses the contact icon, not a generic "empty" icon.
+
+## Loading skeletons
+
+For first-paint while data is fetching.
+
+[`apps/ui/src/components/shared/loading-skeleton.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/loading-skeleton.tsx)
+
+Five presets, each shaped to a real layout:
+
+| Preset | Replaces |
+|---|---|
+| `table` | Header row + N body rows with realistic column widths |
+| `cards` | Responsive grid of card-shaped blocks |
+| `list` | Icon + text + meta rows |
+| `feed` | Avatar + text + timestamp blocks |
+| `detail` | Grouped section blocks with title, description, two-column grid |
+
+Pass the count and any optional sizing. The preset is `animate-pulse` with `bg-accent` blocks — no spin, no rotate.
+
+### Rules
+
+- **Match the skeleton to the layout it replaces.** A list view shows a list skeleton, not a generic spinner. The user's eye should not have to recalibrate when data arrives.
+- **Skeletons only on first paint.** When new data is filtering in (sort, search), keep the existing rows visible and let the realtime hook reconcile — don't blank the list.
+- **Spinners are for buttons.** A button mid-async shows `Spinner`. A page mid-load shows a layout skeleton. The two are not interchangeable.
+
+## Inline alerts
+
+For persistent, page-level conditions.
+
+The [`Alert`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/alert.tsx) primitive carries a banner-style message inside the page, distinct from a toast. The only standardized one in the product today is [`SchemaVersionBanner`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/schema-version-banner.tsx) — shown when the active project's schema lags expected migrations.
+
+### Rules
+
+- **Reserve `Alert` for page-level state that affects all interactions on the page.** "Your project is in read-only mode", "Schema migration required". Not for "Saved successfully" — that's a toast.
+- **Provide an action where possible.** A banner with no link out is just nagging.
+
+## Empty interaction feedback
+
+For micro-states that fall through the cracks above:
+
+- **Hover** — `bg-surface-hover`, 120ms.
+- **Focus** — `ring-ring`, always visible to keyboard users.
+- **Disabled** — `opacity-50` plus `cursor-not-allowed`. Pair with a `Tooltip` if the reason isn't obvious.
+- **Pending value (optimistic)** — keep the new value visible, no spinner. If the call fails, revert and toast.
+- **Empty cell** — `—` (em-dash) at `.text-tertiary`. Not a blank.
+- **Loading meta value** — small inline `Skeleton` block, never a spinner.
+
+## Pulling it together
+
+A correct save flow looks like this:
+
+1. User edits a field inline.
+2. Field updates optimistically (no spinner on the field itself).
+3. Network call runs in the background.
+4. On success, no toast — the value is visibly updated.
+5. On failure, the value reverts and a `toast.error` explains why.
+
+A correct delete flow:
+
+1. User clicks Delete.
+2. `ConfirmDeleteDialog` (destructive tone) opens.
+3. Confirm button shows a spinner while the call runs.
+4. On success, dialog closes; the row disappears from the list (realtime echo, or optimistic remove). Toast: "Deleted X."
+5. On failure, the dialog stays open with an inline error; row is unaffected.
+
+Notice what isn't there: no double confirms, no progress bars, no full-screen blockers, no banner congratulating the user. Feedback is calm and proportionate to the action.

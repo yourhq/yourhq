@@ -1,0 +1,123 @@
+---
+title: "Data display"
+description: "List views (table, card, kanban, calendar) and detail surfaces (full page vs slide-over)."
+---
+
+HQ renders the same record in multiple ways depending on what the user is doing. This page documents the two halves of that system: how lists are built, and how a record opens.
+
+## Lists: the multi-view orchestrator
+
+Every module that shows a list of structured records follows the same pattern. **One hook owns the state. Many view components consume it.** Switching between views never reloads data, never loses filters, never re-fetches.
+
+Canonical references:
+
+- [`apps/ui/src/components/crm/contacts-tab.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/crm/contacts-tab.tsx) — the orchestrator
+- [`apps/ui/src/hooks/use-contacts.ts`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/hooks/use-contacts.ts) — the hook
+- [`contacts-table-view.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/crm/contacts-table-view.tsx), [`contacts-card-view.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/crm/contacts-card-view.tsx), [`contacts-kanban-view.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/crm/contacts-kanban-view.tsx) — the view components
+
+The hook returns:
+
+- **Data** — `contacts` (filtered), `allContacts`, supporting collections (`campaigns`, `pipelineStages`).
+- **State** — `loading`, `viewMode`, `sorting`, `filters`, `selection`.
+- **Persistence** — `viewMode` to `localStorage`, `filters` and `sorting` to URL search params.
+- **Actions** — `actions.archive`, `actions.delete`, `actions.changeStatus`, etc.
+- **Form** — `form.open`, `form.close`, `form.editing` for the create/edit `SidePanel`.
+- **Realtime** — subscribed via [`use-realtime-sync`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/hooks/use-realtime-sync.ts).
+
+The orchestrator component renders a [`FilterBar`](/design/components/composites), a view-mode `ToggleGroup`, and the active view component. It does not own state — it passes hook outputs straight through.
+
+## The four view shapes
+
+Pick view shapes by data shape, not by aesthetic preference. Modules support whichever shapes their data justifies.
+
+### Table
+
+The default. Built on [`DataTable`](/design/components/composites) (TanStack React Table). Sortable headers, sticky-header support, three row-height variants (compact / normal / comfortable), row click handlers, loading-skeleton fallback, empty-state slot.
+
+Column visibility is owned by the [`ColumnToggle`](/design/components/composites) composite, persisted via `use-column-visibility` to `localStorage`. Title fields stay clickable and open the detail surface; secondary cells with mutations (status, priority) use inline edit through their type-specific control.
+
+Reach for table when the data is wide and users compare across rows.
+
+### Cards
+
+Responsive grid (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4`). Each card is a richer preview — avatar or icon, title, metadata row, badges. Click opens the detail surface.
+
+Reach for cards when records have an identity (a person, an agent, an organization) that benefits from visual presence.
+
+### Kanban
+
+Status-grouped columns. Each column is a status value (todo / in_progress / blocked / done; or a `select` field's options for collections). Drag a card between columns to change its status. An [`InlineCreateRow`](/design/components/composites) sits at the bottom of each column for fast adds.
+
+Drag-and-drop must use `@dnd-kit` (see [interaction](/design/patterns/interaction) — that is the canonical drag-drop library across the app).
+
+Reach for kanban when the central question is "what state is this record in?" — a tasks board, a deals pipeline, a content calendar by stage.
+
+### Calendar
+
+Month grid driven by a date-typed field on the record. Each date cell shows record indicators; click a date to create. Built with `date-fns` (`startOfMonth`, `eachDayOfInterval`, etc.).
+
+References: [`apps/ui/src/components/tasks/task-calendar-view.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/tasks/task-calendar-view.tsx), [`apps/ui/src/components/collections/collection-calendar-view.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/collections/collection-calendar-view.tsx).
+
+Reach for calendar when records have a meaningful date field and users need to see them on a timeline.
+
+## State persistence
+
+| State | Persisted to | Why |
+|---|---|---|
+| `viewMode` (table / cards / kanban / calendar) | `localStorage` | User preference, survives reloads |
+| `filters` (search, status, priority, archived) | URL search params | Shareable, browser back works |
+| `sorting` | URL search params | Same |
+| Column visibility | `localStorage` per module | Per-user table layout |
+| Selection | In-memory only | Cleared on navigation |
+
+URL-first for anything a user might link to or share; `localStorage` for personal preferences.
+
+## Detail surfaces
+
+Two shapes, picked by record weight:
+
+### Full page
+
+Used for **heavy entities** — records with timelines, multiple tabs, related records, sidebars worth of metadata. Examples: a contact (notes + interactions + draft sets + linked tasks), an agent (overview + files + usage + knowledge + routines + inbox), a knowledge page (rich editor + agent assignments + embedding status), an organization.
+
+Layout convention:
+
+- A [`DetailHeader`](/design/components/composites) at the top: back link, breadcrumb, title with inline edit, action buttons (copy, archive, delete) on the right.
+- A two-column content area below: main content on the left, a sticky [`DetailSidebar`](/design/components/composites) (280px) on the right with status, priority, relationships, metadata timestamps.
+- On tablet/mobile, the sidebar folds into a "Details" button that opens a `Sheet`.
+
+Routes for full-page detail: `/dashboard/<module>/[id]`. Server-side fetch in `page.tsx`, hydrate the client component with full data.
+
+### Slide-over (`SidePanel`)
+
+Used for **light records** — collection records, ad-hoc edits, anything that fits comfortably in 560px and benefits from staying alongside the list the user came from.
+
+The body is a label-and-control grid. Inline edits commit on blur; explicit Save buttons are reserved for the rare case where validation can't run inline (a multi-field form needing cross-field checks).
+
+### Modal (`Dialog`)
+
+Used for **capture-style entities** — records the user creates and edits in quick-capture mode rather than from a list-management workflow. Tasks are the canonical example: their form serves as both create and detail surface, and a centered `Dialog` matches the tactical "I just thought of this" mode better than a slide-over would.
+
+When a record is opened from a list, prefer the slide-over. When the same form is also the create surface invoked from "+ Task" anywhere in the app, use the dialog for both — consistency between create and detail beats consistency with other modules' detail shape (see [creation and editing](/design/patterns/creation-and-editing)).
+
+## Filter bar
+
+[`apps/ui/src/components/shared/filter-bar.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/filter-bar.tsx)
+
+Universal pattern across modules: search input on the left, filter controls in the middle, action buttons (column toggle, archive toggle, view-mode switch, primary "+ Create" button) on the right, item count on the far right.
+
+Modules pass their own filter controls in as children — the bar provides the layout, not the controls.
+
+## Empty states for lists
+
+- **No data at all** — welcoming `EmptyState` with the module's icon, an explanation, a primary "Create your first X" action.
+- **Data exists but filters return nothing** — `EmptyState` variant `filtered` with a "Clear filters" secondary action.
+- **Loading first paint** — `LoadingSkeleton` matching the active view (`table`, `cards`, `list`, `feed`, or `detail`).
+
+Never show a generic spinner for the first load of a list — match the skeleton to the layout it replaces.
+
+## Realtime
+
+Every list subscribes to Supabase Realtime via [`use-realtime-sync`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/hooks/use-realtime-sync.ts) (or the simpler [`use-realtime`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/hooks/use-realtime.ts) for single-table cases). Inserts, updates, and deletes from any session — including from agents acting on the workspace — flow through within a few hundred milliseconds.
+
+The hook handles the subscription lifecycle, RLS-scoped event filtering, and reconciliation with optimistic local mutations. Lists should not poll. Users should never need to refresh.

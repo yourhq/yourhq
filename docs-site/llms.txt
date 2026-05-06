@@ -44,6 +44,19 @@
 - [Tasks, inbox, and commands](https://docs.yourhq.ai/concepts/tasks-inbox-and-commands): The queues that coordinate UI, gateways, and agents.
 - [Security model](https://docs.yourhq.ai/concepts/security-model): Trust boundaries behind HQ's self-hosted architecture.
 
+## Design
+
+- [Design principles](https://docs.yourhq.ai/design/overview): The six principles behind HQ's interface — keyboard-first, direct manipulation, dense but calm, one token one truth, multi-view by default, surface hierarchy through opacity.
+- [Foundations](https://docs.yourhq.ai/design/foundations): Token reference — color (OKLch palette, surface ladder, semantic text, status, priority, charts, sidebar), typography (Geist, six-step scale), radius, spacing, motion, theming, iconography.
+- [Primitives](https://docs.yourhq.ai/design/components/primitives): Catalog of the 60 building blocks under `apps/ui/src/components/ui/` — shadcn/ui (New York) plus seven HQ extensions, grouped by purpose.
+- [Composites](https://docs.yourhq.ai/design/components/composites): The 24 reusable compositions under `apps/ui/src/components/shared/` — DataTable, SidePanel, CommandPalette, FolderTree, EmptyState, and more.
+- [Layout](https://docs.yourhq.ai/design/patterns/layout): Dashboard shell, sidebar widths and groups, header bar ownership, responsive rules, recipe for a new route.
+- [Data display](https://docs.yourhq.ai/design/patterns/data-display): Multi-view orchestrator pattern (one hook, many views), table/cards/kanban/calendar shapes, detail surfaces (full page vs slide-over vs modal), realtime as default.
+- [Creation and editing](https://docs.yourhq.ai/design/patterns/creation-and-editing): SidePanel-vs-Dialog rule based on user mode, inline editing patterns, Novel-vs-Textarea decision rule, RHF + Zod forms.
+- [Interaction](https://docs.yourhq.ai/design/patterns/interaction): Command palette anatomy, full G-then-letter shortcut table, `@dnd-kit` as canonical drag-and-drop, realtime subscription discipline.
+- [Feedback](https://docs.yourhq.ai/design/patterns/feedback): Toast/dialog/error/empty/skeleton/alert decision tree, golden-path save and delete flows.
+- [Contributing](https://docs.yourhq.ai/design/contributing): Where new code goes (ui/ vs shared/ vs feature module), naming conventions, three-question test for promoting components, recipe for a new feature module.
+
 ## Reference
 
 - [Configuration](https://docs.yourhq.ai/reference/configuration): Environment variables and runtime configuration.

@@ -4757,6 +4757,1504 @@ Read the full [security policy](/security/security-policy) for detailed threat a
 
 ---
 
+# Design principles
+
+Source: https://docs.yourhq.ai/design/overview
+
+> The principles that shape HQ's interface — how we make a dense, agent-driven product feel calm, fast, and obvious.
+
+HQ is run by operators. People who manage many agents, a lot of structured data, and an inbox of work that doesn't sleep. The interface has to disappear in front of that. It needs to be quick to learn, fast to drive, and quiet enough to live with all day. These are the principles that hold the surface together — the rules every screen, component, and interaction in the product follows.
+
+If you're contributing UI, this is the lens. Foundations, components, and patterns docs follow from here.
+
+---
+
+## 1. Keyboard-first
+
+Every meaningful action has a keyboard path. Pointer-driven UI is the fallback, not the default. A user who learns the shortcuts should never need to reach for the mouse to navigate, search, create, or act on a record.
+
+We built the shell around this assumption: the command palette is one chord away, navigation is two keys, and every screen surfaces its shortcuts in a `?` sheet so they're discoverable without a tutorial.
+
+**How this shows up**
+
+- `⌘K` opens the [command palette](/design/components/composites) — recent items, navigation, collections, quick actions, and unified search across knowledge, tasks, contacts, and agents. Source: [`shared/command-palette.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/command-palette.tsx).
+- `G` then a letter jumps between modules (`G D` dashboard, `G T` tasks, `G K` knowledge, and so on). The 800ms double-tap window is part of the registry at [`shared/keyboard-shortcuts.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/keyboard-shortcuts.tsx).
+- `⌘B` collapses the sidebar; `?` opens the shortcut help sheet.
+- All shortcuts are registered centrally and skip when focus is in an input or contentEditable region — they never fight with typing.
+
+## 2. Direct manipulation, instant feedback
+
+Click a value. Edit it. Blur to save. Inline editing is the default for property rows, table cells, and detail headers — not a separate "edit mode" you have to enter. Mutations write through to Supabase, the toast confirms, and realtime pushes the change to every other open tab. Lists do not need a refresh button because lists do not get stale.
+
+Optimistic updates apply where the round-trip is short and the failure is recoverable. When something fails, we surface it in place — the field returns to its prior value, a toast explains, the user keeps moving.
+
+**How this shows up**
+
+- `InlineText`, `InlineTags`, `InlineLink` in [`crm/contact-detail-view.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/crm/contact-detail-view.tsx) — Enter or blur saves, Escape cancels.
+- The type-aware [`collections/collection-cell.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/collections/collection-cell.tsx) dispatches a single click-to-edit pattern across text, number, date, select, multi-select, boolean, URL, rich-text, and relation fields.
+- Lists subscribe via [`hooks/use-realtime-sync.ts`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/hooks/use-realtime-sync.ts). New rows, status changes, and deletions arrive without user action.
+- `sonner` toasts confirm or correct. Destructive actions (archive, delete) gate behind a tone-aware confirm dialog from [`shared/confirm-dialog.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/confirm-dialog.tsx).
+
+## 3. Dense but calm
+
+Operators look at a lot of records. The interface is information-dense by design — 13px body text, 1.5 line-height, and a restrained palette where most labels live in `--muted-foreground`. Density without noise: borders are 9% white in dark mode, hover states lift surfaces by 5%, active rows show a 2px accent bar instead of a heavy fill. Color is reserved for status and priority, not for decoration.
+
+The result is a UI you can read for hours without fatigue, where the structure is obvious because the chrome is quiet.
+
+**How this shows up**
+
+- A six-step type scale (`.text-display`, `.text-title`, `.text-heading`, `.text-body`, `.text-label`, `.text-caption`) defined in [`apps/ui/src/app/globals.css`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/globals.css). 13px is the base; anything larger is intentional.
+- Geist Sans and Geist Mono with `cv11`, `ss01`, `ss03` font features enabled — sharper digits and disambiguated zeros for tables full of IDs, counts, and timestamps.
+- The active-row affordance in the [dashboard shell](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/dashboard-shell.tsx) is `absolute left-0 w-0.5 rounded-full bg-foreground` — a hairline accent, not a colored fill.
+- Iconography is Lucide only, sized at 16px by default. No two icons mean the same thing.
+
+## 4. One token, one truth
+
+Color, motion, radius, and type each live in exactly one place. CSS variables in `globals.css` are the source of truth. Status (`--status-success/warning/error/info/neutral`) and priority (`--priority-urgent/high/medium/low`) are tokens — not hardcoded Tailwind classes scattered through the codebase, and not duplicated TypeScript color maps. Motion uses three durations (`--duration-fast: 120ms`, `--duration-normal: 180ms`, `--duration-slow: 280ms`) and two easings. Radius derives from a single `--radius: 0.375rem`.
+
+If you reach for a hex value while writing UI, stop. Either an existing token covers it or a new semantic token belongs in `globals.css`.
+
+**How this shows up**
+
+- All semantic tokens — surface, text, border, status, priority, sidebar, chart — defined once in [`apps/ui/src/app/globals.css`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/globals.css), then mapped into Tailwind via `@theme inline`.
+- Light and dark are the same token names with different OKLch values at `:root` and `.dark`. Components don't branch on theme.
+- `next-themes` with `attribute="class"` and `disableTransitionOnChange` — theme switching is instant and does not animate every element on the page.
+- Tailwind v4 with no `tailwind.config.js`. The theme is the CSS file.
+
+## 5. Multi-view by default
+
+Structured records support whichever views their shape admits — table, card, kanban, calendar — and switching views never loses state. A single hook owns the filters, sorting, search, view-mode, and CRUD for the module. View-mode persists to `localStorage`, filters persist to URL search params, and every view consumes the same source of truth. A bookmarked URL reproduces the exact filtered, sorted, view-switched state.
+
+This is how CRM, tasks, and collections all behave. New modules with structured data should follow the same pattern.
+
+**How this shows up**
+
+- The orchestrator at [`crm/contacts-tab.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/crm/contacts-tab.tsx) feeds three sibling views (`ContactsTableView`, `ContactsCardView`, `ContactsKanbanView`) from one [`hooks/use-contacts.ts`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/hooks/use-contacts.ts).
+- Collections drive table, kanban, and calendar from a single record set whose fields the user defines — see [`collections/collection-view-tabs.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/collections/collection-view-tabs.tsx).
+- The shared [`DataTable`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/data-table.tsx), [`FilterBar`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/filter-bar.tsx), and [`ColumnToggle`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/column-toggle.tsx) compose under every list. The wiring looks the same across modules so muscle memory transfers.
+
+## 6. Surface hierarchy through opacity
+
+Depth in HQ is built from transparency, not from a separate palette of "hover greys" and "selected blues". In dark mode the layering ladder is `--surface-hover` at 5% white, `--surface-selected` at 8%, `--border` at 9%, `--border-strong` at 14%. Light mode mirrors this with low-saturation OKLch greys. The same component renders correctly in either theme without conditional styling.
+
+This keeps the visual language coherent across hundreds of states — hover, focus, selected, dragging, loading — and makes the interface feel like one continuous material rather than a stack of UI-kit pieces.
+
+**How this shows up**
+
+- The full surface ladder is defined in [`apps/ui/src/app/globals.css`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/globals.css). All hover, selected, and divider treatments reference these tokens.
+- Modals and sheets use a `bg-black/40` light, `bg-black/60` dark backdrop — same opacity-driven approach for overlay separation.
+- Skeletons (`bg-accent`, animate-pulse) and the OKLch chart palette sit in the same ladder so loading states and data viz feel like part of the same surface.
+
+---
+
+## Where this leads
+
+Subsequent design docs build out from here:
+
+- **Foundations** — the full token inventory: color, type, radius, spacing, motion, theming, iconography.
+- **Components** — the primitives catalog (shadcn/ui in `components/ui/`) and the composites we build on top (`components/shared/`).
+- **Patterns** — layout shell, data display (lists, detail surfaces), creation and editing (side panels, dialogs, wizards, inline edit, rich text), interaction (command palette, shortcuts, drag-and-drop, realtime), and feedback (toasts, errors, empty and loading states).
+- **Contributing** — when to add a primitive, when to compose a shared component, when to live inside a feature module; naming and file placement.
+
+If a screen feels off, it usually traces to one of the six principles above. Start there.
+
+---
+
+# Foundations
+
+Source: https://docs.yourhq.ai/design/foundations
+
+> The token inventory: color, typography, radius, motion, theming, and iconography. Single source of truth for HQ's visual language.
+
+Every value in the HQ interface — every color, font size, radius, shadow, transition — resolves to a token defined in [`apps/ui/src/app/globals.css`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/globals.css). Tokens are CSS custom properties. Tailwind v4's `@theme inline` block maps them to utility classes. There is no `tailwind.config.js`; the CSS file is the theme.
+
+This page is the inventory. It is the source of truth that the [principles](/design/overview), components, and patterns docs cite.
+
+## How tokens are layered
+
+The token system has three layers, in order:
+
+1. **shadcn neutral base.** `--background`, `--foreground`, `--card`, `--popover`, `--primary`, `--secondary`, `--muted`, `--accent`, `--destructive`, `--border`, `--input`, `--ring`, the chart palette, and the sidebar palette. Defined in both `:root` (light) and `.dark`.
+2. **HQ semantic extensions.** The state, status, priority, and text tokens we layer on top: `--surface-hover`, `--surface-selected`, `--border-strong`, `--status-*`, `--priority-*`, `--text-secondary`, `--text-tertiary`. Defined in both `:root` and `.dark` so the same utilities resolve in either theme.
+3. **Motion tokens.** `--duration-fast/normal/slow`, `--ease-out`, `--ease-in-out`. Defined once in `:root` only — motion is theme-invariant.
+4. **`@theme inline` mapping.** Each token gets a `--color-*`, `--radius-*`, or font alias inside the top `@theme` block, which Tailwind v4 turns into utility classes (`bg-surface-hover`, `text-status-success`, `rounded-md`, `font-sans`, etc.).
+
+The rule: **never inline a hex**. If an existing token covers the role, use it. If a new semantic role is needed (a new status state, a new surface depth), add a token to `globals.css` and wire it through `@theme inline`.
+
+## Color
+
+All colors use the **OKLch** color space — perceptually uniform lightness, so a value at `0.72` in green and `0.71` in red read as the same brightness. We do not use `hsl()` or `rgb()`.
+
+### Base palette
+
+| Token | Light (`:root`) | Dark (`.dark`) | Used for |
+|---|---|---|---|
+| `--background` | `oklch(1 0 0)` | `oklch(0.13 0 0)` | Page background |
+| `--foreground` | `oklch(0.145 0 0)` | `oklch(0.96 0 0)` | Primary text |
+| `--card` | `oklch(1 0 0)` | `oklch(0.16 0 0)` | Card surface |
+| `--popover` | `oklch(1 0 0)` | `oklch(0.19 0 0)` | Floating surfaces (menus, tooltips) |
+| `--primary` | `oklch(0.205 0 0)` | `oklch(0.96 0 0)` | Primary action background |
+| `--primary-foreground` | `oklch(0.985 0 0)` | `oklch(0.13 0 0)` | Text on primary |
+| `--secondary` | `oklch(0.97 0 0)` | `oklch(0.2 0 0)` | Secondary action background |
+| `--muted` | `oklch(0.97 0 0)` | `oklch(0.18 0 0)` | Subdued surface |
+| `--muted-foreground` | `oklch(0.556 0 0)` | `oklch(0.62 0 0)` | Secondary text, labels |
+| `--accent` | `oklch(0.97 0 0)` | `oklch(0.22 0 0)` | Hover and selected fills on lists |
+| `--destructive` | `oklch(0.577 0.245 27.325)` | `oklch(0.704 0.191 22.216)` | Destructive actions |
+| `--border` | `oklch(0.922 0 0)` | `oklch(1 0 0 / 9%)` | Default 1px divider |
+| `--input` | `oklch(0.922 0 0)` | `oklch(1 0 0 / 10%)` | Input border |
+| `--ring` | `oklch(0.708 0 0)` | `oklch(0.65 0 0)` | Focus ring |
+
+### Surface ladder
+
+The depth system. Built from neutral-on-surface transparency so the same component reads correctly across hover, focus, selection, and divider states without parallel color stacks. Light mirrors dark with black-on-light at slightly lower opacity (black on white reads stronger than white on near-black at the same alpha).
+
+| Token | Light | Dark | Role |
+|---|---|---|---|
+| `--surface-hover` | `oklch(0 0 0 / 4%)` | `oklch(1 0 0 / 5%)` | Hover lift on rows, cells, list items |
+| `--surface-selected` | `oklch(0 0 0 / 6%)` | `oklch(1 0 0 / 8%)` | Selected/active row fill |
+| `--border` | `oklch(0.922 0 0)` | `oklch(1 0 0 / 9%)` | Default divider, list separators |
+| `--border-strong` | `oklch(0.85 0 0)` | `oklch(1 0 0 / 14%)` | Section breaks, emphasized edges |
+
+Applied via Tailwind utilities: `bg-surface-hover`, `bg-surface-selected`, `border-border`, `border-strong`.
+
+### Semantic text
+
+| Token | Light | Dark | Role |
+|---|---|---|---|
+| `--foreground` | `oklch(0.145 0 0)` | `oklch(0.96 0 0)` | Primary text |
+| `--muted-foreground` | `oklch(0.556 0 0)` | `oklch(0.62 0 0)` | Secondary text, labels |
+| `--text-secondary` | `oklch(0.556 0 0)` | `oklch(0.62 0 0)` | Same role as muted-foreground; available where you need a non-mapped utility |
+| `--text-tertiary` | `oklch(0.65 0 0)` | `oklch(0.45 0 0)` | Tertiary text — timestamps, helper hints, low-emphasis metadata |
+
+Note the inversion: in light mode `--text-tertiary` is *lighter* than `--text-secondary` (closer to background = lower contrast); in dark mode it is *darker* (also closer to background). The visual hierarchy is the same — the OKLch numbers move opposite directions because the background does.
+
+Available as `.text-secondary` and `.text-tertiary` utility classes.
+
+### Status
+
+Reserved for state, never decoration. Use these tokens for any badge, dot, or icon that conveys a record's state. Light values keep the same hue and chroma as dark but at lower lightness so they read on a white background.
+
+| Token | Light | Dark | Use for |
+|---|---|---|---|
+| `--status-success` | `oklch(0.55 0.15 162.48)` | `oklch(0.72 0.17 162.48)` | Completed, ready, healthy |
+| `--status-warning` | `oklch(0.6 0.16 70.08)` | `oklch(0.8 0.18 70.08)` | Pending, blocked, attention needed |
+| `--status-error` | `oklch(0.55 0.18 22.216)` | `oklch(0.71 0.19 22.216)` | Failed, errored, missed |
+| `--status-info` | `oklch(0.5 0.18 250)` | `oklch(0.68 0.18 250)` | Queued, informational |
+| `--status-progress` | `oklch(0.5 0.18 290)` | `oklch(0.68 0.18 290)` | Actively executing, in flight |
+| `--status-neutral` | `oklch(0.5 0 0)` | `oklch(0.62 0 0)` | Inactive, archived, idle |
+
+`--status-info` and `--status-progress` are intentionally distinct hues (blue and purple). The lifecycle of a daemon-driven record — agent commands, inbox items, source syncs — passes through queued (info) → claimed (warning) → executing (progress) → terminal (success or error). Collapsing queued and executing into one color erases meaningful information at a glance.
+
+Tailwind utilities: `text-status-success`, `bg-status-warning/20`, `border-status-error`, etc.
+
+### Priority
+
+Used by tasks and any other module that ranks records by urgency. Aligned with status tones where the meaning overlaps.
+
+| Token | Light | Dark | Level |
+|---|---|---|---|
+| `--priority-urgent` | `oklch(0.55 0.18 22.216)` | `oklch(0.71 0.19 22.216)` | Urgent |
+| `--priority-high` | `oklch(0.6 0.16 55)` | `oklch(0.78 0.17 55)` | High |
+| `--priority-medium` | `oklch(0.65 0.15 90)` | `oklch(0.83 0.17 90)` | Medium |
+| `--priority-low` | `oklch(0.5 0.13 240)` | `oklch(0.68 0.12 240)` | Low |
+
+Tailwind utilities: `text-priority-urgent`, `bg-priority-high/15`, etc.
+
+### Chart palette
+
+Five distinct hues, OKLch-balanced so adjacent series stay readable side by side.
+
+| Token | Light | Dark |
+|---|---|---|
+| `--chart-1` | `oklch(0.646 0.222 41.116)` | `oklch(0.488 0.243 264.376)` |
+| `--chart-2` | `oklch(0.6 0.118 184.704)` | `oklch(0.696 0.17 162.48)` |
+| `--chart-3` | `oklch(0.398 0.07 227.392)` | `oklch(0.769 0.188 70.08)` |
+| `--chart-4` | `oklch(0.828 0.189 84.429)` | `oklch(0.627 0.265 303.9)` |
+| `--chart-5` | `oklch(0.769 0.188 70.08)` | `oklch(0.645 0.246 16.439)` |
+
+Recharts wrapper at [`components/ui/chart.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/chart.tsx) consumes these.
+
+### Sidebar
+
+The shell sidebar has its own token group so it can sit slightly darker than the page background and still match the surface ladder.
+
+`--sidebar`, `--sidebar-foreground`, `--sidebar-primary`, `--sidebar-primary-foreground`, `--sidebar-accent`, `--sidebar-accent-foreground`, `--sidebar-border`, `--sidebar-ring`. Defined in both themes. Consumed via Tailwind utilities `bg-sidebar`, `text-sidebar-foreground`, etc.
+
+## Typography
+
+### Fonts
+
+[`apps/ui/src/app/layout.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/layout.tsx) loads Geist via `next/font/google`:
+
+- **Geist Sans** → `--font-geist-sans` → `font-sans` utility. Body, headings, controls.
+- **Geist Mono** → `--font-geist-mono` → `font-mono` utility. Code blocks, IDs, timestamps when monospaced alignment matters.
+
+OpenType features `cv11`, `ss01`, `ss03` are enabled globally in `body`. They sharpen digits and disambiguate zeros — important for tables full of IDs and counts. Antialiasing and `text-rendering: optimizeLegibility` are also set globally. Tables and any element with class `.tabular` get `font-variant-numeric: tabular-nums`.
+
+### Type scale
+
+Six steps, defined as utilities. The base is 13px — anything larger is intentional emphasis.
+
+| Class | Size | Line height | Weight | Tracking | Transform | Color |
+|---|---|---|---|---|---|---|
+| `.text-display` | 24px (1.5rem) | 1.2 | 600 | -0.02em | — | `--foreground` |
+| `.text-title` | 18px (1.125rem) | 1.3 | 600 | -0.01em | — | `--foreground` |
+| `.text-heading` | 15px (0.9375rem) | 1.4 | 600 | — | — | `--foreground` |
+| `.text-body` | 13px (0.8125rem) | 1.5 | 400 | — | — | `--foreground` |
+| `.text-label` | 11px (0.6875rem) | 1.3 | 500 | 0.04em | UPPERCASE | `--muted-foreground` |
+| `.text-caption` | 11px (0.6875rem) | 1.4 | 400 | — | — | `--muted-foreground` |
+
+When to use which:
+
+- `.text-display` — page titles in the page header.
+- `.text-title` — section headings inside a detail view, modal titles.
+- `.text-heading` — card titles, list-group headers.
+- `.text-body` — default. The base reading size.
+- `.text-label` — form labels, sidebar group headers, table column headers, metadata captions over values.
+- `.text-caption` — timestamps, helper text, "showing 12 of 84" counts.
+
+### Editor typography
+
+The Novel/TipTap editor in knowledge pages and playbooks has its own scale, defined in `globals.css` lines 265-450. H1 is 30px, H2 is 22px, H3 is 18px — larger than the app scale because long-form reading benefits from more vertical rhythm. Body lines render at `line-height: 1.7` inside `.ProseMirror`.
+
+## Radius
+
+A single base, derived scale.
+
+```css
+--radius: 0.375rem; /* 6px — base */
+
+--radius-sm: calc(var(--radius) - 4px);  /* 2px */
+--radius-md: calc(var(--radius) - 2px);  /* 4px */
+--radius-lg: var(--radius);              /* 6px */
+--radius-xl: calc(var(--radius) + 4px);  /* 10px */
+--radius-2xl: calc(var(--radius) + 8px); /* 14px */
+--radius-3xl: calc(var(--radius) + 12px);/* 18px */
+--radius-4xl: calc(var(--radius) + 16px);/* 22px */
+```
+
+Tailwind utilities: `rounded-sm`, `rounded-md`, `rounded-lg`, `rounded-xl`, `rounded-2xl`, etc.
+
+When to use which:
+
+- `rounded-md` — buttons, inputs, badges, default fills.
+- `rounded-lg` — cards, popovers, dialogs, sheets.
+- `rounded-xl` and above — hero surfaces, full-bleed panels.
+- `rounded-full` — avatars, status dots, kbd chips, single-character tokens.
+
+## Spacing
+
+Tailwind's default spacing scale (`0`, `0.5`, `1`, `1.5`, `2`, `2.5`, `3`, `4`, `5`, `6`, `8`, `10`, `12`, `16`, `20`, `24`, `32`, …) is the contract. We do not override it.
+
+Density conventions for layout:
+
+- **Form rows**: 8px gap (`gap-2`) between label and control, 12px gap (`gap-3`) between rows.
+- **Page sections**: 20px padding (`px-5`), 20px between section blocks.
+- **Card content**: 16px padding (`p-4`), 12px gap between elements.
+- **Sidebar groups**: 8px padding, items 28px tall.
+- **Toolbars and headers**: 12px gap (`gap-3`) between controls.
+
+If a layout needs an off-scale value, the right move is almost always to pick the next step up or down, not to inline a custom number.
+
+## Motion
+
+Three durations, two easings. Animation is deliberate — used to clarify state changes (a sheet sliding in, a row reordering), not to entertain. Defined once in `:root` only; motion does not change between themes.
+
+```css
+--duration-fast: 120ms;
+--duration-normal: 180ms;
+--duration-slow: 280ms;
+
+--ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+--ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+```
+
+When to use which:
+
+- **120ms** — micro-interactions: hover, focus rings, dropdown opens, tooltip appearances.
+- **180ms** — default. Most transitions, including theme accents and small position changes.
+- **280ms** — full-surface motion: sheets sliding in, drawers opening, modal mounts.
+
+`--ease-out` for entrances and most movement. `--ease-in-out` only for bidirectional transitions (something that animates in and back out the same way).
+
+The animation library is [`tw-animate-css`](https://github.com/Wombosvideo/tw-animate-css), giving us `animate-in`, `animate-out`, `fade-in-0`, `slide-in-from-top-2`, `zoom-in-95`, etc. We do **not** use Framer Motion. If a motion can be expressed as a CSS transition or a Tailwind animation utility, that is the answer.
+
+## Theming
+
+Theme switching is instant, class-driven, and does not animate. [`next-themes`](https://github.com/pacocoursey/next-themes) is wired up at the root layout with:
+
+```tsx
+
+```
+
+The mechanism: `next-themes` toggles a `dark` class on ``. The `:root` declarations in `globals.css` define the light palette. The `.dark` block overrides every token. Components reference tokens by name only — they never branch on theme.
+
+`disableTransitionOnChange` is on intentionally. We do not animate every element on the page when the user flips themes — it would be visually loud and slow. The flip is a single-frame swap.
+
+The toggle component lives at [`components/theme-toggle.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/theme-toggle.tsx) — a dropdown with Light / Dark / System and a Sun ↔ Moon icon transition.
+
+## Iconography
+
+[`lucide-react`](https://lucide.dev/) is the only icon library. No custom icon set, no second pack.
+
+- **Default size** — 16px. Set globally via `[&_svg:not([class*='size-'])]:size-4` on container components, so any icon dropped inside a button, badge, or list item without an explicit size renders at 16px.
+- **Stroke width** — Lucide default (1.5px). Don't override unless designing a one-off display element.
+- **Two icons should never mean the same thing.** If a Lucide icon is needed in two roles, pick a second icon for the second role.
+
+When choosing an icon, prefer the most literal name in Lucide. If nothing fits, the action probably needs a clearer label, not an icon at all.
+
+## Tailwind and shadcn configuration
+
+- **Tailwind v4**, no `tailwind.config.js`. Theme lives in the `@theme inline` block at the top of [`globals.css`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/globals.css).
+- **shadcn/ui** configured at [`apps/ui/components.json`](https://github.com/yourhq/yourhq/blob/main/apps/ui/components.json): style `new-york`, base color `neutral`, CSS variables enabled, no class prefix, RSC-aware, Lucide icons.
+- **Aliases** — `@/components`, `@/lib/utils`, `@/components/ui`, `@/lib`, `@/hooks`. Always import via aliases; never relative-cross paths.
+- **Plugins** — `tw-animate-css` (animation utilities), `@tailwindcss/typography` (only for the editor's `.ProseMirror` styles, not for body content).
+
+## Adding a new token
+
+When a screen needs a value that no existing token covers:
+
+1. **Confirm the role is semantic, not stylistic.** "We need a slightly darker red" is not a new token. "We need a token for the 'snoozed' state on tasks" is.
+2. **Add the variable in `globals.css`.** Both `:root` and `.dark` if the role is theme-dependent (color, surface, text). `:root` only if it is theme-invariant (motion, radius, spacing).
+3. **Wire it into `@theme inline`** with a `--color-*`, `--radius-*`, or matching alias so Tailwind utilities pick it up.
+4. **Use the Tailwind utility everywhere.** Never reach back to `var(--…)` in component code unless the value is being passed into a CSS-in-JS or inline style attribute that does not resolve utilities.
+
+The goal is that any future contributor reading [`globals.css`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/globals.css) can see the entire visual language at a glance, in one file.
+
+---
+
+# Primitives
+
+Source: https://docs.yourhq.ai/design/components/primitives
+
+> The 60 building blocks under apps/ui/src/components/ui/. shadcn/ui (New York) plus a handful of HQ extensions.
+
+Primitives are the lowest layer of the component system. They live in [`apps/ui/src/components/ui/`](https://github.com/yourhq/yourhq/tree/main/apps/ui/src/components/ui) and are mostly stock shadcn/ui (New York style, neutral base, CSS variables enabled — see [`components.json`](https://github.com/yourhq/yourhq/blob/main/apps/ui/components.json)) with a few HQ-specific additions called out below.
+
+Don't reach past primitives. If something can be composed from these, compose it. If it can't, build it as a [composite](/design/components/composites) in `components/shared/`, never as another primitive.
+
+## Layout and containers
+
+Structural pieces. They organize space; they don't carry state of their own.
+
+| Component | File | Purpose |
+|---|---|---|
+| `Card` | [`card.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/card.tsx) | Bordered surface with semantic slots: `CardHeader`, `CardTitle`, `CardDescription`, `CardAction`, `CardContent`, `CardFooter`. |
+| `Tabs` | [`tabs.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/tabs.tsx) | Two CVA variants: `default` (pill) and `line` (underline). Horizontal and vertical. |
+| `Accordion` | [`accordion.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/accordion.tsx) | Stacked collapsible sections. |
+| `Collapsible` | [`collapsible.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/collapsible.tsx) | Single collapsible region (no accordion grouping). |
+| `Separator` | [`separator.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/separator.tsx) | 1px divider, horizontal or vertical. |
+| `ScrollArea` | [`scroll-area.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/scroll-area.tsx) | Custom-styled scrollable container. Thin scrollbars match the global token. |
+| `Resizable` | [`resizable.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/resizable.tsx) | Drag-to-resize panels (`react-resizable-panels`). |
+| `AspectRatio` | [`aspect-ratio.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/aspect-ratio.tsx) | Fixed-ratio container for media. |
+| `Sidebar` | [`sidebar.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/sidebar.tsx) | Low-level sidebar primitive. The dashboard shell uses its own composition; reach for this only if you need a second sidebar surface. |
+
+## Forms and input
+
+Reach for `Form` first. It wires React Hook Form + Zod and handles labels, descriptions, and errors consistently. Only use bare inputs when there is no form (search boxes, ad-hoc filters, inline-edit cells).
+
+| Component | File | Purpose |
+|---|---|---|
+| `Form`, `FormField`, `FormItem`, `FormLabel`, `FormControl`, `FormDescription`, `FormMessage` | [`form.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/form.tsx) | The full RHF + Zod stack. Auto-IDs, `aria-describedby`, `aria-invalid` wired up. |
+| `Field` | [`field.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/field.tsx) | HQ extension. Labeled field wrapper for form-less surfaces (filters, settings panels). |
+| `Label` | [`label.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/label.tsx) | Radix label primitive used inside `Form`. |
+| `Input` | [`input.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/input.tsx) | Single-line text. Supports `type="file"`. |
+| `Textarea` | [`textarea.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/textarea.tsx) | Multi-line plaintext. For rich text use the [Novel editor](/design/patterns/creation-and-editing) instead. |
+| `InputGroup` | [`input-group.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/input-group.tsx) | HQ extension. Input with prefix or suffix slot. |
+| `InputOtp` | [`input-otp.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/input-otp.tsx) | Segmented one-time-password input. |
+| `Checkbox` | [`checkbox.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/checkbox.tsx) | Indeterminate-aware checkbox. |
+| `RadioGroup` | [`radio-group.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/radio-group.tsx) | Single-select radio set. |
+| `Switch` | [`switch.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/switch.tsx) | Boolean toggle. Use for "is enabled" semantics; use `Checkbox` for selection. |
+| `Select` | [`select.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/select.tsx) | Custom-styled select with searchable items. |
+| `NativeSelect` | [`native-select.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/native-select.tsx) | Real ``. Use on mobile or when full keyboard control matters more than visual polish. |
+| `Combobox` | [`combobox.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/combobox.tsx) | Search-as-you-type select with multi-select support. |
+| `TagInput` | [`tag-input.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/tag-input.tsx) | HQ extension. Multi-value chip input — Enter or comma to commit. |
+| `Slider` | [`slider.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/slider.tsx) | Range slider, single or dual handle. |
+| `Toggle` | [`toggle.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/toggle.tsx) | Binary on/off button. |
+| `ToggleGroup` | [`toggle-group.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/toggle-group.tsx) | Single or multiple-select toggle row (view switchers, formatting bars). |
+
+## Actions and controls
+
+| Component | File | Purpose |
+|---|---|---|
+| `Button` | [`button.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/button.tsx) | Variants: `default`, `destructive`, `outline`, `secondary`, `ghost`, `link`. Sizes: `default`, `xs`, `sm`, `lg`, `icon`, `icon-xs`, `icon-sm`, `icon-lg`. CVA-driven; do not subclass. |
+| `ButtonGroup` | [`button-group.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/button-group.tsx) | Adjacent buttons treated as a single segmented control (split actions). |
+| `Item` | [`item.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/item.tsx) | Generic clickable row primitive — base for sidebar entries, list rows, palette results. |
+
+## Overlays
+
+Pick the overlay by intent, not by visual shape:
+
+- **`Dialog`** — focused decision the user must respond to (confirm, quick-create with ≤3 fields).
+- **`AlertDialog`** — destructive or otherwise irreversible decisions; cannot be dismissed by clicking outside. Composed via [`ConfirmDialog`](/design/components/composites).
+- **`Sheet`** — multi-field forms or detail surfaces that benefit from staying alongside the page; preferred over `Dialog` for create flows. Composed via [`SidePanel`](/design/components/composites).
+- **`Drawer`** — bottom-up mobile pattern (Vaul). Used sparingly; prefer `Sheet` for desktop+mobile parity.
+- **`Popover` / `HoverCard` / `Tooltip`** — non-modal supplementary content, in increasing weight (tooltip = label, hover-card = preview, popover = interactive).
+- **`DropdownMenu` / `ContextMenu`** — action lists triggered by click vs. right-click respectively.
+- **`NavigationMenu` / `Menubar`** — top-of-app menus. Rarely used at HQ; the command palette covers most navigation.
+- **`Command`** — cmdk primitive used inside the [command palette composite](/design/components/composites).
+
+| Component | File |
+|---|---|
+| `Dialog` | [`dialog.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/dialog.tsx) |
+| `AlertDialog` | [`alert-dialog.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/alert-dialog.tsx) |
+| `Sheet` | [`sheet.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/sheet.tsx) |
+| `Drawer` | [`drawer.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/drawer.tsx) |
+| `Popover` | [`popover.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/popover.tsx) |
+| `HoverCard` | [`hover-card.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/hover-card.tsx) |
+| `Tooltip` | [`tooltip.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/tooltip.tsx) |
+| `DropdownMenu` | [`dropdown-menu.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/dropdown-menu.tsx) |
+| `ContextMenu` | [`context-menu.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/context-menu.tsx) |
+| `NavigationMenu` | [`navigation-menu.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/navigation-menu.tsx) |
+| `Menubar` | [`menubar.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/menubar.tsx) |
+| `Command` | [`command.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/command.tsx) |
+
+## Display and data
+
+| Component | File | Purpose |
+|---|---|---|
+| `Table` | [`table.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/table.tsx) | Semantic `` with sticky-header support. Most lists use the [`DataTable`](/design/components/composites) composite on top. |
+| `Badge` | [`badge.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/badge.tsx) | Variants: `default`, `secondary`, `destructive`, `outline`, `ghost`, `link`. |
+| `Avatar` | [`avatar.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/avatar.tsx) | Image with text fallback. |
+| `StatusDot` | [`status-dot.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/status-dot.tsx) | HQ extension. Small colored dot for status indicators on rows. Pair with `text-status-*` tokens. |
+| `Progress` | [`progress.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/progress.tsx) | Determinate progress bar. |
+| `Chart` | [`chart.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/chart.tsx) | Recharts wrapper. Consumes `--chart-1..5` tokens. |
+| `Calendar` | [`calendar.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/calendar.tsx) | Month-grid date picker. |
+| `DatePickerButton` | [`date-picker-button.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/date-picker-button.tsx) | HQ extension. Popover-button date picker for inline use. |
+| `Pagination` | [`pagination.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/pagination.tsx) | Page-number navigation. |
+| `Carousel` | [`carousel.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/carousel.tsx) | Horizontal-scroll carousel (Embla). |
+| `Breadcrumb` | [`breadcrumb.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/breadcrumb.tsx) | Path-style navigation; used inside the header bar. |
+
+## Feedback
+
+| Component | File | Purpose |
+|---|---|---|
+| `Alert` | [`alert.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/alert.tsx) | Persistent inline message. Use for unrecoverable warnings; transient feedback should use a toast. |
+| `Skeleton` | [`skeleton.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/skeleton.tsx) | `animate-pulse` placeholder block. Compose with [`LoadingSkeleton`](/design/components/composites) for full-list shapes. |
+| `Spinner` | [`spinner.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/spinner.tsx) | Animated `Loader2` icon. Use only when a skeleton would be misleading. |
+| `Sonner` (`Toaster`) | [`sonner.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/sonner.tsx) | Toast outlet. Mounted once in the root layout. Call via `toast()`, `toast.success()`, `toast.error()`, `toast.loading()`. |
+| `Empty` | [`empty.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/empty.tsx) | Semantic empty-state primitives (icon, title, description). The [`EmptyState`](/design/components/composites) composite is preferred for full screens. |
+
+## Utilities
+
+| Component | File | Purpose |
+|---|---|---|
+| `Kbd` | [`kbd.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/kbd.tsx) | HQ extension. Keyboard-key chip. Used in shortcut hints and the help sheet. |
+| `InlineEdit` | [`inline-edit.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/inline-edit.tsx) | HQ extension. Click-to-edit text and textarea with Enter to commit, Escape to cancel. |
+| `Direction` | [`direction.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/direction.tsx) | LTR/RTL provider. Currently unused; reserved for internationalization. |
+
+## HQ extensions called out
+
+These are the primitives we added on top of stock shadcn/ui. New extensions should be rare — most needs are better served by composing in [`shared/`](/design/components/composites). If you do add one, follow the existing files for style: CVA for variants, `data-slot` attributes on composed pieces, no business logic, no module imports.
+
+- [`field.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/field.tsx)
+- [`input-group.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/input-group.tsx)
+- [`tag-input.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/tag-input.tsx)
+- [`status-dot.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/status-dot.tsx)
+- [`date-picker-button.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/date-picker-button.tsx)
+- [`kbd.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/kbd.tsx)
+- [`inline-edit.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/inline-edit.tsx)
+
+---
+
+# Composites
+
+Source: https://docs.yourhq.ai/design/components/composites
+
+> The 24 building blocks under apps/ui/src/components/shared/. HQ-specific compositions that every feature module reuses.
+
+Composites are the layer above [primitives](/design/components/primitives). They live in [`apps/ui/src/components/shared/`](https://github.com/yourhq/yourhq/tree/main/apps/ui/src/components/shared) and encode product-level decisions: how a list is filtered, how a detail surface is laid out, how a confirm dialog phrases its tones, how an empty state looks. Every feature module — CRM, tasks, agents, knowledge, collections, routines — composes from these.
+
+The rule for adding to `shared/`: a component belongs here when it solves the same problem in two or more modules. One-module solutions live inside the feature module. Stylistic primitives belong in [`ui/`](/design/components/primitives).
+
+## Page structure
+
+The pieces that frame every screen.
+
+### `PageHeader`, `PageSection`
+
+[`shared/page-header.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/page-header.tsx)
+
+The standard top of every dashboard route. Icon, title, description, primary action, secondary actions, optional meta and tabs. `PageSection` is its in-page sibling for grouping content under a heading and optional action button. Use these on every route — bespoke headers fragment the visual rhythm of the app.
+
+### `HeaderBar`
+
+[`shared/header-bar.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/header-bar.tsx)
+
+The horizontal bar at the top of the dashboard shell. Carries breadcrumbs (with UUID → entity-name resolution), theme toggle, notifications, user menu. Owned by the shell — feature code should not mount its own header bar.
+
+### `SidePanel`
+
+[`shared/side-panel.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/side-panel.tsx)
+
+The right-sliding sheet for sustained record editing — when the user is browsing a list and adding or editing one of its rows. Width presets `md` (480px), `lg` (560px, default), `xl` (720px). Sticky footer for actions. Pick by user mode, not field count: `SidePanel` for record management, `Dialog` for quick capture or focused decisions — see [creation and editing](/design/patterns/creation-and-editing).
+
+### `DetailSidebar`, `DetailSidebarMobile`, `DetailSidebarSection`
+
+[`shared/detail-sidebar.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/detail-sidebar.tsx)
+
+The 280px right rail used on heavy detail pages (agent, gateway, knowledge). Sticky on desktop, drawer on mobile, both backed by the same `DetailSidebarSection` children so content authors don't write the layout twice.
+
+### `DetailHeader`
+
+[`shared/detail-header.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/detail-header.tsx)
+
+The header bar inside a detail view: back button, breadcrumb, action buttons (copy, archive, delete), title with inline-edit support. Distinct from the global `HeaderBar`.
+
+## Lists and tables
+
+### `DataTable`
+
+[`shared/data-table.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/data-table.tsx)
+
+TanStack-backed table. Sortable columns, sticky headers, configurable row heights (compact / normal / comfortable), row click handlers, loading skeleton fallback, empty-state slot. Every table view in the app is a `DataTable` — never render `Table` directly for data lists.
+
+### `FilterBar`
+
+[`shared/filter-bar.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/filter-bar.tsx)
+
+The horizontal control strip above lists. Search input on the left, filter controls in the middle, action buttons on the right, item count on the far right. Composable — modules pass their own filter controls as children.
+
+### `ColumnToggle`
+
+[`shared/column-toggle.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/column-toggle.tsx)
+
+Dropdown menu for showing/hiding columns. Groups standard fields and custom fields separately, with a "reset to defaults" action. State is owned by the `use-column-visibility` hook and persisted to `localStorage`.
+
+### `ArchiveToggle`
+
+[`shared/archive-toggle.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/archive-toggle.tsx)
+
+The "show archived" filter. Reused across CRM, tasks, knowledge, collections so the affordance is the same everywhere.
+
+### `InlineCreateRow`
+
+[`shared/inline-create-row.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/inline-create-row.tsx)
+
+A row at the bottom of a list (or kanban column) that turns into an input on click — Enter creates, Escape cancels. The inline counterpart to opening a `SidePanel`. Use for fast, single-field creates (a task title, a folder name).
+
+## Navigation and search
+
+### `CommandPalette`
+
+[`shared/command-palette.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/command-palette.tsx)
+
+The Cmd+K palette. cmdk-based. Sections when no query: Recent, Navigation, Collections, Quick Actions. With a query: grouped search results across knowledge, knowledge chunks, tasks, contacts, collections, agents, routines. Recent items persist via `localStorage`. New navigation entries register here, not in a parallel registry.
+
+### `KeyboardShortcutsProvider`, `useShortcuts`, `KeyboardShortcutsHelp`
+
+[`shared/keyboard-shortcuts.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/keyboard-shortcuts.tsx)
+
+The global shortcut registry. G-then-letter navigation with an 800ms double-tap window, `?` to open the help sheet, input-aware (skips when focus is in `INPUT`, `TEXTAREA`, or `contentEditable`). All app-wide shortcuts register here so users have one place to discover them.
+
+### `ModulesContext`
+
+[`shared/modules-context.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/modules-context.tsx)
+
+Provides which modules are enabled for the current workspace (CRM, tasks, agents, knowledge, collections, routines). Sidebar groups, command palette navigation, and keyboard shortcuts all gate on this context — never check workspace settings directly inside a feature component.
+
+## Forms and fields
+
+### `DynamicField`, `DynamicFieldGroup`
+
+[`shared/dynamic-field.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/dynamic-field.tsx), [`shared/dynamic-field-group.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/dynamic-field-group.tsx)
+
+Renders a form field from a `FieldDefinition` (text, number, select, multi-select, date, boolean, url, email, phone, rich-text, relation). Custom fields on contacts, organizations, tasks, and collections all flow through this. `DynamicFieldGroup` lays out a related set of fields with a shared label.
+
+### `EntityLinkPicker`, `EntityLinkList`
+
+[`shared/entity-link-picker.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/entity-link-picker.tsx), [`shared/entity-link-list.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/entity-link-list.tsx)
+
+The polymorphic linking UI. `EntityLinkPicker` is a popover-with-search that links the current entity to any other (contact, organization, task, knowledge item, URL, file). `EntityLinkList` displays linked entities as removable chips. The `entity_links` table backs both.
+
+### `FileDropZone`
+
+[`shared/file-drop-zone.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/file-drop-zone.tsx)
+
+Drop-and-pick file upload with preview, used by knowledge file uploads, CRM imports, and avatar pickers. Handles drag-over state, file-type validation, and progress.
+
+## Trees
+
+### `FolderTree`
+
+[`shared/folder-tree.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/folder-tree.tsx)
+
+Recursive folder UI built on `@dnd-kit`. Expand/collapse state persists to `localStorage`, inline rename, context menu for create/rename/delete/icon-pick, item counts per folder. Used by knowledge folders today; the canonical drag-and-drop pattern for any future tree.
+
+## Confirmations and feedback
+
+### `ConfirmDialog`, `ConfirmDeleteDialog`
+
+[`shared/confirm-dialog.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/confirm-dialog.tsx), [`shared/confirm-delete-dialog.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/confirm-delete-dialog.tsx)
+
+Tone-aware confirmation modal. Tones: `default` (neutral), `warning` (amber), `destructive` (red). Auto-swaps the icon, the confirm button variant, and the busy spinner during async confirms. `ConfirmDeleteDialog` is a thin preset for deletes — use it for anything irreversible.
+
+### `EmptyState`
+
+[`shared/empty-state.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/empty-state.tsx)
+
+The blank-list pattern. Variants: `default` (welcoming, with primary action), `filtered` (with "Clear filters" secondary action). `compact` mode for inline contexts (sidebars, modals). Always include an icon, title, and description; let users do something next.
+
+### `LoadingSkeleton`
+
+[`shared/loading-skeleton.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/loading-skeleton.tsx)
+
+Five presets: `table` (header + body rows with realistic column widths), `cards` (responsive grid), `list` (icon + text + meta rows), `feed` (avatar + text + timestamp), `detail` (grouped section blocks). Match the skeleton to the layout it replaces — never use a generic spinner where a layout skeleton fits.
+
+## Banners
+
+### `SchemaVersionBanner`
+
+[`shared/schema-version-banner.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/schema-version-banner.tsx)
+
+The top-of-page banner that appears when the active Supabase project's schema lags the UI's expected migration set. Links to the migration guide. The only "blocking" inline alert in the product — most feedback uses toasts.
+
+## When to add a composite
+
+Three-question test:
+
+1. **Does this exist in two or more modules already?** If you're about to copy something from `crm/` into `tasks/`, that's the threshold. Lift it into `shared/` first.
+2. **Is the API stable?** Composites encode shape decisions. If you're not sure of the props yet, leave it inside the feature for one more iteration before promoting.
+3. **Does it depend on anything outside `ui/`, `shared/`, `lib/utils`, and React?** Composites must not import from feature modules. If yours needs a feature hook, the abstraction is wrong — pass the data in.
+
+If all three are yes, add to `shared/` with the existing naming (kebab-case file, PascalCase component, types colocated or imported from `lib/`). If any are no, keep it inside the module for now.
+
+---
+
+# Layout
+
+Source: https://docs.yourhq.ai/design/patterns/layout
+
+> The dashboard shell — sidebar, header, breadcrumbs, responsive behavior.
+
+Every authenticated page in HQ renders inside a single shell. The shell never changes shape between routes — the sidebar, header bar, and content frame are the same on the dashboard, on a contact detail page, and on agent settings. Routes only own what's inside the content frame.
+
+This page documents the shell and the standard pieces a route uses inside it.
+
+## The shell
+
+[`apps/ui/src/components/dashboard-shell.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/dashboard-shell.tsx) — wired up by [`apps/ui/src/app/dashboard/layout.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/dashboard/layout.tsx) after auth and workspace-setup checks.
+
+Two columns: a left sidebar and a right content area whose top is the [`HeaderBar`](/design/components/composites). Three widths:
+
+| Breakpoint | Sidebar | Trigger |
+|---|---|---|
+| Desktop, expanded | 220px | Default |
+| Desktop, collapsed | 48px (icon-only with tooltips) | Cmd/Ctrl+B |
+| Mobile | Hidden — opens as a 260px `Sheet` from the left | Hamburger button or Cmd/Ctrl+B |
+
+The mobile sheet auto-closes on route change so navigation feels like a tap, not a two-step. Sidebar collapse state persists across reloads.
+
+## Sidebar groups
+
+The sidebar is divided into named groups. Group order is fixed; modules within a group are gated by the workspace's enabled-modules set ([`ModulesContext`](/design/components/composites)).
+
+1. **Workspace** — Dashboard.
+2. **CRM** (gated) — Contacts, Organizations.
+3. **Work** — Tasks, Agents, Knowledge, Routines.
+4. **Collections** (dynamic) — User's collections, with a per-collection pin/unpin. Pinned items are always visible; the rest sit inside a collapsible section. A "Manage" link sits at the bottom.
+5. **System** — Activity, Notifications, Settings, optionally Account on hosted.
+
+Each entry is rendered through the `Item` primitive. Active rows get a 2px accent bar (`absolute left-0 w-0.5 rounded-full bg-foreground`) rather than a heavy fill — depth via accent, not background.
+
+When adding a new module, register it in the sidebar groups in `dashboard-shell.tsx` and in the [`CommandPalette`](/design/components/composites) navigation list. There is no third place.
+
+## Header bar
+
+[`apps/ui/src/components/shared/header-bar.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/header-bar.tsx)
+
+The thin bar at the top of the content area. Owned by the shell, never re-mounted by routes. Carries:
+
+- **Breadcrumbs** — derived from the current pathname. UUID segments are resolved to entity names by a Supabase lookup; everything else uses the route segment label.
+- **Theme toggle** — Light / Dark / System dropdown.
+- **Notifications** — bell icon with unread badge.
+- **User menu** — avatar with sign-out and project switcher actions.
+
+A route should never render its own header bar. Page-level titles belong inside the [`PageHeader`](/design/components/composites) below the header bar.
+
+## Page header
+
+[`apps/ui/src/components/shared/page-header.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/page-header.tsx)
+
+The top of the content area inside a route. Standard slots:
+
+- **Icon** — Lucide icon in a 32px bordered square, muted foreground.
+- **Title** — `.text-display` (24px / 600 / -0.02em).
+- **Description** — `.text-body` muted, 1–2 sentences.
+- **Primary action** — typically the "Create X" button.
+- **Secondary actions** — overflow into a `DropdownMenu`.
+- **Meta** — small status row (count, last sync time, gateway connection).
+- **Tabs** — optional `Tabs` row anchored at the bottom of the header.
+
+`PageSection` is its in-page sibling — used for grouping content under a heading mid-page. Use both consistently. Bespoke headers fragment the visual rhythm.
+
+## Responsive rules
+
+- **Desktop** (≥1024px): two-column shell, full sidebar, full detail right rails.
+- **Tablet** (768–1023px): sidebar collapses to icon-only with hover tooltips. Detail right rails fold into a mobile drawer trigger button.
+- **Mobile** (≤767px): sidebar becomes a `Sheet` drawer; the hamburger sits on the left of the header bar. Detail right rails are accessed via a "Details" button that opens a `Sheet`.
+
+Cmd/Ctrl+B works at every breakpoint — on mobile it opens the drawer, on tablet/desktop it toggles the collapsed state.
+
+The shell itself does the responsive switching. Feature components should not hand-roll their own breakpoints for the same purpose; they should consume the shell's already-collapsed state via the `Sheet` and `Drawer` primitives where they need to fold content.
+
+## Adding a new route
+
+1. Create the page under `apps/ui/src/app/dashboard//page.tsx`. The shell is already mounted by the layout one level up.
+2. Open with a `PageHeader` carrying the icon, title, primary action.
+3. Inside the content area, follow [data display](/design/patterns/data-display) for lists or [creation and editing](/design/patterns/creation-and-editing) for forms.
+4. If the module is new, register it in `dashboard-shell.tsx` (sidebar group) and in the [`CommandPalette`](/design/components/composites) navigation list.
+5. If the module needs a keyboard shortcut, add it to the G-then-letter table in [`shared/keyboard-shortcuts.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/keyboard-shortcuts.tsx).
+
+Don't reinvent the shell pieces inside a route. The point of having one shell is that every screen feels the same.
+
+---
+
+# Data display
+
+Source: https://docs.yourhq.ai/design/patterns/data-display
+
+> List views (table, card, kanban, calendar) and detail surfaces (full page vs slide-over).
+
+HQ renders the same record in multiple ways depending on what the user is doing. This page documents the two halves of that system: how lists are built, and how a record opens.
+
+## Lists: the multi-view orchestrator
+
+Every module that shows a list of structured records follows the same pattern. **One hook owns the state. Many view components consume it.** Switching between views never reloads data, never loses filters, never re-fetches.
+
+Canonical references:
+
+- [`apps/ui/src/components/crm/contacts-tab.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/crm/contacts-tab.tsx) — the orchestrator
+- [`apps/ui/src/hooks/use-contacts.ts`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/hooks/use-contacts.ts) — the hook
+- [`contacts-table-view.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/crm/contacts-table-view.tsx), [`contacts-card-view.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/crm/contacts-card-view.tsx), [`contacts-kanban-view.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/crm/contacts-kanban-view.tsx) — the view components
+
+The hook returns:
+
+- **Data** — `contacts` (filtered), `allContacts`, supporting collections (`campaigns`, `pipelineStages`).
+- **State** — `loading`, `viewMode`, `sorting`, `filters`, `selection`.
+- **Persistence** — `viewMode` to `localStorage`, `filters` and `sorting` to URL search params.
+- **Actions** — `actions.archive`, `actions.delete`, `actions.changeStatus`, etc.
+- **Form** — `form.open`, `form.close`, `form.editing` for the create/edit `SidePanel`.
+- **Realtime** — subscribed via [`use-realtime-sync`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/hooks/use-realtime-sync.ts).
+
+The orchestrator component renders a [`FilterBar`](/design/components/composites), a view-mode `ToggleGroup`, and the active view component. It does not own state — it passes hook outputs straight through.
+
+## The four view shapes
+
+Pick view shapes by data shape, not by aesthetic preference. Modules support whichever shapes their data justifies.
+
+### Table
+
+The default. Built on [`DataTable`](/design/components/composites) (TanStack React Table). Sortable headers, sticky-header support, three row-height variants (compact / normal / comfortable), row click handlers, loading-skeleton fallback, empty-state slot.
+
+Column visibility is owned by the [`ColumnToggle`](/design/components/composites) composite, persisted via `use-column-visibility` to `localStorage`. Title fields stay clickable and open the detail surface; secondary cells with mutations (status, priority) use inline edit through their type-specific control.
+
+Reach for table when the data is wide and users compare across rows.
+
+### Cards
+
+Responsive grid (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4`). Each card is a richer preview — avatar or icon, title, metadata row, badges. Click opens the detail surface.
+
+Reach for cards when records have an identity (a person, an agent, an organization) that benefits from visual presence.
+
+### Kanban
+
+Status-grouped columns. Each column is a status value (todo / in_progress / blocked / done; or a `select` field's options for collections). Drag a card between columns to change its status. An [`InlineCreateRow`](/design/components/composites) sits at the bottom of each column for fast adds.
+
+Drag-and-drop must use `@dnd-kit` (see [interaction](/design/patterns/interaction) — that is the canonical drag-drop library across the app).
+
+Reach for kanban when the central question is "what state is this record in?" — a tasks board, a deals pipeline, a content calendar by stage.
+
+### Calendar
+
+Month grid driven by a date-typed field on the record. Each date cell shows record indicators; click a date to create. Built with `date-fns` (`startOfMonth`, `eachDayOfInterval`, etc.).
+
+References: [`apps/ui/src/components/tasks/task-calendar-view.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/tasks/task-calendar-view.tsx), [`apps/ui/src/components/collections/collection-calendar-view.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/collections/collection-calendar-view.tsx).
+
+Reach for calendar when records have a meaningful date field and users need to see them on a timeline.
+
+## State persistence
+
+| State | Persisted to | Why |
+|---|---|---|
+| `viewMode` (table / cards / kanban / calendar) | `localStorage` | User preference, survives reloads |
+| `filters` (search, status, priority, archived) | URL search params | Shareable, browser back works |
+| `sorting` | URL search params | Same |
+| Column visibility | `localStorage` per module | Per-user table layout |
+| Selection | In-memory only | Cleared on navigation |
+
+URL-first for anything a user might link to or share; `localStorage` for personal preferences.
+
+## Detail surfaces
+
+Two shapes, picked by record weight:
+
+### Full page
+
+Used for **heavy entities** — records with timelines, multiple tabs, related records, sidebars worth of metadata. Examples: a contact (notes + interactions + draft sets + linked tasks), an agent (overview + files + usage + knowledge + routines + inbox), a knowledge page (rich editor + agent assignments + embedding status), an organization.
+
+Layout convention:
+
+- A [`DetailHeader`](/design/components/composites) at the top: back link, breadcrumb, title with inline edit, action buttons (copy, archive, delete) on the right.
+- A two-column content area below: main content on the left, a sticky [`DetailSidebar`](/design/components/composites) (280px) on the right with status, priority, relationships, metadata timestamps.
+- On tablet/mobile, the sidebar folds into a "Details" button that opens a `Sheet`.
+
+Routes for full-page detail: `/dashboard//[id]`. Server-side fetch in `page.tsx`, hydrate the client component with full data.
+
+### Slide-over (`SidePanel`)
+
+Used for **light records** — collection records, ad-hoc edits, anything that fits comfortably in 560px and benefits from staying alongside the list the user came from.
+
+The body is a label-and-control grid. Inline edits commit on blur; explicit Save buttons are reserved for the rare case where validation can't run inline (a multi-field form needing cross-field checks).
+
+### Modal (`Dialog`)
+
+Used for **capture-style entities** — records the user creates and edits in quick-capture mode rather than from a list-management workflow. Tasks are the canonical example: their form serves as both create and detail surface, and a centered `Dialog` matches the tactical "I just thought of this" mode better than a slide-over would.
+
+When a record is opened from a list, prefer the slide-over. When the same form is also the create surface invoked from "+ Task" anywhere in the app, use the dialog for both — consistency between create and detail beats consistency with other modules' detail shape (see [creation and editing](/design/patterns/creation-and-editing)).
+
+## Filter bar
+
+[`apps/ui/src/components/shared/filter-bar.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/filter-bar.tsx)
+
+Universal pattern across modules: search input on the left, filter controls in the middle, action buttons (column toggle, archive toggle, view-mode switch, primary "+ Create" button) on the right, item count on the far right.
+
+Modules pass their own filter controls in as children — the bar provides the layout, not the controls.
+
+## Empty states for lists
+
+- **No data at all** — welcoming `EmptyState` with the module's icon, an explanation, a primary "Create your first X" action.
+- **Data exists but filters return nothing** — `EmptyState` variant `filtered` with a "Clear filters" secondary action.
+- **Loading first paint** — `LoadingSkeleton` matching the active view (`table`, `cards`, `list`, `feed`, or `detail`).
+
+Never show a generic spinner for the first load of a list — match the skeleton to the layout it replaces.
+
+## Realtime
+
+Every list subscribes to Supabase Realtime via [`use-realtime-sync`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/hooks/use-realtime-sync.ts) (or the simpler [`use-realtime`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/hooks/use-realtime.ts) for single-table cases). Inserts, updates, and deletes from any session — including from agents acting on the workspace — flow through within a few hundred milliseconds.
+
+The hook handles the subscription lifecycle, RLS-scoped event filtering, and reconciliation with optimistic local mutations. Lists should not poll. Users should never need to refresh.
+
+---
+
+# Creation and editing
+
+Source: https://docs.yourhq.ai/design/patterns/creation-and-editing
+
+> How users add and modify records: SidePanel vs Dialog vs Wizard, inline edit, rich text, forms.
+
+HQ optimizes for fast, low-ceremony record manipulation. The default is to edit in place; the second-best is a `SidePanel` alongside the list; modal dialogs are reserved for focused decisions, and wizards for genuine multi-step flows. This page is the rule set.
+
+## Choosing a creation surface
+
+Three options, picked by **user mode** — not by field count:
+
+| Surface | When | Reference |
+|---|---|---|
+| **`SidePanel`** | Sustained record editing. The user is browsing a list and adding or editing one of its rows. The panel staying alongside the list reinforces "you're still in the list, just editing one thing in it." Contacts, organizations, knowledge items, collection records. | [`shared/side-panel.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/side-panel.tsx), [`crm/contact-form.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/crm/contact-form.tsx) |
+| **`Dialog`** | Quick capture and focused decisions. The user is mid-flow — possibly on an unrelated screen — and wants to dump intent into the system and get back to what they were doing. Tasks (regardless of field count: a task is tactical capture, not record management), confirmations, two-step OAuth handoffs. | [`ui/dialog.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/dialog.tsx), [`tasks/task-form.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/tasks/task-form.tsx) |
+| **Wizard** | Multi-step provisioning where steps depend on each other or async work happens between steps. | [`agents/agent-create-wizard.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/agents/agent-create-wizard.tsx), [`onboarding/wizard/onboarding-wizard.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/onboarding/wizard/onboarding-wizard.tsx) |
+
+The deciding question isn't "how many fields does this have?" — it's "is the user managing records or capturing intent?" A task form with twelve fields is still capture; the user thought of something and wants it in the system fast. A contact form with three fields is still record editing; the user is reviewing the contact list.
+
+### `SidePanel` shape
+
+Width presets: `md` (480px), `lg` (560px, the default), `xl` (720px). Sticky footer carries the primary "Save" / "Create" button on the right and a `ghost`-variant "Cancel" on its left. Body uses the `PropertyRow` layout — 28px label column, flex-1 control. Inline `Input`, `Select`, `TagInput`, `DynamicField`, and `Textarea` primitives for the controls.
+
+### `Dialog` shape
+
+Square modal overlay (`bg-black/40` light, `bg-black/60` dark). Title at `.text-title`, optional description at `.text-body` muted. The form body should fit without scrolling. Two buttons in the footer.
+
+### Wizard shape
+
+Multi-step modal. Step indicator in the header (e.g. "2 of 5"). Steps that perform async work display a `Spinner` with a status line — the user sees the system thinking. Back/Next buttons; Back is disabled or hidden on irreversible steps (after a network call has succeeded). Status polling drives forward progress automatically when ready.
+
+## Inline editing
+
+Editing in place is the default for any property already visible. Users should not have to open a form to change one value.
+
+### `PropertyRow` layout
+
+The standard "label : value" row, used in detail right rails and inline-edit forms. 28px label column on the left (`.text-label` style), flex-1 control on the right. Borders and padding fade until hover, where the control reveals an `accent`-colored fill cue.
+
+### Inline text, tags, and links
+
+Three small primitives composed inside detail views:
+
+- **`InlineText`** — single-line text. Click to edit, Enter or blur saves, Escape cancels. Optimistic UI. Used for names, emails, phone numbers, anything single-line.
+- **`InlineTags`** — multi-value chip input. Comma or Enter commits a tag. Click an X on a chip to remove. Used for tags, multi-select properties.
+- **`InlineLink`** — URL with an external-link icon. Clicking the icon opens the link; clicking the text enters edit mode.
+
+References: see the implementations inside [`crm/contact-detail-view.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/crm/contact-detail-view.tsx). When a new module needs the same primitives, lift them into [`components/shared/`](/design/components/composites) — they are about to become composites.
+
+### Type-dispatched cell editing
+
+[`apps/ui/src/components/collections/collection-cell.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/collections/collection-cell.tsx) is the canonical pattern for inline edit across many field types. One entry point dispatches by `field_type`:
+
+| Type | Editor |
+|---|---|
+| `text`, `email`, `phone` | Inline text input |
+| `number` | Inline number input with parse / format |
+| `date`, `datetime` | `DatePickerButton` popover |
+| `boolean` | `Checkbox` |
+| `select` | `Select` |
+| `multi_select` | `Combobox` (multi) |
+| `url` | Inline link with external-link icon |
+| `rich_text` | `Textarea` (or Novel where rendered in detail) |
+| `relation` | `EntityLinkPicker` |
+
+When a module gains a new typed field, extend `collection-cell.tsx` rather than building a parallel cell renderer.
+
+## Rich text vs plaintext
+
+Two surfaces; pick by what the user is writing.
+
+**Novel** (TipTap wrapper) is for **documents** — surfaces where structure adds value. Headings, lists, task lists, code blocks, embeds, links. Long-form. The user is composing something they'll come back to and read.
+
+[`apps/ui/src/components/knowledge/novel-editor.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/knowledge/novel-editor.tsx)
+
+The Novel setup at HQ:
+
+- Extensions — StarterKit, TaskList, TaskItem, HorizontalRule, Link, Image, Underline, CodeBlockLowlight.
+- Slash commands — `/` opens the command palette inside the editor.
+- Bubble menu — surfaces formatting (bold, italic, underline, code, link) on selection.
+- Syntax highlighting — `lowlight` with the common language set.
+- Auto-save — on blur. The hosting component owns the persistence call.
+
+Editor styles live in [`globals.css`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/globals.css) under `.ProseMirror` (lines ~265-450). The editor uses a slightly larger type scale than the app body — H1 is 30px, body line-height is 1.7 — because long-form reading benefits from more vertical rhythm.
+
+Knowledge pages and playbooks are the canonical Novel surfaces in HQ today.
+
+**Textarea** is for **short-form notes** — surfaces where the user is dumping a sentence or a paragraph and getting on with their day. Task descriptions, contact notes, comment bodies, agent prompts, slug fields. The user is not composing a document; they are jotting.
+
+A surface should stay on textarea unless three things are true:
+
+1. The content is genuinely document-shaped — multiple paragraphs, lists, sections.
+2. Downstream consumers (search indexing, agent context, list previews) can handle structured content cleanly, or have been updated to.
+3. The user mode is composition, not capture — they're not entering this from a quick-create dialog.
+
+If any of those three is no, keep the surface on textarea. Adding rich-text affordances to a quick-capture field adds friction to the dominant flow without earning anything.
+
+## Forms
+
+When you do need a form (validation, multi-field saves, server actions), use React Hook Form + Zod through the `Form` primitives.
+
+[`apps/ui/src/components/ui/form.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/form.tsx)
+
+The stack:
+
+- **`Form`** — wraps `FormProvider`. Pass the RHF `useForm` return.
+- **`FormField`** — `Controller` wrapper for a single field. Pass `control` and `name`.
+- **`FormItem`** — auto-IDs the field and binds label/control/description/message.
+- **`FormLabel`** — uses Radix `Label`; auto-toggles `data-error="true"` on invalid.
+- **`FormControl`** — slot wrapper; wires `aria-describedby` and `aria-invalid`.
+- **`FormDescription`** — helper text below the input.
+- **`FormMessage`** — auto-extracts the field's error message from RHF state.
+
+Error styling is automatic: `FormLabel` turns destructive on `data-error`, `FormControl` border and ring shift to destructive on `aria-invalid`. Don't hand-roll error styles per form.
+
+Schema lives next to the component (`const schema = z.object({ ... })`). Keep it simple — Zod is the validation engine, not a domain modeling tool. Database types are imported from `lib//types.ts`.
+
+### Custom fields
+
+For any record with user-defined fields (contacts, organizations, collections, tasks), use [`DynamicField`](/design/components/composites) and `DynamicFieldGroup` from `shared/`. They take a `FieldDefinition` and render the right editor. Don't branch on field type inside feature components.
+
+## Save semantics
+
+- **Inline edits** save on blur, optimistic UI, toast on error. No explicit Save button.
+- **`SidePanel` forms** save on the explicit Save button. Disable the button during the async call; show a spinner inside it.
+- **Wizards** save per-step. The Next button is the save action.
+- **Cell edits in tables** save on blur or Enter. Escape reverts.
+
+Audit logging happens server-side (the `audit_log` table). Feature code does not need to log inline edits — the database trigger does.
+
+## Cancel and dismiss
+
+- **Inline edits**: Escape reverts and closes the editor.
+- **`SidePanel` / `Dialog`**: Escape closes; clicking outside closes; explicit Cancel button closes. If there are unsaved changes, ask once via `ConfirmDialog` (warning tone).
+- **Wizards**: dismissal mid-flow is destructive on irreversible steps — disable outside-click close and prompt the user via `ConfirmDialog` (destructive tone) for explicit X-button closes.
+
+## When to add to `shared/`
+
+If a form pattern is reused in two modules, lift it. Three places to look first when adding:
+
+- A new typed field editor → extend `collection-cell.tsx` and `DynamicField`.
+- A new inline-edit primitive (e.g. inline date) → add to `components/shared/` next to `inline-edit.tsx`.
+- A new wizard pattern → start inside the feature module; promote to `shared/` only on the second use.
+
+---
+
+# Interaction
+
+Source: https://docs.yourhq.ai/design/patterns/interaction
+
+> Command palette, keyboard shortcuts, drag and drop, realtime.
+
+The interaction layer is what makes the app feel fast. This page documents the four systems that every module plugs into: the command palette, the keyboard-shortcut registry, the drag-and-drop convention, and realtime data subscriptions.
+
+## Command palette
+
+Cmd/Ctrl+K from anywhere. The single search-and-jump surface in the app.
+
+[`apps/ui/src/components/shared/command-palette.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/command-palette.tsx) — built on [`cmdk`](https://github.com/pacocoursey/cmdk).
+
+### Sections when no query
+
+| Section | Contents |
+|---|---|
+| **Recent** | Last 10 items the user opened (any type). Persisted in `localStorage` via `addRecentItem()` / `getRecentItems()`. Rendered with a `Clock` icon to distinguish from navigation entries. |
+| **Navigation** | All app pages, gated by the workspace's enabled modules. New modules register here. |
+| **Collections** | The user's collections — dynamic from the workspace. |
+| **Quick Actions** | Create Task, Add Contact, Create Organization, Create Knowledge, Register Agent. |
+
+### Search results
+
+Grouped by entity type when a query is present: Knowledge, Knowledge Chunks, Tasks, Contacts, Collections, Agents, Routines. Each result has a type-colored icon (blue for knowledge, amber for tasks, emerald for contacts, etc.), a title, and a subtitle showing matched snippet or metadata. Async search runs in a debounced effect; the palette shows "Searching..." while results are fetching.
+
+### Adding entries
+
+A new module registers in two places:
+
+1. The **Navigation** array inside `command-palette.tsx`.
+2. The dashboard sidebar (see [layout](/design/patterns/layout)).
+
+There is no third place — these are the canonical entry points to a module. Quick Actions are added to the same file.
+
+When a module owns a searchable entity, register a section in the search-results dispatcher. Search hits go through the same Supabase RPCs as the dedicated search APIs (`search_knowledge_items`, `search_knowledge_chunks`).
+
+## Keyboard shortcuts
+
+[`apps/ui/src/components/shared/keyboard-shortcuts.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/keyboard-shortcuts.tsx)
+
+A single global registry, mounted once via `KeyboardShortcutsProvider` at the dashboard layout. Input-aware: skips when focus is in `INPUT`, `TEXTAREA`, or any element with `contentEditable=true`. Press `?` to open the help sheet — every registered shortcut shows up there.
+
+### Global shortcuts
+
+| Keys | Action |
+|---|---|
+| Cmd/Ctrl+K | Open command palette |
+| Cmd/Ctrl+B | Toggle sidebar (or open mobile drawer) |
+| ? | Open keyboard-shortcut help |
+| Escape | Close current overlay (Sheet, Dialog, Popover, inline editor) |
+
+### G-then-letter navigation
+
+Press `G`, then the next key within 800ms, to jump to a module:
+
+| Sequence | Destination | Module gate |
+|---|---|---|
+| `G` `D` | Dashboard | Always |
+| `G` `C` | Contacts | CRM enabled |
+| `G` `O` | Organizations | CRM enabled |
+| `G` `T` | Tasks | Always |
+| `G` `A` | Agents | Always |
+| `G` `K` | Knowledge | Always |
+| `G` `E` | Collections | Always |
+| `G` `R` | Routines | Always |
+| `G` `L` | Activity | Always |
+| `G` `N` | Notifications | Always |
+| `G` `S` | Settings | Always |
+
+Adding a new module: register the G-sequence in `keyboard-shortcuts.tsx`, gate it on the relevant `ModulesContext` flag, and the help sheet will pick it up.
+
+### Module-level shortcuts
+
+A feature can register additional shortcuts via the `useShortcuts` hook. Examples worth using sparingly: `C` to open the create panel from a list view, `/` to focus the filter-bar search input. Every module-level shortcut shows in the help sheet — there is no hidden registry.
+
+Don't register shortcuts that conflict with browser defaults (Cmd+W, Cmd+T, Cmd+R, Cmd+L) or with text editing (any single letter that types into an input — except in input-aware paths the registry already filters).
+
+## Drag and drop
+
+The canonical library is [`@dnd-kit`](https://dndkit.com/). Reach for it whenever a feature needs drag-and-drop.
+
+Reference implementation: [`apps/ui/src/components/shared/folder-tree.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/folder-tree.tsx) — recursive tree with drag-to-reorder and drag-to-nest.
+
+The canonical setup:
+
+- **`DndContext`** at the boundary — sensors `PointerSensor` and `KeyboardSensor` both wired so drag works with mouse, touch, and keyboard.
+- **`SortableContext`** for ordered lists (kanban columns, file lists, sidebar groups).
+- **`useSortable`** on each draggable item; the hook returns `setNodeRef`, listeners, attributes, transform, and transition for the drag state.
+- **`DragOverlay`** for the floating drag preview — keeps the original item in place visually.
+- **Modifiers** (`restrictToVerticalAxis`, `restrictToParentElement`) when the gesture should be constrained.
+
+The kanban board on tasks currently uses native HTML5 drag-drop; that is a known deviation from this canonical pattern and is part of the audit-and-fix work — new code should use `@dnd-kit`.
+
+### Visual conventions during drag
+
+- The dragged item's source position renders at 50% opacity and removes its border-on-hover behavior.
+- The overlay clone gets a 1px `border-strong` and a slight `shadow-lg`.
+- Drop zones get a `bg-surface-selected` highlight on `dragOver`.
+- The drag is canceled on Escape, committed on drop. Persistence happens in the `onDragEnd` handler — the parent owns the data, the dragged item never persists itself.
+
+## Realtime
+
+Lists subscribe to Supabase Realtime so other sessions and agent activity surface live, without a refresh.
+
+[`apps/ui/src/hooks/use-realtime-sync.ts`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/hooks/use-realtime-sync.ts) — the multi-table version, used by orchestrator hooks (`use-contacts`, `use-tasks`, `use-collection-records`).
+
+[`apps/ui/src/hooks/use-realtime.ts`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/hooks/use-realtime.ts) — the single-table version, simpler API for one-off subscriptions.
+
+The pattern, in shape:
+
+- The hook subscribes on mount, unsubscribes on unmount.
+- Insert / update / delete events from any session (including agents) flow through.
+- Tenant-scoped RLS filters out events for other tenants — no client-side filtering needed.
+- Optimistic local mutations are reconciled with realtime echoes by ID — the hook does not double-apply.
+
+Lists do not poll. There is no manual refresh button. If an event is missed (network blip), reconnection re-fetches the snapshot.
+
+### When to subscribe
+
+- **Always** — list views and detail views of records that other sessions or agents can change.
+- **Sometimes** — settings pages where stale data is just inconvenient (rather than wrong).
+- **Never** — pure UI state, transient form inputs, anything client-only.
+
+If a hook subscribes, it owns the lifecycle — feature components don't manage subscriptions directly.
+
+## Hover, focus, and selection feedback
+
+Three subtle but consistent affordances:
+
+- **Hover** — `bg-surface-hover` (`oklch(0 0 0 / 4%)` light, `oklch(1 0 0 / 5%)` dark). 120ms transition.
+- **Focus** — visible ring, `ring-ring` token, 2px. Always visible via keyboard, never suppressed.
+- **Selected** — `bg-surface-selected` (slightly darker than hover). For multi-select, also a checkbox in the row's leading slot.
+
+Active row in lists or sidebar gets a 2px accent bar on the left (`bg-foreground`), not a heavy fill. Depth via accent, not background — see [principles](/design/overview).
+
+## Pulling it together
+
+Most modules touch all four systems. A correctly-built list view will:
+
+1. Render inside the shell with a `PageHeader`.
+2. Subscribe to its data via a realtime hook.
+3. Register its routes in the command palette and a G-shortcut.
+4. Use `@dnd-kit` if rows are reorderable.
+5. Compose its filters via the `FilterBar` and its rows via the `DataTable`.
+
+If any of these is missing, the screen will feel inconsistent with the rest of the app — and the inconsistency is what users notice first.
+
+---
+
+# Feedback
+
+Source: https://docs.yourhq.ai/design/patterns/feedback
+
+> Toasts, errors, empty states, loading skeletons, confirmations.
+
+Feedback is how the interface tells the user what just happened, what's happening now, what went wrong, and what to do next. The five surfaces below cover those four states. Pick by intent and severity, not by what feels available.
+
+## Toasts
+
+For transient, non-blocking confirmation.
+
+Outlet: [`apps/ui/src/components/ui/sonner.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/sonner.tsx) — mounted once in the root layout, never re-mounted.
+
+Call surface: import `toast` from `sonner` and call:
+
+| Call | Use for |
+|---|---|
+| `toast.success("Contact created")` | A user-initiated action completed |
+| `toast.error("Couldn't save", { description: error.message })` | An action failed; user should know but the page still works |
+| `toast.warning("This will affect 12 records")` | A choice-pending state; usually pair with an action button on the toast |
+| `toast.loading("Importing…")` (returns id) | Long-running async; replace with `.success` / `.error` on the same id |
+| `toast(...)` | Plain neutral message — rare; usually success or error fits |
+
+The Sonner setup uses the `--popover` and `--popover-foreground` tokens, our radius, and our custom icons (CircleCheck, Info, TriangleAlert, OctagonX, Loader2). It auto-themes in dark mode.
+
+### Rules
+
+- **One toast per user action.** If a save triggers three writes, fire one summary toast — not three.
+- **Errors are user-actionable.** "Couldn't save: name is required" is good; "Internal error" is not. If you can't show the user something they can fix, log to the console and don't toast.
+- **Don't toast inline edits.** They already update the value visibly. Toast on blur only if the save failed.
+- **Don't toast on navigation.** The new screen is its own confirmation.
+- **Don't toast for mutations the user didn't initiate** (realtime echoes from agent activity, for example) — those should update the row in place.
+
+## Confirm dialogs
+
+For decisions the user must answer before continuing.
+
+[`apps/ui/src/components/shared/confirm-dialog.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/confirm-dialog.tsx)
+
+Three tones, each swapping the icon, button variant, and busy state:
+
+| Tone | When | Default icon |
+|---|---|---|
+| `default` | Neutral confirmation. "Archive this contact?" | `AlertCircle` |
+| `warning` | Reversible but consequential. "Discard unsaved changes?" | `AlertTriangle` |
+| `destructive` | Irreversible. "Delete this routine?" | `AlertTriangle` (red) |
+
+The thin preset [`ConfirmDeleteDialog`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/confirm-delete-dialog.tsx) wraps `tone="destructive"` with a "Delete" button label. Use it for any delete.
+
+### Rules
+
+- **One question per dialog.** If the user has to answer two things, you have two flows.
+- **The confirm button is specific.** "Delete contact" beats "OK". The cancel button is "Cancel" — always.
+- **Async confirms show a spinner inside the confirm button** while the call runs. The button is disabled, the cancel stays enabled.
+- **Don't double-confirm.** If a delete is reversible (move to archive), don't ask. If it's truly irreversible, ask once and trust the answer.
+
+## Error boundaries
+
+For unrecoverable failures.
+
+Root fallback: [`apps/ui/src/app/error.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/error.tsx) — catches errors that escape segment-level `error.tsx` files. Detects project-related errors via regex against the message (Supabase, project, registry, database, fetch, DNS) and offers context-aware recovery: "Switch project" and "Onboarding" links for project issues, "Try again" plus collapsible technical details otherwise.
+
+Segment-level `error.tsx` files in `app/dashboard//` cover module-specific failure modes. They should:
+
+- Render an `Alert` (or an inline `EmptyState` for list-level failures) with the user-friendly message.
+- Provide a primary "Try again" button calling `reset()`.
+- Show the digest (error ID) in monospace for support.
+- Never blame the user.
+
+Don't catch errors silently. If a server action fails inside a route, throw — the boundary handles the rest.
+
+## Empty states
+
+For lists and surfaces that legitimately have no data.
+
+[`apps/ui/src/components/shared/empty-state.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/empty-state.tsx)
+
+Variants:
+
+- **`default`** — welcoming. Use when the user has never created the thing yet. Icon, title, description, primary action ("Create your first contact"), optional secondary action ("Learn more").
+- **`filtered`** — apologetic. Use when filters are excluding all records. Icon, title ("No matches"), description, primary "Clear filters" action.
+- **`compact`** — for inline contexts (sidebars, modals, embedded panels). Smaller spacing and icon.
+
+Composition: icon in a 12px-radius bordered box, muted background. Title at `.text-heading`, description at `.text-body` muted. Actions below.
+
+### Rules
+
+- **Always include an action.** Empty states without a next step feel like dead ends. If genuinely no action exists, at least link to docs.
+- **Tone matches reason.** First-time empty is welcoming; filtered empty is apologetic; error empty is in `error.tsx`, not here.
+- **Use the module's icon.** A contacts empty state uses the contact icon, not a generic "empty" icon.
+
+## Loading skeletons
+
+For first-paint while data is fetching.
+
+[`apps/ui/src/components/shared/loading-skeleton.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/loading-skeleton.tsx)
+
+Five presets, each shaped to a real layout:
+
+| Preset | Replaces |
+|---|---|
+| `table` | Header row + N body rows with realistic column widths |
+| `cards` | Responsive grid of card-shaped blocks |
+| `list` | Icon + text + meta rows |
+| `feed` | Avatar + text + timestamp blocks |
+| `detail` | Grouped section blocks with title, description, two-column grid |
+
+Pass the count and any optional sizing. The preset is `animate-pulse` with `bg-accent` blocks — no spin, no rotate.
+
+### Rules
+
+- **Match the skeleton to the layout it replaces.** A list view shows a list skeleton, not a generic spinner. The user's eye should not have to recalibrate when data arrives.
+- **Skeletons only on first paint.** When new data is filtering in (sort, search), keep the existing rows visible and let the realtime hook reconcile — don't blank the list.
+- **Spinners are for buttons.** A button mid-async shows `Spinner`. A page mid-load shows a layout skeleton. The two are not interchangeable.
+
+## Inline alerts
+
+For persistent, page-level conditions.
+
+The [`Alert`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/alert.tsx) primitive carries a banner-style message inside the page, distinct from a toast. The only standardized one in the product today is [`SchemaVersionBanner`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/schema-version-banner.tsx) — shown when the active project's schema lags expected migrations.
+
+### Rules
+
+- **Reserve `Alert` for page-level state that affects all interactions on the page.** "Your project is in read-only mode", "Schema migration required". Not for "Saved successfully" — that's a toast.
+- **Provide an action where possible.** A banner with no link out is just nagging.
+
+## Empty interaction feedback
+
+For micro-states that fall through the cracks above:
+
+- **Hover** — `bg-surface-hover`, 120ms.
+- **Focus** — `ring-ring`, always visible to keyboard users.
+- **Disabled** — `opacity-50` plus `cursor-not-allowed`. Pair with a `Tooltip` if the reason isn't obvious.
+- **Pending value (optimistic)** — keep the new value visible, no spinner. If the call fails, revert and toast.
+- **Empty cell** — `—` (em-dash) at `.text-tertiary`. Not a blank.
+- **Loading meta value** — small inline `Skeleton` block, never a spinner.
+
+## Pulling it together
+
+A correct save flow looks like this:
+
+1. User edits a field inline.
+2. Field updates optimistically (no spinner on the field itself).
+3. Network call runs in the background.
+4. On success, no toast — the value is visibly updated.
+5. On failure, the value reverts and a `toast.error` explains why.
+
+A correct delete flow:
+
+1. User clicks Delete.
+2. `ConfirmDeleteDialog` (destructive tone) opens.
+3. Confirm button shows a spinner while the call runs.
+4. On success, dialog closes; the row disappears from the list (realtime echo, or optimistic remove). Toast: "Deleted X."
+5. On failure, the dialog stays open with an inline error; row is unaffected.
+
+Notice what isn't there: no double confirms, no progress bars, no full-screen blockers, no banner congratulating the user. Feedback is calm and proportionate to the action.
+
+---
+
+# Contributing
+
+Source: https://docs.yourhq.ai/design/contributing
+
+> Where new code goes, how it's named, and the three-question test for promoting components.
+
+This page is for engineers adding to the UI package. It documents how the codebase is organized so new code lands in the right place, with the right name, importing the right way.
+
+If you're a designer or product person looking for visual rules, [foundations](/design/foundations) and the [pattern pages](/design/patterns/layout) are what you want.
+
+## Layer model
+
+Three concentric circles. Code in an outer layer can import from inner layers, never the reverse.
+
+```
+ui/        ← primitives. shadcn + a few HQ extensions. No business logic.
+shared/    ← composites. Reused across two or more feature modules.
+/  ← features. CRM, tasks, agents, knowledge, collections, routines.
+```
+
+- **`apps/ui/src/components/ui/`** — generic, reusable UI building blocks. Imports: React, Radix, `cn` from `@/lib/utils`, other primitives. Never imports from `shared/` or feature modules.
+- **`apps/ui/src/components/shared/`** — HQ-specific compositions used across modules. Imports: primitives, other composites, `lib/utils`, generic types from `lib/`. Never imports from a specific feature module.
+- **`apps/ui/src/components//`** — feature-specific. Imports: anything inner. Free to import from its own `lib//` and `hooks/use-.ts`.
+
+If your inner layer needs to know about an outer one, the abstraction is wrong — pass the data in as a prop or callback.
+
+## Module convention
+
+A feature module spans four locations. Each has one responsibility.
+
+| Location | Owns |
+|---|---|
+| `apps/ui/src/lib//types.ts` | TypeScript types mirrored from the Supabase schema, plus any module-specific enums and helpers. |
+| `apps/ui/src/lib//` (siblings) | Pure helpers — formatters, derivers, validators. No React. |
+| `apps/ui/src/hooks/use-.ts` | Data fetching, realtime subscription, filter/sort/selection state, CRUD action wrappers, form state. The orchestrator. |
+| `apps/ui/src/components//` | Components — list orchestrator, view variants, detail view, form, sub-components. |
+| `apps/ui/src/app/dashboard//` | Routes (`page.tsx`, `[id]/page.tsx`, `error.tsx`) and server actions (`actions.ts`). Server actions are the only place server-side mutations live. |
+
+Adding a new module follows that map. No file lives outside it.
+
+## File and identifier naming
+
+- **Files** — kebab-case. `contact-detail-view.tsx`, not `ContactDetailView.tsx`. Includes hooks (`use-contacts.ts`) and helpers (`format-money.ts`).
+- **Components** — PascalCase exports. `export function ContactDetailView()`.
+- **Hooks** — `use` prefix, camelCase identifier, kebab-case filename.
+- **Types** — PascalCase. Schema-mirrored types match the table singularized: `Contact`, `Task`, `Stream`, `Agent`.
+- **Server actions** — `Action`. `archiveContactAction`, `createTaskAction`. They live in `app/dashboard//actions.ts` and start with `"use server"`.
+- **CSS classnames** — none. We don't write classnames; we use Tailwind utilities and tokens.
+
+## Imports
+
+Always use aliases. Never relative-cross paths (`../../../components/ui/button`).
+
+| Alias | Resolves to |
+|---|---|
+| `@/components` | `apps/ui/src/components/` |
+| `@/components/ui` | `apps/ui/src/components/ui/` |
+| `@/lib` | `apps/ui/src/lib/` |
+| `@/lib/utils` | `apps/ui/src/lib/utils.ts` (`cn` lives here) |
+| `@/hooks` | `apps/ui/src/hooks/` |
+
+Configured in [`apps/ui/components.json`](https://github.com/yourhq/yourhq/blob/main/apps/ui/components.json) and `tsconfig.json`.
+
+Within the same directory, relative imports are fine — `./contact-form`, `./contact-list-row`. Cross-directory: alias.
+
+## Styling rules
+
+- **Tokens, not hexes.** Use Tailwind utilities mapped from `globals.css`. If a value isn't covered by a token, the right move is almost always to use the next step on the existing scale, not to inline a custom value.
+- **`cn()` for conditional classes.** Imported from `@/lib/utils`. Use it whenever class strings depend on props or state.
+- **CVA for variants.** Components with two or more visual variants use `class-variance-authority`. Reference: [`button.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/button.tsx), [`badge.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/badge.tsx).
+- **`data-slot` attributes** on composed primitives. Lets parents target sub-parts via `[data-slot=…]` selectors without prop drilling.
+- **No CSS Modules, no styled-components, no Emotion.** Tailwind plus the editor styles in `globals.css` are the only style surfaces.
+
+## Decision tree: where does this code go?
+
+A new piece of UI lands in one of three places. Run through the questions in order.
+
+### 1. Is it a primitive (no business logic, no module imports)?
+
+If yes, it goes in `components/ui/` — but think twice. Most "I need a primitive" instincts are actually composites in disguise. The bar for adding to `ui/` is high:
+
+- It must be reusable in any context, not just HQ.
+- It must not import from `shared/` or any feature module.
+- It must not depend on any HQ-specific data shape.
+
+If those three are true, add it. Match the existing files: kebab-case file, PascalCase export, CVA for variants, `data-slot` attributes, `cn` for conditional classes. Reference: the seven HQ extensions in [primitives](/design/components/primitives).
+
+### 2. Is it a composite (HQ-shaped, used across modules)?
+
+A composite belongs in `components/shared/` if all three of these are true:
+
+1. **It's used in two or more modules already.** If you're about to copy something from `crm/` into `tasks/`, that's the threshold. Lift it before the second copy.
+2. **The API is stable.** Composites encode shape decisions. If you're not sure of the props yet, leave it inside the feature for one more iteration before promoting.
+3. **It depends only on `ui/`, other `shared/`, `lib/utils`, and React.** Composites must not import from feature modules. If yours needs a feature hook, pass the data in as props.
+
+If any answer is no, keep it inside the feature module.
+
+### 3. Is it feature-specific?
+
+Then it goes in `components//`. Free to import anything inner. Free to consume `hooks/use-.ts`, `lib//`, server actions from the same `app/dashboard//` route.
+
+## Adding a new feature module
+
+End-to-end recipe for a new module called `widgets`:
+
+1. **Database** — add the migration under `db/migrations/0NN_widgets.sql`. Include `tenant_id`, RLS policies, explicit `GRANT` for `authenticated` and `service_role`. Run in filename order.
+2. **Types** — `apps/ui/src/lib/widgets/types.ts`. Mirror the table.
+3. **Hook** — `apps/ui/src/hooks/use-widgets.ts`. Subscribes via [`use-realtime-sync`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/hooks/use-realtime-sync.ts), owns filters/sorting/selection state, exposes actions.
+4. **Server actions** — `apps/ui/src/app/dashboard/widgets/actions.ts`. `"use server"`. Each action returns `{ data, error }` or throws.
+5. **Routes** — `app/dashboard/widgets/page.tsx`, `app/dashboard/widgets/[id]/page.tsx`, `app/dashboard/widgets/error.tsx`.
+6. **Components** — `components/widgets/widgets-tab.tsx` (orchestrator), `widgets-table-view.tsx`, `widget-detail-view.tsx`, `widget-form.tsx`. Open with a `PageHeader`. List uses `DataTable` inside a `FilterBar`. Detail uses `DetailHeader` plus `DetailSidebar`. Create uses `SidePanel` if widgets are record-style (the user manages them from a list), or `Dialog` if widgets are capture-style (the user creates them from anywhere) — see [creation and editing](/design/patterns/creation-and-editing).
+7. **Shell registration** — add the module to:
+   - The sidebar in `components/dashboard-shell.tsx`.
+   - The navigation list in `components/shared/command-palette.tsx`.
+   - The G-shortcut table in `components/shared/keyboard-shortcuts.tsx`.
+   - The workspace's enabled-modules list (so [`ModulesContext`](/design/components/composites) can gate it).
+
+If any of those seven steps feels foreign, the existing modules — CRM, tasks, knowledge, collections — are the templates. Pick the one closest in shape and follow it.
+
+## When to add a token
+
+Adding a CSS variable to [`globals.css`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/globals.css) is appropriate when a new semantic role exists, not when a new shade is needed.
+
+- "We need a color for the 'snoozed' task state" → add `--status-snoozed` to `:root` and `.dark`, wire through `@theme inline`.
+- "We need a slightly darker red for this one button" → don't add a token. Use `bg-destructive/90` or pick a color closer to an existing token.
+
+The four-step procedure is documented in [foundations](/design/foundations#adding-a-new-token).
+
+## When NOT to add a primitive
+
+Most of these situations look like primitives but are actually composites or features:
+
+- "A list item with a checkbox and a status dot." → composite (`Item` exists; compose).
+- "A button that opens a confirm dialog." → composite (use `ConfirmDialog`).
+- "An input that shows the user's avatar inside it." → feature (specific to one form).
+- "A reusable card for showing an agent." → feature inside `components/agents/`.
+
+If you're tempted to add to `ui/`, find the closest existing primitive first. The answer is almost always "compose it."
+
+## Code review checklist
+
+Before opening a PR that touches the UI:
+
+- [ ] No inline hex codes, no `#fff`, no `rgb()`. Tokens via Tailwind utilities.
+- [ ] Aliases for cross-directory imports.
+- [ ] No imports from `app/` or feature modules into `ui/` or `shared/`.
+- [ ] `cn()` from `@/lib/utils` for conditional classes (not template literals).
+- [ ] CVA for any component with two-plus visual variants.
+- [ ] Components are kebab-case files, PascalCase exports.
+- [ ] Hooks subscribe and unsubscribe correctly (cleanup in the `useEffect` return).
+- [ ] Lists use `DataTable` (not bare `Table`); creates use `SidePanel` for record editing or `Dialog` for quick capture — never bare `Sheet` or `Dialog` primitives directly.
+- [ ] Empty states are present on every list. Loading skeletons match the layout.
+- [ ] No comments narrating what the code does. Only comments where the *why* is non-obvious.
+- [ ] `npx tsc --noEmit` passes from `apps/ui/`.
+- [ ] `npm run lint` passes.
+
+If you change `globals.css`, also update [foundations](/design/foundations) so the docs stay aligned with the source of truth.
+
+---
+
 # Configuration
 
 Source: https://docs.yourhq.ai/reference/configuration

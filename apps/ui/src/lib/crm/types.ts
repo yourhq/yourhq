@@ -40,10 +40,10 @@ export const PRIORITIES: { value: string; label: string }[] = [
 ];
 
 export const PRIORITY_COLORS: Record<string, string> = {
-  urgent: "text-red-400",
-  high: "text-orange-400",
-  medium: "text-yellow-400",
-  low: "text-blue-400",
+  urgent: "text-priority-urgent",
+  high: "text-priority-high",
+  medium: "text-priority-medium",
+  low: "text-priority-low",
 };
 
 export const RELATIONSHIP_STRENGTHS: { value: string; label: string }[] = [
@@ -128,8 +128,8 @@ export interface DraftSet {
 }
 
 export const DRAFT_STATUS_COLORS: Record<DraftStatus, string> = {
-  draft: "bg-yellow-500/20 text-yellow-400",
-  refining: "bg-blue-500/20 text-blue-400",
-  approved: "bg-green-500/20 text-green-400",
-  superseded: "bg-zinc-500/20 text-zinc-400",
+  draft: "bg-status-warning/20 text-status-warning",
+  refining: "bg-status-info/20 text-status-info",
+  approved: "bg-status-success/20 text-status-success",
+  superseded: "bg-status-neutral/20 text-status-neutral",
 };

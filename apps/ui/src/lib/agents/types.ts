@@ -32,22 +32,6 @@ export const AGENT_STATUSES: { value: AgentStatus; label: string }[] = [
   { value: "hibernating", label: "Sleeping" },
 ];
 
-export const AGENT_STATUS_COLORS: Record<AgentStatus, string> = {
-  ready: "bg-green-500/20 text-green-400",
-  error: "bg-red-500/20 text-red-400",
-  paused: "bg-yellow-500/20 text-yellow-400",
-  provisioning: "bg-yellow-500/20 text-yellow-400",
-  hibernating: "bg-gray-500/20 text-gray-400",
-};
-
-export const AGENT_STATUS_DOT_COLORS: Record<AgentStatus, string> = {
-  ready: "bg-green-500",
-  error: "bg-red-500",
-  paused: "bg-yellow-500",
-  provisioning: "bg-yellow-500",
-  hibernating: "bg-gray-500",
-};
-
 export const DOMAIN_LABELS: Record<string, string> = {
   crm: "CRM",
   tasks: "Tasks",
@@ -174,9 +158,9 @@ export const COMMAND_ACTION_LABELS: Record<CommandAction, string> = {
 };
 
 export const COMMAND_STATUS_COLORS: Record<CommandStatus, string> = {
-  pending: "#3b82f6",
-  leased: "#f59e0b",
-  running: "#a855f7",
-  done: "#22c55e",
-  failed: "#ef4444",
+  pending: "var(--status-info)",
+  leased: "var(--status-warning)",
+  running: "var(--status-progress)",
+  done: "var(--status-success)",
+  failed: "var(--status-error)",
 };

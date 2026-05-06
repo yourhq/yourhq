@@ -1,0 +1,160 @@
+---
+title: "Composites"
+description: "The 24 building blocks under apps/ui/src/components/shared/. HQ-specific compositions that every feature module reuses."
+---
+
+Composites are the layer above [primitives](/design/components/primitives). They live in [`apps/ui/src/components/shared/`](https://github.com/yourhq/yourhq/tree/main/apps/ui/src/components/shared) and encode product-level decisions: how a list is filtered, how a detail surface is laid out, how a confirm dialog phrases its tones, how an empty state looks. Every feature module — CRM, tasks, agents, knowledge, collections, routines — composes from these.
+
+The rule for adding to `shared/`: a component belongs here when it solves the same problem in two or more modules. One-module solutions live inside the feature module. Stylistic primitives belong in [`ui/`](/design/components/primitives).
+
+## Page structure
+
+The pieces that frame every screen.
+
+### `PageHeader`, `PageSection`
+
+[`shared/page-header.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/page-header.tsx)
+
+The standard top of every dashboard route. Icon, title, description, primary action, secondary actions, optional meta and tabs. `PageSection` is its in-page sibling for grouping content under a heading and optional action button. Use these on every route — bespoke headers fragment the visual rhythm of the app.
+
+### `HeaderBar`
+
+[`shared/header-bar.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/header-bar.tsx)
+
+The horizontal bar at the top of the dashboard shell. Carries breadcrumbs (with UUID → entity-name resolution), theme toggle, notifications, user menu. Owned by the shell — feature code should not mount its own header bar.
+
+### `SidePanel`
+
+[`shared/side-panel.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/side-panel.tsx)
+
+The right-sliding sheet for sustained record editing — when the user is browsing a list and adding or editing one of its rows. Width presets `md` (480px), `lg` (560px, default), `xl` (720px). Sticky footer for actions. Pick by user mode, not field count: `SidePanel` for record management, `Dialog` for quick capture or focused decisions — see [creation and editing](/design/patterns/creation-and-editing).
+
+### `DetailSidebar`, `DetailSidebarMobile`, `DetailSidebarSection`
+
+[`shared/detail-sidebar.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/detail-sidebar.tsx)
+
+The 280px right rail used on heavy detail pages (agent, gateway, knowledge). Sticky on desktop, drawer on mobile, both backed by the same `DetailSidebarSection` children so content authors don't write the layout twice.
+
+### `DetailHeader`
+
+[`shared/detail-header.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/detail-header.tsx)
+
+The header bar inside a detail view: back button, breadcrumb, action buttons (copy, archive, delete), title with inline-edit support. Distinct from the global `HeaderBar`.
+
+## Lists and tables
+
+### `DataTable`
+
+[`shared/data-table.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/data-table.tsx)
+
+TanStack-backed table. Sortable columns, sticky headers, configurable row heights (compact / normal / comfortable), row click handlers, loading skeleton fallback, empty-state slot. Every table view in the app is a `DataTable` — never render `Table` directly for data lists.
+
+### `FilterBar`
+
+[`shared/filter-bar.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/filter-bar.tsx)
+
+The horizontal control strip above lists. Search input on the left, filter controls in the middle, action buttons on the right, item count on the far right. Composable — modules pass their own filter controls as children.
+
+### `ColumnToggle`
+
+[`shared/column-toggle.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/column-toggle.tsx)
+
+Dropdown menu for showing/hiding columns. Groups standard fields and custom fields separately, with a "reset to defaults" action. State is owned by the `use-column-visibility` hook and persisted to `localStorage`.
+
+### `ArchiveToggle`
+
+[`shared/archive-toggle.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/archive-toggle.tsx)
+
+The "show archived" filter. Reused across CRM, tasks, knowledge, collections so the affordance is the same everywhere.
+
+### `InlineCreateRow`
+
+[`shared/inline-create-row.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/inline-create-row.tsx)
+
+A row at the bottom of a list (or kanban column) that turns into an input on click — Enter creates, Escape cancels. The inline counterpart to opening a `SidePanel`. Use for fast, single-field creates (a task title, a folder name).
+
+## Navigation and search
+
+### `CommandPalette`
+
+[`shared/command-palette.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/command-palette.tsx)
+
+The Cmd+K palette. cmdk-based. Sections when no query: Recent, Navigation, Collections, Quick Actions. With a query: grouped search results across knowledge, knowledge chunks, tasks, contacts, collections, agents, routines. Recent items persist via `localStorage`. New navigation entries register here, not in a parallel registry.
+
+### `KeyboardShortcutsProvider`, `useShortcuts`, `KeyboardShortcutsHelp`
+
+[`shared/keyboard-shortcuts.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/keyboard-shortcuts.tsx)
+
+The global shortcut registry. G-then-letter navigation with an 800ms double-tap window, `?` to open the help sheet, input-aware (skips when focus is in `INPUT`, `TEXTAREA`, or `contentEditable`). All app-wide shortcuts register here so users have one place to discover them.
+
+### `ModulesContext`
+
+[`shared/modules-context.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/modules-context.tsx)
+
+Provides which modules are enabled for the current workspace (CRM, tasks, agents, knowledge, collections, routines). Sidebar groups, command palette navigation, and keyboard shortcuts all gate on this context — never check workspace settings directly inside a feature component.
+
+## Forms and fields
+
+### `DynamicField`, `DynamicFieldGroup`
+
+[`shared/dynamic-field.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/dynamic-field.tsx), [`shared/dynamic-field-group.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/dynamic-field-group.tsx)
+
+Renders a form field from a `FieldDefinition` (text, number, select, multi-select, date, boolean, url, email, phone, rich-text, relation). Custom fields on contacts, organizations, tasks, and collections all flow through this. `DynamicFieldGroup` lays out a related set of fields with a shared label.
+
+### `EntityLinkPicker`, `EntityLinkList`
+
+[`shared/entity-link-picker.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/entity-link-picker.tsx), [`shared/entity-link-list.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/entity-link-list.tsx)
+
+The polymorphic linking UI. `EntityLinkPicker` is a popover-with-search that links the current entity to any other (contact, organization, task, knowledge item, URL, file). `EntityLinkList` displays linked entities as removable chips. The `entity_links` table backs both.
+
+### `FileDropZone`
+
+[`shared/file-drop-zone.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/file-drop-zone.tsx)
+
+Drop-and-pick file upload with preview, used by knowledge file uploads, CRM imports, and avatar pickers. Handles drag-over state, file-type validation, and progress.
+
+## Trees
+
+### `FolderTree`
+
+[`shared/folder-tree.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/folder-tree.tsx)
+
+Recursive folder UI built on `@dnd-kit`. Expand/collapse state persists to `localStorage`, inline rename, context menu for create/rename/delete/icon-pick, item counts per folder. Used by knowledge folders today; the canonical drag-and-drop pattern for any future tree.
+
+## Confirmations and feedback
+
+### `ConfirmDialog`, `ConfirmDeleteDialog`
+
+[`shared/confirm-dialog.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/confirm-dialog.tsx), [`shared/confirm-delete-dialog.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/confirm-delete-dialog.tsx)
+
+Tone-aware confirmation modal. Tones: `default` (neutral), `warning` (amber), `destructive` (red). Auto-swaps the icon, the confirm button variant, and the busy spinner during async confirms. `ConfirmDeleteDialog` is a thin preset for deletes — use it for anything irreversible.
+
+### `EmptyState`
+
+[`shared/empty-state.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/empty-state.tsx)
+
+The blank-list pattern. Variants: `default` (welcoming, with primary action), `filtered` (with "Clear filters" secondary action). `compact` mode for inline contexts (sidebars, modals). Always include an icon, title, and description; let users do something next.
+
+### `LoadingSkeleton`
+
+[`shared/loading-skeleton.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/loading-skeleton.tsx)
+
+Five presets: `table` (header + body rows with realistic column widths), `cards` (responsive grid), `list` (icon + text + meta rows), `feed` (avatar + text + timestamp), `detail` (grouped section blocks). Match the skeleton to the layout it replaces — never use a generic spinner where a layout skeleton fits.
+
+## Banners
+
+### `SchemaVersionBanner`
+
+[`shared/schema-version-banner.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/schema-version-banner.tsx)
+
+The top-of-page banner that appears when the active Supabase project's schema lags the UI's expected migration set. Links to the migration guide. The only "blocking" inline alert in the product — most feedback uses toasts.
+
+## When to add a composite
+
+Three-question test:
+
+1. **Does this exist in two or more modules already?** If you're about to copy something from `crm/` into `tasks/`, that's the threshold. Lift it into `shared/` first.
+2. **Is the API stable?** Composites encode shape decisions. If you're not sure of the props yet, leave it inside the feature for one more iteration before promoting.
+3. **Does it depend on anything outside `ui/`, `shared/`, `lib/utils`, and React?** Composites must not import from feature modules. If yours needs a feature hook, the abstraction is wrong — pass the data in.
+
+If all three are yes, add to `shared/` with the existing naming (kebab-case file, PascalCase component, types colocated or imported from `lib/`). If any are no, keep it inside the module for now.

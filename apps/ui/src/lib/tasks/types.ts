@@ -149,19 +149,19 @@ export const STREAM_TYPES: { value: StreamType; label: string }[] = [
 ];
 
 export const STATUS_COLORS: Record<TaskStatus, string> = {
-  todo: "bg-gray-500/20 text-gray-400",
-  in_progress: "bg-blue-500/20 text-blue-400",
-  blocked: "bg-red-500/20 text-red-400",
-  done: "bg-green-500/20 text-green-400",
-  cancelled: "bg-zinc-500/20 text-zinc-400",
-  missed: "bg-amber-500/20 text-amber-400",
+  todo: "bg-status-neutral/20 text-status-neutral",
+  in_progress: "bg-status-info/20 text-status-info",
+  blocked: "bg-status-error/20 text-status-error",
+  done: "bg-status-success/20 text-status-success",
+  cancelled: "bg-status-neutral/20 text-status-neutral",
+  missed: "bg-status-warning/20 text-status-warning",
 };
 
 export const PRIORITY_COLORS: Record<TaskPriority, string> = {
-  urgent: "bg-red-500/20 text-red-400",
-  high: "bg-orange-500/20 text-orange-400",
-  medium: "bg-yellow-500/20 text-yellow-400",
-  low: "bg-slate-500/20 text-slate-400",
+  urgent: "bg-priority-urgent/20 text-priority-urgent",
+  high: "bg-priority-high/20 text-priority-high",
+  medium: "bg-priority-medium/20 text-priority-medium",
+  low: "bg-priority-low/20 text-priority-low",
 };
 
 export const STATUS_ICONS: Record<TaskStatus, string> = {
