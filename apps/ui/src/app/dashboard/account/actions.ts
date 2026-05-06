@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { getWorkspaceSession } from "@/lib/projects/hosted-registry";
 import { WORKER_URL, workerHeaders } from "@/lib/worker-client";
 
 interface WorkspaceInfo {
@@ -16,16 +17,8 @@ export async function listWorkspacesAction(): Promise<{
   workspaces?: WorkspaceInfo[];
   error?: string;
 }> {
-  const jar = await cookies();
-  const raw = jar.get("hq_workspace_session")?.value;
-  if (!raw) return { ok: false, error: "Not logged in." };
-
-  let session: { workspaceId: string };
-  try {
-    session = JSON.parse(Buffer.from(raw, "base64url").toString());
-  } catch {
-    return { ok: false, error: "Invalid session." };
-  }
+  const session = await getWorkspaceSession();
+  if (!session) return { ok: false, error: "Not logged in." };
 
   const res = await fetch(
     `${WORKER_URL}/workspaces/${session.workspaceId}/siblings`,
@@ -42,6 +35,21 @@ export async function cancelWorkspaceAction(workspaceId: string): Promise<{
   ok: boolean;
   error?: string;
 }> {
+  const session = await getWorkspaceSession();
+  if (!session) return { ok: false, error: "Not logged in." };
+
+  const siblings = await fetch(
+    `${WORKER_URL}/workspaces/${session.workspaceId}/siblings`,
+    { headers: workerHeaders() },
+  );
+  if (!siblings.ok) {
+    return { ok: false, error: "Failed to verify workspace ownership." };
+  }
+  const data = (await siblings.json()) as { workspaces: WorkspaceInfo[] };
+  if (!data.workspaces.some((w) => w.id === workspaceId)) {
+    return { ok: false, error: "Workspace not found." };
+  }
+
   const res = await fetch(
     `${WORKER_URL}/workspaces/${workspaceId}/cancel`,
     { method: "POST", headers: workerHeaders() },
@@ -58,16 +66,8 @@ export async function getBillingPortalAction(): Promise<{
   url?: string;
   error?: string;
 }> {
-  const jar = await cookies();
-  const raw = jar.get("hq_workspace_session")?.value;
-  if (!raw) return { ok: false, error: "Not logged in." };
-
-  let session: { workspaceId: string };
-  try {
-    session = JSON.parse(Buffer.from(raw, "base64url").toString());
-  } catch {
-    return { ok: false, error: "Invalid session." };
-  }
+  const session = await getWorkspaceSession();
+  if (!session) return { ok: false, error: "Not logged in." };
 
   const res = await fetch(
     `${WORKER_URL}/workspaces/${session.workspaceId}/billing-portal`,

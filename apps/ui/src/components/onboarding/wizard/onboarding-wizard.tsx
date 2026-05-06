@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useWizardState, clearWizardSession, type WizardData } from "./use-wizard-state";
+import { useWizardState, clearWizardSession, type WizardData, type WizardStep } from "./use-wizard-state";
 import { StepWelcome } from "./step-welcome";
 import { StepIntent } from "./step-intent";
 import { StepInfrastructure, type InfraStatus, type SchemaInstallState } from "./step-infrastructure";
@@ -42,10 +42,11 @@ const INTENT_TO_TEMPLATE: Record<string, { branch: string; name: string; emoji: 
 
 export interface OnboardingWizardProps {
   isHosted: boolean;
+  initialStep?: WizardStep;
   initialData?: WizardData;
 }
 
-export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProps) {
+export function OnboardingWizard({ isHosted, initialStep, initialData }: OnboardingWizardProps) {
   const router = useRouter();
   const {
     step,
@@ -58,7 +59,7 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
     error,
     setError,
     isFirst,
-  } = useWizardState({ isHosted, initialData });
+  } = useWizardState({ isHosted, initialStep, initialData });
 
   // Infrastructure state (OSS only)
   const [infraStatus, setInfraStatus] = useState<InfraStatus>({

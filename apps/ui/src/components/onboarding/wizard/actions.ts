@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { patchOnboardingState, addProject, getActiveProject } from "@/lib/projects/registry";
+import { patchOnboardingState, addProject, getActiveProject } from "@/lib/projects";
 import { cookies } from "next/headers";
 import { ACTIVE_PROJECT_COOKIE, ACTIVE_PROJECT_COOKIE_OPTIONS } from "@/lib/projects/cookie";
 import { createAdminClient } from "@/lib/supabase/admin";

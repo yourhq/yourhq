@@ -270,9 +270,11 @@ services:
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       STRIPE_PRICE_ID: ${STRIPE_PRICE_ID:-}
       WORKER_INTERNAL_TOKEN: ${WORKER_INTERNAL_TOKEN:-}
+      HOSTED_SECRETS_KEY: ${HOSTED_SECRETS_KEY:-}
       PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-http://localhost:3000}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       E2B_API_KEY: ${E2B_API_KEY:-}
+      E2B_TEMPLATE_NAME: ${E2B_TEMPLATE_NAME:-yourhq-gateway}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 1"]
       interval: 30s

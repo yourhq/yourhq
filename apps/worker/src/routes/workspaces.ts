@@ -8,6 +8,8 @@ import {
   updateWorkspace,
 } from "../lib/master-supabase.js";
 import { createCheckoutSession, createBillingPortalSession, getStripe } from "../lib/stripe.js";
+import { decryptSecret } from "../lib/secret-crypto.js";
+import { getPublicSiteUrl } from "../lib/env.js";
 
 const app = new Hono();
 
@@ -18,8 +20,6 @@ app.get("/users/by-email/:email", async (c) => {
   if (!user) return c.json({ error: "User not found" }, 404);
 
   const workspaces = await getWorkspacesForUser(user.id);
-  // service_role_key included — endpoint is bearer-auth-gated, key is
-  // stored in an httpOnly cookie server-side, never exposed to browser JS.
   return c.json({
     user: { id: user.id, email: user.email, display_name: user.display_name },
     workspaces: workspaces.map((w) => ({
@@ -29,9 +29,49 @@ app.get("/users/by-email/:email", async (c) => {
       status: w.subscription_status,
       supabase_url: w.supabase_url,
       supabase_anon_key: w.supabase_anon_key,
-      supabase_service_role_key: w.supabase_service_role_key_enc,
     })),
   });
+});
+
+// Resolve the active workspace's Supabase config for the UI server.
+// This route is internal-token gated and should never be called from browser JS.
+app.get("/workspaces/:id/project", async (c) => {
+  const ws = await getWorkspace(c.req.param("id"));
+  if (!ws) return c.json({ error: "Not found" }, 404);
+
+  return c.json({
+    id: ws.id,
+    label: ws.label,
+    emoji: ws.emoji,
+    status: ws.subscription_status,
+    supabase_url: ws.supabase_url,
+    supabase_anon_key: ws.supabase_anon_key,
+    supabase_service_role_key: decryptSecret(ws.supabase_service_role_key_enc),
+    setup_metadata: ws.setup_metadata ?? {},
+  });
+});
+
+// Persist hosted onboarding progress in the master control plane. The tenant
+// project remains the source of truth for product data; this is only wizard state.
+app.patch("/workspaces/:id/onboarding", async (c) => {
+  const ws = await getWorkspace(c.req.param("id"));
+  if (!ws) return c.json({ error: "Not found" }, 404);
+
+  const body = await c.req.json<{
+    step?: string;
+    complete?: boolean;
+    data?: Record<string, unknown>;
+  }>();
+  const previous = ws.setup_metadata ?? {};
+  const next = {
+    ...previous,
+    onboardingStep: body.step ?? previous.onboardingStep,
+    onboardingComplete: body.complete ?? previous.onboardingComplete ?? false,
+    ...(body.data ?? {}),
+  };
+
+  await updateWorkspace(ws.id, { setup_metadata: next } as Record<string, unknown>);
+  return c.json({ ok: true, setup_metadata: next });
 });
 
 // Get workspace provisioning status (polled by /provision page)
@@ -99,7 +139,18 @@ app.post("/checkout", async (c) => {
       subscription_status: "pending",
       setup_metadata: {
         ownerName: body.ownerName || "",
+        preferredName: body.ownerName || "",
+        workspaceName: body.workspaceLabel || "My Workspace",
+        workspaceSlug: (body.workspaceLabel || "workspace")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "")
+          .slice(0, 40) || "workspace",
+        intentKey: body.contextPreset || "other",
+        contextPresetKey: body.contextPreset || "other",
         contextPreset: body.contextPreset || "other",
+        onboardingStep: "provider",
+        onboardingComplete: false,
       },
     })
     .select("id")
@@ -108,9 +159,10 @@ app.post("/checkout", async (c) => {
     return c.json({ error: error?.message ?? "Failed to create workspace" }, 500);
   }
 
-  const origin = c.req.header("origin") ?? "https://yourhq.ai";
+  const origin = getPublicSiteUrl();
   const url = await createCheckoutSession({
     customerEmail: email,
+    customerId: user.stripe_customer_id,
     workspaceId: ws.id,
     successUrl: `${origin}/provision/${ws.id}`,
     cancelUrl: `${origin}/signup`,
@@ -160,7 +212,7 @@ app.post("/workspaces/:id/billing-portal", async (c) => {
     return c.json({ error: "No billing account found" }, 400);
   }
 
-  const origin = c.req.header("origin") ?? "https://yourhq.ai";
+  const origin = getPublicSiteUrl();
   const url = await createBillingPortalSession(
     user.stripe_customer_id,
     `${origin}/dashboard/account`,

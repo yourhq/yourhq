@@ -8,6 +8,7 @@ import type {
 } from "./schema";
 import { cookies } from "next/headers";
 import { WORKER_URL, workerHeaders } from "@/lib/worker-client";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 interface HostedWorkspaceData {
   id: string;
@@ -16,34 +17,82 @@ interface HostedWorkspaceData {
   status: string;
   supabase_url: string | null;
   supabase_anon_key: string | null;
-  supabase_service_role_key: string | null;
 }
 
 interface WorkspaceSession {
   workspaceId: string;
-  supabaseUrl: string;
-  supabaseAnonKey: string;
-  serviceRoleKey: string;
+  iat: number;
 }
 
-async function getSession(): Promise<WorkspaceSession | null> {
+interface HostedProjectData {
+  id: string;
+  label: string;
+  emoji: string | null;
+  status: string;
+  supabase_url: string | null;
+  supabase_anon_key: string | null;
+  supabase_service_role_key: string | null;
+  setup_metadata?: Record<string, unknown>;
+}
+
+const SESSION_COOKIE = "hq_workspace_session";
+export { SESSION_COOKIE as HOSTED_SESSION_COOKIE };
+
+function signingSecret(): string {
+  const secret = process.env.WORKER_INTERNAL_TOKEN;
+  if (!secret || secret.length < 32) {
+    throw new Error("WORKER_INTERNAL_TOKEN must be set to validate hosted sessions");
+  }
+  return secret;
+}
+
+function sign(payload: string): string {
+  return createHmac("sha256", signingSecret()).update(payload).digest("base64url");
+}
+
+function verifySignature(payload: string, signature: string): boolean {
+  const expected = sign(payload);
+  const a = Buffer.from(signature);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+export function createWorkspaceSessionValue(workspaceId: string): string {
+  const payload = Buffer.from(
+    JSON.stringify({ workspaceId, iat: Math.floor(Date.now() / 1000) }),
+  ).toString("base64url");
+  return `${payload}.${sign(payload)}`;
+}
+
+export async function getWorkspaceSession(): Promise<WorkspaceSession | null> {
   const jar = await cookies();
-  const raw = jar.get("hq_workspace_session")?.value;
+  const raw = jar.get(SESSION_COOKIE)?.value;
   if (!raw) return null;
+  const [payload, signature] = raw.split(".");
+  if (!payload || !signature || !verifySignature(payload, signature)) return null;
   try {
-    return JSON.parse(Buffer.from(raw, "base64url").toString()) as WorkspaceSession;
+    return JSON.parse(Buffer.from(payload, "base64url").toString()) as WorkspaceSession;
   } catch {
     return null;
   }
 }
 
-function sessionToProject(session: WorkspaceSession): PublicProject {
+async function fetchHostedProject(workspaceId: string): Promise<HostedProjectData | null> {
+  const res = await fetch(
+    `${WORKER_URL}/workspaces/${workspaceId}/project`,
+    { headers: workerHeaders(), cache: "no-store" },
+  );
+  if (!res.ok) return null;
+  return res.json();
+}
+
+function hostedProjectToPublicProject(project: HostedProjectData): PublicProject {
   return {
-    id: session.workspaceId,
-    label: "Workspace",
-    emoji: "🏠",
-    url: session.supabaseUrl,
-    anonKey: session.supabaseAnonKey,
+    id: project.id,
+    label: project.label || "Workspace",
+    emoji: project.emoji || "🏠",
+    url: project.supabase_url || "",
+    anonKey: project.supabase_anon_key || "",
     isDefault: true,
     createdAt: new Date().toISOString(),
     uiOrigins: [],
@@ -53,38 +102,108 @@ function sessionToProject(session: WorkspaceSession): PublicProject {
 export async function getActiveProject(
   _activeIdHint?: string | null,
 ): Promise<PublicProject | null> {
-  const session = await getSession();
+  const session = await getWorkspaceSession();
   if (!session) return null;
-  return sessionToProject(session);
+  const project = await fetchHostedProject(session.workspaceId);
+  if (!project?.supabase_url || !project.supabase_anon_key) return null;
+  return hostedProjectToPublicProject(project);
 }
 
 export async function getActiveProjectWithSecrets(
   _activeIdHint?: string | null,
 ): Promise<ProjectWithSecrets | null> {
-  const session = await getSession();
+  const session = await getWorkspaceSession();
   if (!session) return null;
+  const project = await fetchHostedProject(session.workspaceId);
+  if (!project?.supabase_url || !project.supabase_anon_key || !project.supabase_service_role_key) {
+    return null;
+  }
   return {
-    ...sessionToProject(session),
-    serviceRoleKey: session.serviceRoleKey,
+    ...hostedProjectToPublicProject(project),
+    serviceRoleKey: project.supabase_service_role_key,
   };
 }
 
 export async function getProjectSecrets(
-  _id: string,
+  id: string,
 ): Promise<ProjectSecrets | null> {
-  const session = await getSession();
-  if (!session) return null;
-  return { serviceRoleKey: session.serviceRoleKey };
+  const session = await getWorkspaceSession();
+  if (!session || session.workspaceId !== id) return null;
+  const project = await fetchHostedProject(session.workspaceId);
+  if (!project?.supabase_service_role_key) return null;
+  return { serviceRoleKey: project.supabase_service_role_key };
+}
+
+export async function listSiblingProjects(): Promise<PublicProject[]> {
+  const session = await getWorkspaceSession();
+  if (!session) return [];
+
+  const res = await fetch(
+    `${WORKER_URL}/workspaces/${session.workspaceId}/siblings`,
+    { headers: workerHeaders(), cache: "no-store" },
+  );
+  if (!res.ok) return [];
+
+  const data = (await res.json()) as {
+    workspaces: Array<{
+      id: string;
+      label: string;
+      emoji: string | null;
+      subscription_status: string;
+    }>;
+  };
+
+  return data.workspaces
+    .filter((w) => w.subscription_status === "active")
+    .map((w) => ({
+      id: w.id,
+      label: w.label || "Workspace",
+      emoji: w.emoji || "🏠",
+      url: "",
+      anonKey: "",
+      isDefault: w.id === session.workspaceId,
+      createdAt: new Date().toISOString(),
+      uiOrigins: [],
+    }));
+}
+
+export async function canAccessWorkspace(workspaceId: string): Promise<boolean> {
+  const session = await getWorkspaceSession();
+  if (!session) return false;
+  if (session.workspaceId === workspaceId) return true;
+  const siblings = await listSiblingProjects();
+  return siblings.some((p) => p.id === workspaceId);
 }
 
 export async function getOnboardingState(): Promise<OnboardingState> {
-  const session = await getSession();
+  const session = await getWorkspaceSession();
   if (session) {
+    const project = await fetchHostedProject(session.workspaceId);
+    const metadata = project?.setup_metadata ?? {};
+    const complete = metadata.onboardingComplete === true;
+    const step = typeof metadata.onboardingStep === "string"
+      ? metadata.onboardingStep
+      : "provider";
     return {
       version: 1 as const,
-      step: "done",
-      complete: true,
-      data: {},
+      step: complete ? "done" : "welcome",
+      complete,
+      data: {
+        ownerName: metadata.ownerName,
+        preferredName: metadata.preferredName ?? metadata.ownerName,
+        workspaceName: metadata.workspaceName ?? project?.label,
+        workspaceLabel: metadata.workspaceName ?? project?.label,
+        workspaceSlug: metadata.workspaceSlug,
+        intentKey: metadata.intentKey ?? metadata.contextPreset,
+        contextPresetKey: metadata.contextPresetKey ?? metadata.contextPreset,
+        providerId: metadata.providerId,
+        providerCommandId: metadata.providerCommandId,
+        agentId: metadata.agentId,
+        agentSlug: metadata.agentSlug,
+        agentName: metadata.agentName,
+        agentEmoji: metadata.agentEmoji,
+        hostedInitialStep: step,
+      },
       updatedAt: new Date().toISOString(),
     };
   }
@@ -95,6 +214,26 @@ export async function getOnboardingState(): Promise<OnboardingState> {
     data: {},
     updatedAt: new Date().toISOString(),
   };
+}
+
+export async function patchOnboardingState(
+  patch: Partial<Pick<OnboardingState, "step" | "complete">> & {
+    data?: Record<string, unknown>;
+  },
+): Promise<OnboardingState> {
+  const session = await getWorkspaceSession();
+  if (!session) return getOnboardingState();
+
+  await fetch(`${WORKER_URL}/workspaces/${session.workspaceId}/onboarding`, {
+    method: "PATCH",
+    headers: {
+      ...workerHeaders(),
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(patch),
+  });
+
+  return getOnboardingState();
 }
 
 export async function lookupUserWorkspaces(

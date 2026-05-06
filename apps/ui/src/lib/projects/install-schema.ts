@@ -89,7 +89,7 @@ export async function prepareSchemaInstall(
   input: InstallSchemaInput,
 ): Promise<InstallSchemaResult> {
   const base = input.url.replace(/\/$/, "");
-  console.log(`[install-schema] preparing for ${base}`);
+  console.log("[install-schema] preparing schema install");
   let sql: string;
   try {
     sql = await readSchemaSql();
@@ -116,7 +116,7 @@ export async function verifySchemaInstalled(
 ): Promise<boolean> {
   const base = input.url.replace(/\/$/, "");
   const endpoint = `${base}/rest/v1/workspace?select=id&limit=1`;
-  console.log(`[verify-schema] GET ${endpoint}`);
+  console.log("[verify-schema] probing workspace table");
   try {
     const res = await fetch(endpoint, {
       headers: {
@@ -125,7 +125,7 @@ export async function verifySchemaInstalled(
       },
     });
     const body = await res.text().catch(() => "");
-    console.log(`[verify-schema] ← ${res.status} body=${body.slice(0, 200)}`);
+    console.log(`[verify-schema] status=${res.status} body_bytes=${body.length}`);
     return res.ok;
   } catch (err) {
     console.error(`[verify-schema] threw: ${(err as Error).message}`);

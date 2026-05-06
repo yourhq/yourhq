@@ -42,12 +42,16 @@ export interface HostedWorkspace {
   e2b_access_token: string | null;
   novnc_url: string | null;
   vnc_password_enc: string | null;
-  setup_metadata: {
+  setup_metadata: Record<string, unknown> & {
     ownerName?: string;
     contextPreset?: string;
+    onboardingComplete?: boolean;
   };
   provision_stage: string | null;
   provision_error: string | null;
+  provision_attempts: number;
+  last_provision_attempt_at: string | null;
+  auto_login_url?: string | null;
   cancel_at: string | null;
   created_at: string;
   updated_at: string;
@@ -59,6 +63,16 @@ export async function findUserByEmail(email: string): Promise<HostedUser | null>
     .from("hosted_users")
     .select("*")
     .eq("email", email.toLowerCase().trim())
+    .maybeSingle();
+  return data as HostedUser | null;
+}
+
+export async function getUser(id: string): Promise<HostedUser | null> {
+  const db = getMasterSupabase();
+  const { data } = await db
+    .from("hosted_users")
+    .select("*")
+    .eq("id", id)
     .maybeSingle();
   return data as HostedUser | null;
 }

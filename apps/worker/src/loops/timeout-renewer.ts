@@ -20,7 +20,7 @@ export function startTimeoutRenewer(provider: SandboxProvider): NodeJS.Timeout {
       try {
         await provider.renewTimeout(ws.e2b_sandbox_id, TIMEOUT_MS);
       } catch (err) {
-        console.error(`[timeout-renewer] Failed for sandbox ${ws.e2b_sandbox_id}:`, err);
+        console.error("[timeout-renewer] Failed to renew sandbox timeout");
         // Mark as error if sandbox is gone
         await db
           .from("hosted_workspaces")

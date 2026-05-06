@@ -60,6 +60,8 @@ jobs:
             yourhq-file-processor:
               - 'gateway/file-processor/**'
               - 'gateway/daemons/file_processor.py'
+            yourhq-worker:
+              - 'apps/worker/**'
 
       - name: Build matrices
         id: set-matrix
@@ -71,6 +73,7 @@ jobs:
           FILTER_RUNNER: ${{ steps.filter.outputs.yourhq-runner }}
           FILTER_EMBEDDER: ${{ steps.filter.outputs.yourhq-embedder }}
           FILTER_FILE_PROCESSOR: ${{ steps.filter.outputs.yourhq-file-processor }}
+          FILTER_WORKER: ${{ steps.filter.outputs.yourhq-worker }}
         run: |
           declare -A DOCKERFILES=(
             [yourhq-ui]="apps/ui/Dockerfile"
@@ -79,6 +82,7 @@ jobs:
             [yourhq-runner]="gateway/runner/Dockerfile"
             [yourhq-embedder]="gateway/embedder/Dockerfile"
             [yourhq-file-processor]="gateway/file-processor/Dockerfile"
+            [yourhq-worker]="apps/worker/Dockerfile"
           )
           declare -A FILTERS=(
             [yourhq-ui]="$FILTER_UI"
@@ -87,9 +91,10 @@ jobs:
             [yourhq-runner]="$FILTER_RUNNER"
             [yourhq-embedder]="$FILTER_EMBEDDER"
             [yourhq-file-processor]="$FILTER_FILE_PROCESSOR"
+            [yourhq-worker]="$FILTER_WORKER"
           )
 
-          ALL_IMAGES="yourhq-ui yourhq-gateway yourhq-dispatcher yourhq-runner yourhq-embedder yourhq-file-processor"
+          ALL_IMAGES="yourhq-ui yourhq-gateway yourhq-dispatcher yourhq-runner yourhq-embedder yourhq-file-processor yourhq-worker"
 
           BUILD_ITEMS="[]"
           MANIFEST_ITEMS="[]"

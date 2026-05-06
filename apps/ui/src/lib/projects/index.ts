@@ -38,6 +38,22 @@ export async function getOnboardingState(): Promise<OnboardingState> {
   return file.getOnboardingState();
 }
 
+export async function patchOnboardingState(
+  patch: Partial<Pick<OnboardingState, "step" | "complete">> & {
+    data?: Record<string, unknown>;
+  },
+): Promise<OnboardingState> {
+  if (isHosted) return hosted.patchOnboardingState(patch);
+  return file.patchOnboardingState(patch);
+}
+
+export async function addProject(input: Parameters<typeof file.addProject>[0]) {
+  if (isHosted) {
+    throw new Error("Hosted workspaces are provisioned automatically.");
+  }
+  return file.addProject(input);
+}
+
 export interface SwitcherProject {
   id: string;
   label: string;
@@ -51,9 +67,14 @@ export async function listSwitcherProjects(): Promise<{
   if (isHosted) {
     const project = await hosted.getActiveProject();
     if (!project) return { activeProjectId: null, projects: [] };
+    const siblings = await hosted.listSiblingProjects();
     return {
       activeProjectId: project.id,
-      projects: [{ id: project.id, label: project.label, emoji: project.emoji }],
+      projects: (siblings.length > 0 ? siblings : [project]).map((p) => ({
+        id: p.id,
+        label: p.label,
+        emoji: p.emoji,
+      })),
     };
   }
   const registry = await file.getRegistry();

@@ -17,22 +17,22 @@ export function startCleanupLoop(provider: SandboxProvider): NodeJS.Timeout {
     if (!expired?.length) return;
 
     for (const ws of expired) {
-      console.log(`[cleanup] Destroying workspace ${ws.id}`);
+      console.log("[cleanup] Destroying expired workspace");
 
       if (ws.e2b_sandbox_id) {
         try {
           await provider.destroy(ws.e2b_sandbox_id);
         } catch (err) {
-          console.error(`[cleanup] Failed to destroy sandbox ${ws.e2b_sandbox_id}:`, err);
+          console.error("[cleanup] Failed to destroy sandbox");
         }
       }
 
       if (ws.supabase_project_ref) {
         try {
           await deleteSupabaseProject(ws.supabase_project_ref);
-          console.log(`[cleanup] Deleted Supabase project ${ws.supabase_project_ref}`);
+          console.log("[cleanup] Deleted Supabase project");
         } catch (err) {
-          console.error(`[cleanup] Failed to delete Supabase project ${ws.supabase_project_ref}:`, err);
+          console.error("[cleanup] Failed to delete Supabase project");
         }
       }
 

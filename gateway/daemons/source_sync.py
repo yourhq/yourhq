@@ -226,12 +226,11 @@ def mark_deleted(item_id: str) -> None:
 
 def sync_connection(connection: dict) -> None:
     provider = connection["provider"]
-    label = connection["account_label"]
     connection_id = connection["id"]
     interval = connection.get("sync_interval_hours", 6)
     creds = connection.get("credentials", {})
 
-    log(f"Syncing {provider} connection '{label}'")
+    log(f"Syncing {provider} connection")
 
     connector = get_connector(provider)
     if not connector:
@@ -276,7 +275,7 @@ def sync_connection(connection: dict) -> None:
             item = item_by_ext_id.get(ext_id)
             if item:
                 mark_deleted(item["id"])
-                log(f"  Marked deleted: {ext_id}")
+                log("  Marked deleted item")
 
         items_to_fetch = changes.modified
         if not items_to_fetch:
@@ -294,7 +293,7 @@ def sync_connection(connection: dict) -> None:
                 upsert_item(connection_id, ext_id, content, existing)
                 synced += 1
             except Exception as e:
-                log(f"  Failed to sync item {ext_id}: {e}")
+                log(f"  Failed to sync item: {e}")
                 failed += 1
 
     except Exception as e:
@@ -345,7 +344,7 @@ def main() -> None:
         log("No Supabase credentials yet, retrying in 10s...")
         time.sleep(10)
 
-    log(f"Connected to {SUPABASE_URL}")
+    log("Connected to Supabase")
 
     while True:
         try:

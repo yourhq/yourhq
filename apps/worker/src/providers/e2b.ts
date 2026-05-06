@@ -1,7 +1,7 @@
 import { Sandbox } from "e2b";
 import type { SandboxProvider, SpawnResult } from "./types.js";
 
-const TEMPLATE_NAME = "yourhq-gateway";
+const DEFAULT_TEMPLATE_NAME = "yourhq-gateway";
 const DEFAULT_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24h
 
 export class E2BSandboxProvider implements SandboxProvider {
@@ -9,7 +9,8 @@ export class E2BSandboxProvider implements SandboxProvider {
     workspaceId: string;
     envs: Record<string, string>;
   }): Promise<SpawnResult> {
-    const sandbox = await Sandbox.create(TEMPLATE_NAME, {
+    const templateName = process.env.E2B_TEMPLATE_NAME ?? DEFAULT_TEMPLATE_NAME;
+    const sandbox = await Sandbox.create(templateName, {
       envs: {
         ...opts.envs,
         RUNTIME_MODE: "e2b",

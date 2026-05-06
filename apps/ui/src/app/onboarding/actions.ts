@@ -511,7 +511,6 @@ export async function createAuthUserAction(
   // doesn't need to round-trip the service_role_key from the browser).
   let url = parsed.data.url;
   let serviceRoleKey = parsed.data.serviceRoleKey;
-  let credsSource = "form";
   if (!url || !serviceRoleKey) {
     const { getActiveProjectWithSecrets } = await import("@/lib/projects/registry");
     const project = await getActiveProjectWithSecrets();
@@ -528,12 +527,7 @@ export async function createAuthUserAction(
     // when StepAccount doesn't have these values; treat empty as missing.
     url = url || project.url;
     serviceRoleKey = serviceRoleKey || project.serviceRoleKey;
-    credsSource = "registry";
   }
-  console.log(
-    `[createAuthUserAction] creds from ${credsSource}: url=${url} ` +
-      `key prefix=${serviceRoleKey.slice(0, 12)}… (length=${serviceRoleKey.length})`,
-  );
 
   const r = await createAuthUser({
     url,
