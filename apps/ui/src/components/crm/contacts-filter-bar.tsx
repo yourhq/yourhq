@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { PRIORITIES } from "@/lib/crm/types";
 import { usePipelineStages } from "@/hooks/use-pipeline-stages";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,6 +21,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
+import {
   Plus,
   Clock,
   RefreshCw,
@@ -29,6 +38,8 @@ import {
   Archive,
   Upload,
   X,
+  SlidersHorizontal,
+  MoreVertical,
 } from "lucide-react";
 import type { ViewMode } from "@/hooks/use-contacts";
 import { cn } from "@/lib/utils";
@@ -101,6 +112,8 @@ export function ContactsFilterBar({
   onClearFilters,
   columnToggle,
 }: ContactsFilterBarProps) {
+  const mobile = useIsMobile();
+  const [filterOpen, setFilterOpen] = useState(false);
   const { stages, stagesByKey } = usePipelineStages("contact");
 
   const activeStatusLabel =
@@ -117,6 +130,179 @@ export function ContactsFilterBar({
     (globalFilter.trim().length > 0 ? 1 : 0);
 
   const hasAnyActive = activeFilterCount > 0 || showArchived;
+
+  const filterChips = hasAnyActive && (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {globalFilter.trim() && (
+        <FilterChip
+          label={`Search: "${globalFilter}"`}
+          onRemove={() => onGlobalFilterChange("")}
+        />
+      )}
+      {activeStatusLabel && (
+        <FilterChip
+          label={`Status: ${activeStatusLabel}`}
+          onRemove={() => onStatusFilterChange("all")}
+        />
+      )}
+      {activePriorityLabel && (
+        <FilterChip
+          label={`Priority: ${activePriorityLabel}`}
+          onRemove={() => onPriorityFilterChange("all")}
+        />
+      )}
+      {followUpFilter && (
+        <FilterChip
+          label="Due only"
+          onRemove={() => onFollowUpFilterChange(false)}
+        />
+      )}
+      {showArchived && (
+        <FilterChip
+          label="Showing archived"
+          onRemove={() => onShowArchivedChange(false)}
+        />
+      )}
+      {activeFilterCount > 0 && (
+        <button
+          type="button"
+          onClick={onClearFilters}
+          className="ml-1 text-[11px] text-muted-foreground hover:text-foreground"
+        >
+          Clear all
+        </button>
+      )}
+    </div>
+  );
+
+  if (mobile) {
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search..."
+              value={globalFilter}
+              onChange={(e) => onGlobalFilterChange(e.target.value)}
+              className="h-9 pl-8 text-[13px]"
+            />
+          </div>
+
+          <Drawer open={filterOpen} onOpenChange={setFilterOpen}>
+            <DrawerTrigger asChild>
+              <Button variant="outline" size="icon" className="h-9 w-9 shrink-0 relative">
+                <SlidersHorizontal className="h-4 w-4" />
+                {activeFilterCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </Button>
+            </DrawerTrigger>
+            <DrawerContent className="px-4 pb-6">
+              <div className="mx-auto mt-4 h-1 w-10 rounded-full bg-muted" />
+              <div className="space-y-4 pt-4">
+                <h3 className="text-sm font-medium">Filters</h3>
+
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Status</label>
+                    <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+                      <SelectTrigger className="h-10 text-sm">
+                        <SelectValue placeholder="All statuses" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All statuses</SelectItem>
+                        {stages.map((s) => (
+                          <SelectItem key={s.stage_key} value={s.stage_key}>
+                            {s.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Priority</label>
+                    <Select value={priorityFilter} onValueChange={onPriorityFilterChange}>
+                      <SelectTrigger className="h-10 text-sm">
+                        <SelectValue placeholder="All priorities" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All priorities</SelectItem>
+                        {PRIORITIES.map((p) => (
+                          <SelectItem key={p.value} value={p.value}>
+                            {p.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant={followUpFilter ? "secondary" : "outline"}
+                      size="sm"
+                      onClick={() => onFollowUpFilterChange(!followUpFilter)}
+                      className="h-10 text-sm flex-1"
+                    >
+                      <Clock className="mr-1.5 h-4 w-4" />
+                      Due
+                    </Button>
+                    <Button
+                      variant={showArchived ? "secondary" : "outline"}
+                      size="sm"
+                      onClick={() => onShowArchivedChange(!showArchived)}
+                      className="h-10 text-sm flex-1"
+                    >
+                      <Archive className="mr-1.5 h-4 w-4" />
+                      Archived
+                    </Button>
+                  </div>
+                </div>
+
+                {activeFilterCount > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { onClearFilters(); setFilterOpen(false); }}
+                    className="w-full text-sm"
+                  >
+                    Clear all filters
+                  </Button>
+                )}
+              </div>
+            </DrawerContent>
+          </Drawer>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onRefresh}>
+                <RefreshCw className="mr-2 h-3.5 w-3.5" />
+                Refresh
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onImport}>
+                <Upload className="mr-2 h-3.5 w-3.5" />
+                Import
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button size="icon" className="h-9 w-9 shrink-0" onClick={onAddContact}>
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {filterChips}
+      </div>
+    );
+  }
 
   return (
     <TooltipProvider>
@@ -276,49 +462,7 @@ export function ContactsFilterBar({
         </div>
 
         {/* Active filter chips */}
-        {hasAnyActive && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {globalFilter.trim() && (
-              <FilterChip
-                label={`Search: "${globalFilter}"`}
-                onRemove={() => onGlobalFilterChange("")}
-              />
-            )}
-            {activeStatusLabel && (
-              <FilterChip
-                label={`Status: ${activeStatusLabel}`}
-                onRemove={() => onStatusFilterChange("all")}
-              />
-            )}
-            {activePriorityLabel && (
-              <FilterChip
-                label={`Priority: ${activePriorityLabel}`}
-                onRemove={() => onPriorityFilterChange("all")}
-              />
-            )}
-            {followUpFilter && (
-              <FilterChip
-                label="Due only"
-                onRemove={() => onFollowUpFilterChange(false)}
-              />
-            )}
-            {showArchived && (
-              <FilterChip
-                label="Showing archived"
-                onRemove={() => onShowArchivedChange(false)}
-              />
-            )}
-            {activeFilterCount > 0 && (
-              <button
-                type="button"
-                onClick={onClearFilters}
-                className="ml-1 text-[11px] text-muted-foreground hover:text-foreground"
-              >
-                Clear all
-              </button>
-            )}
-          </div>
-        )}
+        {filterChips}
       </div>
     </TooltipProvider>
   );
