@@ -5,7 +5,7 @@
 # Needs `openclaw` CLI because wake_agent() shells out to it. Shares the
 # gateway-state volume read-only so it can resolve agent IDs from openclaw.json.
 # =============================================================================
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
