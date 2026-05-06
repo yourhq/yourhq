@@ -125,6 +125,60 @@ In rough order of importance:
 7. **Generate strong secrets.** `openssl rand -hex 32` for `GATEWAY_AUTH_TOKEN`. Use a password manager for your Supabase credentials.
 8. **Update regularly.** Until gateway update actions are available in the UI, run `docker compose pull && docker compose up -d` manually.
 
+## Hosted trust model
+
+If you use the hosted offering at yourhq.ai, the trust boundaries are different from self-hosted. Here's what you should know.
+
+### Your data lives in a dedicated database
+
+Each hosted workspace gets its own Supabase project. Your data is not shared with other tenants — there is no multi-tenant database. Row-level security policies enforce `tenant_id` isolation within each project, but in practice each project has exactly one tenant.
+
+### Credentials are encrypted at rest
+
+Your Supabase service-role key, database password, and VNC password are encrypted with ChaCha20-Poly1305 before being stored in the control-plane database. The encryption key (`HOSTED_SECRETS_KEY`) is held in the worker's environment, not in the database.
+
+### What the control plane stores
+
+The master database (`hosted_workspaces`) stores:
+
+- Your email address and display name
+- Stripe customer and subscription IDs
+- Your workspace's Supabase project reference, URL, and anon key (not secret — same data the browser uses)
+- Encrypted service-role key and database password
+- E2B sandbox ID, status, and access URLs
+- Provisioning progress and setup metadata (workspace name, chosen template)
+
+### What we can access
+
+- **Supabase Management API**: we use this to create, configure, and delete your Supabase project. We can read project status and API keys. We cannot read your data through the management API.
+- **Service-role key**: decrypted at provisioning time and passed to your gateway sandbox. After provisioning, the worker only decrypts it when the UI requests your project config (to connect your browser to your Supabase). We do not read your Supabase data.
+- **E2B sandbox**: we can pause, resume, and destroy your sandbox. We do not connect to it, run commands in it, or read files from it during normal operation.
+- **Worker internal token**: authenticates requests between the UI and the worker service. It is not a user credential.
+
+### What we cannot access
+
+- **Your Supabase data**: we don't query your contacts, tasks, knowledge items, or agent data. The UI connects directly from your browser to your Supabase project.
+- **Your agent sessions**: agents run inside the E2B sandbox. We don't intercept, log, or monitor agent activity.
+- **Your VNC sessions**: noVNC traffic flows directly between your browser and the sandbox. We don't proxy or record it.
+
+### Sandbox isolation
+
+Each workspace runs in a dedicated E2B sandbox — an isolated Linux VM with its own kernel, filesystem, and network namespace. Sandboxes cannot communicate with each other. The gateway, daemons, and agents all run inside this single sandbox.
+
+### Logging policy
+
+The worker logs provisioning stages, sandbox lifecycle events (created, paused, resumed, destroyed), Stripe webhook processing, and errors. Logs include workspace IDs and event types. They do not include your Supabase data, agent outputs, message content, or VNC session data.
+
+### Cancellation and data deletion
+
+When you cancel a workspace, the sandbox is paused immediately (no compute charges during the grace period). After the 30-day grace period:
+
+1. The E2B sandbox is permanently destroyed
+2. The Supabase project is permanently deleted via the management API
+3. All encrypted credentials are cleared from the control-plane database
+
+Both deletions must succeed before the workspace is marked as fully canceled. If either fails, the cleanup loop retries every 6 hours until confirmed.
+
 ## Secrets and data we collect
 
 HQ collects no telemetry. The self-hosted stack never phones home. The only network calls HQ makes are:

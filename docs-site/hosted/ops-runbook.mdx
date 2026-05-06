@@ -1,0 +1,360 @@
+# Hosted Operations Runbook
+
+Internal operational procedures for running the HQ hosted offering. This document is not published in the docs navigation.
+
+---
+
+## Environment Setup
+
+### Required environment variables (worker)
+
+```bash
+# Master control plane
+MASTER_SUPABASE_URL=https://<ref>.supabase.co
+MASTER_SUPABASE_SERVICE_ROLE_KEY=eyJ...
+
+# Supabase Management API (tenant project creation)
+SUPABASE_MANAGEMENT_API_TOKEN=sbp_...
+SUPABASE_ORG_ID=<org-uuid>
+SUPABASE_REGION=us-east-1
+
+# E2B (sandbox provisioning)
+E2B_API_KEY=e2b_...
+E2B_TEMPLATE_NAME=yourhq-gateway
+
+# Stripe (billing)
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRICE_ID=price_...
+
+# Email (Resend)
+RESEND_API_KEY=re_...
+EMAIL_FROM=HQ <noreply@yourhq.ai>
+
+# Internal auth
+WORKER_INTERNAL_TOKEN=<random-hex-64>
+
+# Encryption for stored secrets
+HOSTED_SECRETS_KEY=<random-hex-64>
+
+# Public site URL (used for auth redirects, email links)
+PUBLIC_SITE_URL=https://yourhq.ai
+```
+
+Generate secrets:
+
+```bash
+# Worker internal token
+openssl rand -hex 32
+
+# Hosted secrets key (ChaCha20-Poly1305)
+openssl rand -hex 32
+```
+
+### Apply master schema
+
+The master schema is applied once to the control-plane Supabase project:
+
+1. Open the Supabase dashboard for the master project
+2. Go to SQL Editor
+3. Paste the contents of `apps/worker/db/master_schema.sql`
+4. Run
+
+The schema uses `CREATE TABLE IF NOT EXISTS` and `ADD COLUMN IF NOT EXISTS` — it's safe to re-run.
+
+---
+
+## E2B Template
+
+### Build the template
+
+```bash
+cd gateway
+e2b template build --name yourhq-gateway
+```
+
+This reads `e2b.toml` (4GB RAM, 2 vCPU) and builds from `gateway/Dockerfile`. Takes 5-10 minutes.
+
+### Test the template
+
+```bash
+# Spawn a test sandbox
+e2b sandbox create yourhq-gateway
+
+# Check it booted
+e2b sandbox list
+```
+
+Verify noVNC is reachable at the sandbox's port 6901 URL.
+
+### Update the template
+
+After changing the Dockerfile or entrypoint:
+
+```bash
+cd gateway
+e2b template build --name yourhq-gateway
+```
+
+Existing running sandboxes are not affected — they continue using the old template. New sandboxes will use the updated template.
+
+---
+
+## Stripe Setup
+
+### Webhook configuration
+
+1. In Stripe Dashboard → Developers → Webhooks → Add endpoint
+2. URL: `https://<worker-host>/webhooks/stripe`
+3. Subscribe to these events:
+   - `checkout.session.completed`
+   - `customer.subscription.deleted`
+   - `invoice.payment_failed`
+   - `invoice.paid`
+4. Copy the signing secret → set as `STRIPE_WEBHOOK_SECRET`
+
+### Product and price
+
+1. Create a product in Stripe (e.g., "HQ Workspace")
+2. Add a recurring price: $30/month
+3. Copy the price ID → set as `STRIPE_PRICE_ID`
+
+---
+
+## Provisioning Recovery
+
+### Diagnosing a stuck workspace
+
+```sql
+-- Find workspaces stuck in provisioning
+SELECT id, label, provision_stage, provision_error, provision_attempts, last_provision_attempt_at
+FROM hosted_workspaces
+WHERE subscription_status = 'provisioning'
+ORDER BY created_at DESC;
+```
+
+### Manual retry
+
+The provisioning retry loop runs every 5 minutes and retries up to 3 times. If all 3 attempts failed:
+
+```sql
+-- Reset attempt count to allow retry
+UPDATE hosted_workspaces
+SET provision_attempts = 0,
+    provision_error = NULL,
+    provision_stage = 'error'
+WHERE id = '<workspace-id>';
+```
+
+The retry loop will pick it up within 5 minutes.
+
+### Fixing a specific stage failure
+
+If provisioning fails at a specific stage, you may need to manually fix the state:
+
+**`creating_project` failed**: Check Supabase org limits. The Supabase Management API may have rate limits or project caps.
+
+**`applying_schema` failed**: The Supabase project was created but schema wasn't applied. Run migrations manually via Supabase SQL editor, then:
+
+```sql
+UPDATE hosted_workspaces
+SET provision_stage = 'creating_user', provision_error = NULL
+WHERE id = '<workspace-id>';
+```
+
+**`starting_sandbox` failed**: E2B may be at capacity or the template may be broken. Check `e2b sandbox list` for quota. After fixing:
+
+```sql
+UPDATE hosted_workspaces
+SET provision_stage = 'starting_sandbox', provision_error = NULL, provision_attempts = 0
+WHERE id = '<workspace-id>';
+```
+
+**`waiting_for_gateway` timed out**: The sandbox started but the gateway didn't register in the tenant Supabase within 2 minutes. Check the sandbox logs via `e2b sandbox logs <sandbox-id>`. Common causes: wrong Supabase credentials, network issues, entrypoint crash.
+
+---
+
+## Workspace Reactivation
+
+When a user contacts support to reactivate during the 30-day grace period:
+
+### 1. Resume the sandbox
+
+```bash
+# Find the sandbox ID
+psql $MASTER_SUPABASE_URL -c "
+  SELECT id, e2b_sandbox_id, e2b_sandbox_status, cancel_at
+  FROM hosted_workspaces WHERE id = '<workspace-id>';"
+
+# Resume via E2B API
+curl -X POST https://api.e2b.dev/sandboxes/<sandbox-id>/resume \
+  -H "X-API-Key: $E2B_API_KEY"
+```
+
+### 2. Reactivate the Stripe subscription
+
+```bash
+# Find the subscription ID
+psql $MASTER_SUPABASE_URL -c "
+  SELECT stripe_subscription_id FROM hosted_workspaces WHERE id = '<workspace-id>';"
+
+# In Stripe dashboard: go to the subscription → remove scheduled cancellation
+# Or via API:
+stripe subscriptions update <sub-id> --cancel-at-period-end=false
+```
+
+### 3. Update the workspace state
+
+```sql
+UPDATE hosted_workspaces
+SET subscription_status = 'active',
+    cancel_at = NULL,
+    e2b_sandbox_status = 'running',
+    cleanup_sandbox_done = false,
+    cleanup_supabase_done = false
+WHERE id = '<workspace-id>';
+
+INSERT INTO sandbox_events (workspace_id, event, metadata)
+VALUES ('<workspace-id>', 'reactivated', '{"reason": "support_request"}');
+```
+
+---
+
+## Cleanup and Deletion
+
+### Check for orphaned resources
+
+```sql
+-- Workspaces stuck in canceling with partial cleanup
+SELECT id, cleanup_sandbox_done, cleanup_supabase_done, cancel_at
+FROM hosted_workspaces
+WHERE subscription_status = 'canceling'
+  AND cancel_at < now();
+
+-- Workspaces marked canceled but still have resource refs
+SELECT id, e2b_sandbox_id, supabase_project_ref
+FROM hosted_workspaces
+WHERE subscription_status = 'canceled'
+  AND (e2b_sandbox_id IS NOT NULL OR supabase_project_ref IS NOT NULL);
+```
+
+### Force cleanup a stuck workspace
+
+If the cleanup loop can't delete a resource after multiple retries:
+
+```bash
+# Manually destroy sandbox
+curl -X DELETE https://api.e2b.dev/sandboxes/<sandbox-id> \
+  -H "X-API-Key: $E2B_API_KEY"
+
+# Manually delete Supabase project
+curl -X DELETE https://api.supabase.com/v1/projects/<project-ref> \
+  -H "Authorization: Bearer $SUPABASE_MANAGEMENT_API_TOKEN"
+```
+
+Then update the database:
+
+```sql
+UPDATE hosted_workspaces
+SET subscription_status = 'canceled',
+    e2b_sandbox_id = NULL,
+    e2b_sandbox_status = 'none',
+    supabase_project_ref = NULL,
+    supabase_url = NULL,
+    supabase_anon_key = NULL,
+    supabase_service_role_key_enc = NULL,
+    supabase_db_password_enc = NULL,
+    cleanup_sandbox_done = true,
+    cleanup_supabase_done = true
+WHERE id = '<workspace-id>';
+```
+
+---
+
+## Secret Rotation
+
+### Rotate HOSTED_SECRETS_KEY
+
+Rotating the encryption key requires re-encrypting all stored secrets:
+
+1. Generate a new key: `openssl rand -hex 32`
+2. Write a one-off script that:
+   - Reads all workspaces with encrypted fields
+   - Decrypts each with the old key
+   - Re-encrypts with the new key
+   - Updates the row
+3. Update the worker's environment with the new key
+4. Restart the worker
+
+There is no built-in rotation command yet. Handle with care — if the key is lost, encrypted credentials are unrecoverable (you'd need to re-fetch from Supabase Management API).
+
+### Rotate WORKER_INTERNAL_TOKEN
+
+1. Generate a new token: `openssl rand -hex 32`
+2. Update both the worker and UI environments simultaneously
+3. Restart both services
+
+Brief downtime during the restart — the UI can't talk to the worker with mismatched tokens.
+
+---
+
+## Payment Suspension Recovery
+
+When a workspace is suspended due to payment failures:
+
+### Automatic recovery
+
+If the user updates their payment method and Stripe retries successfully, the `invoice.paid` webhook handler automatically:
+1. Resumes the E2B sandbox
+2. Sets status back to `active`
+3. Resets the failure counter
+
+### Manual recovery
+
+If the automatic flow doesn't trigger:
+
+```sql
+-- Check current state
+SELECT id, subscription_status, payment_failure_count, e2b_sandbox_id, e2b_sandbox_status
+FROM hosted_workspaces WHERE id = '<workspace-id>';
+```
+
+```bash
+# Resume sandbox
+curl -X POST https://api.e2b.dev/sandboxes/<sandbox-id>/resume \
+  -H "X-API-Key: $E2B_API_KEY"
+```
+
+```sql
+UPDATE hosted_workspaces
+SET subscription_status = 'active',
+    payment_failure_count = 0,
+    e2b_sandbox_status = 'running'
+WHERE id = '<workspace-id>';
+
+INSERT INTO sandbox_events (workspace_id, event, metadata)
+VALUES ('<workspace-id>', 'reactivated', '{"reason": "manual_payment_recovery"}');
+```
+
+---
+
+## Monitoring Checklist
+
+Things to check regularly:
+
+- **Provisioning retry loop**: are there workspaces stuck at `provision_attempts >= 3`?
+- **Cleanup loop**: are there workspaces in `canceling` past their `cancel_at` with partial cleanup?
+- **Sandbox health**: are there workspaces with `e2b_sandbox_status = 'error'`?
+- **Payment failures**: are there workspaces with `payment_failure_count > 0` but not yet suspended?
+- **Stripe webhook health**: check Stripe dashboard for failed webhook deliveries
+
+```sql
+-- Quick health check
+SELECT
+  subscription_status,
+  e2b_sandbox_status,
+  COUNT(*) as count
+FROM hosted_workspaces
+GROUP BY subscription_status, e2b_sandbox_status
+ORDER BY count DESC;
+```
