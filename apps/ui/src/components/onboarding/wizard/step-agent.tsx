@@ -202,7 +202,7 @@ export function StepAgent({
           <button
             type="button"
             onClick={() => setPhase("name")}
-            className="group inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-[13px] font-medium text-background transition-all hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2"
+            className="group inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-[13px] font-medium text-background transition-all hover:bg-foreground/90 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2"
           >
             Set up {recommendation.name}
             <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
@@ -286,7 +286,7 @@ export function StepAgent({
               "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2",
               creating || pending
                 ? "cursor-not-allowed bg-muted text-muted-foreground/50"
-                : "bg-foreground text-background hover:bg-foreground/90",
+                : "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]",
             )}
           >
             {creating ? (
@@ -497,7 +497,7 @@ export function StepAgent({
                   "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2",
                   connecting || pending
                     ? "cursor-not-allowed bg-muted text-muted-foreground/50"
-                    : "bg-foreground text-background hover:bg-foreground/90",
+                    : "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]",
                 )}
               >
                 {connecting ? (
@@ -632,7 +632,7 @@ export function StepAgent({
                   "w-full h-9 rounded-lg text-[12px] font-medium transition-all",
                   !pairingCode.trim() || pairingStatus === "submitting" || provisionStatus !== "ready"
                     ? "bg-muted text-muted-foreground/40 cursor-not-allowed"
-                    : "bg-foreground text-background hover:bg-foreground/90",
+                    : "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]",
                 )}
               >
                 {pairingStatus === "submitting" ? "Pairing…" : "Submit pairing code"}
@@ -680,7 +680,7 @@ export function StepAgent({
               <button
                 type="button"
                 onClick={onSkipChannel}
-                className="group inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-[13px] font-medium text-background transition-all hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2"
+                className="group inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-[13px] font-medium text-background transition-all hover:bg-foreground/90 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2"
               >
                 Continue
                 <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />

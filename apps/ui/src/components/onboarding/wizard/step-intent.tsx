@@ -52,7 +52,7 @@ export function StepIntent({
             "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all",
             !selected || pending
               ? "cursor-not-allowed bg-muted text-muted-foreground/50"
-              : "bg-foreground text-background hover:bg-foreground/90",
+              : "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]",
           )}
         >
           {pending ? "Setting up…" : "Continue"}

@@ -89,7 +89,7 @@ export function StepCelebration({
             <button
               type="button"
               onClick={onContinue}
-              className="group inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-[13px] font-medium text-background transition-all hover:bg-foreground/90"
+              className="group inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-[13px] font-medium text-background transition-all hover:bg-foreground/90 active:scale-[0.97]"
             >
               Go to dashboard
               <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />

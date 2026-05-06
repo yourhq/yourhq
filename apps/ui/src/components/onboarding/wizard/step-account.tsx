@@ -103,7 +103,7 @@ export function StepAccount({ onSubmit, pending, error }: StepAccountProps) {
           "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2",
           !valid || pending
             ? "cursor-not-allowed bg-muted text-muted-foreground/50"
-            : "bg-foreground text-background hover:bg-foreground/90",
+            : "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]",
         )}
       >
         {pending ? (

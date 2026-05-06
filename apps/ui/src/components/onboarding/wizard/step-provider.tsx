@@ -425,7 +425,7 @@ export function StepProvider({
                                 "shrink-0 inline-flex h-9 items-center rounded-lg px-3 text-[12px] font-medium transition-colors",
                                 !pasted.trim() || submittingPaste
                                   ? "cursor-not-allowed bg-muted text-muted-foreground/50"
-                                  : "bg-foreground text-background hover:bg-foreground/90",
+                                  : "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]",
                               )}
                             >
                               {submittingPaste ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Submit"}
@@ -531,7 +531,7 @@ export function StepProvider({
             type="button"
             onClick={handleOAuthContinue}
             disabled={pending}
-            className="group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 bg-foreground text-background hover:bg-foreground/90"
+            className="group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]"
           >
             {pending ? "Saving…" : (
               <>
@@ -549,7 +549,7 @@ export function StepProvider({
               "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2",
               !canSubmit
                 ? "cursor-not-allowed bg-muted text-muted-foreground/50"
-                : "bg-foreground text-background hover:bg-foreground/90",
+                : "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]",
             )}
           >
             {validating ? (
