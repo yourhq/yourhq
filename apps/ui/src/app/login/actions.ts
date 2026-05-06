@@ -6,6 +6,7 @@ import {
   createWorkspaceSessionValue,
   lookupUserWorkspaces,
 } from "@/lib/projects/hosted-registry";
+import { WORKER_URL, workerHeaders } from "@/lib/worker-client";
 
 export async function hostedLoginAction(email: string): Promise<{
   ok: boolean;
@@ -47,6 +48,11 @@ export async function hostedLoginAction(email: string): Promise<{
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 30,
   });
+
+  fetch(`${WORKER_URL}/workspaces/${ws.id}/touch`, {
+    method: "POST",
+    headers: workerHeaders(),
+  }).catch(() => {});
 
   return { ok: true };
 }

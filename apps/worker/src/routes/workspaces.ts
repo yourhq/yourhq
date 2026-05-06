@@ -6,10 +6,14 @@ import {
   getWorkspace,
   getWorkspacesForUser,
   updateWorkspace,
+  logSandboxEvent,
 } from "../lib/master-supabase.js";
 import { createCheckoutSession, createBillingPortalSession, getStripe } from "../lib/stripe.js";
 import { decryptSecret } from "../lib/secret-crypto.js";
 import { getPublicSiteUrl } from "../lib/env.js";
+import { E2BSandboxProvider } from "../providers/e2b.js";
+
+const sandboxProvider = new E2BSandboxProvider();
 
 const app = new Hono();
 
@@ -171,11 +175,11 @@ app.post("/checkout", async (c) => {
   return c.json({ url });
 });
 
-// Cancel a workspace (30-day grace period)
+// Cancel a workspace (30-day grace period, sandbox paused immediately)
 app.post("/workspaces/:id/cancel", async (c) => {
   const ws = await getWorkspace(c.req.param("id"));
   if (!ws) return c.json({ error: "Not found" }, 404);
-  if (ws.subscription_status !== "active") {
+  if (ws.subscription_status !== "active" && ws.subscription_status !== "suspended") {
     return c.json({ error: "Workspace is not active" }, 400);
   }
 
@@ -188,12 +192,30 @@ app.post("/workspaces/:id/cancel", async (c) => {
     });
   }
 
+  if (ws.e2b_sandbox_id && ws.e2b_sandbox_status === "running") {
+    try {
+      await sandboxProvider.pause(ws.e2b_sandbox_id);
+      await updateWorkspace(ws.id, { e2b_sandbox_status: "paused" } as any);
+      await logSandboxEvent(ws.id, "paused", { reason: "user_canceled" });
+    } catch (err) {
+      console.error("[cancel] Failed to pause sandbox");
+    }
+  }
+
   await updateWorkspace(ws.id, {
     subscription_status: "canceling",
     cancel_at: cancelAt,
   } as Record<string, unknown>);
 
   return c.json({ ok: true, cancel_at: cancelAt });
+});
+
+// Record workspace activity (called on login)
+app.post("/workspaces/:id/touch", async (c) => {
+  await updateWorkspace(c.req.param("id"), {
+    last_active_at: new Date().toISOString(),
+  } as Record<string, unknown>);
+  return c.json({ ok: true });
 });
 
 // Create Stripe billing portal session

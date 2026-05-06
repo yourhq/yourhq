@@ -11,7 +11,8 @@ export function startTimeoutRenewer(provider: SandboxProvider): NodeJS.Timeout {
       .from("hosted_workspaces")
       .select("id, e2b_sandbox_id")
       .eq("e2b_sandbox_status", "running")
-      .in("subscription_status", ["active", "provisioning"]);
+      .in("subscription_status", ["active", "provisioning"])
+      .neq("e2b_sandbox_status", "paused");
 
     if (!workspaces?.length) return;
 

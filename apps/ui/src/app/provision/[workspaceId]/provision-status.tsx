@@ -42,6 +42,16 @@ function stageIndex(stage: string | null): number {
   return STAGE_MAP[stage] ?? -1;
 }
 
+function friendlyError(raw: string): string {
+  if (raw.includes("project creation failed")) return "We couldn't create your database right now. Our team has been notified — please try again in a few minutes.";
+  if (raw.includes("did not become ready")) return "Your database is taking longer than expected to initialize. We're looking into it — please check back shortly.";
+  if (raw.includes("Failed to fetch")) return "We ran into a temporary issue connecting to our infrastructure. Please try again in a moment.";
+  if (raw.includes("Auth user creation failed")) return "We had trouble setting up your account. Please contact support@yourhq.ai if this persists.";
+  if (raw.includes("Gateway did not register")) return "Your agent runtime started but took too long to connect. This is usually temporary — please refresh the page.";
+  if (raw.includes("setup failed")) return "Workspace initialization didn't complete. Please contact support@yourhq.ai for help.";
+  return "Something unexpected happened during setup. Our team has been notified. Please try again or contact support@yourhq.ai.";
+}
+
 export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
   const [currentStage, setCurrentStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -142,7 +152,7 @@ export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
                   <p className="text-[13px] font-medium text-destructive">
                     Something went wrong
                   </p>
-                  <p className="text-[12px] text-destructive/80">{error}</p>
+                  <p className="text-[12px] text-destructive/80">{friendlyError(error)}</p>
                 </div>
               </div>
             </div>

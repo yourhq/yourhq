@@ -38,3 +38,27 @@ export async function sendProvisioningComplete(email: string, workspaceLabel: st
     `,
   });
 }
+
+export async function sendPaymentFailed(email: string, workspaceLabel: string, billingUrl: string, failureCount: number): Promise<void> {
+  const resend = getResend();
+  const isFinal = failureCount >= 3;
+  await resend.emails.send({
+    from: FROM,
+    to: email,
+    subject: isFinal
+      ? `Action required: "${workspaceLabel}" has been suspended`
+      : `Payment failed for "${workspaceLabel}"`,
+    html: isFinal
+      ? `
+        <p>We were unable to process payment for your workspace <strong>${workspaceLabel}</strong> after multiple attempts. Your workspace has been <strong>suspended</strong> — agents are paused and the runtime is offline.</p>
+        <p>Update your payment method to restore access:</p>
+        <p><a href="${billingUrl}" style="display:inline-block;padding:12px 24px;background:#171717;color:#fff;border-radius:6px;text-decoration:none;font-weight:500;">Update payment method</a></p>
+        <p style="color:#666;font-size:13px;">If you have questions, reply to this email or contact support@yourhq.ai.</p>
+      `
+      : `
+        <p>A payment for your workspace <strong>${workspaceLabel}</strong> could not be processed. Stripe will retry automatically, but you may want to check your payment method.</p>
+        <p><a href="${billingUrl}" style="display:inline-block;padding:12px 24px;background:#171717;color:#fff;border-radius:6px;text-decoration:none;font-weight:500;">Check billing</a></p>
+        <p style="color:#666;font-size:13px;">No action is needed if your card issuer resolves this on retry. After 3 failed attempts, your workspace will be suspended until payment is resolved.</p>
+      `,
+  });
+}

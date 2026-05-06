@@ -33,7 +33,8 @@ CREATE TABLE IF NOT EXISTS hosted_workspaces (
   -- Stripe
   stripe_subscription_id text,
   subscription_status text NOT NULL DEFAULT 'pending'
-    CHECK (subscription_status IN ('pending', 'provisioning', 'active', 'canceling', 'canceled')),
+    CHECK (subscription_status IN ('pending', 'provisioning', 'active', 'suspended', 'canceling', 'canceled')),
+  payment_failure_count integer NOT NULL DEFAULT 0,
 
   -- Tenant Supabase project
   supabase_project_ref text,
@@ -62,8 +63,12 @@ CREATE TABLE IF NOT EXISTS hosted_workspaces (
   last_provision_attempt_at timestamptz,
   auto_login_url text,
 
-  -- Cancellation
+  -- Cancellation & cleanup
   cancel_at timestamptz,
+  cleanup_sandbox_done boolean NOT NULL DEFAULT false,
+  cleanup_supabase_done boolean NOT NULL DEFAULT false,
+
+  last_active_at timestamptz,
 
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
@@ -87,6 +92,14 @@ ALTER TABLE hosted_workspaces
   ADD COLUMN IF NOT EXISTS provision_attempts integer NOT NULL DEFAULT 0;
 ALTER TABLE hosted_workspaces
   ADD COLUMN IF NOT EXISTS last_provision_attempt_at timestamptz;
+ALTER TABLE hosted_workspaces
+  ADD COLUMN IF NOT EXISTS payment_failure_count integer NOT NULL DEFAULT 0;
+ALTER TABLE hosted_workspaces
+  ADD COLUMN IF NOT EXISTS cleanup_sandbox_done boolean NOT NULL DEFAULT false;
+ALTER TABLE hosted_workspaces
+  ADD COLUMN IF NOT EXISTS cleanup_supabase_done boolean NOT NULL DEFAULT false;
+ALTER TABLE hosted_workspaces
+  ADD COLUMN IF NOT EXISTS last_active_at timestamptz;
 
 -- Idempotency keys for webhook/provisioning dedup.
 CREATE TABLE IF NOT EXISTS idempotency_keys (

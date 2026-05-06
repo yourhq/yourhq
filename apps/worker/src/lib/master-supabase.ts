@@ -51,8 +51,12 @@ export interface HostedWorkspace {
   provision_error: string | null;
   provision_attempts: number;
   last_provision_attempt_at: string | null;
+  payment_failure_count: number;
   auto_login_url?: string | null;
   cancel_at: string | null;
+  cleanup_sandbox_done: boolean;
+  cleanup_supabase_done: boolean;
+  last_active_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -104,6 +108,7 @@ export async function getWorkspacesForUser(userId: string): Promise<HostedWorksp
     .from("hosted_workspaces")
     .select("*")
     .eq("user_id", userId)
+    .order("last_active_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: true });
   return (data ?? []) as HostedWorkspace[];
 }
