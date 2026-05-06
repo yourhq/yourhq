@@ -12,7 +12,9 @@ check_env()
 
 ap = argparse.ArgumentParser()
 ap.add_argument("task_id")
-ap.add_argument("--type", required=True, choices=["knowledge_item", "url", "contact", "organization", "collection_record"])
+ap.add_argument(
+    "--type", required=True, choices=["knowledge_item", "url", "contact", "organization", "collection_record"]
+)
 ap.add_argument("--entity-id", default=None)
 ap.add_argument("--url", default=None)
 ap.add_argument("--label", default=None)
@@ -30,7 +32,6 @@ payload = {
 result = api_post("entity_links", payload)
 link = result[0] if isinstance(result, list) else result
 
-audit("tasks", "entity_link", link["id"], "created",
-      summary=f"Agent '{AGENT_SLUG}' linked {args.type} to task")
+audit("tasks", "entity_link", link["id"], "created", summary=f"Agent '{AGENT_SLUG}' linked {args.type} to task")
 
 output({"status": "linked", "link_id": link["id"], "task_id": args.task_id, "type": args.type})

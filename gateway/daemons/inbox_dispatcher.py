@@ -80,11 +80,14 @@ MAX_RECONNECT_DELAY = 60
 
 def api_get(table, params):
     url = SUPABASE_URL.rstrip("/") + f"/rest/v1/{table}?" + urllib.parse.urlencode(params)
-    req = urllib.request.Request(url, headers={
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
-        "Accept": "application/json",
-    })
+    req = urllib.request.Request(
+        url,
+        headers={
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Accept": "application/json",
+        },
+    )
     with urllib.request.urlopen(req, timeout=15) as r:
         return json.loads(r.read().decode())
 
@@ -92,12 +95,17 @@ def api_get(table, params):
 def api_patch(table, record_id, payload):
     url = SUPABASE_URL.rstrip("/") + f"/rest/v1/{table}?" + urllib.parse.urlencode({"id": f"eq.{record_id}"})
     data = json.dumps(payload).encode()
-    req = urllib.request.Request(url, headers={
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
-        "Content-Type": "application/json",
-        "Prefer": "return=representation",
-    }, method="PATCH", data=data)
+    req = urllib.request.Request(
+        url,
+        headers={
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation",
+        },
+        method="PATCH",
+        data=data,
+    )
     with urllib.request.urlopen(req, timeout=15) as r:
         return json.loads(r.read().decode())
 
@@ -153,7 +161,7 @@ class WakeTracker:
 
     def __init__(self, cooldown_seconds):
         self.cooldown = cooldown_seconds
-        self.last_wake = {}       # agent_slug -> timestamp
+        self.last_wake = {}  # agent_slug -> timestamp
         self.wake_in_flight = {}  # agent_slug -> bool
         self.lock = threading.Lock()
 
@@ -170,11 +178,14 @@ class WakeTracker:
 
         # Skip paused or hibernating agents
         try:
-            agent_rows = api_get("agents", {
-                "select": "status",
-                "id": f"eq.{agent_id}",
-                "limit": "1",
-            })
+            agent_rows = api_get(
+                "agents",
+                {
+                    "select": "status",
+                    "id": f"eq.{agent_id}",
+                    "limit": "1",
+                },
+            )
             if agent_rows and agent_rows[0].get("status") in ("paused", "hibernating"):
                 return False, "agent_paused"
         except Exception:
@@ -182,13 +193,16 @@ class WakeTracker:
 
         # Check if agent already has active leases (background processing in progress)
         try:
-            leased = api_get("agent_inbox_items", {
-                "select": "id",
-                "agent_id": f"eq.{agent_id}",
-                "status": "eq.leased",
-                "leased_until": f"gt.{now_iso()}",
-                "limit": "1",
-            })
+            leased = api_get(
+                "agent_inbox_items",
+                {
+                    "select": "id",
+                    "agent_id": f"eq.{agent_id}",
+                    "status": "eq.leased",
+                    "leased_until": f"gt.{now_iso()}",
+                    "limit": "1",
+                },
+            )
             if leased:
                 return False, "active_lease"
         except Exception:
@@ -196,11 +210,14 @@ class WakeTracker:
 
         # Budget enforcement (Ring 2 — plugin's before_prompt_build is Ring 1)
         try:
-            budget_rows = api_get("agent_budgets", {
-                "select": "status,hard_cutoff",
-                "agent_id": f"eq.{agent_id}",
-                "limit": "1",
-            })
+            budget_rows = api_get(
+                "agent_budgets",
+                {
+                    "select": "status,hard_cutoff",
+                    "agent_id": f"eq.{agent_id}",
+                    "limit": "1",
+                },
+            )
             if budget_rows and budget_rows[0].get("status") == "exceeded" and budget_rows[0].get("hard_cutoff"):
                 return False, "budget_exceeded"
         except Exception:
@@ -208,12 +225,15 @@ class WakeTracker:
 
         # Check if there's actually actionable work
         try:
-            actionable = api_get("agent_inbox_items", {
-                "select": "id",
-                "agent_id": f"eq.{agent_id}",
-                "or": "(status.eq.pending,and(status.eq.failed,attempt_count.lt.3))",
-                "limit": "1",
-            })
+            actionable = api_get(
+                "agent_inbox_items",
+                {
+                    "select": "id",
+                    "agent_id": f"eq.{agent_id}",
+                    "or": "(status.eq.pending,and(status.eq.failed,attempt_count.lt.3))",
+                    "limit": "1",
+                },
+            )
             if not actionable:
                 return False, "no_actionable_work"
         except Exception:
@@ -252,9 +272,12 @@ def wake_agent(agent_slug, agent_id, reason, tracker, context=None):
     openclaw_agent_id = resolve_agent_id(agent_slug)
     try:
         cmd = [
-            "openclaw", "agent",
-            "--agent", openclaw_agent_id,
-            "--message", message,
+            "openclaw",
+            "agent",
+            "--agent",
+            openclaw_agent_id,
+            "--message",
+            message,
         ]
         ctx = context or {}
         model_override = ctx.get("model_override")
@@ -294,10 +317,13 @@ def refresh_local_agents():
     """Cache the set of agent IDs bound to this gateway. Called on startup
     and periodically so new agents provisioned through the UI are picked up."""
     try:
-        rows = api_get("agents", {
-            "select": "id",
-            "gateway_id": f"eq.(select id from gateways where slug='{GATEWAY_ID}')",
-        })
+        rows = api_get(
+            "agents",
+            {
+                "select": "id",
+                "gateway_id": f"eq.(select id from gateways where slug='{GATEWAY_ID}')",
+            },
+        )
     except Exception:
         # The "eq.(select …)" trick doesn't work in PostgREST; fall back to
         # a two-step resolve.
@@ -306,10 +332,13 @@ def refresh_local_agents():
             if not gw:
                 return
             gateway_uuid = gw[0]["id"]
-            rows = api_get("agents", {
-                "select": "id",
-                "gateway_id": f"eq.{gateway_uuid}",
-            })
+            rows = api_get(
+                "agents",
+                {
+                    "select": "id",
+                    "gateway_id": f"eq.{gateway_uuid}",
+                },
+            )
         except Exception as e:
             log(f"refresh_local_agents error: {e}")
             return
@@ -332,11 +361,14 @@ def reconcile(tracker):
     refresh_local_agents()
     try:
         # Find all agents with actionable inbox items
-        items = api_get("agent_inbox_items", {
-            "select": "agent_slug,agent_id",
-            "or": "(status.eq.pending,and(status.eq.failed,attempt_count.lt.3))",
-            "limit": "100",
-        })
+        items = api_get(
+            "agent_inbox_items",
+            {
+                "select": "agent_slug,agent_id",
+                "or": "(status.eq.pending,and(status.eq.failed,attempt_count.lt.3))",
+                "limit": "100",
+            },
+        )
 
         # Dedupe by agent and filter to this gateway's agents
         agents_needing_wake = {}
@@ -363,12 +395,14 @@ def start_reconciliation_loop(tracker):
         while True:
             time.sleep(RECONCILE_INTERVAL)
             reconcile(tracker)
+
     t = threading.Thread(target=loop, daemon=True)
     t.start()
     log(f"Reconciliation loop started (every {RECONCILE_INTERVAL}s)")
 
 
 HEARTBEAT_FILE = "/tmp/heartbeat.txt"
+
 
 def start_heartbeat_file_loop():
     def loop():
@@ -379,6 +413,7 @@ def start_heartbeat_file_loop():
             except OSError:
                 pass
             time.sleep(HEARTBEAT_INTERVAL)
+
     t = threading.Thread(target=loop, daemon=True)
     t.start()
 
@@ -403,10 +438,14 @@ class InboxDispatcher:
         return f"{base}/realtime/v1/websocket?apikey={SUPABASE_KEY}&vsn=1.0.0"
 
     def _send(self, topic, event, payload):
-        msg = json.dumps({
-            "topic": topic, "event": event,
-            "payload": payload, "ref": self._next_ref(),
-        })
+        msg = json.dumps(
+            {
+                "topic": topic,
+                "event": event,
+                "payload": payload,
+                "ref": self._next_ref(),
+            }
+        )
         if self.ws:
             self.ws.send(msg)
 
@@ -418,6 +457,7 @@ class InboxDispatcher:
                 except Exception:
                     break
                 time.sleep(HEARTBEAT_INTERVAL)
+
         threading.Thread(target=beat, daemon=True).start()
 
     def _on_open(self, ws):
@@ -425,13 +465,21 @@ class InboxDispatcher:
         self.reconnect_delay = RECONNECT_DELAY
 
         # Subscribe to new inbox items only
-        self._send("realtime:public:agent_inbox_items", "phx_join", {
-            "config": {"postgres_changes": [{
-                "event": "INSERT",
-                "schema": "public",
-                "table": "agent_inbox_items",
-            }]}
-        })
+        self._send(
+            "realtime:public:agent_inbox_items",
+            "phx_join",
+            {
+                "config": {
+                    "postgres_changes": [
+                        {
+                            "event": "INSERT",
+                            "schema": "public",
+                            "table": "agent_inbox_items",
+                        }
+                    ]
+                }
+            },
+        )
 
         self._start_heartbeat()
         log("Listening for inbox item inserts")
@@ -469,9 +517,13 @@ class InboxDispatcher:
 
         # Update wake tracking on the item
         try:
-            api_patch("agent_inbox_items", item_id, {
-                "last_wake_attempt_at": now_iso(),
-            })
+            api_patch(
+                "agent_inbox_items",
+                item_id,
+                {
+                    "last_wake_attempt_at": now_iso(),
+                },
+            )
         except Exception:
             pass
 
@@ -480,9 +532,13 @@ class InboxDispatcher:
 
         if success:
             try:
-                api_patch("agent_inbox_items", item_id, {
-                    "last_wake_success_at": now_iso(),
-                })
+                api_patch(
+                    "agent_inbox_items",
+                    item_id,
+                    {
+                        "last_wake_success_at": now_iso(),
+                    },
+                )
             except Exception:
                 pass
 
@@ -533,8 +589,7 @@ def wait_for_supabase_config():
 
     if resolve_hq_config is None:
         print(
-            "Missing: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and registry_config.py "
-            "helper is not available",
+            "Missing: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and registry_config.py helper is not available",
             file=sys.stderr,
         )
         sys.exit(1)

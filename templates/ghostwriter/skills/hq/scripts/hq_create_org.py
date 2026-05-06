@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Create an organization."""
+
 import argparse
 import json
 import os
@@ -23,15 +24,22 @@ ap.add_argument("--extended", default="{}", help="JSON object of custom fields")
 args = ap.parse_args()
 
 tags = [t.strip() for t in args.tags.split(",") if t.strip()] if args.tags else []
-payload = {k: v for k, v in {
-    "name": args.name, "type": args.type, "website": args.website,
-    "industry": args.industry, "location": args.location,
-    "description": args.description, "tags": tags,
-    "extended": json.loads(args.extended),
-}.items() if v is not None}
+payload = {
+    k: v
+    for k, v in {
+        "name": args.name,
+        "type": args.type,
+        "website": args.website,
+        "industry": args.industry,
+        "location": args.location,
+        "description": args.description,
+        "tags": tags,
+        "extended": json.loads(args.extended),
+    }.items()
+    if v is not None
+}
 
 result = api_post("organizations", payload)
 org = result[0] if isinstance(result, list) else result
-audit("crm", "organization", org["id"], "created",
-      summary=f"Agent '{AGENT_SLUG}' created organization '{org['name']}'")
+audit("crm", "organization", org["id"], "created", summary=f"Agent '{AGENT_SLUG}' created organization '{org['name']}'")
 output({"status": "created", "id": org["id"], "name": org["name"]})

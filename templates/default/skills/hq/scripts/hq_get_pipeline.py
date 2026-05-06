@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Fetch pipeline stages for an entity type."""
+
 import argparse
 import os
 import sys
@@ -16,9 +17,12 @@ args = ap.parse_args()
 if args.entity_type == "contact":
     require_crm()
 
-stages = api_get("pipeline_stages", {
-    "entity_type": f"eq.{args.entity_type}",
-    "order": "sort_order.asc",
-    "select": "stage_key,label,color,is_terminal,is_default",
-})
+stages = api_get(
+    "pipeline_stages",
+    {
+        "entity_type": f"eq.{args.entity_type}",
+        "order": "sort_order.asc",
+        "select": "stage_key,label,color,is_terminal,is_default",
+    },
+)
 output({"entity_type": args.entity_type, "count": len(stages), "stages": stages})

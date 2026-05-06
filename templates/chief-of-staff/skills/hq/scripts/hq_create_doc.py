@@ -53,7 +53,12 @@ except Exception as e:
 result = api_post("knowledge_items", payload)
 item = result[0] if isinstance(result, list) else result
 
-audit("knowledge", "knowledge_item", item["id"], "created",
-      summary=f"Agent '{AGENT_SLUG}' created {args.kind} '{item['title']}'")
+audit(
+    "knowledge",
+    "knowledge_item",
+    item["id"],
+    "created",
+    summary=f"Agent '{AGENT_SLUG}' created {args.kind} '{item['title']}'",
+)
 
 output({"status": "created", "id": item["id"], "title": item["title"], "kind": args.kind})

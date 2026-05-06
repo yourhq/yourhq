@@ -21,6 +21,7 @@ The `branch` segment is URL-encoded (slashes become %2F) and must already
 exist as a worktree at $HOME/.openclaw/workspace-<branch>. Writes commit
 to the branch immediately with a generated message.
 """
+
 from __future__ import annotations
 
 import hmac
@@ -70,11 +71,15 @@ def resolve_bind_address() -> str:
             log("FILES_API_BIND=tailscale but no TAILSCALE_SOCKET set; falling back to 0.0.0.0.")
             return "0.0.0.0"
         try:
-            out = subprocess.check_output(
-                ["/usr/local/bin/tailscale", "--socket", TAILSCALE_SOCKET, "ip", "-4"],
-                text=True,
-                timeout=5,
-            ).strip().splitlines()
+            out = (
+                subprocess.check_output(
+                    ["/usr/local/bin/tailscale", "--socket", TAILSCALE_SOCKET, "ip", "-4"],
+                    text=True,
+                    timeout=5,
+                )
+                .strip()
+                .splitlines()
+            )
             if out:
                 log(f"Binding to Tailscale IP {out[0]}.")
                 return out[0]
@@ -109,9 +114,7 @@ def git(root: Path, *args: str) -> str:
         timeout=15,
     )
     if result.returncode != 0:
-        raise RuntimeError(
-            f"git {' '.join(args)} failed in {root}: {result.stderr.strip() or result.stdout.strip()}"
-        )
+        raise RuntimeError(f"git {' '.join(args)} failed in {root}: {result.stderr.strip() or result.stdout.strip()}")
     return result.stdout
 
 
@@ -172,7 +175,7 @@ class Handler(BaseHTTPRequestHandler):
         auth = self.headers.get("Authorization", "")
         if not auth.startswith("Bearer "):
             return False
-        presented = auth[len("Bearer "):].strip()
+        presented = auth[len("Bearer ") :].strip()
         return hmac.compare_digest(presented, GATEWAY_AUTH_TOKEN)
 
     # ── Helpers ─────────────────────────────────────────────────────
@@ -251,11 +254,14 @@ class Handler(BaseHTTPRequestHandler):
                 content = full.read_text(encoding="utf-8")
             except UnicodeDecodeError:
                 return self._error(415, "Binary files not supported yet")
-            return self._send_json(200, {
-                "path": path,
-                "content": content,
-                "sha": sha_for_path(root, path),
-            })
+            return self._send_json(
+                200,
+                {
+                    "path": path,
+                    "content": content,
+                    "sha": sha_for_path(root, path),
+                },
+            )
         return self._error(404, "Not found")
 
     def do_PUT(self) -> None:
@@ -321,10 +327,13 @@ class Handler(BaseHTTPRequestHandler):
             full.write_text(body.get("content", "") or "", encoding="utf-8")
             git(root, "add", path)
             git_commit(root, f"create via UI: {path}")
-            return self._send_json(201, {
-                "path": path,
-                "sha": sha_for_path(root, path),
-            })
+            return self._send_json(
+                201,
+                {
+                    "path": path,
+                    "sha": sha_for_path(root, path),
+                },
+            )
         except Exception as e:
             return self._error(500, f"Create failed: {e}")
 

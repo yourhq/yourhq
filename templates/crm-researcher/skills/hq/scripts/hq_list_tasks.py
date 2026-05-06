@@ -60,16 +60,18 @@ if args.tag:
         params["tags"] = f"cs.{{{','.join(tags)}}}"
 
 rows = api_get("tasks", params)
-output({
-    "count": len(rows),
-    "filters": {
-        "status": args.status,
-        "stream_id": args.stream_id,
-        "assignee_type": args.assignee_type,
-        "agent_id": args.agent_id,
-        "mine": args.mine,
-        "tags": args.tag or [],
-        "limit": args.limit,
-    },
-    "tasks": rows,
-})
+output(
+    {
+        "count": len(rows),
+        "filters": {
+            "status": args.status,
+            "stream_id": args.stream_id,
+            "assignee_type": args.assignee_type,
+            "agent_id": args.agent_id,
+            "mine": args.mine,
+            "tags": args.tag or [],
+            "limit": args.limit,
+        },
+        "tasks": rows,
+    }
+)

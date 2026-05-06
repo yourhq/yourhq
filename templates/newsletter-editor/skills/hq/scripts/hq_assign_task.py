@@ -22,16 +22,20 @@ payload = {}
 summary_target = None
 
 if args.agent_id:
-    payload.update({
-        "assignee_type": "agent",
-        "assignee_agent_id": args.agent_id,
-    })
+    payload.update(
+        {
+            "assignee_type": "agent",
+            "assignee_agent_id": args.agent_id,
+        }
+    )
     summary_target = f"agent {args.agent_id}"
 elif args.human:
-    payload.update({
-        "assignee_type": "human",
-        "assignee_agent_id": None,
-    })
+    payload.update(
+        {
+            "assignee_type": "human",
+            "assignee_agent_id": None,
+        }
+    )
     summary_target = "human"
 
 if args.status:

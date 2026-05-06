@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Fetch custom field definitions for an entity type."""
+
 import argparse
 import os
 import sys
@@ -16,10 +17,13 @@ args = ap.parse_args()
 if args.entity_type == "contact":
     require_crm()
 
-fields = api_get("field_definitions", {
-    "entity_type": f"eq.{args.entity_type}",
-    "is_active": "eq.true",
-    "order": "field_group.asc.nullsfirst,sort_order.asc",
-    "select": "field_key,field_type,label,field_group,required,options,description",
-})
+fields = api_get(
+    "field_definitions",
+    {
+        "entity_type": f"eq.{args.entity_type}",
+        "is_active": "eq.true",
+        "order": "field_group.asc.nullsfirst,sort_order.asc",
+        "select": "field_key,field_type,label,field_group,required,options,description",
+    },
+)
 output({"entity_type": args.entity_type, "count": len(fields), "fields": fields})

@@ -129,9 +129,7 @@ def _extract_properties(page: dict) -> dict:
 # ── Block renderer ─────────────────────────────────────────────────
 
 
-def _fetch_block_children(
-    api_key: str, block_id: str, *, max_pages: int = 50
-) -> list[dict]:
+def _fetch_block_children(api_key: str, block_id: str, *, max_pages: int = 50) -> list[dict]:
     blocks: list[dict] = []
     url = f"{NOTION_API}/blocks/{block_id}/children?page_size=100"
     pages_fetched = 0
@@ -292,9 +290,17 @@ def _render_blocks(api_key: str, blocks: list[dict], depth: int = 0) -> str:
         # Recurse into children
         if block.get("has_children") and btype not in ("table",):
             children = _fetch_block_children(api_key, block["id"])
-            child_depth = depth + 1 if btype in (
-                "bulleted_list_item", "numbered_list_item", "to_do", "toggle",
-            ) else depth
+            child_depth = (
+                depth + 1
+                if btype
+                in (
+                    "bulleted_list_item",
+                    "numbered_list_item",
+                    "to_do",
+                    "toggle",
+                )
+                else depth
+            )
             child_text = _render_blocks(api_key, children, child_depth)
             if child_text.strip():
                 lines.append(child_text)
@@ -306,7 +312,6 @@ def _render_blocks(api_key: str, blocks: list[dict], depth: int = 0) -> str:
 
 
 class NotionConnector(BaseConnector):
-
     def _key(self, creds: dict) -> str:
         return creds.get("api_key", "")
 
@@ -373,24 +378,28 @@ class NotionConnector(BaseConnector):
             btype = block.get("type", "")
             if btype == "child_page":
                 title = block.get("child_page", {}).get("title", "Untitled")
-                items.append(SourceItem(
-                    external_id=block["id"],
-                    title=title,
-                    source_url=_page_url(block["id"]),
-                    item_type="page",
-                    has_children=block.get("has_children", False),
-                    parent_id=parent_id,
-                ))
+                items.append(
+                    SourceItem(
+                        external_id=block["id"],
+                        title=title,
+                        source_url=_page_url(block["id"]),
+                        item_type="page",
+                        has_children=block.get("has_children", False),
+                        parent_id=parent_id,
+                    )
+                )
             elif btype == "child_database":
                 title = block.get("child_database", {}).get("title", "Untitled database")
-                items.append(SourceItem(
-                    external_id=block["id"],
-                    title=title,
-                    source_url=_page_url(block["id"]),
-                    item_type="database",
-                    has_children=True,
-                    parent_id=parent_id,
-                ))
+                items.append(
+                    SourceItem(
+                        external_id=block["id"],
+                        title=title,
+                        source_url=_page_url(block["id"]),
+                        item_type="database",
+                        has_children=True,
+                        parent_id=parent_id,
+                    )
+                )
         return BrowseResult(items=items)
 
     def _result_to_item(self, result: dict) -> SourceItem | None:
@@ -421,9 +430,7 @@ class NotionConnector(BaseConnector):
 
     # ── list_items ─────────────────────────────────────────────────
 
-    def list_items(
-        self, creds: dict, external_ids: list[str]
-    ) -> list[SourceItem]:
+    def list_items(self, creds: dict, external_ids: list[str]) -> list[SourceItem]:
         api_key = self._key(creds)
         items: list[SourceItem] = []
         for eid in external_ids:

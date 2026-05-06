@@ -20,9 +20,13 @@ if not existing:
     sys.exit(1)
 
 agent_id = existing[0]["id"]
-api_patch("agents", agent_id, {
-    "status": args.status,
-    "last_seen_at": now_iso(),
-})
+api_patch(
+    "agents",
+    agent_id,
+    {
+        "status": args.status,
+        "last_seen_at": now_iso(),
+    },
+)
 
 output({"status": args.status, "agent_id": agent_id, "last_seen_at": now_iso()})

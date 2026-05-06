@@ -60,26 +60,25 @@ blocked = [t for t in tasks if t["status"] == "blocked"]
 
 queue = in_progress + todo  # in_progress first (resume interrupted work)
 
-output({
-    "agent": AGENT_SLUG,
-    "queue_depth": len(queue),
-    "in_progress": len(in_progress),
-    "todo": len(todo),
-    "blocked": len(blocked),
-    "queue": [
-        {
-            "position": i + 1,
-            "id": t["id"],
-            "title": t["title"],
-            "status": t["status"],
-            "priority": t["priority"],
-            "description": (t.get("description") or "")[:200],
-            "tags": t.get("tags", []),
-        }
-        for i, t in enumerate(queue)
-    ],
-    "blocked_tasks": [
-        {"id": t["id"], "title": t["title"]}
-        for t in blocked
-    ] if blocked else [],
-})
+output(
+    {
+        "agent": AGENT_SLUG,
+        "queue_depth": len(queue),
+        "in_progress": len(in_progress),
+        "todo": len(todo),
+        "blocked": len(blocked),
+        "queue": [
+            {
+                "position": i + 1,
+                "id": t["id"],
+                "title": t["title"],
+                "status": t["status"],
+                "priority": t["priority"],
+                "description": (t.get("description") or "")[:200],
+                "tags": t.get("tags", []),
+            }
+            for i, t in enumerate(queue)
+        ],
+        "blocked_tasks": [{"id": t["id"], "title": t["title"]} for t in blocked] if blocked else [],
+    }
+)

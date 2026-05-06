@@ -89,10 +89,13 @@ else:
 
     # Link playbook to this agent via junction table
     try:
-        api_post("knowledge_item_agents", {
-            "knowledge_item_id": item_id,
-            "agent_id": agent_id,
-        })
+        api_post(
+            "knowledge_item_agents",
+            {
+                "knowledge_item_id": item_id,
+                "agent_id": agent_id,
+            },
+        )
     except Exception as e:
         print(f"[junction] warning: {e}", file=sys.stderr)
 
