@@ -58,9 +58,9 @@ export const INBOX_STATUS_COLORS: Record<InboxItemStatus, string> = {
 };
 
 export const INBOX_STATUS_BG: Record<InboxItemStatus, string> = {
-  pending: "bg-blue-500/20 text-blue-400",
-  leased: "bg-amber-500/20 text-amber-400",
-  done: "bg-green-500/20 text-green-400",
-  failed: "bg-red-500/20 text-red-400",
-  dead_letter: "bg-red-500/20 text-red-300",
+  pending: "bg-status-info/20 text-status-info",
+  leased: "bg-status-warning/20 text-status-warning",
+  done: "bg-status-success/20 text-status-success",
+  failed: "bg-status-error/20 text-status-error",
+  dead_letter: "bg-status-error/20 text-status-error",
 };

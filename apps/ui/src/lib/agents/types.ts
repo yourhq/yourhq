@@ -32,22 +32,6 @@ export const AGENT_STATUSES: { value: AgentStatus; label: string }[] = [
   { value: "hibernating", label: "Sleeping" },
 ];
 
-export const AGENT_STATUS_COLORS: Record<AgentStatus, string> = {
-  ready: "bg-green-500/20 text-green-400",
-  error: "bg-red-500/20 text-red-400",
-  paused: "bg-yellow-500/20 text-yellow-400",
-  provisioning: "bg-yellow-500/20 text-yellow-400",
-  hibernating: "bg-gray-500/20 text-gray-400",
-};
-
-export const AGENT_STATUS_DOT_COLORS: Record<AgentStatus, string> = {
-  ready: "bg-green-500",
-  error: "bg-red-500",
-  paused: "bg-yellow-500",
-  provisioning: "bg-yellow-500",
-  hibernating: "bg-gray-500",
-};
-
 export const DOMAIN_LABELS: Record<string, string> = {
   crm: "CRM",
   tasks: "Tasks",
