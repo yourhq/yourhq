@@ -35,7 +35,7 @@ interface ResponsiveDialogProps {
 
 function ResponsiveDialog({
   children,
-  variant = "bottom-sheet",
+  variant: _variant = "bottom-sheet",
   ...props
 }: ResponsiveDialogProps) {
   const mobile = useIsMobile()
