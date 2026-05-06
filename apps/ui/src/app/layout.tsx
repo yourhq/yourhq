@@ -26,6 +26,12 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "HQ",
   description: "Your HQ — agent operations platform.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "HQ",
+  },
   robots: {
     index: false,
     follow: false,

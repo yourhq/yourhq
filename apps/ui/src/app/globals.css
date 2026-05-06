@@ -473,3 +473,31 @@
   border-radius: 0.5rem;
   border: 1px solid var(--border);
 }
+
+/* ── Mobile ─────────────────────────────────────── */
+
+@media (max-width: 767px) {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  input[type="email"],
+  input[type="url"] {
+    input-mode: email;
+  }
+
+  input[type="tel"] {
+    input-mode: tel;
+  }
+
+  input[type="number"] {
+    input-mode: numeric;
+  }
+}
