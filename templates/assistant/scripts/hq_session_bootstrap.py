@@ -76,26 +76,44 @@ def fetch_boot_knowledge() -> list:
     if agents:
         agent_id = agents[0]["id"]
 
-    workspace_items = api_get("knowledge_items", {
-        "select": "id,title,kind,content,plain_text,tags,scope,folder_id,updated_at",
-        "scope": "eq.workspace",
-        "pinned": "eq.true",
-        "archived_at": "is.null",
-    }) or []
+    workspace_items = (
+        api_get(
+            "knowledge_items",
+            {
+                "select": "id,title,kind,content,plain_text,tags,scope,folder_id,updated_at",
+                "scope": "eq.workspace",
+                "pinned": "eq.true",
+                "archived_at": "is.null",
+            },
+        )
+        or []
+    )
 
     agent_items = []
     if agent_id:
-        junctions = api_get("knowledge_item_agents", {
-            "select": "knowledge_item_id",
-            "agent_id": f"eq.{agent_id}",
-        }) or []
+        junctions = (
+            api_get(
+                "knowledge_item_agents",
+                {
+                    "select": "knowledge_item_id",
+                    "agent_id": f"eq.{agent_id}",
+                },
+            )
+            or []
+        )
         item_ids = [j["knowledge_item_id"] for j in junctions]
         if item_ids:
-            agent_items = api_get("knowledge_items", {
-                "select": "id,title,kind,content,plain_text,tags,scope,folder_id,updated_at",
-                "id": f"in.({','.join(item_ids)})",
-                "archived_at": "is.null",
-            }) or []
+            agent_items = (
+                api_get(
+                    "knowledge_items",
+                    {
+                        "select": "id,title,kind,content,plain_text,tags,scope,folder_id,updated_at",
+                        "id": f"in.({','.join(item_ids)})",
+                        "archived_at": "is.null",
+                    },
+                )
+                or []
+            )
 
     seen = set()
     items = []
@@ -103,16 +121,18 @@ def fetch_boot_knowledge() -> list:
         if item["id"] in seen:
             continue
         seen.add(item["id"])
-        items.append({
-            "id": item.get("id"),
-            "title": item.get("title") or "Untitled",
-            "kind": item.get("kind") or "page",
-            "tags": item.get("tags") or [],
-            "scope": item.get("scope") or "workspace",
-            "updatedAt": item.get("updated_at"),
-            "content": item.get("plain_text") or item.get("content") or "",
-            "folderId": item.get("folder_id"),
-        })
+        items.append(
+            {
+                "id": item.get("id"),
+                "title": item.get("title") or "Untitled",
+                "kind": item.get("kind") or "page",
+                "tags": item.get("tags") or [],
+                "scope": item.get("scope") or "workspace",
+                "updatedAt": item.get("updated_at"),
+                "content": item.get("plain_text") or item.get("content") or "",
+                "folderId": item.get("folder_id"),
+            }
+        )
     return items
 
 

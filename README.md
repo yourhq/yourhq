@@ -6,7 +6,12 @@
 
 One UI, many AI agents, your infrastructure.
 
-[Website](https://yourhq.ai) · [Install](#install) · [Docs](https://docs.yourhq.ai) · [Roadmap](https://docs.yourhq.ai/getting-started/roadmap)
+[Website](https://yourhq.ai) · [Install](#install) · [Docs](https://docs.yourhq.ai) · [Why HQ](https://docs.yourhq.ai/concepts/why-hq) · [Roadmap](https://docs.yourhq.ai/getting-started/roadmap)
+
+[![CI](https://img.shields.io/github/actions/workflow/status/yourhq/yourhq/ci.yml?branch=main&label=CI)](https://github.com/yourhq/yourhq/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/yourhq/yourhq?include_prereleases&label=release&sort=semver)](https://github.com/yourhq/yourhq/releases)
+[![License](https://img.shields.io/github/license/yourhq/yourhq)](LICENSE)
+[![Discussions](https://img.shields.io/github/discussions/yourhq/yourhq)](https://github.com/yourhq/yourhq/discussions)
 
 </div>
 
@@ -24,6 +29,16 @@ No vendor lock-in. No per-seat pricing. No data leaving your infrastructure.
 - **Agents are real programs**, not chat wrappers. They browse, send messages, edit files, call APIs — with real memory across sessions.
 - **Operational workspace included.** CRM, tasks, knowledge base, collections, routines, inbox, activity, notifications, usage budgets, and gateway management live in one UI.
 - **Template library included.** 16 templates — cofounder, designer, analytics, CMO, ghostwriter, newsletter editor, and more — starting points you customize in-place.
+
+## How HQ compares
+
+| | HQ | CrewAI / AutoGen | n8n |
+|---|---|---|---|
+| Shape | Self-hosted product (UI + workspace + agent fleet) | Python framework | Workflow automation tool |
+| What it gives you | Agents that exist continuously, with memory, files, and channels | Building blocks for a multi-agent program | Visual workflows triggered by events |
+| Workspace included | CRM, tasks, knowledge, routines, budgets | No (you build it) | No (rich integrations instead) |
+
+If you want a *library* to build a multi-agent app, use CrewAI or AutoGen. If you want a workflow builder for SaaS automation, use n8n. If you want a workspace your team logs into to run a fleet of long-lived agents on your infrastructure, that's HQ. Long version: [Why HQ](https://docs.yourhq.ai/concepts/why-hq).
 
 ## Install
 

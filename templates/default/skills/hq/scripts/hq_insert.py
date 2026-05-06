@@ -25,7 +25,12 @@ payload = json.loads(args.data)
 result = api_post(args.table, payload)
 row = result[0] if isinstance(result, list) else result
 
-audit(args.module, args.entity_type, row["id"], "created",
-      summary=f"Agent '{AGENT_SLUG}' created {args.entity_type} '{row.get('name', row.get('title', row['id']))}'")
+audit(
+    args.module,
+    args.entity_type,
+    row["id"],
+    "created",
+    summary=f"Agent '{AGENT_SLUG}' created {args.entity_type} '{row.get('name', row.get('title', row['id']))}'",
+)
 
 output({"status": "created", "id": row["id"], "table": args.table})

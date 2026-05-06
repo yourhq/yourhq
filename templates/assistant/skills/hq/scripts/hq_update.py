@@ -36,8 +36,13 @@ for key in changes:
     if json.dumps(old_val, sort_keys=True) != json.dumps(new_val, sort_keys=True):
         diff[key] = {"old": old_val, "new": new_val}
 
-audit(args.module, args.entity_type, args.record_id, "updated",
-      summary=f"Agent '{AGENT_SLUG}' updated {args.entity_type} '{after.get('name', after.get('title', args.record_id))}'",
-      changes=diff if diff else None)
+audit(
+    args.module,
+    args.entity_type,
+    args.record_id,
+    "updated",
+    summary=f"Agent '{AGENT_SLUG}' updated {args.entity_type} '{after.get('name', after.get('title', args.record_id))}'",
+    changes=diff if diff else None,
+)
 
 output({"status": "updated", "id": args.record_id, "table": args.table, "changes": diff})

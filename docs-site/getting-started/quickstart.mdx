@@ -125,7 +125,13 @@ After creation, you land on the **Tasks** page with a suggested first task pre-f
 
 ## You're set up
 
-Your HQ is running with a connected database, model provider, and first agent. Here's what to explore next:
+Your HQ is running with a connected database, model provider, and first agent.
+
+<Warning>
+  **Putting this on the internet?** The default install binds services to `127.0.0.1` — safe on a laptop. The runner mounts the Docker socket (so it can restart the stack from the UI), and your Supabase service-role key sits in `.env` with full database access. Read the [security policy and hardening guide](/security/security-policy) before exposing HQ beyond localhost.
+</Warning>
+
+Here's what to explore next:
 
 <CardGroup cols={2}>
   <Card title="Pick a model per agent" icon="sliders" href="/guides/connect-model-provider#per-agent-model-overrides">

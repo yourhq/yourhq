@@ -46,9 +46,7 @@ def log(msg: str) -> None:
 def _run(cmd: list[str], cwd: Path) -> tuple[int, str, str]:
     """Run a git command, return (returncode, stdout, stderr)."""
     try:
-        result = subprocess.run(
-            cmd, cwd=str(cwd), capture_output=True, text=True, timeout=60
-        )
+        result = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True, timeout=60)
         return result.returncode, result.stdout.strip(), result.stderr.strip()
     except subprocess.TimeoutExpired:
         return 124, "", "timeout"

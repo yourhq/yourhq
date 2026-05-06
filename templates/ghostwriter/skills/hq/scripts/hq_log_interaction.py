@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Log an interaction with a contact (replaces outreach_log)."""
+
 import argparse
 import os
 import sys
@@ -12,16 +13,16 @@ require_crm()
 
 ap = argparse.ArgumentParser()
 ap.add_argument("contact_id")
-ap.add_argument("--type", required=True,
-    help="email, call, meeting, linkedin_message, dm, intro, coffee, event, note, other")
+ap.add_argument(
+    "--type", required=True, help="email, call, meeting, linkedin_message, dm, intro, coffee, event, note, other"
+)
 ap.add_argument("--direction", default=None, choices=["inbound", "outbound"])
 ap.add_argument("--channel", default=None)
 ap.add_argument("--summary", default=None)
 ap.add_argument("--body", default=None)
 ap.add_argument("--subject", default=None)
 ap.add_argument("--next-action", default=None)
-ap.add_argument("--next-action-days", type=int, default=None,
-    help="Set next_action_date to N days from now")
+ap.add_argument("--next-action-days", type=int, default=None, help="Set next_action_date to N days from now")
 ap.add_argument("--org-id", default=None)
 ap.add_argument("--template-id", default=None)
 args = ap.parse_args()
@@ -47,6 +48,7 @@ if args.next_action_days:
     from datetime import timedelta
 
     from hq_base import datetime, timezone
+
     nad = datetime.now(timezone.utc) + timedelta(days=args.next_action_days)
     payload["next_action_date"] = nad.replace(microsecond=0).isoformat()
 
@@ -56,7 +58,12 @@ payload = {k: v for k, v in payload.items() if v is not None}
 result = api_post("interactions", payload)
 row = result[0] if isinstance(result, list) else result
 
-audit("crm", "interaction", row["id"], "created",
-      summary=f"Agent '{AGENT_SLUG}' logged {args.type} interaction with contact")
+audit(
+    "crm",
+    "interaction",
+    row["id"],
+    "created",
+    summary=f"Agent '{AGENT_SLUG}' logged {args.type} interaction with contact",
+)
 
 output({"status": "logged", "id": row["id"], "type": args.type, "contact_id": args.contact_id})

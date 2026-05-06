@@ -14,9 +14,12 @@ if len(sys.argv) < 2:
     sys.exit(1)
 
 tag = sys.argv[1]
-rows = api_get("knowledge_items", {
-    "select": "id,title,kind,scope,content,tags,folder_id,updated_at",
-    "tags": f"cs.{{{tag}}}",
-    "archived_at": "is.null",
-})
+rows = api_get(
+    "knowledge_items",
+    {
+        "select": "id,title,kind,scope,content,tags,folder_id,updated_at",
+        "tags": f"cs.{{{tag}}}",
+        "archived_at": "is.null",
+    },
+)
 output({"tag": tag, "count": len(rows), "items": rows})

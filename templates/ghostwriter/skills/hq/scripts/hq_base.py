@@ -23,6 +23,7 @@ from pathlib import Path
 # workspace contains an agent.json with the canonical slug. We search
 # upward from cwd and from this script's own location to find it.
 
+
 def _resolve_agent_slug() -> str:
     # 1. Explicit env override always wins
     env_slug = os.environ.get("AGENT_SLUG", "").strip()
@@ -102,6 +103,7 @@ def now_iso():
 
 # ── HTTP helpers ───────────────────────────────────────────────────────
 
+
 def _read_json_response(resp):
     body = resp.read().decode()
     return json.loads(body) if body else None
@@ -135,8 +137,10 @@ def api_get(table, params):
 def api_post(table, payload):
     data = json.dumps(payload).encode()
     req = urllib.request.Request(
-        base_url(table), headers=headers(prefer="return=representation"),
-        method="POST", data=data,
+        base_url(table),
+        headers=headers(prefer="return=representation"),
+        method="POST",
+        data=data,
     )
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
@@ -149,8 +153,10 @@ def api_patch(table, record_id, payload):
     url = base_url(table) + "?" + urllib.parse.urlencode({"id": f"eq.{record_id}"})
     data = json.dumps(payload).encode()
     req = urllib.request.Request(
-        url, headers=headers(prefer="return=representation"),
-        method="PATCH", data=data,
+        url,
+        headers=headers(prefer="return=representation"),
+        method="PATCH",
+        data=data,
     )
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
@@ -209,6 +215,7 @@ def get_owner_handle():
 
 # ── Audit logging ──────────────────────────────────────────────────────
 
+
 def audit(module, entity_type, entity_id, action, summary=None, changes=None):
     agent_id = get_agent_id()
     payload = {
@@ -229,13 +236,16 @@ def audit(module, entity_type, entity_id, action, summary=None, changes=None):
 
 # ── Embedding ──────────────────────────────────────────────────────────
 
+
 def generate_embedding(text):
     """Generate a local BGE embedding via the HQ embedder service."""
     if not text:
         return None
-    data = json.dumps({
-        "input": text[:6000],
-    }).encode()
+    data = json.dumps(
+        {
+            "input": text[:6000],
+        }
+    ).encode()
     req = urllib.request.Request(
         f"{EMBEDDER_URL}/embed",
         headers={
@@ -323,11 +333,19 @@ def get_workspace_modules():
 def require_crm():
     modules = get_workspace_modules()
     if not modules.get("crm", True):
-        print(json.dumps({"error": "crm_disabled", "message": "CRM module is not enabled in this workspace. Enable it in Settings > Modules."}))
+        print(
+            json.dumps(
+                {
+                    "error": "crm_disabled",
+                    "message": "CRM module is not enabled in this workspace. Enable it in Settings > Modules.",
+                }
+            )
+        )
         sys.exit(0)
 
 
 # ── Output helper ──────────────────────────────────────────────────────
+
 
 def output(data):
     print(json.dumps(data, indent=2, ensure_ascii=False))

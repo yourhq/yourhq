@@ -1,0 +1,59 @@
+name: Feature request
+description: Propose a new capability or improvement
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For larger changes, please open this issue *before* writing the PR so we can agree on direction.
+        See the [roadmap](https://docs.yourhq.ai/getting-started/roadmap) for what's already planned.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the user need, not the implementation.
+      placeholder: When I do X, I'd like Y because ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Sketch what the change would look like — UI, API, behaviour. Mockups welcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What else did you think about? Why didn't those work?
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - UI / dashboard
+        - Agent runtime
+        - Gateway daemons
+        - Templates
+        - Database / schema
+        - Installer
+        - Docs
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Pre-flight
+      options:
+        - label: I searched existing issues and the roadmap and didn't find a duplicate.
+          required: true
+        - label: I'm willing to help implement this (optional, but appreciated).
+          required: false

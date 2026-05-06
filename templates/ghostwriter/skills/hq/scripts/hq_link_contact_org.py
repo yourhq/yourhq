@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Link a contact to an organization."""
+
 import argparse
 import os
 import sys
@@ -25,6 +26,7 @@ payload = {
 }
 result = api_post("contact_organizations", payload)
 row = result[0] if isinstance(result, list) else result
-audit("crm", "contact_organization", row["id"], "created",
-      summary=f"Agent '{AGENT_SLUG}' linked contact to organization")
+audit(
+    "crm", "contact_organization", row["id"], "created", summary=f"Agent '{AGENT_SLUG}' linked contact to organization"
+)
 output({"status": "linked", "id": row["id"], "contact_id": args.contact_id, "org_id": args.org_id})

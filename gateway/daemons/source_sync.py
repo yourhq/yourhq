@@ -89,7 +89,8 @@ def supabase_rpc(fn_name: str, params: dict) -> dict | list | None:
 
 def create_sync_run(connection_id: str) -> str | None:
     result = supabase_request(
-        "POST", "source_sync_runs",
+        "POST",
+        "source_sync_runs",
         data={"connection_id": connection_id, "status": "running"},
     )
     if isinstance(result, list) and result:
@@ -97,9 +98,7 @@ def create_sync_run(connection_id: str) -> str | None:
     return None
 
 
-def complete_sync_run(
-    run_id: str, items_synced: int, items_failed: int, error: str | None = None
-) -> None:
+def complete_sync_run(run_id: str, items_synced: int, items_failed: int, error: str | None = None) -> None:
     updates: dict = {
         "status": "failed" if error else "done",
         "items_synced": items_synced,
@@ -111,9 +110,7 @@ def complete_sync_run(
     supabase_request("PATCH", f"source_sync_runs?id=eq.{run_id}", data=updates)
 
 
-def update_connection_after_sync(
-    connection_id: str, interval_hours: int, error: str | None = None
-) -> None:
+def update_connection_after_sync(connection_id: str, interval_hours: int, error: str | None = None) -> None:
     next_sync = datetime.now(timezone.utc) + timedelta(hours=interval_hours)
     updates: dict = {
         "next_sync_at": next_sync.isoformat(),
@@ -134,7 +131,8 @@ def update_connection_after_sync(
 def fetch_due_connections() -> list[dict]:
     now = datetime.now(timezone.utc).isoformat()
     result = supabase_request(
-        "GET", "source_connections",
+        "GET",
+        "source_connections",
         params={
             "status": "eq.active",
             "next_sync_at": f"lte.{now}",
@@ -148,7 +146,8 @@ def fetch_due_connections() -> list[dict]:
 
 def fetch_synced_items(connection_id: str) -> list[dict]:
     result = supabase_request(
-        "GET", "knowledge_items",
+        "GET",
+        "knowledge_items",
         params={
             "source_connection_id": f"eq.{connection_id}",
             "archived_at": "is.null",
@@ -197,7 +196,8 @@ def upsert_item(
         )
     else:
         supabase_request(
-            "POST", "knowledge_items",
+            "POST",
+            "knowledge_items",
             data={
                 "kind": "source",
                 "title": content.title,
@@ -250,10 +250,7 @@ def sync_connection(connection: dict) -> None:
 
     try:
         existing_items = fetch_synced_items(connection_id)
-        item_by_ext_id = {
-            it["source_external_id"]: it for it in existing_items
-            if it.get("source_external_id")
-        }
+        item_by_ext_id = {it["source_external_id"]: it for it in existing_items if it.get("source_external_id")}
         known_ids = list(item_by_ext_id.keys())
 
         if not known_ids:

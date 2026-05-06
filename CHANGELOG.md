@@ -1,0 +1,45 @@
+# Changelog
+
+All notable changes to HQ are documented here.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+Pinned image tags follow `v<major>.<minor>.<patch>`. Users tracking `:latest`
+pick up changes on every push to `main`; pinned users see them on the next
+tagged release.
+
+## [Unreleased]
+
+<!-- Add entries under Added / Changed / Fixed / Removed / Security as work lands. -->
+
+## [0.1.0] — TBD
+
+Initial public release.
+
+### Added
+
+- Self-hosted stack: UI, gateway, dispatcher, runner, embedder, file processor — all multi-arch (amd64 + arm64) Docker images on GHCR.
+- One-line installer (`curl install.yourhq.ai | bash`) with Docker auto-install on Linux.
+- Browser-based onboarding wizard: Supabase setup, model provider, first agent.
+- Multi-project registry — one UI manages many independent Supabase projects.
+- Multi-gateway support — multiple gateway hosts per project, agents bound to a specific gateway.
+- 17 agent templates: cofounder, designer, analytics, CMO, ghostwriter, newsletter editor, social writer, sales copywriter, and more.
+- Agent runtime via OpenClaw with per-agent Chrome profile, git branch, and noVNC remote desktop.
+- Operational workspace: CRM (contacts, organizations), tasks, knowledge base (pages, playbooks, files, sources), collections (tables / kanban / calendar), routines (scheduled + event-driven), inbox, notifications, audit log.
+- File-processing pipeline (PDF, DOCX, XLSX, CSV, PPTX, TXT) with embedding + chunked vector search.
+- Source connections — Notion sync (Google Drive in progress).
+- Per-agent monthly usage budgets and append-only usage tracking.
+- Agent reporting hierarchy (`reports_to_id`) for delegation.
+- Tenant-scoped row-level security; single default tenant in self-hosted deployments.
+- Networking modes: local-only (loopback), Tailscale, public HTTPS via Caddy + Let's Encrypt.
+- Apache 2.0 license.
+
+### Security
+
+- Default port bindings are loopback-only — UI and files API are not host-exposed without explicit override.
+- Vulnerability disclosure via `security@yourhq.ai`; trust model and known risks documented in [SECURITY.md](SECURITY.md).
+- Gateway tokens hashed at rest; service-role key handling documented.
+
+[Unreleased]: https://github.com/yourhq/yourhq/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/yourhq/yourhq/releases/tag/v0.1.0

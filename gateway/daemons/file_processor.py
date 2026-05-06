@@ -100,25 +100,39 @@ def extract_text(data: bytes, mime_type: str | None, file_url: str) -> str | Non
 
     if mime == "application/pdf" or ext == ".pdf":
         return extract_pdf(data)
-    elif mime in (
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ) or ext == ".docx":
+    elif mime in ("application/vnd.openxmlformats-officedocument.wordprocessingml.document",) or ext == ".docx":
         return extract_docx(data)
-    elif mime in (
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    ) or ext == ".xlsx":
+    elif mime in ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",) or ext == ".xlsx":
         return extract_xlsx(data)
     elif mime == "text/csv" or ext == ".csv":
         return extract_csv(data)
-    elif mime in (
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    ) or ext == ".pptx":
+    elif mime in ("application/vnd.openxmlformats-officedocument.presentationml.presentation",) or ext == ".pptx":
         return extract_pptx(data)
     elif mime.startswith("text/") or ext in (
-        ".txt", ".md", ".markdown", ".json", ".yaml", ".yml",
-        ".toml", ".ini", ".cfg", ".conf", ".log", ".sh", ".bash",
-        ".py", ".js", ".ts", ".tsx", ".jsx", ".html", ".css",
-        ".xml", ".sql", ".env", ".gitignore",
+        ".txt",
+        ".md",
+        ".markdown",
+        ".json",
+        ".yaml",
+        ".yml",
+        ".toml",
+        ".ini",
+        ".cfg",
+        ".conf",
+        ".log",
+        ".sh",
+        ".bash",
+        ".py",
+        ".js",
+        ".ts",
+        ".tsx",
+        ".jsx",
+        ".html",
+        ".css",
+        ".xml",
+        ".sql",
+        ".env",
+        ".gitignore",
     ):
         return data.decode("utf-8", errors="replace")
     elif mime.startswith("image/"):
@@ -220,27 +234,36 @@ def process_item(item: dict) -> None:
         data = download_file(file_url)
     except Exception as e:
         log(f"  Download failed: {e}")
-        supabase_rpc("mark_knowledge_item_processing_failed", {
-            "p_item_id": item_id,
-            "p_error": f"Download failed: {e}",
-        })
+        supabase_rpc(
+            "mark_knowledge_item_processing_failed",
+            {
+                "p_item_id": item_id,
+                "p_error": f"Download failed: {e}",
+            },
+        )
         return
 
     try:
         plain_text = extract_text(data, mime_type, file_url)
     except RuntimeError as e:
         log(f"  Extraction error: {e}")
-        supabase_rpc("mark_knowledge_item_processing_failed", {
-            "p_item_id": item_id,
-            "p_error": str(e),
-        })
+        supabase_rpc(
+            "mark_knowledge_item_processing_failed",
+            {
+                "p_item_id": item_id,
+                "p_error": str(e),
+            },
+        )
         return
     except Exception as e:
         log(f"  Extraction failed: {e}")
-        supabase_rpc("mark_knowledge_item_processing_failed", {
-            "p_item_id": item_id,
-            "p_error": f"Text extraction failed: {e}",
-        })
+        supabase_rpc(
+            "mark_knowledge_item_processing_failed",
+            {
+                "p_item_id": item_id,
+                "p_error": f"Text extraction failed: {e}",
+            },
+        )
         return
 
     if plain_text is None:
@@ -250,19 +273,25 @@ def process_item(item: dict) -> None:
     if len(plain_text) > MAX_TEXT_LENGTH:
         plain_text = plain_text[:MAX_TEXT_LENGTH]
 
-    supabase_rpc("mark_knowledge_item_processed", {
-        "p_item_id": item_id,
-        "p_plain_text": plain_text,
-    })
+    supabase_rpc(
+        "mark_knowledge_item_processed",
+        {
+            "p_item_id": item_id,
+            "p_plain_text": plain_text,
+        },
+    )
     log(f"  Done — {len(plain_text)} chars extracted")
 
 
 def poll_cycle() -> int:
-    items = supabase_rpc("lease_knowledge_items_for_processing", {
-        "p_gateway_slug": GATEWAY_SLUG,
-        "p_limit": BATCH_SIZE,
-        "p_lease_seconds": LEASE_SECONDS,
-    })
+    items = supabase_rpc(
+        "lease_knowledge_items_for_processing",
+        {
+            "p_gateway_slug": GATEWAY_SLUG,
+            "p_limit": BATCH_SIZE,
+            "p_lease_seconds": LEASE_SECONDS,
+        },
+    )
 
     if not items:
         return 0

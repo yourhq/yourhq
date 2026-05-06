@@ -45,7 +45,6 @@ class ChangesResult:
 
 
 class BaseConnector(ABC):
-
     @abstractmethod
     def validate_credentials(self, creds: dict) -> bool:
         """Test that stored credentials are valid. Raises on failure."""
@@ -64,9 +63,7 @@ class BaseConnector(ABC):
         ...
 
     @abstractmethod
-    def list_items(
-        self, creds: dict, external_ids: list[str]
-    ) -> list[SourceItem]:
+    def list_items(self, creds: dict, external_ids: list[str]) -> list[SourceItem]:
         """Return metadata for specific items by external ID."""
         ...
 

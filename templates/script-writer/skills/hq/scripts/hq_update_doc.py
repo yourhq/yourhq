@@ -26,7 +26,9 @@ ap.add_argument("--content", default=None)
 ap.add_argument("--tags", default=None, help="Comma-separated tags")
 args = ap.parse_args()
 
-current = api_get("knowledge_items", {"select": "title,content,plain_text,tags", "id": f"eq.{args.item_id}", "limit": "1"})
+current = api_get(
+    "knowledge_items", {"select": "title,content,plain_text,tags", "id": f"eq.{args.item_id}", "limit": "1"}
+)
 if not current:
     output({"error": "not_found", "id": args.item_id})
     sys.exit(1)
@@ -58,7 +60,6 @@ except Exception as e:
     changes["embedding_status"] = "pending"
 
 result = api_patch("knowledge_items", args.item_id, changes)
-audit("knowledge", "knowledge_item", args.item_id, "updated",
-      summary=f"Agent '{AGENT_SLUG}' updated '{merged_title}'")
+audit("knowledge", "knowledge_item", args.item_id, "updated", summary=f"Agent '{AGENT_SLUG}' updated '{merged_title}'")
 
 output({"status": "updated", "id": args.item_id, "title": merged_title})
