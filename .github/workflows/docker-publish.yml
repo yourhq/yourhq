@@ -205,7 +205,7 @@ jobs:
             type=semver,pattern={{version}}
             type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: digest-${{ matrix.name }}-*
           path: /tmp/digests
