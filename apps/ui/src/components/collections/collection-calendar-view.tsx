@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { CollectionField, CollectionRecord } from "@/lib/collections/types";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
@@ -37,6 +38,7 @@ export function CollectionCalendarView({
   onAddRecord,
   onRecordClick,
 }: CollectionCalendarViewProps) {
+  const mobile = useIsMobile();
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const monthStart = startOfMonth(currentMonth);
@@ -78,6 +80,114 @@ export function CollectionCalendarView({
   };
 
   const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  if (mobile) {
+    const monthDays = eachDayOfInterval({
+      start: startOfMonth(currentMonth),
+      end: endOfMonth(currentMonth),
+    });
+    const daysWithRecords = monthDays.filter((day) => {
+      const key = format(day, "yyyy-MM-dd");
+      return (recordsByDate.get(key)?.length ?? 0) > 0 || isToday(day);
+    });
+
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between px-1">
+          <h2 className="text-heading text-base font-medium">
+            {format(currentMonth, "MMMM yyyy")}
+          </h2>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setCurrentMonth(new Date())}
+            >
+              Today
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {daysWithRecords.length === 0 ? (
+          <p className="py-8 text-center text-[11px] text-muted-foreground/60">
+            No records this month
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {daysWithRecords.map((day) => {
+              const key = format(day, "yyyy-MM-dd");
+              const dayRecords = recordsByDate.get(key) ?? [];
+              const today = isToday(day);
+
+              return (
+                <div key={key}>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span
+                      className={cn(
+                        "text-xs font-medium",
+                        today
+                          ? "bg-primary text-primary-foreground rounded-full px-2 py-0.5"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {format(day, "EEE, MMM d")}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onAddRecord({ [dateFieldKey]: format(day, "yyyy-MM-dd") })
+                      }
+                      className="h-5 w-5 flex items-center justify-center rounded hover:bg-accent"
+                    >
+                      <Plus className="h-3 w-3 text-muted-foreground" />
+                    </button>
+                  </div>
+                  {dayRecords.length > 0 ? (
+                    <div className="space-y-1">
+                      {dayRecords.map((record) => (
+                        <button
+                          key={record.id}
+                          type="button"
+                          onClick={() => onRecordClick?.(record.id)}
+                          className="flex w-full items-center gap-2 rounded-md border border-border/50 px-3 py-2 text-left transition-colors active:bg-accent/50"
+                        >
+                          <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
+                          <span className="text-sm truncate">
+                            {getTitle(record)}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="py-2 text-center text-[11px] text-muted-foreground/40">
+                      No records
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3">

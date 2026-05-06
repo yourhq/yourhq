@@ -15,9 +15,15 @@ import {
 } from "@dnd-kit/core";
 import type { Task, TaskStatus } from "@/lib/tasks/types";
 import { TASK_STATUSES } from "@/lib/tasks/types";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { TaskCard } from "./task-card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { Plus } from "lucide-react";
+import { ChevronRight, Plus } from "lucide-react";
 
 interface TaskBoardViewProps {
   tasks: Task[];
@@ -53,6 +59,7 @@ export function TaskBoardView({
   onQuickCreate,
   currentStreamId,
 }: TaskBoardViewProps) {
+  const mobile = useIsMobile();
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [quickAddColumn, setQuickAddColumn] = useState<TaskStatus | null>(null);
   const [quickAddTitle, setQuickAddTitle] = useState("");
@@ -106,6 +113,89 @@ export function TaskBoardView({
   const activeTask = activeTaskId
     ? tasks.find((t) => t.id === activeTaskId) ?? null
     : null;
+
+  if (mobile) {
+    return (
+      <div className="space-y-3 p-4">
+        {boardColumns.map((status) => {
+          const label =
+            TASK_STATUSES.find((s) => s.value === status)?.label ?? status;
+          const items = tasksByStatus.get(status) ?? [];
+
+          return (
+            <Collapsible key={status} defaultOpen>
+              <CollapsibleTrigger className="flex w-full items-center gap-2 py-1.5 text-left">
+                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90" />
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: statusDotColors[status] }}
+                />
+                <span className="text-sm font-medium">{label}</span>
+                <span className="text-[11px] tabular-nums text-muted-foreground">
+                  {items.length}
+                </span>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-1.5 pt-1">
+                {items.map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    onClick={() => onSelect(task)}
+                    onArchive={onArchive}
+                  />
+                ))}
+                {items.length === 0 && (
+                  <div className="py-3 text-center text-[11px] text-muted-foreground/60">
+                    Empty
+                  </div>
+                )}
+                {onQuickCreate && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuickAddColumn(status);
+                      setQuickAddTitle("");
+                    }}
+                    className="flex w-full items-center gap-1 rounded-md border border-dashed border-border/60 px-2 py-2 text-[11px] text-muted-foreground/70 transition-colors hover:bg-accent/30"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Add task
+                  </button>
+                )}
+                {quickAddColumn === status && (
+                  <div className="rounded-md border border-border/70 bg-card p-2">
+                    <input
+                      autoFocus
+                      value={quickAddTitle}
+                      onChange={(e) => setQuickAddTitle(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          commitQuickAdd(status);
+                        } else if (e.key === "Escape") {
+                          setQuickAddColumn(null);
+                          setQuickAddTitle("");
+                        }
+                      }}
+                      onBlur={() => {
+                        if (quickAddTitle.trim()) {
+                          commitQuickAdd(status);
+                        } else {
+                          setQuickAddColumn(null);
+                        }
+                      }}
+                      placeholder="Task title…"
+                      className="w-full bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/60"
+                    />
+                  </div>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <DndContext

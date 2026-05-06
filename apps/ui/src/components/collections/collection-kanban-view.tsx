@@ -14,9 +14,15 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import type { CollectionField, CollectionRecord } from "@/lib/collections/types";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { Plus, MoreHorizontal, Archive, Trash2 } from "lucide-react";
+import { ChevronRight, Plus, MoreHorizontal, Archive, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,6 +55,7 @@ export function CollectionKanbanView({
   onDeleteRecord,
   onRecordClick,
 }: CollectionKanbanViewProps) {
+  const mobile = useIsMobile();
   const [activeRecordId, setActiveRecordId] = useState<string | null>(null);
 
   const sensors = useSensors(
@@ -115,6 +122,88 @@ export function CollectionKanbanView({
   const activeRecord = activeRecordId
     ? records.find((r) => r.id === activeRecordId) ?? null
     : null;
+
+  if (mobile) {
+    return (
+      <div className="space-y-3">
+        {columns.map((col) => (
+          <Collapsible key={col.value} defaultOpen>
+            <CollapsibleTrigger className="flex w-full items-center gap-2 py-1.5 text-left">
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90" />
+              {col.color && (
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: col.color }}
+                />
+              )}
+              <span className="text-sm font-medium">{col.label}</span>
+              <span className="text-[11px] tabular-nums text-muted-foreground">
+                {col.records.length}
+              </span>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-1.5 pt-1">
+              {col.records.map((record) => (
+                <button
+                  key={record.id}
+                  type="button"
+                  className="flex w-full items-start justify-between gap-2 rounded-md border border-border/50 p-2.5 text-left transition-colors active:bg-accent/50"
+                  onClick={() => onRecordClick?.(record.id)}
+                >
+                  <span className="text-body font-medium leading-snug truncate">
+                    {getTitle(record)}
+                  </span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 shrink-0"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenuItem onClick={() => onArchiveRecord(record.id)}>
+                        <Archive className="mr-2 h-3.5 w-3.5" />
+                        Archive
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => onDeleteRecord(record.id)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="mr-2 h-3.5 w-3.5" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </button>
+              ))}
+              {col.records.length === 0 && (
+                <div className="py-3 text-center text-[11px] text-muted-foreground/60">
+                  Empty
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() =>
+                  onAddRecord(
+                    col.value !== UNCATEGORIZED
+                      ? { [groupByFieldKey]: col.value }
+                      : undefined,
+                  )
+                }
+                className="flex w-full items-center gap-1 rounded-md border border-dashed border-border/60 px-2 py-2 text-[11px] text-muted-foreground/70 transition-colors hover:bg-accent/30"
+              >
+                <Plus className="h-3 w-3" />
+                Add
+              </button>
+            </CollapsibleContent>
+          </Collapsible>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <DndContext
