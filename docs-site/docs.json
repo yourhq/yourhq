@@ -94,7 +94,9 @@
         "group": "Design",
         "pages": [
           "design/overview",
-          "design/foundations"
+          "design/foundations",
+          "design/components/primitives",
+          "design/components/composites"
         ]
       },
       {

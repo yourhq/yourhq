@@ -1,0 +1,130 @@
+---
+title: "Primitives"
+description: "The 60 building blocks under apps/ui/src/components/ui/. shadcn/ui (New York) plus a handful of HQ extensions."
+---
+
+Primitives are the lowest layer of the component system. They live in [`apps/ui/src/components/ui/`](https://github.com/yourhq/yourhq/tree/main/apps/ui/src/components/ui) and are mostly stock shadcn/ui (New York style, neutral base, CSS variables enabled — see [`components.json`](https://github.com/yourhq/yourhq/blob/main/apps/ui/components.json)) with a few HQ-specific additions called out below.
+
+Don't reach past primitives. If something can be composed from these, compose it. If it can't, build it as a [composite](/design/components/composites) in `components/shared/`, never as another primitive.
+
+## Layout and containers
+
+Structural pieces. They organize space; they don't carry state of their own.
+
+| Component | File | Purpose |
+|---|---|---|
+| `Card` | [`card.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/card.tsx) | Bordered surface with semantic slots: `CardHeader`, `CardTitle`, `CardDescription`, `CardAction`, `CardContent`, `CardFooter`. |
+| `Tabs` | [`tabs.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/tabs.tsx) | Two CVA variants: `default` (pill) and `line` (underline). Horizontal and vertical. |
+| `Accordion` | [`accordion.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/accordion.tsx) | Stacked collapsible sections. |
+| `Collapsible` | [`collapsible.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/collapsible.tsx) | Single collapsible region (no accordion grouping). |
+| `Separator` | [`separator.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/separator.tsx) | 1px divider, horizontal or vertical. |
+| `ScrollArea` | [`scroll-area.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/scroll-area.tsx) | Custom-styled scrollable container. Thin scrollbars match the global token. |
+| `Resizable` | [`resizable.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/resizable.tsx) | Drag-to-resize panels (`react-resizable-panels`). |
+| `AspectRatio` | [`aspect-ratio.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/aspect-ratio.tsx) | Fixed-ratio container for media. |
+| `Sidebar` | [`sidebar.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/sidebar.tsx) | Low-level sidebar primitive. The dashboard shell uses its own composition; reach for this only if you need a second sidebar surface. |
+
+## Forms and input
+
+Reach for `Form` first. It wires React Hook Form + Zod and handles labels, descriptions, and errors consistently. Only use bare inputs when there is no form (search boxes, ad-hoc filters, inline-edit cells).
+
+| Component | File | Purpose |
+|---|---|---|
+| `Form`, `FormField`, `FormItem`, `FormLabel`, `FormControl`, `FormDescription`, `FormMessage` | [`form.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/form.tsx) | The full RHF + Zod stack. Auto-IDs, `aria-describedby`, `aria-invalid` wired up. |
+| `Field` | [`field.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/field.tsx) | HQ extension. Labeled field wrapper for form-less surfaces (filters, settings panels). |
+| `Label` | [`label.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/label.tsx) | Radix label primitive used inside `Form`. |
+| `Input` | [`input.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/input.tsx) | Single-line text. Supports `type="file"`. |
+| `Textarea` | [`textarea.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/textarea.tsx) | Multi-line plaintext. For rich text use the [Novel editor](/design/patterns/creation-and-editing) instead. |
+| `InputGroup` | [`input-group.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/input-group.tsx) | HQ extension. Input with prefix or suffix slot. |
+| `InputOtp` | [`input-otp.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/input-otp.tsx) | Segmented one-time-password input. |
+| `Checkbox` | [`checkbox.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/checkbox.tsx) | Indeterminate-aware checkbox. |
+| `RadioGroup` | [`radio-group.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/radio-group.tsx) | Single-select radio set. |
+| `Switch` | [`switch.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/switch.tsx) | Boolean toggle. Use for "is enabled" semantics; use `Checkbox` for selection. |
+| `Select` | [`select.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/select.tsx) | Custom-styled select with searchable items. |
+| `NativeSelect` | [`native-select.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/native-select.tsx) | Real `<select>`. Use on mobile or when full keyboard control matters more than visual polish. |
+| `Combobox` | [`combobox.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/combobox.tsx) | Search-as-you-type select with multi-select support. |
+| `TagInput` | [`tag-input.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/tag-input.tsx) | HQ extension. Multi-value chip input — Enter or comma to commit. |
+| `Slider` | [`slider.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/slider.tsx) | Range slider, single or dual handle. |
+| `Toggle` | [`toggle.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/toggle.tsx) | Binary on/off button. |
+| `ToggleGroup` | [`toggle-group.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/toggle-group.tsx) | Single or multiple-select toggle row (view switchers, formatting bars). |
+
+## Actions and controls
+
+| Component | File | Purpose |
+|---|---|---|
+| `Button` | [`button.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/button.tsx) | Variants: `default`, `destructive`, `outline`, `secondary`, `ghost`, `link`. Sizes: `default`, `xs`, `sm`, `lg`, `icon`, `icon-xs`, `icon-sm`, `icon-lg`. CVA-driven; do not subclass. |
+| `ButtonGroup` | [`button-group.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/button-group.tsx) | Adjacent buttons treated as a single segmented control (split actions). |
+| `Item` | [`item.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/item.tsx) | Generic clickable row primitive — base for sidebar entries, list rows, palette results. |
+
+## Overlays
+
+Pick the overlay by intent, not by visual shape:
+
+- **`Dialog`** — focused decision the user must respond to (confirm, quick-create with ≤3 fields).
+- **`AlertDialog`** — destructive or otherwise irreversible decisions; cannot be dismissed by clicking outside. Composed via [`ConfirmDialog`](/design/components/composites).
+- **`Sheet`** — multi-field forms or detail surfaces that benefit from staying alongside the page; preferred over `Dialog` for create flows. Composed via [`SidePanel`](/design/components/composites).
+- **`Drawer`** — bottom-up mobile pattern (Vaul). Used sparingly; prefer `Sheet` for desktop+mobile parity.
+- **`Popover` / `HoverCard` / `Tooltip`** — non-modal supplementary content, in increasing weight (tooltip = label, hover-card = preview, popover = interactive).
+- **`DropdownMenu` / `ContextMenu`** — action lists triggered by click vs. right-click respectively.
+- **`NavigationMenu` / `Menubar`** — top-of-app menus. Rarely used at HQ; the command palette covers most navigation.
+- **`Command`** — cmdk primitive used inside the [command palette composite](/design/components/composites).
+
+| Component | File |
+|---|---|
+| `Dialog` | [`dialog.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/dialog.tsx) |
+| `AlertDialog` | [`alert-dialog.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/alert-dialog.tsx) |
+| `Sheet` | [`sheet.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/sheet.tsx) |
+| `Drawer` | [`drawer.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/drawer.tsx) |
+| `Popover` | [`popover.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/popover.tsx) |
+| `HoverCard` | [`hover-card.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/hover-card.tsx) |
+| `Tooltip` | [`tooltip.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/tooltip.tsx) |
+| `DropdownMenu` | [`dropdown-menu.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/dropdown-menu.tsx) |
+| `ContextMenu` | [`context-menu.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/context-menu.tsx) |
+| `NavigationMenu` | [`navigation-menu.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/navigation-menu.tsx) |
+| `Menubar` | [`menubar.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/menubar.tsx) |
+| `Command` | [`command.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/command.tsx) |
+
+## Display and data
+
+| Component | File | Purpose |
+|---|---|---|
+| `Table` | [`table.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/table.tsx) | Semantic `<table>` with sticky-header support. Most lists use the [`DataTable`](/design/components/composites) composite on top. |
+| `Badge` | [`badge.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/badge.tsx) | Variants: `default`, `secondary`, `destructive`, `outline`, `ghost`, `link`. |
+| `Avatar` | [`avatar.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/avatar.tsx) | Image with text fallback. |
+| `StatusDot` | [`status-dot.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/status-dot.tsx) | HQ extension. Small colored dot for status indicators on rows. Pair with `text-status-*` tokens. |
+| `Progress` | [`progress.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/progress.tsx) | Determinate progress bar. |
+| `Chart` | [`chart.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/chart.tsx) | Recharts wrapper. Consumes `--chart-1..5` tokens. |
+| `Calendar` | [`calendar.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/calendar.tsx) | Month-grid date picker. |
+| `DatePickerButton` | [`date-picker-button.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/date-picker-button.tsx) | HQ extension. Popover-button date picker for inline use. |
+| `Pagination` | [`pagination.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/pagination.tsx) | Page-number navigation. |
+| `Carousel` | [`carousel.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/carousel.tsx) | Horizontal-scroll carousel (Embla). |
+| `Breadcrumb` | [`breadcrumb.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/breadcrumb.tsx) | Path-style navigation; used inside the header bar. |
+
+## Feedback
+
+| Component | File | Purpose |
+|---|---|---|
+| `Alert` | [`alert.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/alert.tsx) | Persistent inline message. Use for unrecoverable warnings; transient feedback should use a toast. |
+| `Skeleton` | [`skeleton.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/skeleton.tsx) | `animate-pulse` placeholder block. Compose with [`LoadingSkeleton`](/design/components/composites) for full-list shapes. |
+| `Spinner` | [`spinner.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/spinner.tsx) | Animated `Loader2` icon. Use only when a skeleton would be misleading. |
+| `Sonner` (`Toaster`) | [`sonner.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/sonner.tsx) | Toast outlet. Mounted once in the root layout. Call via `toast()`, `toast.success()`, `toast.error()`, `toast.loading()`. |
+| `Empty` | [`empty.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/empty.tsx) | Semantic empty-state primitives (icon, title, description). The [`EmptyState`](/design/components/composites) composite is preferred for full screens. |
+
+## Utilities
+
+| Component | File | Purpose |
+|---|---|---|
+| `Kbd` | [`kbd.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/kbd.tsx) | HQ extension. Keyboard-key chip. Used in shortcut hints and the help sheet. |
+| `InlineEdit` | [`inline-edit.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/inline-edit.tsx) | HQ extension. Click-to-edit text and textarea with Enter to commit, Escape to cancel. |
+| `Direction` | [`direction.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/direction.tsx) | LTR/RTL provider. Currently unused; reserved for internationalization. |
+
+## HQ extensions called out
+
+These are the primitives we added on top of stock shadcn/ui. New extensions should be rare — most needs are better served by composing in [`shared/`](/design/components/composites). If you do add one, follow the existing files for style: CVA for variants, `data-slot` attributes on composed pieces, no business logic, no module imports.
+
+- [`field.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/field.tsx)
+- [`input-group.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/input-group.tsx)
+- [`tag-input.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/tag-input.tsx)
+- [`status-dot.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/status-dot.tsx)
+- [`date-picker-button.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/date-picker-button.tsx)
+- [`kbd.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/kbd.tsx)
+- [`inline-edit.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/inline-edit.tsx)
