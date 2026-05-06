@@ -12,8 +12,9 @@ This page is the inventory. It is the source of truth that the [principles](/des
 The token system has three layers, in order:
 
 1. **shadcn neutral base.** `--background`, `--foreground`, `--card`, `--popover`, `--primary`, `--secondary`, `--muted`, `--accent`, `--destructive`, `--border`, `--input`, `--ring`, the chart palette, and the sidebar palette. Defined in both `:root` (light) and `.dark`.
-2. **HQ semantic extensions.** The state, status, priority, motion, and text tokens we layer on top: `--surface-hover`, `--surface-selected`, `--border-strong`, `--status-*`, `--priority-*`, `--text-secondary`, `--text-tertiary`, `--duration-*`, `--ease-*`. Currently defined under `.dark` only — dark is the canonical theme, and the semantic extensions live there. Light mode renders cleanly on the shadcn base.
-3. **`@theme inline` mapping.** Each token gets a `--color-*`, `--radius-*`, or font alias inside the top `@theme` block, which Tailwind v4 turns into utility classes (`bg-surface-hover`, `text-status-success`, `rounded-md`, `font-sans`, etc.).
+2. **HQ semantic extensions.** The state, status, priority, and text tokens we layer on top: `--surface-hover`, `--surface-selected`, `--border-strong`, `--status-*`, `--priority-*`, `--text-secondary`, `--text-tertiary`. Defined in both `:root` and `.dark` so the same utilities resolve in either theme.
+3. **Motion tokens.** `--duration-fast/normal/slow`, `--ease-out`, `--ease-in-out`. Defined once in `:root` only — motion is theme-invariant.
+4. **`@theme inline` mapping.** Each token gets a `--color-*`, `--radius-*`, or font alias inside the top `@theme` block, which Tailwind v4 turns into utility classes (`bg-surface-hover`, `text-status-success`, `rounded-md`, `font-sans`, etc.).
 
 The rule: **never inline a hex**. If an existing token covers the role, use it. If a new semantic role is needed (a new status state, a new surface depth), add a token to `globals.css` and wire it through `@theme inline`.
 
@@ -42,39 +43,41 @@ All colors use the **OKLch** color space — perceptually uniform lightness, so 
 
 ### Surface ladder
 
-The depth system, dark-mode canonical. Built from white-on-dark transparency so the same component reads correctly across hover, focus, selection, and divider states without parallel color stacks.
+The depth system. Built from neutral-on-surface transparency so the same component reads correctly across hover, focus, selection, and divider states without parallel color stacks. Light mirrors dark with black-on-light at slightly lower opacity (black on white reads stronger than white on near-black at the same alpha).
 
-| Token | Value (dark) | Role |
-|---|---|---|
-| `--surface-hover` | `oklch(1 0 0 / 5%)` | Hover lift on rows, cells, list items |
-| `--surface-selected` | `oklch(1 0 0 / 8%)` | Selected/active row fill |
-| `--border` | `oklch(1 0 0 / 9%)` | Default divider, list separators |
-| `--border-strong` | `oklch(1 0 0 / 14%)` | Section breaks, emphasized edges |
+| Token | Light | Dark | Role |
+|---|---|---|---|
+| `--surface-hover` | `oklch(0 0 0 / 4%)` | `oklch(1 0 0 / 5%)` | Hover lift on rows, cells, list items |
+| `--surface-selected` | `oklch(0 0 0 / 6%)` | `oklch(1 0 0 / 8%)` | Selected/active row fill |
+| `--border` | `oklch(0.922 0 0)` | `oklch(1 0 0 / 9%)` | Default divider, list separators |
+| `--border-strong` | `oklch(0.85 0 0)` | `oklch(1 0 0 / 14%)` | Section breaks, emphasized edges |
 
 Applied via Tailwind utilities: `bg-surface-hover`, `bg-surface-selected`, `border-border`, `border-strong`.
 
 ### Semantic text
 
-| Token | Value (dark) | Role |
-|---|---|---|
-| `--foreground` | `oklch(0.96 0 0)` | Primary text |
-| `--muted-foreground` | `oklch(0.62 0 0)` | Secondary text, labels |
-| `--text-secondary` | `oklch(0.62 0 0)` | Same role as muted-foreground; available where you need a non-mapped utility |
-| `--text-tertiary` | `oklch(0.45 0 0)` | Tertiary text — timestamps, helper hints, low-emphasis metadata |
+| Token | Light | Dark | Role |
+|---|---|---|---|
+| `--foreground` | `oklch(0.145 0 0)` | `oklch(0.96 0 0)` | Primary text |
+| `--muted-foreground` | `oklch(0.556 0 0)` | `oklch(0.62 0 0)` | Secondary text, labels |
+| `--text-secondary` | `oklch(0.556 0 0)` | `oklch(0.62 0 0)` | Same role as muted-foreground; available where you need a non-mapped utility |
+| `--text-tertiary` | `oklch(0.65 0 0)` | `oklch(0.45 0 0)` | Tertiary text — timestamps, helper hints, low-emphasis metadata |
+
+Note the inversion: in light mode `--text-tertiary` is *lighter* than `--text-secondary` (closer to background = lower contrast); in dark mode it is *darker* (also closer to background). The visual hierarchy is the same — the OKLch numbers move opposite directions because the background does.
 
 Available as `.text-secondary` and `.text-tertiary` utility classes.
 
 ### Status
 
-Reserved for state, never decoration. Use these tokens for any badge, dot, or icon that conveys a record's state.
+Reserved for state, never decoration. Use these tokens for any badge, dot, or icon that conveys a record's state. Light values keep the same hue and chroma as dark but at lower lightness so they read on a white background.
 
-| Token | Value (dark) | Use for |
-|---|---|---|
-| `--status-success` | `oklch(0.72 0.17 162.48)` | Completed, ready, healthy |
-| `--status-warning` | `oklch(0.8 0.18 70.08)` | Pending, blocked, attention needed |
-| `--status-error` | `oklch(0.71 0.19 22.216)` | Failed, errored, missed |
-| `--status-info` | `oklch(0.68 0.18 250)` | In progress, informational |
-| `--status-neutral` | `oklch(0.62 0 0)` | Inactive, archived, idle |
+| Token | Light | Dark | Use for |
+|---|---|---|---|
+| `--status-success` | `oklch(0.55 0.15 162.48)` | `oklch(0.72 0.17 162.48)` | Completed, ready, healthy |
+| `--status-warning` | `oklch(0.6 0.16 70.08)` | `oklch(0.8 0.18 70.08)` | Pending, blocked, attention needed |
+| `--status-error` | `oklch(0.55 0.18 22.216)` | `oklch(0.71 0.19 22.216)` | Failed, errored, missed |
+| `--status-info` | `oklch(0.5 0.18 250)` | `oklch(0.68 0.18 250)` | In progress, informational |
+| `--status-neutral` | `oklch(0.5 0 0)` | `oklch(0.62 0 0)` | Inactive, archived, idle |
 
 Tailwind utilities: `text-status-success`, `bg-status-warning/20`, `border-status-error`, etc.
 
@@ -82,12 +85,12 @@ Tailwind utilities: `text-status-success`, `bg-status-warning/20`, `border-statu
 
 Used by tasks and any other module that ranks records by urgency. Aligned with status tones where the meaning overlaps.
 
-| Token | Value (dark) | Level |
-|---|---|---|
-| `--priority-urgent` | `oklch(0.71 0.19 22.216)` | Urgent |
-| `--priority-high` | `oklch(0.78 0.17 55)` | High |
-| `--priority-medium` | `oklch(0.83 0.17 90)` | Medium |
-| `--priority-low` | `oklch(0.68 0.12 240)` | Low |
+| Token | Light | Dark | Level |
+|---|---|---|---|
+| `--priority-urgent` | `oklch(0.55 0.18 22.216)` | `oklch(0.71 0.19 22.216)` | Urgent |
+| `--priority-high` | `oklch(0.6 0.16 55)` | `oklch(0.78 0.17 55)` | High |
+| `--priority-medium` | `oklch(0.65 0.15 90)` | `oklch(0.83 0.17 90)` | Medium |
+| `--priority-low` | `oklch(0.5 0.13 240)` | `oklch(0.68 0.12 240)` | Low |
 
 Tailwind utilities: `text-priority-urgent`, `bg-priority-high/15`, etc.
 
@@ -189,7 +192,7 @@ If a layout needs an off-scale value, the right move is almost always to pick th
 
 ## Motion
 
-Three durations, two easings. Animation is deliberate — used to clarify state changes (a sheet sliding in, a row reordering), not to entertain.
+Three durations, two easings. Animation is deliberate — used to clarify state changes (a sheet sliding in, a row reordering), not to entertain. Defined once in `:root` only; motion does not change between themes.
 
 ```css
 --duration-fast: 120ms;
@@ -251,7 +254,7 @@ When choosing an icon, prefer the most literal name in Lucide. If nothing fits, 
 When a screen needs a value that no existing token covers:
 
 1. **Confirm the role is semantic, not stylistic.** "We need a slightly darker red" is not a new token. "We need a token for the 'snoozed' state on tasks" is.
-2. **Add the variable in `globals.css`.** Both `:root` and `.dark` if the role exists in both themes; `.dark` only if it is part of the dark-canonical extensions.
+2. **Add the variable in `globals.css`.** Both `:root` and `.dark` if the role is theme-dependent (color, surface, text). `:root` only if it is theme-invariant (motion, radius, spacing).
 3. **Wire it into `@theme inline`** with a `--color-*`, `--radius-*`, or matching alias so Tailwind utilities pick it up.
 4. **Use the Tailwind utility everywhere.** Never reach back to `var(--…)` in component code unless the value is being passed into a CSS-in-JS or inline style attribute that does not resolve utilities.
 
