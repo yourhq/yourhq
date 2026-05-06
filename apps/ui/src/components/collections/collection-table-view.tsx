@@ -11,6 +11,7 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { useState } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { CollectionField, CollectionRecord, ViewConfig } from "@/lib/collections/types";
 import { CollectionCell } from "./collection-cell";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,8 @@ export function CollectionTableView({
   onDeleteRecord,
   onRecordClick,
 }: CollectionTableViewProps) {
+  const mobile = useIsMobile();
+
   const [sorting, setSorting] = useState<SortingState>(() => {
     if (viewConfig.sort_field) {
       return [{ id: viewConfig.sort_field, desc: viewConfig.sort_direction === "desc" }];
@@ -146,6 +149,87 @@ export function CollectionTableView({
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
   });
+
+  if (mobile) {
+    const titleField = activeFields.find((f) => f.is_title_field);
+    const detailFields = activeFields.filter((f) => !f.is_title_field).slice(0, 4);
+
+    return (
+      <div className="space-y-2">
+        {records.map((record) => (
+          <button
+            key={record.id}
+            type="button"
+            className="flex w-full items-start gap-3 rounded-lg border border-border/50 p-3 text-left transition-colors active:bg-accent/50"
+            onClick={() => onRecordClick?.(record.id)}
+          >
+            <div className="flex-1 min-w-0 space-y-1.5">
+              <span className="text-sm font-medium truncate block">
+                {titleField
+                  ? (record.values[titleField.field_key] as string) || "Untitled"
+                  : "Untitled"}
+              </span>
+              {detailFields.length > 0 && (
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                  {detailFields.map((field) => {
+                    const val = record.values[field.field_key];
+                    if (val == null || val === "") return null;
+                    return (
+                      <span key={field.field_key}>
+                        <span className="text-muted-foreground/60">{field.label}:</span>{" "}
+                        {String(val)}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                {onRecordClick && (
+                  <>
+                    <DropdownMenuItem onClick={() => onRecordClick(record.id)}>
+                      Open
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <DropdownMenuItem onClick={() => onArchiveRecord(record.id)}>
+                  <Archive className="mr-2 h-3.5 w-3.5" />
+                  Archive
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onDeleteRecord(record.id)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-3.5 w-3.5" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={onAddRecord}
+          className="flex w-full items-center gap-1.5 rounded-lg border border-dashed border-border/50 px-3 py-2.5 text-body text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          New record
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-x-auto">

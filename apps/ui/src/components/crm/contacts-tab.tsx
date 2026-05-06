@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useContacts } from "@/hooks/use-contacts";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useRouter } from "next/navigation";
 import { Contact } from "@/lib/crm/types";
 import { ContactsFilterBar } from "./contacts-filter-bar";
@@ -21,6 +22,7 @@ interface ColumnToggleState {
 
 export function ContactsTab() {
   const router = useRouter();
+  const mobile = useIsMobile();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showImportWizard, setShowImportWizard] = useState(false);
   const [columnToggle, setColumnToggle] = useState<ColumnToggleState | null>(null);
@@ -29,7 +31,7 @@ export function ContactsTab() {
     allContacts,
     campaigns,
     loading,
-    viewMode,
+    viewMode: savedViewMode,
     changeViewMode,
     sorting,
     setSorting,
@@ -37,6 +39,8 @@ export function ContactsTab() {
     actions,
     form,
   } = useContacts();
+
+  const viewMode = mobile ? "cards" : savedViewMode;
 
   function handleSelectContact(contact: Contact) {
     router.push(`/dashboard/contacts/${contact.id}`);

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Template } from "@/lib/crm/types";
 import { logAudit } from "@/lib/audit/log";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import { Plus, Pencil, Archive, RotateCcw, Copy } from "lucide-react";
 import { toast } from "sonner";
 
 export function TemplatesTab() {
+  const mobile = useIsMobile();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -84,34 +86,54 @@ export function TemplatesTab() {
         </Button>
       </div>
 
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-b border-border/50 hover:bg-transparent">
-              <TableHead className="h-7 py-0 text-xs">Name</TableHead>
-              <TableHead className="h-7 py-0 text-xs hidden sm:table-cell">Channel</TableHead>
-              <TableHead className="h-7 py-0 text-xs hidden sm:table-cell">Stage</TableHead>
-              <TableHead className="h-7 py-0 text-xs hidden md:table-cell">Subject</TableHead>
-              <TableHead className="h-7 py-0 text-xs hidden sm:table-cell text-right">Used</TableHead>
-              <TableHead className="h-7 py-0 text-xs">Status</TableHead>
-              <TableHead className="h-7 py-0 text-right" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="h-16 text-center text-xs text-muted-foreground">
-                  Loading...
-                </TableCell>
+      {loading ? (
+        <p className="text-center text-xs text-muted-foreground py-8">Loading...</p>
+      ) : templates.length === 0 ? (
+        <p className="text-center text-xs text-muted-foreground py-8">
+          No templates yet. Create one to get started.
+        </p>
+      ) : mobile ? (
+        <div className="space-y-2">
+          {templates.map((template) => (
+            <button
+              key={template.id}
+              type="button"
+              className="flex w-full items-center gap-3 rounded-lg border border-border/50 p-3 text-left transition-colors active:bg-accent/50"
+              onClick={() => { setEditing(template); setShowForm(true); }}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium truncate">{template.name}</span>
+                  <StatusDot
+                    color={template.is_active ? "#4ade80" : "#6b7280"}
+                    label={template.is_active ? "Active" : "Archived"}
+                  />
+                </div>
+                <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
+                  {template.channel && <span>{template.channel}</span>}
+                  {template.subject && <span className="truncate">{template.subject}</span>}
+                  <span>{template.use_count} uses</span>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-b border-border/50 hover:bg-transparent">
+                <TableHead className="h-7 py-0 text-xs">Name</TableHead>
+                <TableHead className="h-7 py-0 text-xs hidden sm:table-cell">Channel</TableHead>
+                <TableHead className="h-7 py-0 text-xs hidden sm:table-cell">Stage</TableHead>
+                <TableHead className="h-7 py-0 text-xs hidden md:table-cell">Subject</TableHead>
+                <TableHead className="h-7 py-0 text-xs hidden sm:table-cell text-right">Used</TableHead>
+                <TableHead className="h-7 py-0 text-xs">Status</TableHead>
+                <TableHead className="h-7 py-0 text-right" />
               </TableRow>
-            ) : templates.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="h-16 text-center text-xs text-muted-foreground">
-                  No templates yet. Create one to get started.
-                </TableCell>
-              </TableRow>
-            ) : (
-              templates.map((template) => (
+            </TableHeader>
+            <TableBody>
+              {templates.map((template) => (
                 <TableRow key={template.id} className="border-b border-border/50 hover:bg-accent/40 group">
                   <TableCell className="py-1.5 px-3 text-sm font-medium">{template.name}</TableCell>
                   <TableCell className="py-1.5 px-3 hidden sm:table-cell">
@@ -178,11 +200,11 @@ export function TemplatesTab() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       <TemplateForm
         open={showForm}

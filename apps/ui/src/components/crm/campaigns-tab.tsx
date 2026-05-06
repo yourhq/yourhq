@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Campaign } from "@/lib/crm/types";
 import { Input } from "@/components/ui/input";
 import { logAudit } from "@/lib/audit/log";
@@ -26,6 +27,7 @@ import { Plus, Pencil, Archive, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 export function CampaignsTab() {
+  const mobile = useIsMobile();
   const [campaigns, setCampaigns] = useState<(Campaign & { contact_count: number })[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -91,33 +93,60 @@ export function CampaignsTab() {
         </Button>
       </div>
 
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-b border-border/50 hover:bg-transparent">
-              <TableHead className="h-7 py-0 text-xs">Name</TableHead>
-              <TableHead className="h-7 py-0 text-xs hidden sm:table-cell">Channel</TableHead>
-              <TableHead className="h-7 py-0 text-xs hidden md:table-cell">Description</TableHead>
-              <TableHead className="h-7 py-0 text-xs text-right">Contacts</TableHead>
-              <TableHead className="h-7 py-0 text-xs">Status</TableHead>
-              <TableHead className="h-7 py-0 text-right" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={6} className="h-16 text-center text-xs text-muted-foreground">
-                  Loading...
-                </TableCell>
+      {loading ? (
+        <p className="text-center text-xs text-muted-foreground py-8">Loading...</p>
+      ) : campaigns.length === 0 ? (
+        <p className="text-center text-xs text-muted-foreground py-8">
+          No campaigns yet. Create one to organize your outreach.
+        </p>
+      ) : mobile ? (
+        <div className="space-y-2">
+          {campaigns.map((campaign) => (
+            <button
+              key={campaign.id}
+              type="button"
+              className="flex w-full items-center gap-3 rounded-lg border border-border/50 p-3 text-left transition-colors active:bg-accent/50"
+              onClick={() => { setEditing(campaign); setShowForm(true); }}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium truncate">{campaign.name}</span>
+                  <StatusDot
+                    color={campaign.is_active ? "#4ade80" : "#6b7280"}
+                    label={campaign.is_active ? "Active" : "Archived"}
+                  />
+                </div>
+                <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
+                  {campaign.channel && <span>{campaign.channel}</span>}
+                  <span>{campaign.contact_count} contacts</span>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                onClick={(e) => { e.stopPropagation(); handleToggleActive(campaign); }}
+              >
+                {campaign.is_active ? <Archive className="h-3.5 w-3.5" /> : <RotateCcw className="h-3.5 w-3.5" />}
+              </Button>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-b border-border/50 hover:bg-transparent">
+                <TableHead className="h-7 py-0 text-xs">Name</TableHead>
+                <TableHead className="h-7 py-0 text-xs hidden sm:table-cell">Channel</TableHead>
+                <TableHead className="h-7 py-0 text-xs hidden md:table-cell">Description</TableHead>
+                <TableHead className="h-7 py-0 text-xs text-right">Contacts</TableHead>
+                <TableHead className="h-7 py-0 text-xs">Status</TableHead>
+                <TableHead className="h-7 py-0 text-right" />
               </TableRow>
-            ) : campaigns.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="h-16 text-center text-xs text-muted-foreground">
-                  No campaigns yet. Create one to organize your outreach.
-                </TableCell>
-              </TableRow>
-            ) : (
-              campaigns.map((campaign) => (
+            </TableHeader>
+            <TableBody>
+              {campaigns.map((campaign) => (
                 <TableRow key={campaign.id} className="border-b border-border/50 hover:bg-accent/40 group">
                   <TableCell className="py-1.5 px-3 text-sm font-medium">{campaign.name}</TableCell>
                   <TableCell className="py-1.5 px-3 hidden sm:table-cell">
@@ -167,11 +196,11 @@ export function CampaignsTab() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       <CampaignForm
         open={showForm}
