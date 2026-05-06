@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback } from "react";
 import { ArrowRight, Loader2, Check, ExternalLink, AlertCircle, Clipboard } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 type SubPhase = "meet" | "name" | "channel" | "pairing";
 
@@ -93,7 +94,6 @@ export function StepAgent({
 
   // Pairing state
   const [pairingCode, setPairingCode] = useState("");
-  const pairingInputRef = useRef<HTMLInputElement>(null);
 
   const handleCreate = useCallback(async () => {
     setCreating(true);
@@ -157,11 +157,6 @@ export function StepAgent({
     });
   }, [agentId, agentSlug, channelType, pairingCode, onSubmitPairing]);
 
-  useEffect(() => {
-    if (phase === "pairing") {
-      pairingInputRef.current?.focus();
-    }
-  }, [phase]);
 
   const channelTokenValid = (() => {
     if (!channelType) return false;
@@ -191,7 +186,7 @@ export function StepAgent({
 
           <div className="rounded-xl border border-border/60 bg-card/40 p-6">
             <div className="flex flex-col items-center gap-4 text-center">
-              <span className="text-[48px] leading-none">{recommendation.emoji}</span>
+              <span className="text-[72px] leading-none" style={{ animation: "gentle-breathe 4s ease-in-out infinite" }}>{recommendation.emoji}</span>
               <div>
                 <div className="text-[18px] font-semibold">{recommendation.name}</div>
                 <div className="mt-1 text-[13px] text-muted-foreground">
@@ -209,7 +204,7 @@ export function StepAgent({
             onClick={() => setPhase("name")}
             className="group inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-[13px] font-medium text-background transition-all hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2"
           >
-            Let&apos;s get started
+            Set up {recommendation.name}
             <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
           </button>
         </div>
@@ -400,8 +395,8 @@ export function StepAgent({
           {/* Channel-specific credential form */}
           {channelType && (
             <div className="animate-in fade-in slide-in-from-top-1 duration-200 rounded-xl border border-border/40 bg-card/20 overflow-hidden">
-              <div className="grid grid-cols-[1fr_auto] divide-x divide-border/30">
-                {/* Left: form */}
+              <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] lg:divide-x lg:divide-border/30">
+                {/* Form */}
                 <div className="p-4 space-y-3">
                   {channelType === "telegram" && (
                     <TokenField
@@ -453,8 +448,8 @@ export function StepAgent({
                   )}
                 </div>
 
-                {/* Right: instructions */}
-                <div className="w-48 shrink-0 p-4">
+                {/* Instructions — stacked on mobile/tablet, sidebar on desktop */}
+                <div className="border-t border-border/30 p-4 lg:border-t-0">
                   <p className="mb-3 text-[10px] uppercase tracking-wider text-muted-foreground/40 font-medium">
                     How to get it
                   </p>
@@ -492,8 +487,8 @@ export function StepAgent({
           )}
 
           {/* Actions */}
-          <div className="flex items-center gap-3 pt-2">
-            {channelType && channelTokenValid ? (
+          <div className="space-y-3 pt-2">
+            {channelType && channelTokenValid && (
               <button
                 type="button"
                 onClick={handleConnectChannel}
@@ -517,22 +512,21 @@ export function StepAgent({
                   </>
                 )}
               </button>
-            ) : (
+            )}
+
+            <div>
               <button
                 type="button"
                 onClick={onSkipChannel}
-                className="group inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-[13px] font-medium text-background transition-all hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2"
+                className="text-[12px] text-muted-foreground/70 underline-offset-2 transition-colors hover:text-foreground hover:underline"
               >
                 Skip for now
-                <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
               </button>
-            )}
+              <span className="ml-2 text-[11px] text-muted-foreground/50">
+                You can connect a channel anytime from Settings.
+              </span>
+            </div>
           </div>
-
-          <p className="text-[11px] text-muted-foreground/60">
-            {displayName} also works through Tasks — you can always connect a
-            channel later in Settings.
-          </p>
         </div>
       )}
 
@@ -572,30 +566,31 @@ export function StepAgent({
             </div>
           )}
 
-          <div className="grid grid-cols-5 gap-4">
-            {/* Left: pairing code input */}
-            <div className="col-span-3 space-y-3">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
+            {/* Pairing code input */}
+            <div className="space-y-3">
               <div>
                 <label className="text-[11px] uppercase tracking-wider text-muted-foreground/50 font-medium">
                   Pairing code
                 </label>
-                <input
-                  ref={pairingInputRef}
-                  type="text"
-                  value={pairingCode}
-                  onChange={(e) => setPairingCode(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && pairingCode.trim()) handleSubmitPairing();
-                  }}
-                  placeholder="••••••"
-                  autoComplete="off"
-                  spellCheck={false}
-                  disabled={provisionStatus !== "ready"}
-                  className={cn(
-                    "mt-1.5 w-full h-12 rounded-lg border border-border/50 bg-transparent px-3 text-center font-mono text-lg tracking-[0.5em] outline-none focus-visible:ring-1 focus-visible:ring-border placeholder:text-muted-foreground/30 placeholder:tracking-[0.5em]",
-                    provisionStatus !== "ready" && "opacity-50 cursor-not-allowed",
-                  )}
-                />
+                <div className={cn("mt-2", provisionStatus !== "ready" && "opacity-50 pointer-events-none")}>
+                  <InputOTP
+                    maxLength={6}
+                    value={pairingCode}
+                    onChange={setPairingCode}
+                    onComplete={handleSubmitPairing}
+                    disabled={provisionStatus !== "ready"}
+                  >
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} className="h-12 w-10 text-lg" />
+                      <InputOTPSlot index={1} className="h-12 w-10 text-lg" />
+                      <InputOTPSlot index={2} className="h-12 w-10 text-lg" />
+                      <InputOTPSlot index={3} className="h-12 w-10 text-lg" />
+                      <InputOTPSlot index={4} className="h-12 w-10 text-lg" />
+                      <InputOTPSlot index={5} className="h-12 w-10 text-lg" />
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
                 <div className="mt-1.5 text-[11px] text-muted-foreground/50">
                   {provisionStatus !== "ready"
                     ? "Waiting for bot to be ready…"
@@ -644,8 +639,8 @@ export function StepAgent({
               </button>
             </div>
 
-            {/* Right: instructions */}
-            <div className="col-span-2 rounded-xl border border-border/40 bg-card/20 p-4">
+            {/* Instructions */}
+            <div className="rounded-xl border border-border/40 bg-card/20 p-4">
               <div className="text-[11px] font-medium text-foreground mb-3">
                 Get your pairing code
               </div>

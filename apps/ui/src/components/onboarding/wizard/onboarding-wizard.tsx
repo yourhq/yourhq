@@ -13,6 +13,7 @@ import { StepInfrastructure, type InfraStatus, type SchemaInstallState } from ".
 import { StepProvider } from "./step-provider";
 import { StepAgent, type AgentRecommendation } from "./step-agent";
 import { StepAccount } from "./step-account";
+import { StepCelebration } from "./step-celebration";
 import { FIRST_TASK_SUGGESTIONS } from "@/lib/onboarding/first-task-suggestions";
 import { completeItem } from "@/lib/onboarding/progress";
 import {
@@ -126,6 +127,9 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
 
   // Account step error
   const [accountError, setAccountError] = useState<string | null>(null);
+
+  // Celebration screen
+  const [showCelebration, setShowCelebration] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -453,10 +457,10 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
           // If sign-in fails the user can sign in manually from /login
         }
 
-        navigateToTasks();
+        setShowCelebration(true);
       });
     },
-    [startTransition, navigateToTasks],
+    [startTransition],
   );
 
   // ─── Render ───
@@ -482,118 +486,133 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
       <main
         className={cn(
           "flex flex-1 justify-center overflow-y-auto px-5 pb-24 lg:px-8",
-          layout === "narrow" ? "items-center" : "items-start",
+          showCelebration
+            ? "items-center"
+            : layout === "narrow"
+              ? "items-center"
+              : "items-start",
         )}
       >
-        <div
-          className={cn(
-            layout === "narrow"
-              ? "w-full max-w-lg"
-              : "w-full max-w-3xl",
-            layout === "wide" && "pt-8",
-          )}
-        >
-          {/* Back button — inline with content */}
-          {!isFirst && (
-            <button
-              type="button"
-              onClick={goBack}
-              aria-label="Go back"
-              className="mb-4 flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
-            >
-              <ArrowLeft className="h-3 w-3" />
-              <span className="hidden sm:inline">Back</span>
-            </button>
-          )}
-
-          {error && (
-            <div className="mb-5 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-[12px] text-destructive animate-in fade-in duration-200">
-              <span className="flex-1">{error}</span>
-              <button
-                type="button"
-                onClick={() => setError(null)}
-                className="shrink-0 p-0.5 rounded text-destructive/60 hover:text-destructive transition-colors"
-                aria-label="Dismiss error"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          )}
-
+        {showCelebration ? (
+          <div className="w-full max-w-lg">
+            <StepCelebration
+              workspaceName={data.workspaceName as string | undefined}
+              agentName={data.agentName as string | undefined}
+              agentEmoji={data.agentEmoji as string | undefined}
+              onContinue={navigateToTasks}
+            />
+          </div>
+        ) : (
           <div
-            key={step}
             className={cn(
-              "animate-in fade-in duration-300",
-              direction === "forward"
-                ? "slide-in-from-right-4"
-                : "slide-in-from-left-4",
+              layout === "narrow"
+                ? "w-full max-w-lg"
+                : "w-full max-w-3xl",
+              layout === "wide" && "pt-8",
             )}
           >
-            {step === "welcome" && (
-              <StepWelcome
-                initialName={data.ownerName}
-                onSubmit={handleWelcome}
-                pending={pending}
-              />
+            {/* Back button — inline with content */}
+            {!isFirst && (
+              <button
+                type="button"
+                onClick={goBack}
+                aria-label="Go back"
+                className="mb-4 flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
+              >
+                <ArrowLeft className="h-3 w-3" />
+                <span className="hidden sm:inline">Back</span>
+              </button>
             )}
 
-            {step === "intent" && (
-              <StepIntent
-                ownerName={data.ownerName ?? ""}
-                initialKey={data.intentKey}
-                onSubmit={handleIntent}
-                pending={pending}
-              />
+            {error && (
+              <div className="mb-5 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-[12px] text-destructive animate-in fade-in duration-200">
+                <span className="flex-1">{error}</span>
+                <button
+                  type="button"
+                  onClick={() => setError(null)}
+                  className="shrink-0 p-0.5 rounded text-destructive/60 hover:text-destructive transition-colors"
+                  aria-label="Dismiss error"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
             )}
 
-            {step === "infrastructure" && (
-              <StepInfrastructure
-                status={infraStatus}
-                schemaInstall={schemaInstall}
-                onValidateDb={handleValidateDb}
-                onRunOneClick={handleRunOneClick}
-                onConfirmSchema={handleConfirmSchema}
-                onChooseGateway={handleChooseGateway}
-                onContinue={handleInfraContinue}
-                pending={pending}
-              />
-            )}
+            <div
+              key={step}
+              className={cn(
+                "animate-in fade-in duration-300",
+                direction === "forward"
+                  ? "slide-in-from-right-4"
+                  : "slide-in-from-left-4",
+              )}
+            >
+              {step === "welcome" && (
+                <StepWelcome
+                  initialName={data.ownerName}
+                  onSubmit={handleWelcome}
+                  pending={pending}
+                />
+              )}
 
-            {step === "provider" && (
-              <StepProvider
-                onSubmit={handleProvider}
-                pending={pending}
-                validating={validating}
-                validated={validated}
-                validationError={validationError}
-              />
-            )}
+              {step === "intent" && (
+                <StepIntent
+                  ownerName={data.ownerName ?? ""}
+                  initialKey={data.intentKey}
+                  onSubmit={handleIntent}
+                  pending={pending}
+                />
+              )}
 
-            {step === "agent" && (
-              <StepAgent
-                recommendation={getRecommendation()}
-                onCreateAgent={handleCreateAgent}
-                onConnectChannel={handleConnectChannel}
-                onSubmitPairing={handleSubmitPairing}
-                onSkipChannel={handleSkipChannel}
-                provisionStatus={provisionStatus}
-                provisionError={provisionError}
-                pairingStatus={pairingStatus}
-                pairingError={pairingError}
-                pending={pending}
-              />
-            )}
+              {step === "infrastructure" && (
+                <StepInfrastructure
+                  status={infraStatus}
+                  schemaInstall={schemaInstall}
+                  onValidateDb={handleValidateDb}
+                  onRunOneClick={handleRunOneClick}
+                  onConfirmSchema={handleConfirmSchema}
+                  onChooseGateway={handleChooseGateway}
+                  onContinue={handleInfraContinue}
+                  pending={pending}
+                />
+              )}
 
-            {step === "account" && (
-              <StepAccount
-                ownerName={data.preferredName ?? data.ownerName}
-                onSubmit={handleAccount}
-                pending={pending}
-                error={accountError}
-              />
-            )}
+              {step === "provider" && (
+                <StepProvider
+                  onSubmit={handleProvider}
+                  pending={pending}
+                  validating={validating}
+                  validated={validated}
+                  validationError={validationError}
+                />
+              )}
+
+              {step === "agent" && (
+                <StepAgent
+                  recommendation={getRecommendation()}
+                  onCreateAgent={handleCreateAgent}
+                  onConnectChannel={handleConnectChannel}
+                  onSubmitPairing={handleSubmitPairing}
+                  onSkipChannel={handleSkipChannel}
+                  provisionStatus={provisionStatus}
+                  provisionError={provisionError}
+                  pairingStatus={pairingStatus}
+                  pairingError={pairingError}
+                  pending={pending}
+                />
+              )}
+
+              {step === "account" && (
+                <StepAccount
+                  ownerName={data.preferredName ?? data.ownerName}
+                  onSubmit={handleAccount}
+                  pending={pending}
+                  error={accountError}
+                />
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </main>
     </div>
   );
