@@ -65,9 +65,11 @@ References: see the implementations inside [`crm/contact-detail-view.tsx`](https
 
 When a module gains a new typed field, extend `collection-cell.tsx` rather than building a parallel cell renderer.
 
-## Rich text
+## Rich text vs plaintext
 
-Use the **Novel** editor (TipTap wrapper) for any rich-text surface. Plain `Textarea` is for true plaintext only — short notes, slugs, prompts.
+Two surfaces; pick by what the user is writing.
+
+**Novel** (TipTap wrapper) is for **documents** — surfaces where structure adds value. Headings, lists, task lists, code blocks, embeds, links. Long-form. The user is composing something they'll come back to and read.
 
 [`apps/ui/src/components/knowledge/novel-editor.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/knowledge/novel-editor.tsx)
 
@@ -81,7 +83,17 @@ The Novel setup at HQ:
 
 Editor styles live in [`globals.css`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/globals.css) under `.ProseMirror` (lines ~265-450). The editor uses a slightly larger type scale than the app body — H1 is 30px, body line-height is 1.7 — because long-form reading benefits from more vertical rhythm.
 
-Knowledge pages and playbooks use Novel today. Long-form fields elsewhere (task descriptions, contact notes) should migrate to Novel as part of the audit-and-fix work.
+Knowledge pages and playbooks are the canonical Novel surfaces in HQ today.
+
+**Textarea** is for **short-form notes** — surfaces where the user is dumping a sentence or a paragraph and getting on with their day. Task descriptions, contact notes, comment bodies, agent prompts, slug fields. The user is not composing a document; they are jotting.
+
+A surface should stay on textarea unless three things are true:
+
+1. The content is genuinely document-shaped — multiple paragraphs, lists, sections.
+2. Downstream consumers (search indexing, agent context, list previews) can handle structured content cleanly, or have been updated to.
+3. The user mode is composition, not capture — they're not entering this from a quick-create dialog.
+
+If any of those three is no, keep the surface on textarea. Adding rich-text affordances to a quick-capture field adds friction to the dominant flow without earning anything.
 
 ## Forms
 
