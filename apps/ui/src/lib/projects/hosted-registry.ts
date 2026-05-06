@@ -7,7 +7,7 @@ import type {
   OnboardingState,
 } from "./schema";
 import { cookies } from "next/headers";
-import { WORKER_URL, workerHeaders } from "@/lib/worker-client";
+import { workerFetch } from "@/lib/worker-client";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 interface HostedWorkspaceData {
@@ -78,10 +78,9 @@ export async function getWorkspaceSession(): Promise<WorkspaceSession | null> {
 }
 
 async function fetchHostedProject(workspaceId: string): Promise<HostedProjectData | null> {
-  const res = await fetch(
-    `${WORKER_URL}/workspaces/${workspaceId}/project`,
-    { headers: workerHeaders(), cache: "no-store" },
-  );
+  const res = await workerFetch(`/workspaces/${workspaceId}/project`, {
+    cache: "no-store" as RequestCache,
+  });
   if (!res.ok) return null;
   return res.json();
 }
@@ -138,9 +137,9 @@ export async function listSiblingProjects(): Promise<PublicProject[]> {
   const session = await getWorkspaceSession();
   if (!session) return [];
 
-  const res = await fetch(
-    `${WORKER_URL}/workspaces/${session.workspaceId}/siblings`,
-    { headers: workerHeaders(), cache: "no-store" },
+  const res = await workerFetch(
+    `/workspaces/${session.workspaceId}/siblings`,
+    { cache: "no-store" as RequestCache },
   );
   if (!res.ok) return [];
 
@@ -224,12 +223,8 @@ export async function patchOnboardingState(
   const session = await getWorkspaceSession();
   if (!session) return getOnboardingState();
 
-  await fetch(`${WORKER_URL}/workspaces/${session.workspaceId}/onboarding`, {
+  await workerFetch(`/workspaces/${session.workspaceId}/onboarding`, {
     method: "PATCH",
-    headers: {
-      ...workerHeaders(),
-      "content-type": "application/json",
-    },
     body: JSON.stringify(patch),
   });
 
@@ -239,9 +234,8 @@ export async function patchOnboardingState(
 export async function lookupUserWorkspaces(
   email: string,
 ): Promise<{ userId: string; workspaces: HostedWorkspaceData[] } | null> {
-  const res = await fetch(
-    `${WORKER_URL}/users/by-email/${encodeURIComponent(email)}`,
-    { headers: workerHeaders() },
+  const res = await workerFetch(
+    `/users/by-email/${encodeURIComponent(email)}`,
   );
   if (!res.ok) return null;
   const data = (await res.json()) as {
@@ -258,9 +252,8 @@ export async function getProvisionStatus(workspaceId: string): Promise<{
   e2b_sandbox_status: string;
   auto_login_url: string | null;
 } | null> {
-  const res = await fetch(
-    `${WORKER_URL}/workspaces/${workspaceId}/status`,
-    { headers: workerHeaders() },
+  const res = await workerFetch(
+    `/workspaces/${workspaceId}/status`,
   );
   if (!res.ok) return null;
   return res.json();

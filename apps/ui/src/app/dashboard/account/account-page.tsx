@@ -51,6 +51,11 @@ const STATUS_CONFIG: Record<
     color: "text-muted-foreground",
     bg: "bg-muted",
   },
+  suspended: {
+    label: "Suspended",
+    color: "text-red-600",
+    bg: "bg-red-500/10",
+  },
   pending: {
     label: "Pending",
     color: "text-muted-foreground",
@@ -186,7 +191,7 @@ export function AccountPage() {
                           </div>
                         </div>
                       </div>
-                      {ws.subscription_status === "active" && (
+                      {(ws.subscription_status === "active" || ws.subscription_status === "suspended") && (
                         <button
                           disabled={canceling === ws.id}
                           onClick={() => handleCancel(ws.id, ws.label)}

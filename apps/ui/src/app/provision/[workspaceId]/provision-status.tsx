@@ -52,6 +52,8 @@ function friendlyError(raw: string): string {
   return "Something unexpected happened during setup. Our team has been notified. Please try again or contact support@yourhq.ai.";
 }
 
+const MAX_POLL_MS = 5 * 60 * 1000;
+
 export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
   const [currentStage, setCurrentStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -71,8 +73,16 @@ export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
+    const startedAt = Date.now();
     poll();
-    const interval = setInterval(poll, 2000);
+    const interval = setInterval(() => {
+      if (Date.now() - startedAt > MAX_POLL_MS) {
+        clearInterval(interval);
+        setError("Provisioning is taking longer than expected. Please refresh the page or contact support@yourhq.ai.");
+        return;
+      }
+      poll();
+    }, 2000);
     return () => clearInterval(interval);
   }, [poll]);
   /* eslint-enable react-hooks/set-state-in-effect */
