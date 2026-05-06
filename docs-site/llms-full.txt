@@ -5492,7 +5492,7 @@ The top of the content area inside a route. Standard slots:
 
 - **Desktop** (≥1024px): two-column shell, full sidebar, full detail right rails.
 - **Tablet** (768–1023px): sidebar collapses to icon-only with hover tooltips. Detail right rails fold into a mobile drawer trigger button.
-- **Mobile** (<768px): sidebar becomes a `Sheet` drawer; the hamburger sits on the left of the header bar. Detail right rails are accessed via a "Details" button that opens a `Sheet`.
+- **Mobile** (≤767px): sidebar becomes a `Sheet` drawer; the hamburger sits on the left of the header bar. Detail right rails are accessed via a "Details" button that opens a `Sheet`.
 
 Cmd/Ctrl+B works at every breakpoint — on mobile it opens the drawer, on tablet/desktop it toggles the collapsed state.
 
