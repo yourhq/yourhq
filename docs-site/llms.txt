@@ -5,6 +5,7 @@
 ## Primary docs
 
 - [HQ documentation](https://docs.yourhq.ai): Human-readable documentation home.
+- [Why HQ](https://docs.yourhq.ai/concepts/why-hq): Design philosophy and honest comparison against CrewAI, AutoGen, and n8n. Read this if you're deciding whether HQ is the right fit.
 - [Choose your path](https://docs.yourhq.ai/getting-started/choose-your-path): Audience-based starting points — hosted, self-host, agent builders, developers, and security reviewers.
 - [What HQ includes](https://docs.yourhq.ai/concepts/features): Product tour of agents, per-agent model selection, CRM, tasks, documents, automations, gateways, usage, and budgets.
 - [Roadmap](https://docs.yourhq.ai/getting-started/roadmap): Shipped areas and planned work.

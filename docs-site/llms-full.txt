@@ -103,6 +103,121 @@ HQ is open source — the same codebase powers both the self-hosted version and 
 
 ---
 
+# Why HQ
+
+Source: https://docs.yourhq.ai/concepts/why-hq
+
+> HQ is a product, not a framework. Here's the design philosophy and how it compares to CrewAI, AutoGen, and n8n.
+
+HQ is an opinionated **product**: a self-hostable workspace where a fleet of long-lived AI agents does real work on infrastructure you control. It's not a library you import, not a framework you build on top of, and not a chat UI dressed up as a platform.
+
+This page explains the design choices that shape it, and how those choices compare to the tools people most often ask about: **CrewAI**, **AutoGen**, and **n8n**.
+
+## The five choices that shape HQ
+
+### 1. Agents are persistent programs, not chat sessions
+
+Each agent has its own git branch, its own Chrome profile, its own messaging channel, and its own memory. Restart the gateway and the agent is still there with its files, cookies, and history intact. A "conversation" is a side effect of agents getting work — not the primary interaction.
+
+This is closer to how you'd think about an employee than how you'd think about ChatGPT. It's also why HQ ships with templates (Cofounder, Designer, CMO, Newsletter Editor, …) — they're starting points for *roles*, not preset prompts.
+
+### 2. The workspace is included
+
+CRM, tasks, knowledge base, routines, collections, inbox, notifications, audit log, and per-agent usage budgets are all built in. You don't import a library and wire it to your own database — you get the schema, the UI, and the daemons together as one product.
+
+The tradeoff: HQ is more opinionated than a framework. If your goal is to bolt agents into an existing app, this isn't the right tool.
+
+### 3. You bring your own Supabase
+
+There is no HQ cloud. The self-hosted stack writes directly to *your* Supabase project — your Postgres, your auth, your row-level security, your backups. The UI and the gateway daemons are stateless; everything that matters lives in your database.
+
+This rules out a few things on purpose: there's no fleet-wide telemetry, no central feature flags, no usage caps imposed by us. It also means HQ leans on Supabase for things you'd otherwise re-implement (auth, RLS, Realtime, Storage), which is a hard external dependency we're explicit about.
+
+### 4. Many gateways, many hosts
+
+The UI runs in one place. **Gateways** — Docker hosts that actually execute agents — can run anywhere: your laptop, a Raspberry Pi, a Mac mini, a VPS, or all four at once. Each agent is bound to a specific gateway, so you can put data-sensitive agents on a private host and cheap automation on a small VPS without re-architecting anything.
+
+This is why every agent has a `gateway_id` and every command queue is filtered by host.
+
+### 5. We don't reimplement the agent loop
+
+The agent runtime is [OpenClaw](https://openclaw.ai), an external runtime that handles plugin execution, model routing, and the inner loop. HQ is the operations layer *around* that runtime: provisioning, lifecycle, queues, knowledge, RBAC, and the UI. This keeps the codebase smaller and lets agent-loop improvements come from upstream rather than from us.
+
+---
+
+## How HQ compares
+
+These tools all live near "AI agents" but solve different problems. The summary table first, then the honest version.
+
+| | **HQ** | **CrewAI** | **AutoGen** | **n8n** |
+|---|---|---|---|---|
+| **Shape** | Self-hosted product | Python framework | Python framework | Workflow automation tool |
+| **You build with** | UI + templates | Code | Code | Visual workflow editor |
+| **Runs agents** | Long-lived, on your infra | In your Python process | In your Python process | One node at a time inside a workflow |
+| **Workspace included?** | CRM, tasks, knowledge, routines | No | No | No (but rich integrations) |
+| **Persistence model** | Git branch + Postgres per agent | Whatever you build | Whatever you build | Workflow state |
+| **Self-hosted** | Yes (BYO Supabase) | Library — runs wherever you run it | Same | Yes |
+| **Multi-host execution** | First-class (multi-gateway) | No | No | No (single instance) |
+| **License** | Apache 2.0 | MIT | MIT | Sustainable Use License |
+
+### vs. CrewAI
+
+CrewAI is a Python framework for orchestrating multiple agents to complete a task — roles, tasks, a crew, a process. It's a library; you import it and write code.
+
+If you want **to write a multi-agent program**, CrewAI is a more direct fit than HQ. You ship a Python app, you control every detail of the orchestration, and you wire it to your own UI and persistence.
+
+If you want **a UI your team logs into to manage a fleet of agents that do ongoing work** — with CRM, tasks, knowledge, and budgets already there — that's HQ. The two can coexist: an OpenClaw plugin can shell out to a CrewAI crew for a specific task, and HQ would manage the rest.
+
+### vs. AutoGen
+
+AutoGen (from Microsoft Research) is similarly a framework: agents that converse with each other to complete tasks, with strong multi-agent conversation primitives. Like CrewAI, it's library-shaped — you build an app on top.
+
+The same trade applies: AutoGen is the right choice for **building a custom multi-agent application**. HQ is the right choice when you want **the application already built** and want to focus on configuring agents, integrating data sources, and getting work out the other end.
+
+### vs. n8n
+
+n8n is a self-hosted workflow automation tool — visual editor, hundreds of integrations, triggers and actions. It's excellent for connecting SaaS apps and adding small AI nodes into longer workflows.
+
+n8n thinks in **workflows that run when triggered**. HQ thinks in **agents that exist continuously, take work from an inbox, and have memory across days**. If your problem is "when X happens in Y, run a sequence in Z," n8n is faster to set up. If your problem is "I want a marketing agent that watches the CRM, drafts outreach, learns my voice, and reports back," HQ is the right shape.
+
+A reasonable hybrid: use n8n upstream as the integration layer that drops events into HQ's inbox, and let HQ's agents do the open-ended work.
+
+---
+
+## What HQ deliberately is not
+
+- **Not an agent framework.** If you want to build a custom multi-agent app in code, use CrewAI, AutoGen, or roll your own — the agent loop is OpenClaw, not us.
+- **Not a no-code workflow builder.** Routines and event triggers cover scheduled and reactive work, but the integration surface is much narrower than n8n's. We treat that as a feature, not a gap.
+- **Not a chatbot platform.** Conversation is a thin layer over agents that already exist. The unit of work is a task, an inbox item, or a routine — not a chat turn.
+- **Not multi-tenant by default.** Self-hosted HQ is single-tenant per Supabase project. The hosted variant runs the same code with multi-tenancy added on top — see [Hosted](/hosted/getting-started).
+
+---
+
+## When to pick HQ
+
+You probably want HQ if:
+
+- You want a workspace your team uses, not a library your team builds with.
+- You want agents that persist across days, with memory, branches, and identity.
+- You care about your data living in *your* Postgres, not a vendor cloud.
+- You want to scale across hosts without re-architecting the system.
+- You'd rather extend templates and plugins than write an orchestration engine.
+
+You probably want something else if:
+
+- You want to embed an agent inside an existing app (use a framework).
+- You want a visual workflow builder with hundreds of SaaS integrations (use n8n).
+- You want a managed cloud product with no infrastructure (use a hosted closed-source agent platform — or [HQ Hosted](/hosted/getting-started) when it's available).
+
+  - **Architecture**: 
+    How the UI, Supabase, gateways, and daemons fit together.
+  
+
+  - **Get started**: 
+    Self-host in about 15 minutes.
+
+---
+
 # Choose your path
 
 Source: https://docs.yourhq.ai/getting-started/choose-your-path
@@ -1120,7 +1235,12 @@ After creation, you land on the **Tasks** page with a suggested first task pre-f
 
 ## You're set up
 
-Your HQ is running with a connected database, model provider, and first agent. Here's what to explore next:
+Your HQ is running with a connected database, model provider, and first agent.
+
+> 
+  **Putting this on the internet?** The default install binds services to `127.0.0.1` — safe on a laptop. The runner mounts the Docker socket (so it can restart the stack from the UI), and your Supabase service-role key sits in `.env` with full database access. Read the [security policy and hardening guide](/security/security-policy) before exposing HQ beyond localhost.
+
+Here's what to explore next:
 
   - **Pick a model per agent**: 
     Assign different models and thinking levels to each agent. Mix cheap and expensive models across your fleet.
