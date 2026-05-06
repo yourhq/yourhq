@@ -1,0 +1,99 @@
+---
+title: "Design principles"
+description: "The principles that shape HQ's interface — how we make a dense, agent-driven product feel calm, fast, and obvious."
+---
+
+HQ is run by operators. People who manage many agents, a lot of structured data, and an inbox of work that doesn't sleep. The interface has to disappear in front of that. It needs to be quick to learn, fast to drive, and quiet enough to live with all day. These are the principles that hold the surface together — the rules every screen, component, and interaction in the product follows.
+
+If you're contributing UI, this is the lens. Foundations, components, and patterns docs follow from here.
+
+---
+
+## 1. Keyboard-first
+
+Every meaningful action has a keyboard path. Pointer-driven UI is the fallback, not the default. A user who learns the shortcuts should never need to reach for the mouse to navigate, search, create, or act on a record.
+
+We built the shell around this assumption: the command palette is one chord away, navigation is two keys, and every screen surfaces its shortcuts in a `?` sheet so they're discoverable without a tutorial.
+
+**How this shows up**
+
+- `⌘K` opens the [command palette](/design/components/composites) — recent items, navigation, collections, quick actions, and unified search across knowledge, tasks, contacts, and agents. Source: [`shared/command-palette.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/command-palette.tsx).
+- `G` then a letter jumps between modules (`G D` dashboard, `G T` tasks, `G K` knowledge, and so on). The 800ms double-tap window is part of the registry at [`shared/keyboard-shortcuts.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/keyboard-shortcuts.tsx).
+- `⌘B` collapses the sidebar; `?` opens the shortcut help sheet.
+- All shortcuts are registered centrally and skip when focus is in an input or contentEditable region — they never fight with typing.
+
+## 2. Direct manipulation, instant feedback
+
+Click a value. Edit it. Blur to save. Inline editing is the default for property rows, table cells, and detail headers — not a separate "edit mode" you have to enter. Mutations write through to Supabase, the toast confirms, and realtime pushes the change to every other open tab. Lists do not need a refresh button because lists do not get stale.
+
+Optimistic updates apply where the round-trip is short and the failure is recoverable. When something fails, we surface it in place — the field returns to its prior value, a toast explains, the user keeps moving.
+
+**How this shows up**
+
+- `InlineText`, `InlineTags`, `InlineLink` in [`crm/contact-detail-view.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/crm/contact-detail-view.tsx) — Enter or blur saves, Escape cancels.
+- The type-aware [`collections/collection-cell.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/collections/collection-cell.tsx) dispatches a single click-to-edit pattern across text, number, date, select, multi-select, boolean, URL, rich-text, and relation fields.
+- Lists subscribe via [`hooks/use-realtime-sync.ts`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/hooks/use-realtime-sync.ts). New rows, status changes, and deletions arrive without user action.
+- `sonner` toasts confirm or correct. Destructive actions (archive, delete) gate behind a tone-aware confirm dialog from [`shared/confirm-dialog.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/confirm-dialog.tsx).
+
+## 3. Dense but calm
+
+Operators look at a lot of records. The interface is information-dense by design — 13px body text, 1.5 line-height, and a restrained palette where most labels live in `--muted-foreground`. Density without noise: borders are 9% white in dark mode, hover states lift surfaces by 5%, active rows show a 2px accent bar instead of a heavy fill. Color is reserved for status and priority, not for decoration.
+
+The result is a UI you can read for hours without fatigue, where the structure is obvious because the chrome is quiet.
+
+**How this shows up**
+
+- A six-step type scale (`.text-display`, `.text-title`, `.text-heading`, `.text-body`, `.text-label`, `.text-caption`) defined in [`apps/ui/src/app/globals.css`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/globals.css). 13px is the base; anything larger is intentional.
+- Geist Sans and Geist Mono with `cv11`, `ss01`, `ss03` font features enabled — sharper digits and disambiguated zeros for tables full of IDs, counts, and timestamps.
+- The active-row affordance in the [dashboard shell](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/dashboard-shell.tsx) is `absolute left-0 w-0.5 rounded-full bg-foreground` — a hairline accent, not a colored fill.
+- Iconography is Lucide only, sized at 16px by default. No two icons mean the same thing.
+
+## 4. One token, one truth
+
+Color, motion, radius, and type each live in exactly one place. CSS variables in `globals.css` are the source of truth. Status (`--status-success/warning/error/info/neutral`) and priority (`--priority-urgent/high/medium/low`) are tokens — not hardcoded Tailwind classes scattered through the codebase, and not duplicated TypeScript color maps. Motion uses three durations (`--duration-fast: 120ms`, `--duration-normal: 180ms`, `--duration-slow: 280ms`) and two easings. Radius derives from a single `--radius: 0.375rem`.
+
+If you reach for a hex value while writing UI, stop. Either an existing token covers it or a new semantic token belongs in `globals.css`.
+
+**How this shows up**
+
+- All semantic tokens — surface, text, border, status, priority, sidebar, chart — defined once in [`apps/ui/src/app/globals.css`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/globals.css), then mapped into Tailwind via `@theme inline`.
+- Light and dark are the same token names with different OKLch values at `:root` and `.dark`. Components don't branch on theme.
+- `next-themes` with `attribute="class"` and `disableTransitionOnChange` — theme switching is instant and does not animate every element on the page.
+- Tailwind v4 with no `tailwind.config.js`. The theme is the CSS file.
+
+## 5. Multi-view by default
+
+Structured records support whichever views their shape admits — table, card, kanban, calendar — and switching views never loses state. A single hook owns the filters, sorting, search, view-mode, and CRUD for the module. View-mode persists to `localStorage`, filters persist to URL search params, and every view consumes the same source of truth. A bookmarked URL reproduces the exact filtered, sorted, view-switched state.
+
+This is how CRM, tasks, and collections all behave. New modules with structured data should follow the same pattern.
+
+**How this shows up**
+
+- The orchestrator at [`crm/contacts-tab.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/crm/contacts-tab.tsx) feeds three sibling views (`ContactsTableView`, `ContactsCardView`, `ContactsKanbanView`) from one [`hooks/use-contacts.ts`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/hooks/use-contacts.ts).
+- Collections drive table, kanban, and calendar from a single record set whose fields the user defines — see [`collections/collection-view-tabs.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/collections/collection-view-tabs.tsx).
+- The shared [`DataTable`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/data-table.tsx), [`FilterBar`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/filter-bar.tsx), and [`ColumnToggle`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/column-toggle.tsx) compose under every list. The wiring looks the same across modules so muscle memory transfers.
+
+## 6. Surface hierarchy through opacity
+
+Depth in HQ is built from transparency, not from a separate palette of "hover greys" and "selected blues". In dark mode the layering ladder is `--surface-hover` at 5% white, `--surface-selected` at 8%, `--border` at 9%, `--border-strong` at 14%. Light mode mirrors this with low-saturation OKLch greys. The same component renders correctly in either theme without conditional styling.
+
+This keeps the visual language coherent across hundreds of states — hover, focus, selected, dragging, loading — and makes the interface feel like one continuous material rather than a stack of UI-kit pieces.
+
+**How this shows up**
+
+- The full surface ladder is defined in [`apps/ui/src/app/globals.css`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/globals.css). All hover, selected, and divider treatments reference these tokens.
+- Modals and sheets use a `bg-black/40` light, `bg-black/60` dark backdrop — same opacity-driven approach for overlay separation.
+- Skeletons (`bg-accent`, animate-pulse) and the OKLch chart palette sit in the same ladder so loading states and data viz feel like part of the same surface.
+
+---
+
+## Where this leads
+
+Subsequent design docs build out from here:
+
+- **Foundations** — the full token inventory: color, type, radius, spacing, motion, theming, iconography.
+- **Components** — the primitives catalog (shadcn/ui in `components/ui/`) and the composites we build on top (`components/shared/`).
+- **Patterns** — layout shell, data display (lists, detail surfaces), creation and editing (side panels, dialogs, wizards, inline edit, rich text), interaction (command palette, shortcuts, drag-and-drop, realtime), and feedback (toasts, errors, empty and loading states).
+- **Contributing** — when to add a primitive, when to compose a shared component, when to live inside a feature module; naming and file placement.
+
+If a screen feels off, it usually traces to one of the six principles above. Start there.

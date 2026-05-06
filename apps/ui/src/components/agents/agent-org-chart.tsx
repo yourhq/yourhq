@@ -68,7 +68,7 @@ export function AgentOrgChart({
           height: Math.max(layout.height, NODE_H),
         }}
       >
-        {/* Connector elbows — quiet 1px lines, Notion-style */}
+        {/* Connector elbows — quiet 1px lines */}
         <svg
           className="pointer-events-none absolute inset-0"
           width={layout.width}

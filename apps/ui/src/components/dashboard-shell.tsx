@@ -313,7 +313,7 @@ function SidebarInner({
         showLabels={showLabels}
       />
 
-      {/* Search hint — top of sidebar, Linear-style */}
+      {/* Search hint — top of sidebar */}
       {showLabels && (
         <button
           type="button"

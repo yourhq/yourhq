@@ -91,6 +91,12 @@
         ]
       },
       {
+        "group": "Design",
+        "pages": [
+          "design/overview"
+        ]
+      },
+      {
         "group": "Reference",
         "pages": [
           "reference/configuration",
