@@ -1,0 +1,156 @@
+---
+title: "Contributing"
+description: "Where new code goes, how it's named, and the three-question test for promoting components."
+---
+
+This page is for engineers adding to the UI package. It documents how the codebase is organized so new code lands in the right place, with the right name, importing the right way.
+
+If you're a designer or product person looking for visual rules, [foundations](/design/foundations) and the [pattern pages](/design/patterns/layout) are what you want.
+
+## Layer model
+
+Three concentric circles. Code in an outer layer can import from inner layers, never the reverse.
+
+```
+ui/        ← primitives. shadcn + a few HQ extensions. No business logic.
+shared/    ← composites. Reused across two or more feature modules.
+<module>/  ← features. CRM, tasks, agents, knowledge, collections, routines.
+```
+
+- **`apps/ui/src/components/ui/`** — generic, reusable UI building blocks. Imports: React, Radix, `cn` from `@/lib/utils`, other primitives. Never imports from `shared/` or feature modules.
+- **`apps/ui/src/components/shared/`** — HQ-specific compositions used across modules. Imports: primitives, other composites, `lib/utils`, generic types from `lib/`. Never imports from a specific feature module.
+- **`apps/ui/src/components/<module>/`** — feature-specific. Imports: anything inner. Free to import from its own `lib/<module>/` and `hooks/use-<module>.ts`.
+
+If your inner layer needs to know about an outer one, the abstraction is wrong — pass the data in as a prop or callback.
+
+## Module convention
+
+A feature module spans four locations. Each has one responsibility.
+
+| Location | Owns |
+|---|---|
+| `apps/ui/src/lib/<module>/types.ts` | TypeScript types mirrored from the Supabase schema, plus any module-specific enums and helpers. |
+| `apps/ui/src/lib/<module>/` (siblings) | Pure helpers — formatters, derivers, validators. No React. |
+| `apps/ui/src/hooks/use-<module>.ts` | Data fetching, realtime subscription, filter/sort/selection state, CRUD action wrappers, form state. The orchestrator. |
+| `apps/ui/src/components/<module>/` | Components — list orchestrator, view variants, detail view, form, sub-components. |
+| `apps/ui/src/app/dashboard/<module>/` | Routes (`page.tsx`, `[id]/page.tsx`, `error.tsx`) and server actions (`actions.ts`). Server actions are the only place server-side mutations live. |
+
+Adding a new module follows that map. No file lives outside it.
+
+## File and identifier naming
+
+- **Files** — kebab-case. `contact-detail-view.tsx`, not `ContactDetailView.tsx`. Includes hooks (`use-contacts.ts`) and helpers (`format-money.ts`).
+- **Components** — PascalCase exports. `export function ContactDetailView()`.
+- **Hooks** — `use` prefix, camelCase identifier, kebab-case filename.
+- **Types** — PascalCase. Schema-mirrored types match the table singularized: `Contact`, `Task`, `Stream`, `Agent`.
+- **Server actions** — `<verb><Noun>Action`. `archiveContactAction`, `createTaskAction`. They live in `app/dashboard/<module>/actions.ts` and start with `"use server"`.
+- **CSS classnames** — none. We don't write classnames; we use Tailwind utilities and tokens.
+
+## Imports
+
+Always use aliases. Never relative-cross paths (`../../../components/ui/button`).
+
+| Alias | Resolves to |
+|---|---|
+| `@/components` | `apps/ui/src/components/` |
+| `@/components/ui` | `apps/ui/src/components/ui/` |
+| `@/lib` | `apps/ui/src/lib/` |
+| `@/lib/utils` | `apps/ui/src/lib/utils.ts` (`cn` lives here) |
+| `@/hooks` | `apps/ui/src/hooks/` |
+
+Configured in [`apps/ui/components.json`](https://github.com/yourhq/yourhq/blob/main/apps/ui/components.json) and `tsconfig.json`.
+
+Within the same directory, relative imports are fine — `./contact-form`, `./contact-list-row`. Cross-directory: alias.
+
+## Styling rules
+
+- **Tokens, not hexes.** Use Tailwind utilities mapped from `globals.css`. If a value isn't covered by a token, the right move is almost always to use the next step on the existing scale, not to inline a custom value.
+- **`cn()` for conditional classes.** Imported from `@/lib/utils`. Use it whenever class strings depend on props or state.
+- **CVA for variants.** Components with two or more visual variants use `class-variance-authority`. Reference: [`button.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/button.tsx), [`badge.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/badge.tsx).
+- **`data-slot` attributes** on composed primitives. Lets parents target sub-parts via `[data-slot=…]` selectors without prop drilling.
+- **No CSS Modules, no styled-components, no Emotion.** Tailwind plus the editor styles in `globals.css` are the only style surfaces.
+
+## Decision tree: where does this code go?
+
+A new piece of UI lands in one of three places. Run through the questions in order.
+
+### 1. Is it a primitive (no business logic, no module imports)?
+
+If yes, it goes in `components/ui/` — but think twice. Most "I need a primitive" instincts are actually composites in disguise. The bar for adding to `ui/` is high:
+
+- It must be reusable in any context, not just HQ.
+- It must not import from `shared/` or any feature module.
+- It must not depend on any HQ-specific data shape.
+
+If those three are true, add it. Match the existing files: kebab-case file, PascalCase export, CVA for variants, `data-slot` attributes, `cn` for conditional classes. Reference: the seven HQ extensions in [primitives](/design/components/primitives).
+
+### 2. Is it a composite (HQ-shaped, used across modules)?
+
+A composite belongs in `components/shared/` if all three of these are true:
+
+1. **It's used in two or more modules already.** If you're about to copy something from `crm/` into `tasks/`, that's the threshold. Lift it before the second copy.
+2. **The API is stable.** Composites encode shape decisions. If you're not sure of the props yet, leave it inside the feature for one more iteration before promoting.
+3. **It depends only on `ui/`, other `shared/`, `lib/utils`, and React.** Composites must not import from feature modules. If yours needs a feature hook, pass the data in as props.
+
+If any answer is no, keep it inside the feature module.
+
+### 3. Is it feature-specific?
+
+Then it goes in `components/<module>/`. Free to import anything inner. Free to consume `hooks/use-<module>.ts`, `lib/<module>/`, server actions from the same `app/dashboard/<module>/` route.
+
+## Adding a new feature module
+
+End-to-end recipe for a new module called `widgets`:
+
+1. **Database** — add the migration under `db/migrations/0NN_widgets.sql`. Include `tenant_id`, RLS policies, explicit `GRANT` for `authenticated` and `service_role`. Run in filename order.
+2. **Types** — `apps/ui/src/lib/widgets/types.ts`. Mirror the table.
+3. **Hook** — `apps/ui/src/hooks/use-widgets.ts`. Subscribes via [`use-realtime-sync`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/hooks/use-realtime-sync.ts), owns filters/sorting/selection state, exposes actions.
+4. **Server actions** — `apps/ui/src/app/dashboard/widgets/actions.ts`. `"use server"`. Each action returns `{ data, error }` or throws.
+5. **Routes** — `app/dashboard/widgets/page.tsx`, `app/dashboard/widgets/[id]/page.tsx`, `app/dashboard/widgets/error.tsx`.
+6. **Components** — `components/widgets/widgets-tab.tsx` (orchestrator), `widgets-table-view.tsx`, `widget-detail-view.tsx`, `widget-form.tsx`. Open with a `PageHeader`. List uses `DataTable` inside a `FilterBar`. Detail uses `DetailHeader` plus `DetailSidebar`. Create uses `SidePanel`.
+7. **Shell registration** — add the module to:
+   - The sidebar in `components/dashboard-shell.tsx`.
+   - The navigation list in `components/shared/command-palette.tsx`.
+   - The G-shortcut table in `components/shared/keyboard-shortcuts.tsx`.
+   - The workspace's enabled-modules list (so [`ModulesContext`](/design/components/composites) can gate it).
+
+If any of those seven steps feels foreign, the existing modules — CRM, tasks, knowledge, collections — are the templates. Pick the one closest in shape and follow it.
+
+## When to add a token
+
+Adding a CSS variable to [`globals.css`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/globals.css) is appropriate when a new semantic role exists, not when a new shade is needed.
+
+- "We need a color for the 'snoozed' task state" → add `--status-snoozed` to `:root` and `.dark`, wire through `@theme inline`.
+- "We need a slightly darker red for this one button" → don't add a token. Use `bg-destructive/90` or pick a color closer to an existing token.
+
+The four-step procedure is documented in [foundations](/design/foundations#adding-a-new-token).
+
+## When NOT to add a primitive
+
+Most of these situations look like primitives but are actually composites or features:
+
+- "A list item with a checkbox and a status dot." → composite (`Item` exists; compose).
+- "A button that opens a confirm dialog." → composite (use `ConfirmDialog`).
+- "An input that shows the user's avatar inside it." → feature (specific to one form).
+- "A reusable card for showing an agent." → feature inside `components/agents/`.
+
+If you're tempted to add to `ui/`, find the closest existing primitive first. The answer is almost always "compose it."
+
+## Code review checklist
+
+Before opening a PR that touches the UI:
+
+- [ ] No inline hex codes, no `#fff`, no `rgb()`. Tokens via Tailwind utilities.
+- [ ] Aliases for cross-directory imports.
+- [ ] No imports from `app/` or feature modules into `ui/` or `shared/`.
+- [ ] `cn()` from `@/lib/utils` for conditional classes (not template literals).
+- [ ] CVA for any component with two-plus visual variants.
+- [ ] Components are kebab-case files, PascalCase exports.
+- [ ] Hooks subscribe and unsubscribe correctly (cleanup in the `useEffect` return).
+- [ ] Lists use `DataTable` (not bare `Table`); creates use `SidePanel` (not bare `Dialog` for ≥4 fields).
+- [ ] Empty states are present on every list. Loading skeletons match the layout.
+- [ ] No comments narrating what the code does. Only comments where the *why* is non-obvious.
+- [ ] `npx tsc --noEmit` passes from `apps/ui/`.
+- [ ] `npm run lint` passes.
+
+If you change `globals.css`, also update [foundations](/design/foundations) so the docs stay aligned with the source of truth.

@@ -101,7 +101,8 @@
           "design/patterns/data-display",
           "design/patterns/creation-and-editing",
           "design/patterns/interaction",
-          "design/patterns/feedback"
+          "design/patterns/feedback",
+          "design/contributing"
         ]
       },
       {
