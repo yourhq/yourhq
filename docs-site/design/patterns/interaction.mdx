@@ -1,0 +1,147 @@
+---
+title: "Interaction"
+description: "Command palette, keyboard shortcuts, drag and drop, realtime."
+---
+
+The interaction layer is what makes the app feel fast. This page documents the four systems that every module plugs into: the command palette, the keyboard-shortcut registry, the drag-and-drop convention, and realtime data subscriptions.
+
+## Command palette
+
+Cmd/Ctrl+K from anywhere. The single search-and-jump surface in the app.
+
+[`apps/ui/src/components/shared/command-palette.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/command-palette.tsx) — built on [`cmdk`](https://github.com/pacocoursey/cmdk).
+
+### Sections when no query
+
+| Section | Contents |
+|---|---|
+| **Recent** | Last 10 items the user opened (any type). Persisted in `localStorage` via `addRecentItem()` / `getRecentItems()`. Rendered with a `Clock` icon to distinguish from navigation entries. |
+| **Navigation** | All app pages, gated by the workspace's enabled modules. New modules register here. |
+| **Collections** | The user's collections — dynamic from the workspace. |
+| **Quick Actions** | Create Task, Add Contact, Create Organization, Create Knowledge, Register Agent. |
+
+### Search results
+
+Grouped by entity type when a query is present: Knowledge, Knowledge Chunks, Tasks, Contacts, Collections, Agents, Routines. Each result has a type-colored icon (blue for knowledge, amber for tasks, emerald for contacts, etc.), a title, and a subtitle showing matched snippet or metadata. Async search runs in a debounced effect; the palette shows "Searching..." while results are fetching.
+
+### Adding entries
+
+A new module registers in two places:
+
+1. The **Navigation** array inside `command-palette.tsx`.
+2. The dashboard sidebar (see [layout](/design/patterns/layout)).
+
+There is no third place — these are the canonical entry points to a module. Quick Actions are added to the same file.
+
+When a module owns a searchable entity, register a section in the search-results dispatcher. Search hits go through the same Supabase RPCs as the dedicated search APIs (`search_knowledge_items`, `search_knowledge_chunks`).
+
+## Keyboard shortcuts
+
+[`apps/ui/src/components/shared/keyboard-shortcuts.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/keyboard-shortcuts.tsx)
+
+A single global registry, mounted once via `KeyboardShortcutsProvider` at the dashboard layout. Input-aware: skips when focus is in `INPUT`, `TEXTAREA`, or any element with `contentEditable=true`. Press `?` to open the help sheet — every registered shortcut shows up there.
+
+### Global shortcuts
+
+| Keys | Action |
+|---|---|
+| Cmd/Ctrl+K | Open command palette |
+| Cmd/Ctrl+B | Toggle sidebar (or open mobile drawer) |
+| ? | Open keyboard-shortcut help |
+| Escape | Close current overlay (Sheet, Dialog, Popover, inline editor) |
+
+### G-then-letter navigation
+
+Press `G`, then the next key within 800ms, to jump to a module:
+
+| Sequence | Destination | Module gate |
+|---|---|---|
+| `G` `D` | Dashboard | Always |
+| `G` `C` | Contacts | CRM enabled |
+| `G` `O` | Organizations | CRM enabled |
+| `G` `T` | Tasks | Always |
+| `G` `A` | Agents | Always |
+| `G` `K` | Knowledge | Always |
+| `G` `E` | Collections | Always |
+| `G` `R` | Routines | Always |
+| `G` `L` | Activity | Always |
+| `G` `N` | Notifications | Always |
+| `G` `S` | Settings | Always |
+
+Adding a new module: register the G-sequence in `keyboard-shortcuts.tsx`, gate it on the relevant `ModulesContext` flag, and the help sheet will pick it up.
+
+### Module-level shortcuts
+
+A feature can register additional shortcuts via the `useShortcuts` hook. Examples worth using sparingly: `C` to open the create panel from a list view, `/` to focus the filter-bar search input. Every module-level shortcut shows in the help sheet — there is no hidden registry.
+
+Don't register shortcuts that conflict with browser defaults (Cmd+W, Cmd+T, Cmd+R, Cmd+L) or with text editing (any single letter that types into an input — except in input-aware paths the registry already filters).
+
+## Drag and drop
+
+The canonical library is [`@dnd-kit`](https://dndkit.com/). Reach for it whenever a feature needs drag-and-drop.
+
+Reference implementation: [`apps/ui/src/components/shared/folder-tree.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/folder-tree.tsx) — recursive tree with drag-to-reorder and drag-to-nest.
+
+The canonical setup:
+
+- **`DndContext`** at the boundary — sensors `PointerSensor` and `KeyboardSensor` both wired so drag works with mouse, touch, and keyboard.
+- **`SortableContext`** for ordered lists (kanban columns, file lists, sidebar groups).
+- **`useSortable`** on each draggable item; the hook returns `setNodeRef`, listeners, attributes, transform, and transition for the drag state.
+- **`DragOverlay`** for the floating drag preview — keeps the original item in place visually.
+- **Modifiers** (`restrictToVerticalAxis`, `restrictToParentElement`) when the gesture should be constrained.
+
+The kanban board on tasks currently uses native HTML5 drag-drop; that is a known deviation from this canonical pattern and is part of the audit-and-fix work — new code should use `@dnd-kit`.
+
+### Visual conventions during drag
+
+- The dragged item's source position renders at 50% opacity and removes its border-on-hover behavior.
+- The overlay clone gets a 1px `border-strong` and a slight `shadow-lg`.
+- Drop zones get a `bg-surface-selected` highlight on `dragOver`.
+- The drag is canceled on Escape, committed on drop. Persistence happens in the `onDragEnd` handler — the parent owns the data, the dragged item never persists itself.
+
+## Realtime
+
+Lists subscribe to Supabase Realtime so other sessions and agent activity surface live, without a refresh.
+
+[`apps/ui/src/hooks/use-realtime-sync.ts`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/hooks/use-realtime-sync.ts) — the multi-table version, used by orchestrator hooks (`use-contacts`, `use-tasks`, `use-collection-records`).
+
+[`apps/ui/src/hooks/use-realtime.ts`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/hooks/use-realtime.ts) — the single-table version, simpler API for one-off subscriptions.
+
+The pattern, in shape:
+
+- The hook subscribes on mount, unsubscribes on unmount.
+- Insert / update / delete events from any session (including agents) flow through.
+- Tenant-scoped RLS filters out events for other tenants — no client-side filtering needed.
+- Optimistic local mutations are reconciled with realtime echoes by ID — the hook does not double-apply.
+
+Lists do not poll. There is no manual refresh button. If an event is missed (network blip), reconnection re-fetches the snapshot.
+
+### When to subscribe
+
+- **Always** — list views and detail views of records that other sessions or agents can change.
+- **Sometimes** — settings pages where stale data is just inconvenient (rather than wrong).
+- **Never** — pure UI state, transient form inputs, anything client-only.
+
+If a hook subscribes, it owns the lifecycle — feature components don't manage subscriptions directly.
+
+## Hover, focus, and selection feedback
+
+Three subtle but consistent affordances:
+
+- **Hover** — `bg-surface-hover` (`oklch(0 0 0 / 4%)` light, `oklch(1 0 0 / 5%)` dark). 120ms transition.
+- **Focus** — visible ring, `ring-ring` token, 2px. Always visible via keyboard, never suppressed.
+- **Selected** — `bg-surface-selected` (slightly darker than hover). For multi-select, also a checkbox in the row's leading slot.
+
+Active row in lists or sidebar gets a 2px accent bar on the left (`bg-foreground`), not a heavy fill. Depth via accent, not background — see [principles](/design/overview).
+
+## Pulling it together
+
+Most modules touch all four systems. A correctly-built list view will:
+
+1. Render inside the shell with a `PageHeader`.
+2. Subscribe to its data via a realtime hook.
+3. Register its routes in the command palette and a G-shortcut.
+4. Use `@dnd-kit` if rows are reorderable.
+5. Compose its filters via the `FilterBar` and its rows via the `DataTable`.
+
+If any of these is missing, the screen will feel inconsistent with the rest of the app — and the inconsistency is what users notice first.

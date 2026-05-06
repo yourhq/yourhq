@@ -1,0 +1,85 @@
+---
+title: "Layout"
+description: "The dashboard shell — sidebar, header, breadcrumbs, responsive behavior."
+---
+
+Every authenticated page in HQ renders inside a single shell. The shell never changes shape between routes — the sidebar, header bar, and content frame are the same on the dashboard, on a contact detail page, and on agent settings. Routes only own what's inside the content frame.
+
+This page documents the shell and the standard pieces a route uses inside it.
+
+## The shell
+
+[`apps/ui/src/components/dashboard-shell.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/dashboard-shell.tsx) — wired up by [`apps/ui/src/app/dashboard/layout.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/dashboard/layout.tsx) after auth and workspace-setup checks.
+
+Two columns: a left sidebar and a right content area whose top is the [`HeaderBar`](/design/components/composites). Three widths:
+
+| Breakpoint | Sidebar | Trigger |
+|---|---|---|
+| Desktop, expanded | 220px | Default |
+| Desktop, collapsed | 48px (icon-only with tooltips) | Cmd/Ctrl+B |
+| Mobile | Hidden — opens as a 260px `Sheet` from the left | Hamburger button or Cmd/Ctrl+B |
+
+The mobile sheet auto-closes on route change so navigation feels like a tap, not a two-step. Sidebar collapse state persists across reloads.
+
+## Sidebar groups
+
+The sidebar is divided into named groups. Group order is fixed; modules within a group are gated by the workspace's enabled-modules set ([`ModulesContext`](/design/components/composites)).
+
+1. **Workspace** — Dashboard.
+2. **CRM** (gated) — Contacts, Organizations.
+3. **Work** — Tasks, Agents, Knowledge, Routines.
+4. **Collections** (dynamic) — User's collections, with a per-collection pin/unpin. Pinned items are always visible; the rest sit inside a collapsible section. A "Manage" link sits at the bottom.
+5. **System** — Activity, Notifications, Settings, optionally Account on hosted.
+
+Each entry is rendered through the `Item` primitive. Active rows get a 2px accent bar (`absolute left-0 w-0.5 rounded-full bg-foreground`) rather than a heavy fill — depth via accent, not background.
+
+When adding a new module, register it in the sidebar groups in `dashboard-shell.tsx` and in the [`CommandPalette`](/design/components/composites) navigation list. There is no third place.
+
+## Header bar
+
+[`apps/ui/src/components/shared/header-bar.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/header-bar.tsx)
+
+The thin bar at the top of the content area. Owned by the shell, never re-mounted by routes. Carries:
+
+- **Breadcrumbs** — derived from the current pathname. UUID segments are resolved to entity names by a Supabase lookup; everything else uses the route segment label.
+- **Theme toggle** — Light / Dark / System dropdown.
+- **Notifications** — bell icon with unread badge.
+- **User menu** — avatar with sign-out and project switcher actions.
+
+A route should never render its own header bar. Page-level titles belong inside the [`PageHeader`](/design/components/composites) below the header bar.
+
+## Page header
+
+[`apps/ui/src/components/shared/page-header.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/page-header.tsx)
+
+The top of the content area inside a route. Standard slots:
+
+- **Icon** — Lucide icon in a 32px bordered square, muted foreground.
+- **Title** — `.text-display` (24px / 600 / -0.02em).
+- **Description** — `.text-body` muted, 1–2 sentences.
+- **Primary action** — typically the "Create X" button.
+- **Secondary actions** — overflow into a `DropdownMenu`.
+- **Meta** — small status row (count, last sync time, gateway connection).
+- **Tabs** — optional `Tabs` row anchored at the bottom of the header.
+
+`PageSection` is its in-page sibling — used for grouping content under a heading mid-page. Use both consistently. Bespoke headers fragment the visual rhythm.
+
+## Responsive rules
+
+- **Desktop** (≥1024px): two-column shell, full sidebar, full detail right rails.
+- **Tablet** (768–1023px): sidebar collapses to icon-only with hover tooltips. Detail right rails fold into a mobile drawer trigger button.
+- **Mobile** (<768px): sidebar becomes a `Sheet` drawer; the hamburger sits on the left of the header bar. Detail right rails are accessed via a "Details" button that opens a `Sheet`.
+
+Cmd/Ctrl+B works at every breakpoint — on mobile it opens the drawer, on tablet/desktop it toggles the collapsed state.
+
+The shell itself does the responsive switching. Feature components should not hand-roll their own breakpoints for the same purpose; they should consume the shell's already-collapsed state via the `Sheet` and `Drawer` primitives where they need to fold content.
+
+## Adding a new route
+
+1. Create the page under `apps/ui/src/app/dashboard/<module>/page.tsx`. The shell is already mounted by the layout one level up.
+2. Open with a `PageHeader` carrying the icon, title, primary action.
+3. Inside the content area, follow [data display](/design/patterns/data-display) for lists or [creation and editing](/design/patterns/creation-and-editing) for forms.
+4. If the module is new, register it in `dashboard-shell.tsx` (sidebar group) and in the [`CommandPalette`](/design/components/composites) navigation list.
+5. If the module needs a keyboard shortcut, add it to the G-then-letter table in [`shared/keyboard-shortcuts.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/keyboard-shortcuts.tsx).
+
+Don't reinvent the shell pieces inside a route. The point of having one shell is that every screen feels the same.

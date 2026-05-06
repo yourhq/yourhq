@@ -96,7 +96,12 @@
           "design/overview",
           "design/foundations",
           "design/components/primitives",
-          "design/components/composites"
+          "design/components/composites",
+          "design/patterns/layout",
+          "design/patterns/data-display",
+          "design/patterns/creation-and-editing",
+          "design/patterns/interaction",
+          "design/patterns/feedback"
         ]
       },
       {

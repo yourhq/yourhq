@@ -1,0 +1,131 @@
+---
+title: "Creation and editing"
+description: "How users add and modify records: SidePanel vs Dialog vs Wizard, inline edit, rich text, forms."
+---
+
+HQ optimizes for fast, low-ceremony record manipulation. The default is to edit in place; the second-best is a `SidePanel` alongside the list; modal dialogs are reserved for focused decisions, and wizards for genuine multi-step flows. This page is the rule set.
+
+## Choosing a creation surface
+
+Three options, picked by field count and intent:
+
+| Surface | When | Reference |
+|---|---|---|
+| **`SidePanel`** | The default. ≥4 fields, room for advanced options, user wants to stay alongside the list they came from. | [`shared/side-panel.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/side-panel.tsx), [`crm/contact-form.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/crm/contact-form.tsx) |
+| **`Dialog`** | Quick-create with ≤3 fields, focused intent. Use when the user is already mid-flow and a side panel would feel heavy. | [`ui/dialog.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/dialog.tsx) |
+| **Wizard** | Multi-step where steps depend on each other or async work happens between steps (provisioning, validation, polling). | [`agents/agent-create-wizard.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/agents/agent-create-wizard.tsx), [`onboarding/wizard/onboarding-wizard.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/onboarding/wizard/onboarding-wizard.tsx) |
+
+The default is `SidePanel`. Don't choose `Dialog` because it's "lighter weight" — choose it only when the form genuinely fits in three fields.
+
+### `SidePanel` shape
+
+Width presets: `md` (480px), `lg` (560px, the default), `xl` (720px). Sticky footer carries the primary "Save" / "Create" button on the right and a `ghost`-variant "Cancel" on its left. Body uses the `PropertyRow` layout — 28px label column, flex-1 control. Inline `Input`, `Select`, `TagInput`, `DynamicField`, and `Textarea` primitives for the controls.
+
+### `Dialog` shape
+
+Square modal overlay (`bg-black/40` light, `bg-black/60` dark). Title at `.text-title`, optional description at `.text-body` muted. The form body should fit without scrolling. Two buttons in the footer.
+
+### Wizard shape
+
+Multi-step modal. Step indicator in the header (e.g. "2 of 5"). Steps that perform async work display a `Spinner` with a status line — the user sees the system thinking. Back/Next buttons; Back is disabled or hidden on irreversible steps (after a network call has succeeded). Status polling drives forward progress automatically when ready.
+
+## Inline editing
+
+Editing in place is the default for any property already visible. Users should not have to open a form to change one value.
+
+### `PropertyRow` layout
+
+The standard "label : value" row, used in detail right rails and inline-edit forms. 28px label column on the left (`.text-label` style), flex-1 control on the right. Borders and padding fade until hover, where the control reveals an `accent`-colored fill cue.
+
+### Inline text, tags, and links
+
+Three small primitives composed inside detail views:
+
+- **`InlineText`** — single-line text. Click to edit, Enter or blur saves, Escape cancels. Optimistic UI. Used for names, emails, phone numbers, anything single-line.
+- **`InlineTags`** — multi-value chip input. Comma or Enter commits a tag. Click an X on a chip to remove. Used for tags, multi-select properties.
+- **`InlineLink`** — URL with an external-link icon. Clicking the icon opens the link; clicking the text enters edit mode.
+
+References: see the implementations inside [`crm/contact-detail-view.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/crm/contact-detail-view.tsx). When a new module needs the same primitives, lift them into [`components/shared/`](/design/components/composites) — they are about to become composites.
+
+### Type-dispatched cell editing
+
+[`apps/ui/src/components/collections/collection-cell.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/collections/collection-cell.tsx) is the canonical pattern for inline edit across many field types. One entry point dispatches by `field_type`:
+
+| Type | Editor |
+|---|---|
+| `text`, `email`, `phone` | Inline text input |
+| `number` | Inline number input with parse / format |
+| `date`, `datetime` | `DatePickerButton` popover |
+| `boolean` | `Checkbox` |
+| `select` | `Select` |
+| `multi_select` | `Combobox` (multi) |
+| `url` | Inline link with external-link icon |
+| `rich_text` | `Textarea` (or Novel where rendered in detail) |
+| `relation` | `EntityLinkPicker` |
+
+When a module gains a new typed field, extend `collection-cell.tsx` rather than building a parallel cell renderer.
+
+## Rich text
+
+Use the **Novel** editor (TipTap wrapper) for any rich-text surface. Plain `Textarea` is for true plaintext only — short notes, slugs, prompts.
+
+[`apps/ui/src/components/knowledge/novel-editor.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/knowledge/novel-editor.tsx)
+
+The Novel setup at HQ:
+
+- Extensions — StarterKit, TaskList, TaskItem, HorizontalRule, Link, Image, Underline, CodeBlockLowlight.
+- Slash commands — `/` opens the command palette inside the editor.
+- Bubble menu — surfaces formatting (bold, italic, underline, code, link) on selection.
+- Syntax highlighting — `lowlight` with the common language set.
+- Auto-save — on blur. The hosting component owns the persistence call.
+
+Editor styles live in [`globals.css`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/globals.css) under `.ProseMirror` (lines ~265-450). The editor uses a slightly larger type scale than the app body — H1 is 30px, body line-height is 1.7 — because long-form reading benefits from more vertical rhythm.
+
+Knowledge pages and playbooks use Novel today. Long-form fields elsewhere (task descriptions, contact notes) should migrate to Novel as part of the audit-and-fix work.
+
+## Forms
+
+When you do need a form (validation, multi-field saves, server actions), use React Hook Form + Zod through the `Form` primitives.
+
+[`apps/ui/src/components/ui/form.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/form.tsx)
+
+The stack:
+
+- **`Form`** — wraps `FormProvider`. Pass the RHF `useForm` return.
+- **`FormField`** — `Controller` wrapper for a single field. Pass `control` and `name`.
+- **`FormItem`** — auto-IDs the field and binds label/control/description/message.
+- **`FormLabel`** — uses Radix `Label`; auto-toggles `data-error="true"` on invalid.
+- **`FormControl`** — slot wrapper; wires `aria-describedby` and `aria-invalid`.
+- **`FormDescription`** — helper text below the input.
+- **`FormMessage`** — auto-extracts the field's error message from RHF state.
+
+Error styling is automatic: `FormLabel` turns destructive on `data-error`, `FormControl` border and ring shift to destructive on `aria-invalid`. Don't hand-roll error styles per form.
+
+Schema lives next to the component (`const schema = z.object({ ... })`). Keep it simple — Zod is the validation engine, not a domain modeling tool. Database types are imported from `lib/<module>/types.ts`.
+
+### Custom fields
+
+For any record with user-defined fields (contacts, organizations, collections, tasks), use [`DynamicField`](/design/components/composites) and `DynamicFieldGroup` from `shared/`. They take a `FieldDefinition` and render the right editor. Don't branch on field type inside feature components.
+
+## Save semantics
+
+- **Inline edits** save on blur, optimistic UI, toast on error. No explicit Save button.
+- **`SidePanel` forms** save on the explicit Save button. Disable the button during the async call; show a spinner inside it.
+- **Wizards** save per-step. The Next button is the save action.
+- **Cell edits in tables** save on blur or Enter. Escape reverts.
+
+Audit logging happens server-side (the `audit_log` table). Feature code does not need to log inline edits — the database trigger does.
+
+## Cancel and dismiss
+
+- **Inline edits**: Escape reverts and closes the editor.
+- **`SidePanel` / `Dialog`**: Escape closes; clicking outside closes; explicit Cancel button closes. If there are unsaved changes, ask once via `ConfirmDialog` (warning tone).
+- **Wizards**: dismissal mid-flow is destructive on irreversible steps — disable outside-click close and prompt the user via `ConfirmDialog` (destructive tone) for explicit X-button closes.
+
+## When to add to `shared/`
+
+If a form pattern is reused in two modules, lift it. Three places to look first when adding:
+
+- A new typed field editor → extend `collection-cell.tsx` and `DynamicField`.
+- A new inline-edit primitive (e.g. inline date) → add to `components/shared/` next to `inline-edit.tsx`.
+- A new wizard pattern → start inside the feature module; promote to `shared/` only on the second use.
