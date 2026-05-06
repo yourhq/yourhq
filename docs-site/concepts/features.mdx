@@ -145,7 +145,9 @@ Optional git remote sync can push commits to GitHub or another git host for back
 
 Agents can report to other agents through `agents.reports_to_id`. The UI prevents self-reporting and cycle creation.
 
-The hierarchy is visible on the agent list and on each agent detail page. Runtime boot context includes:
+The agents list has a Fleet / Org chart view toggle that appears once at least one agent has a manager. The chart renders the reporting tree as connected boxes with collapsible subtrees. On each agent's detail page, the sidebar shows an "Org" section with the agent's manager, peers, and direct reports — the manager pill opens a picker for inline reassignment.
+
+Runtime boot context includes:
 
 - The agent's manager.
 - The agent's direct reports.
