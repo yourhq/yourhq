@@ -1,0 +1,52 @@
+name: Agent template proposal
+description: Propose a new agent template for the library
+labels: ["template", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Templates are starting points for new agents — a role, a personality, a default toolset.
+        See [Adding a template](https://github.com/yourhq/yourhq/blob/main/CONTRIBUTING.md#adding-an-agent-template) for the full flow.
+        For small additions, you can skip the issue and open a PR directly.
+
+  - type: input
+    id: name
+    attributes:
+      label: Template name
+      placeholder: "e.g. customer-success-manager"
+    validations:
+      required: true
+
+  - type: textarea
+    id: role
+    attributes:
+      label: Role description
+      description: Who is this agent? What do they do day-to-day?
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: What's included
+      description: |
+        Which files would this template ship? Identity? Skills? Custom tooling?
+        Reference an existing template (`templates/cofounder/`, `templates/analytics/`, …) as a baseline.
+    validations:
+      required: true
+
+  - type: textarea
+    id: differentiation
+    attributes:
+      label: Why a new template (vs. customizing an existing one)?
+      description: Templates should represent meaningfully different roles, not minor variations.
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Pre-flight
+      options:
+        - label: I checked `templates/` and don't see an existing template that covers this role.
+          required: true
+        - label: I'm planning to open the PR myself.
+          required: false

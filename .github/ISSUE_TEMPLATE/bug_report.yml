@@ -1,0 +1,102 @@
+name: Bug report
+description: Something is broken or behaves unexpectedly
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. The more we can reproduce, the faster we can fix it.
+
+        For security issues, **do not file a public issue** — email security@yourhq.ai instead.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: A clear, concise description of the bug.
+      placeholder: When I do X, I expected Y but got Z.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Exact steps so we can reproduce the bug.
+      placeholder: |
+        1. `docker compose up -d`
+        2. Open http://localhost:3000
+        3. Click ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Where is the bug?
+      multiple: true
+      options:
+        - UI (apps/ui)
+        - Gateway (gateway/)
+        - Dispatcher / Runner / Embedder / File processor (gateway daemons)
+        - Database / migrations (db/)
+        - Installer (installer/)
+        - Templates (templates/)
+        - Docs (docs-site/)
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: HQ version
+      description: Image tag or commit SHA you're running. `docker compose images` will show the tag.
+      placeholder: "v0.1.0 / latest / commit abc1234"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: Install path
+      options:
+        - One-line installer (curl install.yourhq.ai | bash)
+        - Cloned repo + docker compose
+        - Dev mode (docker-compose.dev.yml)
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: host
+    attributes:
+      label: Host OS / arch
+      placeholder: "Ubuntu 24.04 amd64 / macOS 15 arm64 / Raspberry Pi OS arm64"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: |
+        Paste output from `docker compose logs <service>` for the affected service. Redact any secrets first.
+      render: shell
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Pre-flight
+      options:
+        - label: I searched existing issues and didn't find a duplicate.
+          required: true
+        - label: I redacted any secrets, tokens, or personal data from the report.
+          required: true

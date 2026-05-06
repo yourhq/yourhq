@@ -1,0 +1,17 @@
+# CODEOWNERS — auto-request review when these paths change.
+# https://docs.github.com/en/repositories/managing-your-repositories-settings-and-security/customizing-your-repository/about-code-owners
+#
+# TODO(oss-launch): replace @yourhq/maintainers with the actual maintainer team
+# or individual handles before making the repo public. Lines that reference a
+# non-existent user/team are silently ignored by GitHub — no review will be
+# requested until this is fixed.
+
+* @yourhq/maintainers
+
+# Security-sensitive areas — flag any change here for explicit review.
+/SECURITY.md            @yourhq/maintainers
+/installer/             @yourhq/maintainers
+/gateway/runner/        @yourhq/maintainers
+/db/migrations/         @yourhq/maintainers
+/.github/               @yourhq/maintainers
+/.github/workflows/     @yourhq/maintainers

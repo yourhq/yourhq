@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or discussion
+    url: https://github.com/yourhq/yourhq/discussions
+    about: Ask questions, share what you're building, or propose ideas before opening an issue.
+  - name: Security vulnerability
+    url: https://github.com/yourhq/yourhq/security/policy
+    about: Do not open a public issue. Email security@yourhq.ai — see SECURITY.md for details.
+  - name: Documentation
+    url: https://docs.yourhq.ai
+    about: Quickstart, self-hosting, architecture, and reference docs.
