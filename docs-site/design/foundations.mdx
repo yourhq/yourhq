@@ -76,8 +76,11 @@ Reserved for state, never decoration. Use these tokens for any badge, dot, or ic
 | `--status-success` | `oklch(0.55 0.15 162.48)` | `oklch(0.72 0.17 162.48)` | Completed, ready, healthy |
 | `--status-warning` | `oklch(0.6 0.16 70.08)` | `oklch(0.8 0.18 70.08)` | Pending, blocked, attention needed |
 | `--status-error` | `oklch(0.55 0.18 22.216)` | `oklch(0.71 0.19 22.216)` | Failed, errored, missed |
-| `--status-info` | `oklch(0.5 0.18 250)` | `oklch(0.68 0.18 250)` | In progress, informational |
+| `--status-info` | `oklch(0.5 0.18 250)` | `oklch(0.68 0.18 250)` | Queued, informational |
+| `--status-progress` | `oklch(0.5 0.18 290)` | `oklch(0.68 0.18 290)` | Actively executing, in flight |
 | `--status-neutral` | `oklch(0.5 0 0)` | `oklch(0.62 0 0)` | Inactive, archived, idle |
+
+`--status-info` and `--status-progress` are intentionally distinct hues (blue and purple). The lifecycle of a daemon-driven record — agent commands, inbox items, source syncs — passes through queued (info) → claimed (warning) → executing (progress) → terminal (success or error). Collapsing queued and executing into one color erases meaningful information at a glance.
 
 Tailwind utilities: `text-status-success`, `bg-status-warning/20`, `border-status-error`, etc.
 

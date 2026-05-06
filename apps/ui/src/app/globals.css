@@ -14,6 +14,7 @@
   --color-status-warning: var(--status-warning);
   --color-status-error: var(--status-error);
   --color-status-info: var(--status-info);
+  --color-status-progress: var(--status-progress);
   --color-status-neutral: var(--status-neutral);
   --color-priority-urgent: var(--priority-urgent);
   --color-priority-high: var(--priority-high);
@@ -106,6 +107,7 @@
   --status-warning: oklch(0.6 0.16 70.08);
   --status-error: oklch(0.55 0.18 22.216);
   --status-info: oklch(0.5 0.18 250);
+  --status-progress: oklch(0.5 0.18 290);
   --status-neutral: oklch(0.5 0 0);
 
   /* Priority */
@@ -172,6 +174,7 @@
   --status-warning: oklch(0.8 0.18 70.08);
   --status-error: oklch(0.71 0.19 22.216);
   --status-info: oklch(0.68 0.18 250);
+  --status-progress: oklch(0.68 0.18 290);
   --status-neutral: oklch(0.62 0 0);
 
   /* Priority (promoted from PRIORITY_COLORS) */

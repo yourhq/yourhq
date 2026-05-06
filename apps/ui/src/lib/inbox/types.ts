@@ -50,11 +50,11 @@ export const INBOX_STATUSES: { value: InboxItemStatus; label: string }[] = [
 ];
 
 export const INBOX_STATUS_COLORS: Record<InboxItemStatus, string> = {
-  pending: "#3b82f6",
-  leased: "#f59e0b",
-  done: "#22c55e",
-  failed: "#ef4444",
-  dead_letter: "#dc2626",
+  pending: "var(--status-info)",
+  leased: "var(--status-warning)",
+  done: "var(--status-success)",
+  failed: "var(--status-error)",
+  dead_letter: "var(--status-error)",
 };
 
 export const INBOX_STATUS_BG: Record<InboxItemStatus, string> = {

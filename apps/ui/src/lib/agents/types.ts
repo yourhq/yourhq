@@ -158,9 +158,9 @@ export const COMMAND_ACTION_LABELS: Record<CommandAction, string> = {
 };
 
 export const COMMAND_STATUS_COLORS: Record<CommandStatus, string> = {
-  pending: "#3b82f6",
-  leased: "#f59e0b",
-  running: "#a855f7",
-  done: "#22c55e",
-  failed: "#ef4444",
+  pending: "var(--status-info)",
+  leased: "var(--status-warning)",
+  running: "var(--status-progress)",
+  done: "var(--status-success)",
+  failed: "var(--status-error)",
 };
