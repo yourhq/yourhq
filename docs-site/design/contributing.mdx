@@ -107,7 +107,7 @@ End-to-end recipe for a new module called `widgets`:
 3. **Hook** — `apps/ui/src/hooks/use-widgets.ts`. Subscribes via [`use-realtime-sync`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/hooks/use-realtime-sync.ts), owns filters/sorting/selection state, exposes actions.
 4. **Server actions** — `apps/ui/src/app/dashboard/widgets/actions.ts`. `"use server"`. Each action returns `{ data, error }` or throws.
 5. **Routes** — `app/dashboard/widgets/page.tsx`, `app/dashboard/widgets/[id]/page.tsx`, `app/dashboard/widgets/error.tsx`.
-6. **Components** — `components/widgets/widgets-tab.tsx` (orchestrator), `widgets-table-view.tsx`, `widget-detail-view.tsx`, `widget-form.tsx`. Open with a `PageHeader`. List uses `DataTable` inside a `FilterBar`. Detail uses `DetailHeader` plus `DetailSidebar`. Create uses `SidePanel`.
+6. **Components** — `components/widgets/widgets-tab.tsx` (orchestrator), `widgets-table-view.tsx`, `widget-detail-view.tsx`, `widget-form.tsx`. Open with a `PageHeader`. List uses `DataTable` inside a `FilterBar`. Detail uses `DetailHeader` plus `DetailSidebar`. Create uses `SidePanel` if widgets are record-style (the user manages them from a list), or `Dialog` if widgets are capture-style (the user creates them from anywhere) — see [creation and editing](/design/patterns/creation-and-editing).
 7. **Shell registration** — add the module to:
    - The sidebar in `components/dashboard-shell.tsx`.
    - The navigation list in `components/shared/command-palette.tsx`.
@@ -147,7 +147,7 @@ Before opening a PR that touches the UI:
 - [ ] CVA for any component with two-plus visual variants.
 - [ ] Components are kebab-case files, PascalCase exports.
 - [ ] Hooks subscribe and unsubscribe correctly (cleanup in the `useEffect` return).
-- [ ] Lists use `DataTable` (not bare `Table`); creates use `SidePanel` (not bare `Dialog` for ≥4 fields).
+- [ ] Lists use `DataTable` (not bare `Table`); creates use `SidePanel` for record editing or `Dialog` for quick capture — never bare `Sheet` or `Dialog` primitives directly.
 - [ ] Empty states are present on every list. Loading skeletons match the layout.
 - [ ] No comments narrating what the code does. Only comments where the *why* is non-obvious.
 - [ ] `npx tsc --noEmit` passes from `apps/ui/`.

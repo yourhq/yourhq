@@ -7,15 +7,15 @@ HQ optimizes for fast, low-ceremony record manipulation. The default is to edit 
 
 ## Choosing a creation surface
 
-Three options, picked by field count and intent:
+Three options, picked by **user mode** — not by field count:
 
 | Surface | When | Reference |
 |---|---|---|
-| **`SidePanel`** | The default. ≥4 fields, room for advanced options, user wants to stay alongside the list they came from. | [`shared/side-panel.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/side-panel.tsx), [`crm/contact-form.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/crm/contact-form.tsx) |
-| **`Dialog`** | Quick-create with ≤3 fields, focused intent. Use when the user is already mid-flow and a side panel would feel heavy. | [`ui/dialog.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/dialog.tsx) |
-| **Wizard** | Multi-step where steps depend on each other or async work happens between steps (provisioning, validation, polling). | [`agents/agent-create-wizard.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/agents/agent-create-wizard.tsx), [`onboarding/wizard/onboarding-wizard.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/onboarding/wizard/onboarding-wizard.tsx) |
+| **`SidePanel`** | Sustained record editing. The user is browsing a list and adding or editing one of its rows. The panel staying alongside the list reinforces "you're still in the list, just editing one thing in it." Contacts, organizations, knowledge items, collection records. | [`shared/side-panel.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/side-panel.tsx), [`crm/contact-form.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/crm/contact-form.tsx) |
+| **`Dialog`** | Quick capture and focused decisions. The user is mid-flow — possibly on an unrelated screen — and wants to dump intent into the system and get back to what they were doing. Tasks (regardless of field count: a task is tactical capture, not record management), confirmations, two-step OAuth handoffs. | [`ui/dialog.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/dialog.tsx), [`tasks/task-form.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/tasks/task-form.tsx) |
+| **Wizard** | Multi-step provisioning where steps depend on each other or async work happens between steps. | [`agents/agent-create-wizard.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/agents/agent-create-wizard.tsx), [`onboarding/wizard/onboarding-wizard.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/onboarding/wizard/onboarding-wizard.tsx) |
 
-The default is `SidePanel`. Don't choose `Dialog` because it's "lighter weight" — choose it only when the form genuinely fits in three fields.
+The deciding question isn't "how many fields does this have?" — it's "is the user managing records or capturing intent?" A task form with twelve fields is still capture; the user thought of something and wants it in the system fast. A contact form with three fields is still record editing; the user is reviewing the contact list.
 
 ### `SidePanel` shape
 

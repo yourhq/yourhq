@@ -27,7 +27,7 @@ The horizontal bar at the top of the dashboard shell. Carries breadcrumbs (with 
 
 [`shared/side-panel.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/side-panel.tsx)
 
-The canonical right-sliding sheet for create and edit forms. Width presets `md` (480px), `lg` (560px, default), `xl` (720px). Sticky footer for actions. Always reach for `SidePanel` over a bare `Dialog` for forms with more than three fields — see [creation and editing](/design/patterns/creation-and-editing).
+The right-sliding sheet for sustained record editing — when the user is browsing a list and adding or editing one of its rows. Width presets `md` (480px), `lg` (560px, default), `xl` (720px). Sticky footer for actions. Pick by user mode, not field count: `SidePanel` for record management, `Dialog` for quick capture or focused decisions — see [creation and editing](/design/patterns/creation-and-editing).
 
 ### `DetailSidebar`, `DetailSidebarMobile`, `DetailSidebarSection`
 

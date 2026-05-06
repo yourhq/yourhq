@@ -94,7 +94,11 @@ Used for **light records** — collection records, ad-hoc edits, anything that f
 
 The body is a label-and-control grid. Inline edits commit on blur; explicit Save buttons are reserved for the rare case where validation can't run inline (a multi-field form needing cross-field checks).
 
-Reach for `SidePanel` over `Dialog` for any detail surface — `Dialog` is for short focused decisions, not for editing a record (see [creation and editing](/design/patterns/creation-and-editing)).
+### Modal (`Dialog`)
+
+Used for **capture-style entities** — records the user creates and edits in quick-capture mode rather than from a list-management workflow. Tasks are the canonical example: their form serves as both create and detail surface, and a centered `Dialog` matches the tactical "I just thought of this" mode better than a slide-over would.
+
+When a record is opened from a list, prefer the slide-over. When the same form is also the create surface invoked from "+ Task" anywhere in the app, use the dialog for both — consistency between create and detail beats consistency with other modules' detail shape (see [creation and editing](/design/patterns/creation-and-editing)).
 
 ## Filter bar
 
