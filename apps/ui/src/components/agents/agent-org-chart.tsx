@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { Agent } from "@/lib/agents/types";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { sortAgentsByStatus } from "@/components/agents/agent-card";
 import { AgentNode } from "@/components/agents/agent-node";
 import { layoutOrgTree } from "@/lib/agents/org-layout";
@@ -26,6 +27,7 @@ export function AgentOrgChart({
   onTogglePause,
   onDelete,
 }: AgentOrgChartProps) {
+  const mobile = useIsMobile();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const sortedAgents = useMemo(() => sortAgentsByStatus(agents), [agents]);
@@ -57,6 +59,59 @@ export function AgentOrgChart({
       else next.add(id);
       return next;
     });
+  }
+
+  if (mobile) {
+    const agentMap = new Map(sortedAgents.map((a) => [a.id, a]));
+    const roots = sortedAgents.filter(
+      (a) => !a.reports_to_id || !agentMap.has(a.reports_to_id),
+    );
+    const childrenOf = (parentId: string) =>
+      sortedAgents.filter((a) => a.reports_to_id === parentId);
+
+    function renderMobileNode(agent: Agent, depth: number): React.ReactNode {
+      const children = childrenOf(agent.id);
+      const isCollapsed = collapsed.has(agent.id);
+      return (
+        <div key={agent.id}>
+          <div
+            className="flex items-center gap-2"
+            style={{ paddingLeft: `${depth * 16}px` }}
+          >
+            {children.length > 0 && (
+              <button
+                type="button"
+                onClick={() => toggleCollapsed(agent.id)}
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent"
+              >
+                {isCollapsed ? (
+                  <ChevronRight className="h-3 w-3" />
+                ) : (
+                  <ChevronDown className="h-3 w-3" />
+                )}
+              </button>
+            )}
+            {children.length === 0 && <div className="w-5 shrink-0" />}
+            <div className="flex-1 min-w-0 py-1">
+              <AgentNode
+                agent={agent}
+                onEdit={onEdit}
+                onTogglePause={onTogglePause}
+                onDelete={onDelete}
+              />
+            </div>
+          </div>
+          {!isCollapsed &&
+            children.map((child) => renderMobileNode(child, depth + 1))}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-1">
+        {roots.map((agent) => renderMobileNode(agent, 0))}
+      </div>
+    );
   }
 
   return (

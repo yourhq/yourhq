@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Maximize2, Minimize2 } from "lucide-react";
+import { ArrowLeft, Maximize2, Minimize2 } from "lucide-react";
 import type { FileTreeNode, GitHubTreeEntry } from "@/lib/agent-repo/types";
 import { buildFileTree } from "@/lib/agent-repo/types";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { AgentFileTree } from "./agent-file-tree";
 import { AgentFileEditor } from "./agent-file-editor";
 import { toast } from "sonner";
@@ -24,6 +25,8 @@ export function AgentFileBrowser({ slug }: AgentFileBrowserProps) {
   const [dirty, setDirty] = useState(false);
   const [pendingPath, setPendingPath] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
+  const [mobileShowEditor, setMobileShowEditor] = useState(false);
+  const mobile = useIsMobile();
 
   // Fetch file tree on mount
   const fetchTree = useCallback(async () => {
@@ -83,6 +86,7 @@ export function AgentFileBrowser({ slug }: AgentFileBrowserProps) {
     setFileSha(null);
     setDirty(false);
     setFileLoading(true);
+    if (mobile) setMobileShowEditor(true);
 
     try {
       const res = await fetch(`/api/agents/${slug}/files/${path}`);
@@ -128,6 +132,58 @@ export function AgentFileBrowser({ slug }: AgentFileBrowserProps) {
   function handleSaved(newSha: string) {
     setFileSha(newSha);
     setDirty(false);
+  }
+
+  if (mobile) {
+    return (
+      <div className="relative flex flex-col overflow-hidden border border-border/50 rounded-lg h-[calc(100vh-10rem)]">
+        {mobileShowEditor && selectedPath ? (
+          <>
+            <div className="flex items-center gap-2 border-b border-border/50 px-3 py-2 bg-card/30">
+              <button
+                type="button"
+                onClick={() => setMobileShowEditor(false)}
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+              <span className="text-xs text-muted-foreground truncate">{selectedPath}</span>
+            </div>
+            <div className="flex-1 min-h-0">
+              <AgentFileEditor
+                slug={slug}
+                path={selectedPath}
+                content={fileContent}
+                sha={fileSha}
+                onSaved={handleSaved}
+                loading={fileLoading}
+              />
+            </div>
+          </>
+        ) : (
+          <AgentFileTree
+            tree={tree}
+            selectedPath={selectedPath}
+            onSelectFile={handleSelectFile}
+            onCreateFile={handleCreateFile}
+            loading={treeLoading}
+          />
+        )}
+
+        <ConfirmDialog
+          open={pendingPath !== null}
+          title="Discard unsaved changes?"
+          description="You have unsaved edits in the current file. Switching files now will discard them."
+          confirmLabel="Discard changes"
+          tone="warning"
+          onConfirm={async () => {
+            if (pendingPath) await loadFile(pendingPath);
+            setPendingPath(null);
+          }}
+          onCancel={() => setPendingPath(null)}
+        />
+      </div>
+    );
   }
 
   return (
