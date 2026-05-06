@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { HqLogo } from "@/components/shared/hq-logo";
+import { StaggeredEntrance } from "./staggered-entrance";
 
 function slugify(value: string): string {
   return value
@@ -42,16 +44,22 @@ export function StepWelcome({ initialName, onSubmit, pending }: StepWelcomeProps
 
   return (
     <div className="space-y-8">
-      <div className="space-y-3">
-        <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight">
-          Welcome to HQ
-        </h1>
-        <p className="max-w-[44ch] text-[14px] leading-relaxed text-muted-foreground">
-          Let&apos;s get you set up. This takes about two minutes.
-        </p>
-      </div>
+      <StaggeredEntrance index={0}>
+        <HqLogo size={40} className="text-foreground mb-2" />
+      </StaggeredEntrance>
 
-      <div className="space-y-5">
+      <StaggeredEntrance index={1}>
+        <div className="space-y-3">
+          <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight">
+            Welcome to HQ
+          </h1>
+          <p className="max-w-[44ch] text-[14px] leading-relaxed text-muted-foreground">
+            Set up your workspace in a few steps. Takes about 10 minutes.
+          </p>
+        </div>
+      </StaggeredEntrance>
+
+      <StaggeredEntrance index={2}>
         <div className="space-y-2">
           <label
             htmlFor="owner-name"
@@ -79,9 +87,11 @@ export function StepWelcome({ initialName, onSubmit, pending }: StepWelcomeProps
             }}
           />
         </div>
+      </StaggeredEntrance>
 
-        {firstName && (
-          <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-1 duration-200">
+      {firstName && (
+        <StaggeredEntrance index={3}>
+          <div className="space-y-1.5">
             <span className="text-[12px] text-muted-foreground">
               Your workspace
             </span>
@@ -103,50 +113,59 @@ export function StepWelcome({ initialName, onSubmit, pending }: StepWelcomeProps
                     }
                   }}
                   autoFocus
-                  className="h-8 rounded-md border border-border/60 bg-background px-2 text-[14px] font-medium outline-none focus:border-foreground/40"
+                  className="h-9 w-full max-w-xs rounded-lg border border-border/60 bg-background px-3 text-[14px] font-medium outline-none transition-colors focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"
                 />
               ) : (
-                <button
-                  type="button"
-                  onClick={() => setEditing(true)}
-                  className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[14px] font-medium transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2"
-                >
-                  <span>{displayedWorkspace}</span>
-                  <span className="text-[11px] text-muted-foreground/50">
-                    edit
-                  </span>
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={displayedWorkspace}
+                    readOnly
+                    tabIndex={-1}
+                    className="h-9 max-w-xs rounded-lg border border-border/40 bg-muted/30 px-3 text-[14px] font-medium text-foreground outline-none cursor-default"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setEditing(true)}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/40 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
+                    aria-label="Edit workspace name"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               )}
             </div>
           </div>
-        )}
-      </div>
+        </StaggeredEntrance>
+      )}
 
-      <div className="pt-2">
-        <button
-          type="button"
-          onClick={() =>
-            onSubmit({
-              ownerName: name.trim(),
-              preferredName: firstName,
-              workspaceName: displayedWorkspace,
-              workspaceSlug: slugify(displayedWorkspace),
-            })
-          }
-          disabled={!valid || pending}
-          className={cn(
-            "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all",
-            !valid || pending
-              ? "cursor-not-allowed bg-muted text-muted-foreground/50"
-              : "bg-foreground text-background hover:bg-foreground/90",
-          )}
-        >
-          {pending ? "Saving…" : "Continue"}
-          {!pending && (
-            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-          )}
-        </button>
-      </div>
+      <StaggeredEntrance index={4}>
+        <div className="pt-2">
+          <button
+            type="button"
+            onClick={() =>
+              onSubmit({
+                ownerName: name.trim(),
+                preferredName: firstName,
+                workspaceName: displayedWorkspace,
+                workspaceSlug: slugify(displayedWorkspace),
+              })
+            }
+            disabled={!valid || pending}
+            className={cn(
+              "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all",
+              !valid || pending
+                ? "cursor-not-allowed bg-muted text-muted-foreground/50"
+                : "bg-foreground text-background hover:bg-foreground/90",
+            )}
+          >
+            {pending ? "Saving…" : "Continue"}
+            {!pending && (
+              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+            )}
+          </button>
+        </div>
+      </StaggeredEntrance>
     </div>
   );
 }

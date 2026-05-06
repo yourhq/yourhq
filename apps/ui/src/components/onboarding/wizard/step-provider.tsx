@@ -482,8 +482,8 @@ export function StepProvider({
           Connect an AI provider
         </h1>
         <p className="max-w-[44ch] text-[14px] leading-relaxed text-muted-foreground">
-          Your key is stored on your gateway — we never see it. You can
-          connect more providers later in Settings.
+          Your API key stays on your gateway. HQ never sees or stores it.
+          You can connect more providers later in Settings.
         </p>
       </div>
 

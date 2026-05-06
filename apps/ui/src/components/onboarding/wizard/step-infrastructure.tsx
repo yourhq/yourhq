@@ -85,10 +85,10 @@ function SchemaInstallPanel({
       <div className="flex items-start gap-2">
         <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
         <div className="space-y-0.5">
-          <p className="text-[13px] font-medium text-foreground">Schema not installed</p>
+          <p className="text-[13px] font-medium text-foreground">Your database needs HQ&apos;s tables</p>
           <p className="text-[12px] text-muted-foreground">
-            HQ needs its database schema installed in this Supabase project.
-            Enter your database password to install it automatically, or use the SQL editor.
+            HQ needs to create its tables in your Supabase database.
+            This is automatic and takes about 30 seconds, or you can run the SQL manually.
           </p>
         </div>
       </div>
@@ -258,11 +258,11 @@ export function StepInfrastructure({
           Infrastructure
         </div>
         <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight">
-          Connect your services
+          Connect your infrastructure
         </h1>
-        <p className="max-w-[44ch] text-[14px] leading-relaxed text-muted-foreground">
-          HQ needs a database (Supabase) and a place for agents to run
-          (gateway). Both are self-hosted — you own everything.
+        <p className="max-w-[52ch] text-[14px] leading-relaxed text-muted-foreground">
+          Your agents need somewhere to store data and somewhere to run.
+          You&apos;ll set up both here — you own everything.
         </p>
       </div>
 
@@ -283,7 +283,7 @@ export function StepInfrastructure({
         ) : (
           <div className="space-y-3">
             <p className="text-[12px] text-muted-foreground">
-              HQ stores everything in a Supabase project you control.
+              HQ stores your data in Supabase, an open-source Postgres database you control.
             </p>
 
             <div className="space-y-2">
@@ -400,7 +400,7 @@ export function StepInfrastructure({
         ) : (
           <div className="space-y-3">
             <p className="text-[12px] text-muted-foreground">
-              The gateway is where your agents run. Pick where to host it.
+              The gateway is the computer where your agents run. Pick where to host it.
             </p>
 
             <div role="radiogroup" aria-label="Gateway placement" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
