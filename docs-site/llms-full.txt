@@ -3675,7 +3675,9 @@ Optional git remote sync can push commits to GitHub or another git host for back
 
 Agents can report to other agents through `agents.reports_to_id`. The UI prevents self-reporting and cycle creation.
 
-The hierarchy is visible on the agent list and on each agent detail page. Runtime boot context includes:
+The agents list has a Fleet / Org chart view toggle that appears once at least one agent has a manager. The chart renders the reporting tree as connected boxes with collapsible subtrees. On each agent's detail page, the sidebar shows an "Org" section with the agent's manager, peers, and direct reports — the manager pill opens a picker for inline reassignment.
+
+Runtime boot context includes:
 
 - The agent's manager.
 - The agent's direct reports.
@@ -4368,7 +4370,10 @@ Every agent lives on its own git branch. File changes land on disk immediately, 
 
 ## Org chart and delegation
 
-Agents can report to other agents. The `reports_to_id` field creates a lightweight org chart in the agent list and on each agent detail page.
+Agents can report to other agents through `reports_to_id`. The UI surfaces the resulting hierarchy in two places:
+
+- **Agents list** — once at least one agent has a manager, a Fleet / Org chart view toggle appears in the filter bar. The chart lays the reporting tree out as connected boxes; chevron toggles on parent nodes collapse subtrees, and hovering a node reveals the same edit/pause/delete actions as the list view.
+- **Agent detail sidebar** — an "Org" section shows the agent's manager (if any), peers (other direct reports of the same manager), and direct reports. Clicking the manager pill opens a picker for inline reassignment.
 
 When an agent has a manager or direct reports, the HQ bootstrap plugin injects a "Your Position" section into runtime context. That context tells the agent:
 
@@ -4378,7 +4383,7 @@ When an agent has a manager or direct reports, the HQ bootstrap plugin injects a
 - To escalate by creating high-priority tasks for its manager.
 - To ask the human before routing work to peer agents outside the direct hierarchy.
 
-Cycle prevention is handled before saving manager changes: an agent cannot report to itself, and the UI checks the manager chain so loops cannot be created accidentally.
+Cycle prevention is handled before saving manager changes: an agent cannot report to itself, and the UI walks the manager chain via the `agent_reports_chain` RPC so loops cannot be created accidentally.
 
 ## Model and thinking configuration
 
