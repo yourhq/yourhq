@@ -15,11 +15,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogTitle,
+  ResponsiveDialogDescription,
+} from "@/components/ui/responsive-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Plus, Pencil, Archive, RotateCcw, Copy } from "lucide-react";
@@ -288,14 +288,14 @@ function TemplateForm({
   if (!open) return null;
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden max-h-[85dvh] flex flex-col">
-        <DialogTitle className="sr-only">
+    <ResponsiveDialog open onOpenChange={(o) => !o && onClose()}>
+      <ResponsiveDialogContent variant="fullscreen" className="sm:max-w-2xl p-0 gap-0 overflow-hidden max-h-[85dvh] flex flex-col">
+        <ResponsiveDialogTitle className="sr-only">
           {template ? "Edit template" : "New template"}
-        </DialogTitle>
-        <DialogDescription className="sr-only">
+        </ResponsiveDialogTitle>
+        <ResponsiveDialogDescription className="sr-only">
           Create or edit a reusable outreach template.
-        </DialogDescription>
+        </ResponsiveDialogDescription>
         <div className="flex-1 overflow-y-auto min-h-0">
         {/* Name - hero input */}
         <div className="px-4 pt-4 pb-2">
@@ -379,7 +379,7 @@ function TemplateForm({
             </Button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

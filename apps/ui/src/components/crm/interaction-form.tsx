@@ -10,12 +10,12 @@ import {
   INTERACTION_DIRECTIONS,
 } from "@/lib/interactions/types";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import {
   Select,
   SelectContent,
@@ -174,13 +174,13 @@ export function InteractionForm({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-lg max-h-[85dvh] flex flex-col gap-0 p-0 overflow-hidden">
-        <DialogHeader className="shrink-0 px-6 pt-6 pb-4">
-          <DialogTitle>
+    <ResponsiveDialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <ResponsiveDialogContent className="sm:max-w-lg max-h-[85dvh] flex flex-col gap-0 p-0 overflow-hidden">
+        <ResponsiveDialogHeader className="shrink-0 px-6 pt-6 pb-4">
+          <ResponsiveDialogTitle>
             {interaction ? "Edit interaction" : `Log interaction with ${contactName}`}
-          </DialogTitle>
-        </DialogHeader>
+          </ResponsiveDialogTitle>
+        </ResponsiveDialogHeader>
 
         <div className="flex-1 overflow-y-auto px-6 pb-4">
           <div className="space-y-3">
@@ -310,15 +310,15 @@ export function InteractionForm({
           </div>
         </div>
 
-        <DialogFooter className="shrink-0 border-t border-border/60 px-6 py-3">
+        <ResponsiveDialogFooter className="shrink-0 border-t border-border/60 px-6 py-3">
           <Button variant="ghost" size="sm" onClick={onClose}>
             Cancel
           </Button>
           <Button size="sm" onClick={handleSubmit} disabled={saving}>
             {saving ? "Saving..." : interaction ? "Save" : "Log interaction"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </ResponsiveDialogFooter>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

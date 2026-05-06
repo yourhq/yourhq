@@ -13,11 +13,11 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { DatePickerButton } from "@/components/ui/date-picker-button";
 import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogTitle,
+  ResponsiveDialogDescription,
+} from "@/components/ui/responsive-dialog";
 import {
   Select,
   SelectContent,
@@ -335,14 +335,14 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
   const selectedPriority = TASK_PRIORITIES.find((p) => p.value === priority);
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent className="sm:max-w-xl p-0 gap-0 max-h-[95dvh] sm:max-h-[85dvh] flex flex-col">
-        <DialogTitle className="sr-only">
+    <ResponsiveDialog open onOpenChange={(open) => !open && onCancel()}>
+      <ResponsiveDialogContent variant="fullscreen" className="sm:max-w-xl p-0 gap-0 max-h-[95dvh] sm:max-h-[85dvh] flex flex-col">
+        <ResponsiveDialogTitle className="sr-only">
           {editingTask ? "Edit task" : "New task"}
-        </DialogTitle>
-        <DialogDescription className="sr-only">
+        </ResponsiveDialogTitle>
+        <ResponsiveDialogDescription className="sr-only">
           Create or edit a task with title, description, status, priority, stream, assignee, and due date.
-        </DialogDescription>
+        </ResponsiveDialogDescription>
 
         {/* Title + description — non-scrollable */}
         <div className="px-4 sm:px-5 pt-4 sm:pt-5 pb-1 shrink-0">
@@ -541,12 +541,12 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
             </Button>
           </div>
         </div>
-      </DialogContent>
+      </ResponsiveDialogContent>
       <RecurrenceScopeDialog
         open={scopeDialogOpen}
         onCancel={() => setScopeDialogOpen(false)}
         onConfirm={handleScopeConfirm}
       />
-    </Dialog>
+    </ResponsiveDialog>
   );
 }

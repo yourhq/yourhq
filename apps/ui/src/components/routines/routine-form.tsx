@@ -11,11 +11,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogTitle,
+  ResponsiveDialogDescription,
+} from "@/components/ui/responsive-dialog";
 import {
   Select,
   SelectContent,
@@ -272,14 +272,14 @@ export function RoutineForm({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden max-h-[90dvh] flex flex-col">
-        <DialogTitle className="sr-only">
+    <ResponsiveDialog open onOpenChange={(open) => !open && onCancel()}>
+      <ResponsiveDialogContent variant="fullscreen" className="sm:max-w-lg p-0 gap-0 overflow-hidden max-h-[90dvh] flex flex-col">
+        <ResponsiveDialogTitle className="sr-only">
           {editingRoutine ? "Edit routine" : "New routine"}
-        </DialogTitle>
-        <DialogDescription className="sr-only">
+        </ResponsiveDialogTitle>
+        <ResponsiveDialogDescription className="sr-only">
           Create or edit a routine for an agent
-        </DialogDescription>
+        </ResponsiveDialogDescription>
 
         <form
           onSubmit={(e) => {
@@ -705,7 +705,7 @@ export function RoutineForm({
           </div>
         </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

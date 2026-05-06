@@ -3,11 +3,11 @@
 import { useState } from "react";
 import type { KnowledgeKind } from "@/lib/knowledge/types";
 import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogTitle,
+  ResponsiveDialogDescription,
+} from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 
 interface KnowledgeCreateDialogProps {
@@ -31,14 +31,14 @@ export function KnowledgeCreateDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogTitle>
+    <ResponsiveDialog open onOpenChange={(open) => !open && onCancel()}>
+      <ResponsiveDialogContent className="sm:max-w-md">
+        <ResponsiveDialogTitle>
           New {kind === "playbook" ? "Playbook" : "Page"}
-        </DialogTitle>
-        <DialogDescription className="sr-only">
+        </ResponsiveDialogTitle>
+        <ResponsiveDialogDescription className="sr-only">
           Create a new {kind}
-        </DialogDescription>
+        </ResponsiveDialogDescription>
         <div className="space-y-4">
           <textarea
             value={title}
@@ -72,7 +72,7 @@ export function KnowledgeCreateDialog({
             </Button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

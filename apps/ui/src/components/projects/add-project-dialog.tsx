@@ -3,13 +3,13 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -97,14 +97,14 @@ export function AddProjectDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md p-0 gap-0">
-        <DialogHeader className="px-5 pt-5 pb-3 border-b border-border/50">
-          <DialogTitle className="text-heading">Add a Supabase project</DialogTitle>
-          <DialogDescription className="text-caption text-muted-foreground">
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveDialogContent className="sm:max-w-md p-0 gap-0">
+        <ResponsiveDialogHeader className="px-5 pt-5 pb-3 border-b border-border/50">
+          <ResponsiveDialogTitle className="text-heading">Add a Supabase project</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription className="text-caption text-muted-foreground">
             Each project is fully isolated — contacts, agents, tasks, and settings don&apos;t mix.
-          </DialogDescription>
-        </DialogHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
         <form onSubmit={onSubmit} className="flex flex-col">
           <div className="px-5 py-4 space-y-4">
@@ -202,7 +202,7 @@ export function AddProjectDialog({
             )}
           </div>
 
-          <DialogFooter className="px-5 py-3 border-t border-border/50 gap-2">
+          <ResponsiveDialogFooter className="px-5 py-3 border-t border-border/50 gap-2">
             <Button
               type="button"
               variant="ghost"
@@ -222,9 +222,9 @@ export function AddProjectDialog({
                 "Add project"
               )}
             </Button>
-          </DialogFooter>
+          </ResponsiveDialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

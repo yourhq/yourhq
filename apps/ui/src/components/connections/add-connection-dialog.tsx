@@ -21,13 +21,13 @@ import {
   Search,
 } from "lucide-react";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -81,8 +81,8 @@ export function AddConnectionDialog({
   onAdded,
 }: AddConnectionDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg p-0 gap-0">
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveDialogContent className="sm:max-w-lg p-0 gap-0">
         {open && (
           <AddConnectionDialogInner
             onClose={() => onOpenChange(false)}
@@ -92,8 +92,8 @@ export function AddConnectionDialog({
             onAdded={onAdded}
           />
         )}
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }
 
@@ -115,8 +115,8 @@ function AddConnectionDialogInner({
 
   return (
     <>
-      <DialogHeader className="px-5 pt-5 pb-3 border-b border-border/50">
-        <DialogTitle className="text-heading flex items-center gap-2">
+      <ResponsiveDialogHeader className="px-5 pt-5 pb-3 border-b border-border/50">
+        <ResponsiveDialogTitle className="text-heading flex items-center gap-2">
           {phase.kind !== "pick" && phase.kind !== "done" && (
             <button
               type="button"
@@ -136,11 +136,11 @@ function AddConnectionDialogInner({
             {phase.kind === "interactive" && phase.provider.displayName}
             {phase.kind === "done" && phase.provider.displayName}
           </span>
-        </DialogTitle>
-        <DialogDescription className="text-caption text-muted-foreground">
+        </ResponsiveDialogTitle>
+        <ResponsiveDialogDescription className="text-caption text-muted-foreground">
           Adds the credential to <span className="font-medium text-foreground">{gatewayLabel}</span>. Agents on this gateway will be able to use it.
-        </DialogDescription>
-      </DialogHeader>
+        </ResponsiveDialogDescription>
+      </ResponsiveDialogHeader>
 
       {phase.kind === "pick" && (
         <PickPhase
@@ -515,7 +515,7 @@ function ApiKeyForm({
         {error && <ErrorBanner message={error} />}
       </div>
 
-      <DialogFooter className="px-5 py-3 border-t border-border/50 gap-2">
+      <ResponsiveDialogFooter className="px-5 py-3 border-t border-border/50 gap-2">
         <Button
           type="button"
           variant="ghost"
@@ -535,7 +535,7 @@ function ApiKeyForm({
             "Connect"
           )}
         </Button>
-      </DialogFooter>
+      </ResponsiveDialogFooter>
     </form>
   );
 }
@@ -660,7 +660,7 @@ function LocalUrlForm({
         {error && <ErrorBanner message={error} />}
       </div>
 
-      <DialogFooter className="px-5 py-3 border-t border-border/50 gap-2">
+      <ResponsiveDialogFooter className="px-5 py-3 border-t border-border/50 gap-2">
         <Button
           type="button"
           variant="ghost"
@@ -680,7 +680,7 @@ function LocalUrlForm({
             "Connect"
           )}
         </Button>
-      </DialogFooter>
+      </ResponsiveDialogFooter>
     </form>
   );
 }
@@ -800,7 +800,7 @@ function SignInLauncher({
         {error && <ErrorBanner message={error} />}
       </div>
 
-      <DialogFooter className="px-5 py-3 border-t border-border/50 gap-2">
+      <ResponsiveDialogFooter className="px-5 py-3 border-t border-border/50 gap-2">
         <Button
           type="button"
           variant="ghost"
@@ -846,7 +846,7 @@ function SignInLauncher({
             <>Sign in with {provider.displayName}</>
           )}
         </Button>
-      </DialogFooter>
+      </ResponsiveDialogFooter>
     </div>
   );
 }
@@ -1100,11 +1100,11 @@ function InteractivePhase({
         )}
       </div>
 
-      <DialogFooter className="px-5 py-3 border-t border-border/50">
+      <ResponsiveDialogFooter className="px-5 py-3 border-t border-border/50">
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
           Cancel
         </Button>
-      </DialogFooter>
+      </ResponsiveDialogFooter>
     </div>
   );
 }
@@ -1134,11 +1134,11 @@ function DonePhase({
           </div>
         </div>
       </div>
-      <DialogFooter className="px-5 py-3 border-t border-border/50">
+      <ResponsiveDialogFooter className="px-5 py-3 border-t border-border/50">
         <Button type="button" size="sm" onClick={onClose}>
           Done
         </Button>
-      </DialogFooter>
+      </ResponsiveDialogFooter>
     </>
   );
 }

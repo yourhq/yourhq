@@ -6,11 +6,11 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { Plus, Search, Clipboard, Check, ArrowLeft, X, Info, Loader2, CheckCircle2, AlertCircle, ExternalLink } from "lucide-react";
 import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogTitle,
+  ResponsiveDialogDescription,
+} from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -463,12 +463,12 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
     step === "identity" || step === "channel";
 
   return (
-    <Dialog open onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-xl p-0 gap-0 overflow-hidden max-h-[85dvh] flex flex-col">
-        <DialogTitle className="sr-only">Register a new agent</DialogTitle>
-        <DialogDescription className="sr-only">
+    <ResponsiveDialog open onOpenChange={handleOpenChange}>
+      <ResponsiveDialogContent variant="fullscreen" className="sm:max-w-xl p-0 gap-0 overflow-hidden max-h-[85dvh] flex flex-col">
+        <ResponsiveDialogTitle className="sr-only">Register a new agent</ResponsiveDialogTitle>
+        <ResponsiveDialogDescription className="sr-only">
           Pick a template, set identity, choose a channel, then provision and pair.
-        </DialogDescription>
+        </ResponsiveDialogDescription>
 
         {/* Top-left step label */}
         <div className="flex items-center gap-2 px-4 pt-3 pb-1 shrink-0">
@@ -929,17 +929,17 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
 
         {/* Pairing close confirmation */}
         {confirmCloseInPairing && (
-          <Dialog
+          <ResponsiveDialog
             open
             onOpenChange={(open) => !open && setConfirmCloseInPairing(false)}
           >
-            <DialogContent className="sm:max-w-sm">
-              <DialogTitle className="text-sm font-medium">
+            <ResponsiveDialogContent variant="fullscreen" className="sm:max-w-sm">
+              <ResponsiveDialogTitle className="text-sm font-medium">
                 Close without pairing?
-              </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
+              </ResponsiveDialogTitle>
+              <ResponsiveDialogDescription className="text-xs text-muted-foreground">
                 Your agent is provisioned. You can pair it later from the agent page.
-              </DialogDescription>
+              </ResponsiveDialogDescription>
               <div className="flex justify-end gap-2 pt-2">
                 <Button
                   size="sm"
@@ -960,11 +960,11 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
                   Close anyway
                 </Button>
               </div>
-            </DialogContent>
-          </Dialog>
+            </ResponsiveDialogContent>
+          </ResponsiveDialog>
         )}
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }
 

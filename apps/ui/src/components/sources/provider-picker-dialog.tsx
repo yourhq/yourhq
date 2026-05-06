@@ -7,13 +7,13 @@ import {
   PROVIDER_SETUP_GUIDES,
 } from "@/lib/sources/types";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+} from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -158,16 +158,16 @@ export function ProviderPickerDialog({
   const canConnect = validation?.valid && label.trim();
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DialogContent className="sm:max-w-lg">
+    <ResponsiveDialog open={open} onOpenChange={(o) => !o && handleClose()}>
+      <ResponsiveDialogContent variant="fullscreen" className="sm:max-w-lg">
         {step === "pick" ? (
           <>
-            <DialogHeader>
-              <DialogTitle>Connect a source</DialogTitle>
-              <DialogDescription>
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle>Connect a source</ResponsiveDialogTitle>
+              <ResponsiveDialogDescription>
                 Choose a service to sync content from.
-              </DialogDescription>
-            </DialogHeader>
+              </ResponsiveDialogDescription>
+            </ResponsiveDialogHeader>
             <div className="grid grid-cols-2 gap-3 py-2">
               <ProviderCard
                 provider="notion"
@@ -189,7 +189,7 @@ export function ProviderPickerDialog({
           </>
         ) : guide ? (
           <>
-            <DialogHeader>
+            <ResponsiveDialogHeader>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -204,10 +204,10 @@ export function ProviderPickerDialog({
                 >
                   <ArrowLeft className="h-3.5 w-3.5" />
                 </button>
-                <DialogTitle>{guide.title}</DialogTitle>
+                <ResponsiveDialogTitle>{guide.title}</ResponsiveDialogTitle>
               </div>
-              <DialogDescription>{guide.description}</DialogDescription>
-            </DialogHeader>
+              <ResponsiveDialogDescription>{guide.description}</ResponsiveDialogDescription>
+            </ResponsiveDialogHeader>
 
             <div className="space-y-4">
               <div className="space-y-3">
@@ -309,7 +309,7 @@ export function ProviderPickerDialog({
               )}
             </div>
 
-            <DialogFooter>
+            <ResponsiveDialogFooter>
               <Button variant="outline" onClick={handleClose} disabled={saving}>
                 Cancel
               </Button>
@@ -332,11 +332,11 @@ export function ProviderPickerDialog({
                   Test connection
                 </Button>
               )}
-            </DialogFooter>
+            </ResponsiveDialogFooter>
           </>
         ) : null}
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }
 

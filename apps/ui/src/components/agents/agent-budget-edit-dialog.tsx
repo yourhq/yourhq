@@ -4,13 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogFooter,
+  ResponsiveDialogDescription,
+} from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { setAgentBudget } from "@/app/dashboard/agents/usage-actions";
 import type { AgentBudget } from "@/lib/usage/types";
@@ -78,14 +78,14 @@ export function AgentBudgetEditDialog({
   }, [agentId, limitStr, threshold, hardCutoff, onOpenChange, onSaved]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Edit budget</DialogTitle>
-          <DialogDescription>
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveDialogContent className="max-w-sm">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>Edit budget</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>
             Set a monthly spend limit for this agent.
-          </DialogDescription>
-        </DialogHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
@@ -135,7 +135,7 @@ export function AgentBudgetEditDialog({
           </label>
         </div>
 
-        <DialogFooter>
+        <ResponsiveDialogFooter>
           <Button
             variant="outline"
             size="sm"
@@ -148,8 +148,8 @@ export function AgentBudgetEditDialog({
             {saving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
             Save
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </ResponsiveDialogFooter>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

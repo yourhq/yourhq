@@ -17,13 +17,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -249,14 +249,14 @@ function EditProjectDialog({
   };
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose(false)}>
-      <DialogContent className="sm:max-w-sm p-0 gap-0">
-        <DialogHeader className="px-5 pt-5 pb-3 border-b border-border/50">
-          <DialogTitle className="text-heading">Edit project</DialogTitle>
-          <DialogDescription className="text-caption text-muted-foreground">
+    <ResponsiveDialog open onOpenChange={(o) => !o && onClose(false)}>
+      <ResponsiveDialogContent variant="fullscreen" className="sm:max-w-sm p-0 gap-0">
+        <ResponsiveDialogHeader className="px-5 pt-5 pb-3 border-b border-border/50">
+          <ResponsiveDialogTitle className="text-heading">Edit project</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription className="text-caption text-muted-foreground">
             Rename or change the icon. Use Rotate for the service role key.
-          </DialogDescription>
-        </DialogHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
         <form onSubmit={onSubmit}>
           <div className="px-5 py-4 space-y-4">
             <div className="grid grid-cols-[56px_1fr] gap-2">
@@ -297,7 +297,7 @@ function EditProjectDialog({
               <p className="text-[12px] text-destructive">{error}</p>
             )}
           </div>
-          <DialogFooter className="px-5 py-3 border-t border-border/50 gap-2">
+          <ResponsiveDialogFooter className="px-5 py-3 border-t border-border/50 gap-2">
             <Button variant="ghost" type="button" size="sm" onClick={() => onClose(false)}>
               Cancel
             </Button>
@@ -311,10 +311,10 @@ function EditProjectDialog({
                 "Save"
               )}
             </Button>
-          </DialogFooter>
+          </ResponsiveDialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }
 
@@ -355,14 +355,14 @@ function RotateKeyDialog({
   };
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose(false)}>
-      <DialogContent className="sm:max-w-sm p-0 gap-0">
-        <DialogHeader className="px-5 pt-5 pb-3 border-b border-border/50">
-          <DialogTitle className="text-heading">Rotate service role key</DialogTitle>
-          <DialogDescription className="text-caption text-muted-foreground">
+    <ResponsiveDialog open onOpenChange={(o) => !o && onClose(false)}>
+      <ResponsiveDialogContent variant="fullscreen" className="sm:max-w-sm p-0 gap-0">
+        <ResponsiveDialogHeader className="px-5 pt-5 pb-3 border-b border-border/50">
+          <ResponsiveDialogTitle className="text-heading">Rotate service role key</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription className="text-caption text-muted-foreground">
             Paste the new key from Supabase → Project Settings → API. Revoke the old one in Supabase separately once you&apos;ve confirmed the new one works.
-          </DialogDescription>
-        </DialogHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
         <form onSubmit={onSubmit}>
           <div className="px-5 py-4 space-y-2">
             <Label htmlFor="rotate-key" className="text-[12px]">
@@ -383,7 +383,7 @@ function RotateKeyDialog({
               <p className="text-[12px] text-destructive">{error}</p>
             )}
           </div>
-          <DialogFooter className="px-5 py-3 border-t border-border/50 gap-2">
+          <ResponsiveDialogFooter className="px-5 py-3 border-t border-border/50 gap-2">
             <Button variant="ghost" type="button" size="sm" onClick={() => onClose(false)}>
               Cancel
             </Button>
@@ -397,10 +397,10 @@ function RotateKeyDialog({
                 "Rotate"
               )}
             </Button>
-          </DialogFooter>
+          </ResponsiveDialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }
 

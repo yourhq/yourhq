@@ -3,11 +3,11 @@
 import { useCallback, useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogTitle,
+  ResponsiveDialogDescription,
+} from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -213,8 +213,8 @@ export function ImportWizard({
   const entityLabel = entityType === "contact" ? "contacts" : "organizations";
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && !importing && handleClose()}>
-      <DialogContent
+    <ResponsiveDialog open={open} onOpenChange={(o) => !o && !importing && handleClose()}>
+      <ResponsiveDialogContent variant="fullscreen"
         className="flex max-h-[85vh] flex-col gap-0 sm:max-w-3xl"
         showCloseButton={!importing}
       >
@@ -230,12 +230,12 @@ export function ImportWizard({
             </button>
           )}
           <div className="flex-1">
-            <DialogTitle className="text-[14px] font-medium">
+            <ResponsiveDialogTitle className="text-[14px] font-medium">
               Import {entityLabel}
-            </DialogTitle>
-            <DialogDescription className="text-[12px] text-muted-foreground">
+            </ResponsiveDialogTitle>
+            <ResponsiveDialogDescription className="text-[12px] text-muted-foreground">
               {STEP_LABELS[step]}
-            </DialogDescription>
+            </ResponsiveDialogDescription>
           </div>
         </div>
 
@@ -319,7 +319,7 @@ export function ImportWizard({
             )}
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

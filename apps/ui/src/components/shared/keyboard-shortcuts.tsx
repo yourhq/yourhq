@@ -3,11 +3,11 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import { Kbd } from "@/components/ui/kbd";
 import { useModules } from "@/components/shared/modules-context";
 
@@ -126,11 +126,11 @@ export function KeyboardShortcutsProvider({
   return (
     <ShortcutsContext.Provider value={{ showHelp }}>
       {children}
-      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Keyboard Shortcuts</DialogTitle>
-          </DialogHeader>
+      <ResponsiveDialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <ResponsiveDialogContent className="sm:max-w-md">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Keyboard Shortcuts</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
           <div className="space-y-6">
             {shortcutGroups.map((group) => (
               <div key={group.title}>
@@ -155,8 +155,8 @@ export function KeyboardShortcutsProvider({
               </div>
             ))}
           </div>
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </ShortcutsContext.Provider>
   );
 }
