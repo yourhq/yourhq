@@ -24,11 +24,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StatusDot } from "@/components/ui/status-dot";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -49,6 +44,7 @@ import { RoutinesSection } from "@/components/routines/routines-section";
 import { OpenDesktopModal } from "@/components/gateways/open-desktop-modal";
 import { getGatewayDesktopUrlAction } from "@/app/dashboard/settings/gateways/actions";
 import { AgentModelSection } from "@/components/agents/agent-model-section";
+import { AgentOrgSlice } from "@/components/agents/agent-org-slice";
 import { AgentUsageRail } from "./agent-usage-rail";
 import { AgentUsageTab } from "./agent-usage-tab";
 import { AgentKnowledgeSection } from "./agent-knowledge-section";
@@ -288,16 +284,6 @@ function AgentRailContent({
     ? formatDistanceToNow(new Date(agent.last_seen_at), { addSuffix: true })
     : "Never";
 
-  const manager = useMemo(
-    () => allAgents.find((a) => a.id === agent.reports_to_id) ?? null,
-    [allAgents, agent.reports_to_id],
-  );
-  const directReports = useMemo(
-    () => allAgents.filter((a) => a.reports_to_id === agent.id),
-    [allAgents, agent.id],
-  );
-
-  const [managerPickerOpen, setManagerPickerOpen] = useState(false);
   const [savingManager, setSavingManager] = useState(false);
   const [togglingPause, setTogglingPause] = useState(false);
 
@@ -331,15 +317,9 @@ function AgentRailContent({
         );
       } finally {
         setSavingManager(false);
-        setManagerPickerOpen(false);
       }
     },
     [agent.id, onAgentUpdated],
-  );
-
-  const managerCandidates = useMemo(
-    () => allAgents.filter((a) => a.id !== agent.id),
-    [allAgents, agent.id],
   );
 
   return (
@@ -358,80 +338,22 @@ function AgentRailContent({
 
       <AgentUsageRail agentId={agent.id} />
 
+      {allAgents.length > 1 && (
+        <DetailSidebarSection title="Org">
+          <AgentOrgSlice
+            agent={agent}
+            allAgents={allAgents}
+            onChangeManager={handleManagerChange}
+            disabled={savingManager}
+          />
+        </DetailSidebarSection>
+      )}
+
       <DetailSidebarSection title="Properties">
         <DetailSidebarPropertyGrid>
           <DetailSidebarProperty label="Slug">
             <span className="font-mono text-foreground/80">@{agent.slug}</span>
           </DetailSidebarProperty>
-          {allAgents.length > 1 && (
-            <DetailSidebarProperty label="Manager">
-              <Popover
-                open={managerPickerOpen}
-                onOpenChange={setManagerPickerOpen}
-              >
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    disabled={savingManager}
-                    className="text-left text-foreground/80 hover:text-foreground transition-colors"
-                  >
-                    {manager ? (
-                      <span>
-                        {(manager.meta as AgentMeta)?.emoji
-                          ? `${(manager.meta as AgentMeta).emoji} `
-                          : ""}
-                        {manager.name}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground/60">
-                        Operator (you)
-                      </span>
-                    )}
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-52 p-1" align="start">
-                  <button
-                    type="button"
-                    onClick={() => handleManagerChange(null)}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded px-2 py-1.5 text-[12px] hover:bg-accent text-left",
-                      !agent.reports_to_id && "bg-accent/60",
-                    )}
-                  >
-                    <span className="text-muted-foreground/60">
-                      Operator (you)
-                    </span>
-                  </button>
-                  {managerCandidates.map((a) => (
-                    <button
-                      key={a.id}
-                      type="button"
-                      onClick={() => handleManagerChange(a.id)}
-                      className={cn(
-                        "flex w-full items-center gap-2 rounded px-2 py-1.5 text-[12px] hover:bg-accent text-left",
-                        agent.reports_to_id === a.id && "bg-accent/60",
-                      )}
-                    >
-                      {(a.meta as AgentMeta)?.emoji && (
-                        <span className="text-[13px]">
-                          {(a.meta as AgentMeta).emoji}
-                        </span>
-                      )}
-                      <span className="truncate">{a.name}</span>
-                    </button>
-                  ))}
-                </PopoverContent>
-              </Popover>
-            </DetailSidebarProperty>
-          )}
-          {directReports.length > 0 && (
-            <DetailSidebarProperty label="Reports">
-              <span className="text-foreground/80">
-                {directReports.length} direct{" "}
-                {directReports.length === 1 ? "report" : "reports"}
-              </span>
-            </DetailSidebarProperty>
-          )}
           {agent.domains.length > 0 && (
             <DetailSidebarProperty label="Domains">
               <span className="flex flex-wrap gap-1">

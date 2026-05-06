@@ -17,7 +17,7 @@ const STATUS_PRIORITY: Record<string, number> = {
   hibernating: 4,
 };
 
-const AGENT_STATUS: Record<
+export const AGENT_STATUS: Record<
   string,
   { color: string; label: string; pulse?: boolean }
 > = {
@@ -81,30 +81,6 @@ export function getFleetCounts(agents: Agent[]) {
     if (c > 0) counts.push({ status, count: c, color: cfg.color, label: cfg.label.toLowerCase() });
   }
   return counts;
-}
-
-export interface AgentTreeNode {
-  agent: Agent;
-  depth: number;
-}
-
-export function buildAgentTree(agents: Agent[]): AgentTreeNode[] {
-  const childrenMap = new Map<string | null, Agent[]>();
-  for (const a of agents) {
-    const key = a.reports_to_id ?? null;
-    if (!childrenMap.has(key)) childrenMap.set(key, []);
-    childrenMap.get(key)!.push(a);
-  }
-  const nodes: AgentTreeNode[] = [];
-  function walk(parentId: string | null, depth: number) {
-    const children = childrenMap.get(parentId) ?? [];
-    for (const child of sortAgentsByStatus(children)) {
-      nodes.push({ agent: child, depth: Math.min(depth, 3) });
-      walk(child.id, depth + 1);
-    }
-  }
-  walk(null, 0);
-  return nodes;
 }
 
 interface AgentRowProps {
@@ -195,14 +171,14 @@ export function AgentRow({
       {/* Hover actions */}
       <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
         {onEdit && (
-          <IconButton
+          <AgentIconButton
             label="Edit"
             onClick={() => onEdit(agent)}
             icon={<Pencil className="h-3 w-3" />}
           />
         )}
         {onTogglePause && (
-          <IconButton
+          <AgentIconButton
             label={agent.status === "paused" ? "Resume" : "Pause"}
             onClick={() => onTogglePause(agent.id, agent.status)}
             icon={
@@ -215,7 +191,7 @@ export function AgentRow({
           />
         )}
         {onDelete && (
-          <IconButton
+          <AgentIconButton
             label="Delete"
             onClick={() => onDelete(agent.id)}
             icon={<Trash2 className="h-3 w-3" />}
@@ -227,7 +203,7 @@ export function AgentRow({
   );
 }
 
-function AgentUsagePill({ agentId }: { agentId: string }) {
+export function AgentUsagePill({ agentId }: { agentId: string }) {
   const { budget } = useAgentBudget(agentId);
   if (!budget || (budget.current_period_spend_usd === 0 && budget.current_period_tokens === 0)) {
     return null;
@@ -259,7 +235,7 @@ function AgentUsagePill({ agentId }: { agentId: string }) {
   );
 }
 
-function IconButton({
+export function AgentIconButton({
   label,
   onClick,
   icon,

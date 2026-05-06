@@ -1,7 +1,8 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
-import { AgentRow, groupAgentsByTeam, getFleetCounts, buildAgentTree } from "@/components/agents/agent-card";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { AgentRow, groupAgentsByTeam, getFleetCounts } from "@/components/agents/agent-card";
+import { AgentOrgChart } from "@/components/agents/agent-org-chart";
 import { AgentForm } from "@/components/agents/agent-form";
 import { AgentCreateWizard } from "@/components/agents/agent-create-wizard";
 import { useAgents } from "@/hooks/use-agents";
@@ -16,19 +17,36 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Bot, Search, X, List, GitBranch } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Plus, Bot, Search, X, LayoutList, Network } from "lucide-react";
 import { FirstVisitHint } from "@/components/onboarding/first-visit-hint";
 import type { Agent, AgentMeta } from "@/lib/agents/types";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+
+type AgentsViewMode = "fleet" | "chart";
+const AGENTS_VIEW_KEY = "agents-view-mode";
 
 function AgentsContent() {
   const agents = useAgents();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [teamFilter, setTeamFilter] = useState<string>("all");
-  const [viewMode, setViewMode] = useState<"fleet" | "hierarchy">("fleet");
+  const [viewMode, setViewMode] = useState<AgentsViewMode>("fleet");
   const [pendingDelete, setPendingDelete] = useState<Agent | null>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(AGENTS_VIEW_KEY) as AgentsViewMode | null;
+    if (saved === "fleet" || saved === "chart") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration-safe restore
+      setViewMode(saved);
+    }
+  }, []);
+
+  function changeViewMode(mode: AgentsViewMode) {
+    setViewMode(mode);
+    localStorage.setItem(AGENTS_VIEW_KEY, mode);
+  }
 
   // Derive available teams from agent data
   const teams = useMemo(() => {
@@ -83,11 +101,6 @@ function AgentsContent() {
       agents.agents.length >= 4 &&
       agents.agents.some((a) => a.reports_to_id != null),
     [agents.agents],
-  );
-
-  const hierarchyTree = useMemo(
-    () => (viewMode === "hierarchy" ? buildAgentTree(filteredAgents) : []),
-    [viewMode, filteredAgents],
   );
 
   const hasActiveFilters =
@@ -192,34 +205,28 @@ function AgentsContent() {
             <div className="flex-1" />
 
             {hasHierarchy && (
-              <div className="flex items-center gap-0.5 rounded border border-border/40 p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setViewMode("fleet")}
-                  className={cn(
-                    "rounded p-1 transition-colors",
-                    viewMode === "fleet"
-                      ? "bg-accent text-foreground"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
+              <ToggleGroup
+                type="single"
+                value={viewMode}
+                onValueChange={(v) => v && changeViewMode(v as AgentsViewMode)}
+                variant="outline"
+                size="sm"
+              >
+                <ToggleGroupItem
+                  value="fleet"
                   title="Fleet view"
+                  className="h-8 w-8 p-0"
                 >
-                  <List className="h-3 w-3" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode("hierarchy")}
-                  className={cn(
-                    "rounded p-1 transition-colors",
-                    viewMode === "hierarchy"
-                      ? "bg-accent text-foreground"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                  title="Hierarchy view"
+                  <LayoutList className="h-3.5 w-3.5" />
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="chart"
+                  title="Org chart view"
+                  className="h-8 w-8 p-0"
                 >
-                  <GitBranch className="h-3 w-3" />
-                </button>
-              </div>
+                  <Network className="h-3.5 w-3.5" />
+                </ToggleGroupItem>
+              </ToggleGroup>
             )}
 
             <span className="text-[11px] text-muted-foreground tabular-nums">
@@ -297,22 +304,16 @@ function AgentsContent() {
               </div>
             )}
 
-            {viewMode === "hierarchy" ? (
-              <div className="space-y-0.5">
-                {hierarchyTree.map((node) => (
-                  <AgentRow
-                    key={node.agent.id}
-                    agent={node.agent}
-                    depth={node.depth}
-                    onEdit={agents.form.openEditForm}
-                    onTogglePause={agents.actions.togglePause}
-                    onDelete={(id) => {
-                      const target = agents.agents.find((a) => a.id === id);
-                      if (target) setPendingDelete(target);
-                    }}
-                  />
-                ))}
-              </div>
+            {viewMode === "chart" ? (
+              <AgentOrgChart
+                agents={filteredAgents}
+                onEdit={agents.form.openEditForm}
+                onTogglePause={agents.actions.togglePause}
+                onDelete={(id) => {
+                  const target = agents.agents.find((a) => a.id === id);
+                  if (target) setPendingDelete(target);
+                }}
+              />
             ) : (
               <div className="space-y-4">
                 {teamGroups.map((group) => (
