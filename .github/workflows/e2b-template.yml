@@ -28,5 +28,5 @@ jobs:
 
       - name: Build and push template
         env:
-          E2B_API_KEY: ${{ secrets.E2B_API_KEY }}
+          E2B_ACCESS_TOKEN: ${{ secrets.E2B_ACCESS_TOKEN }}
         run: e2b template build --config gateway/e2b.toml --path .
