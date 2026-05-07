@@ -4,6 +4,8 @@ import { useState } from "react";
 import { AlertCircle, ArrowLeft, ArrowRight } from "lucide-react";
 import { CONTEXT_PRESETS } from "@/lib/setup/templates";
 import { cn } from "@/lib/utils";
+import { HqLogo } from "@/components/shared/hq-logo";
+import { WizardProgress } from "@/components/onboarding/wizard/wizard-progress";
 import { StepWelcome } from "@/components/onboarding/wizard/step-welcome";
 import { StepIntent } from "@/components/onboarding/wizard/step-intent";
 import { Input } from "@/components/ui/input";
@@ -53,31 +55,55 @@ export function SignupForm() {
     }
   }
 
-  const steps = ["welcome", "intent", "checkout"];
-  const currentIndex = steps.indexOf(step);
+  const progressSteps = [
+    { key: "welcome", label: "Welcome" },
+    { key: "intent", label: "Your work" },
+    { key: "checkout", label: "Checkout" },
+  ];
+
+  const layout = step === "checkout" ? "wide" : "narrow";
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-background to-background/95">
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border/40 px-5 lg:px-8">
-        <div>
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border/40 px-5 lg:h-16 lg:px-8">
+        <HqLogo size={24} className="text-foreground" />
+        <div className="hidden md:flex flex-1 justify-center px-8">
+          <WizardProgress steps={progressSteps} currentStep={step} />
+        </div>
+        <div className="hidden lg:flex items-center">
+          <kbd className="rounded-md border border-border/60 bg-muted/50 px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
+            Enter ↵
+          </kbd>
+        </div>
+        <div className="md:hidden">
+          <WizardProgress steps={progressSteps} currentStep={step} />
+        </div>
+      </header>
+
+      <main
+        className={cn(
+          "flex flex-1 justify-center overflow-y-auto px-5 pb-24 lg:px-8",
+          layout === "narrow" ? "items-center" : "items-start",
+        )}
+      >
+        <div
+          className={cn(
+            layout === "narrow" ? "w-full max-w-lg" : "w-full max-w-3xl",
+            layout === "wide" && "pt-8",
+          )}
+        >
           {step !== "welcome" && (
             <button
               type="button"
               onClick={() => setStep(step === "checkout" ? "intent" : "welcome")}
-              className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+              aria-label="Go back"
+              className="mb-4 flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
             >
               <ArrowLeft className="h-3 w-3" />
-              Back
+              <span className="hidden sm:inline">Back</span>
             </button>
           )}
-        </div>
-        <div className="text-[11px] font-semibold tracking-tight text-foreground">
-          HQ
-        </div>
-      </header>
 
-      <main className="flex flex-1 items-start justify-center overflow-y-auto px-5 pb-24 lg:px-8">
-        <div className="w-full max-w-xl pt-8">
           {step === "welcome" && (
             <StepWelcome
               initialName={data.ownerName}
@@ -118,22 +144,6 @@ export function SignupForm() {
           )}
         </div>
       </main>
-
-      <footer className="flex h-10 items-center justify-center gap-1.5 border-t border-border/20">
-        {steps.map((s, i) => (
-          <div
-            key={s}
-            className={cn(
-              "h-1.5 w-1.5 rounded-full transition-all",
-              s === step
-                ? "w-4 bg-foreground"
-                : i < currentIndex
-                  ? "bg-foreground/40"
-                  : "bg-muted-foreground/20",
-            )}
-          />
-        ))}
-      </footer>
     </div>
   );
 }
@@ -218,7 +228,7 @@ function CheckoutStep({
           "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all",
           !emailValid || loading
             ? "cursor-not-allowed bg-muted text-muted-foreground/50"
-            : "bg-foreground text-background hover:bg-foreground/90",
+            : "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]",
         )}
       >
         {loading ? "Redirecting..." : "Continue to Stripe"}

@@ -10,6 +10,7 @@ const REQUIRED_ENV = [
   "HOSTED_SECRETS_KEY",
   "E2B_API_KEY",
   "PUBLIC_SITE_URL",
+  "RESEND_API_KEY",
 ] as const;
 
 export function validateWorkerEnv(): void {

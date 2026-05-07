@@ -5,6 +5,10 @@ import {
   getOnboardingState,
 } from "@/lib/projects";
 import { ACTIVE_PROJECT_COOKIE } from "@/lib/projects/cookie";
+import {
+  getWorkspaceSession,
+  getProvisionStatus,
+} from "@/lib/projects/hosted-registry";
 
 const isHosted = process.env.DEPLOYMENT_MODE === "hosted";
 
@@ -97,8 +101,18 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Onboarding gating — OSS only. Hosted users skip onboarding entirely
-  // (the worker provisions everything).
+  if (isHosted && user && isDashboard && !matches(request.nextUrl.pathname, ["/dashboard/account"])) {
+    const ws = await getWorkspaceSession().catch(() => null);
+    if (ws) {
+      const status = await getProvisionStatus(ws.workspaceId).catch(() => null);
+      if (status?.subscription_status === "suspended") {
+        const url = request.nextUrl.clone();
+        url.pathname = "/dashboard/account";
+        return NextResponse.redirect(url);
+      }
+    }
+  }
+
   if (!isHosted) {
     if (user && request.nextUrl.pathname.startsWith(ONBOARDING_PATH)) {
       const onboarding = await getOnboardingState().catch(() => null);

@@ -11,7 +11,7 @@ export interface StepAccountProps {
   error?: string | null;
 }
 
-export function StepAccount({ ownerName, onSubmit, pending, error }: StepAccountProps) {
+export function StepAccount({ onSubmit, pending, error }: StepAccountProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -30,12 +30,10 @@ export function StepAccount({ ownerName, onSubmit, pending, error }: StepAccount
           Your account
         </div>
         <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight">
-          Create your login
+          Secure your workspace
         </h1>
         <p className="max-w-[44ch] text-[14px] leading-relaxed text-muted-foreground">
-          {ownerName
-            ? `Almost there, ${ownerName}! Create an account to access your workspace.`
-            : "Almost there! Create an account to access your workspace."}
+          Create your admin account. You&apos;re the only one with access.
         </p>
       </div>
 
@@ -105,7 +103,7 @@ export function StepAccount({ ownerName, onSubmit, pending, error }: StepAccount
           "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2",
           !valid || pending
             ? "cursor-not-allowed bg-muted text-muted-foreground/50"
-            : "bg-foreground text-background hover:bg-foreground/90",
+            : "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]",
         )}
       >
         {pending ? (

@@ -101,6 +101,7 @@ export function useWizardState(opts: {
   );
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [direction, setDirection] = useState<"forward" | "backward">("forward");
 
   const currentIndex = steps.indexOf(step);
 
@@ -135,6 +136,7 @@ export function useWizardState(opts: {
     const idx = steps.indexOf(step);
     if (idx < steps.length - 1) {
       setError(null);
+      setDirection("forward");
       setStep(steps[idx + 1]);
     }
   }, [step, steps]);
@@ -143,6 +145,7 @@ export function useWizardState(opts: {
     const idx = steps.indexOf(step);
     if (idx > 0) {
       setError(null);
+      setDirection("backward");
       setStep(steps[idx - 1]);
     }
   }, [step, steps]);
@@ -155,6 +158,7 @@ export function useWizardState(opts: {
     goTo,
     advance,
     goBack,
+    direction,
     pending,
     startTransition,
     error,

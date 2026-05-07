@@ -5,12 +5,15 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWizardState, clearWizardSession, type WizardData, type WizardStep } from "./use-wizard-state";
+import { HqLogo } from "@/components/shared/hq-logo";
+import { WizardProgress } from "./wizard-progress";
 import { StepWelcome } from "./step-welcome";
 import { StepIntent } from "./step-intent";
 import { StepInfrastructure, type InfraStatus, type SchemaInstallState } from "./step-infrastructure";
 import { StepProvider } from "./step-provider";
 import { StepAgent, type AgentRecommendation } from "./step-agent";
 import { StepAccount } from "./step-account";
+import { StepCelebration } from "./step-celebration";
 import { FIRST_TASK_SUGGESTIONS } from "@/lib/onboarding/first-task-suggestions";
 import { completeItem } from "@/lib/onboarding/progress";
 import {
@@ -40,6 +43,31 @@ const INTENT_TO_TEMPLATE: Record<string, { branch: string; name: string; emoji: 
   explore: { branch: "template/assistant", name: "Assistant", emoji: "🐕", role: "General Assistant", description: "Routes work, tracks moving parts, and helps you stay organized." },
 };
 
+const STEP_LAYOUT: Record<string, "narrow" | "wide"> = {
+  welcome: "narrow",
+  intent: "narrow",
+  infrastructure: "wide",
+  provider: "wide",
+  agent: "wide",
+  account: "narrow",
+};
+
+const OSS_PROGRESS_STEPS = [
+  { key: "welcome", label: "Welcome" },
+  { key: "intent", label: "Your work" },
+  { key: "infrastructure", label: "Infrastructure" },
+  { key: "provider", label: "AI Provider" },
+  { key: "agent", label: "Agent" },
+  { key: "account", label: "Account" },
+];
+
+const HOSTED_PROGRESS_STEPS = [
+  { key: "welcome", label: "Welcome" },
+  { key: "intent", label: "Your work" },
+  { key: "provider", label: "AI Provider" },
+  { key: "agent", label: "Agent" },
+];
+
 export interface OnboardingWizardProps {
   isHosted: boolean;
   initialStep?: WizardStep;
@@ -54,12 +82,16 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
     patch,
     advance,
     goBack,
+    direction,
     pending,
     startTransition,
     error,
     setError,
     isFirst,
   } = useWizardState({ isHosted, initialStep, initialData });
+
+  const layout = STEP_LAYOUT[step] ?? "narrow";
+  const progressSteps = isHosted ? HOSTED_PROGRESS_STEPS : OSS_PROGRESS_STEPS;
 
   // Infrastructure state (OSS only)
   const [infraStatus, setInfraStatus] = useState<InfraStatus>({
@@ -95,6 +127,9 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
 
   // Account step error
   const [accountError, setAccountError] = useState<string | null>(null);
+
+  // Celebration screen
+  const [showCelebration, setShowCelebration] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -393,11 +428,11 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
 
   const handleSkipChannel = useCallback(() => {
     if (isHosted) {
-      navigateToTasks();
+      setShowCelebration(true);
     } else {
       advance();
     }
-  }, [isHosted, advance, navigateToTasks]);
+  }, [isHosted, advance]);
 
   // ─── Account (OSS only) ───
   const handleAccount = useCallback(
@@ -422,149 +457,170 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
           // If sign-in fails the user can sign in manually from /login
         }
 
-        navigateToTasks();
+        setShowCelebration(true);
       });
     },
-    [startTransition, navigateToTasks],
+    [startTransition],
   );
 
   // ─── Render ───
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-background to-background/95">
-      {/* Top bar */}
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border/40 px-5 lg:px-8">
-        <div className="flex items-center gap-3">
-          {!isFirst && (
-            <button
-              type="button"
-              onClick={goBack}
-              aria-label="Go back"
-              className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
-            >
-              <ArrowLeft className="h-3 w-3" />
-              <span className="hidden sm:inline">Back</span>
-            </button>
-          )}
+      {/* Header */}
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border/40 px-5 lg:h-16 lg:px-8">
+        <HqLogo size={24} className="text-foreground" />
+        <div className="hidden md:flex flex-1 justify-center px-8">
+          <WizardProgress steps={progressSteps} currentStep={step} />
         </div>
-        <div className="text-[11px] font-semibold tracking-tight text-foreground">
-          HQ
+        <div className="hidden lg:flex items-center">
+          <kbd className="rounded-md border border-border/60 bg-muted/50 px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
+            Enter ↵
+          </kbd>
+        </div>
+        <div className="md:hidden">
+          <WizardProgress steps={progressSteps} currentStep={step} />
         </div>
       </header>
 
       {/* Content */}
-      <main className="flex flex-1 items-start justify-center overflow-y-auto px-5 pb-24 lg:px-8">
-        <div className="w-full max-w-xl pt-8">
-          {error && (
-            <div className="mb-5 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-[12px] text-destructive animate-in fade-in duration-200">
-              <span className="flex-1">{error}</span>
+      <main
+        className={cn(
+          "flex flex-1 justify-center overflow-y-auto px-5 pb-24 lg:px-8",
+          showCelebration
+            ? "items-center"
+            : layout === "narrow"
+              ? "items-center"
+              : "items-start",
+        )}
+      >
+        {showCelebration ? (
+          <div className="w-full max-w-lg">
+            <StepCelebration
+              workspaceName={data.workspaceName as string | undefined}
+              agentName={data.agentName as string | undefined}
+              agentEmoji={data.agentEmoji as string | undefined}
+              onContinue={navigateToTasks}
+            />
+          </div>
+        ) : (
+          <div
+            className={cn(
+              layout === "narrow"
+                ? "w-full max-w-lg"
+                : "w-full max-w-3xl",
+              layout === "wide" && "pt-8",
+            )}
+          >
+            {/* Back button — inline with content */}
+            {!isFirst && (
               <button
                 type="button"
-                onClick={() => setError(null)}
-                className="shrink-0 p-0.5 rounded text-destructive/60 hover:text-destructive transition-colors"
-                aria-label="Dismiss error"
+                onClick={goBack}
+                aria-label="Go back"
+                className="mb-4 flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
               >
-                <X className="h-3 w-3" />
+                <ArrowLeft className="h-3 w-3" />
+                <span className="hidden sm:inline">Back</span>
               </button>
+            )}
+
+            {error && (
+              <div className="mb-5 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-[12px] text-destructive animate-in fade-in duration-200">
+                <span className="flex-1">{error}</span>
+                <button
+                  type="button"
+                  onClick={() => setError(null)}
+                  className="shrink-0 p-0.5 rounded text-destructive/60 hover:text-destructive transition-colors"
+                  aria-label="Dismiss error"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+
+            <div
+              key={step}
+              className={cn(
+                "animate-in fade-in duration-300",
+                direction === "forward"
+                  ? "slide-in-from-right-4"
+                  : "slide-in-from-left-4",
+              )}
+            >
+              {step === "welcome" && (
+                <StepWelcome
+                  initialName={data.ownerName}
+                  subtitle={
+                    isHosted
+                      ? "Set up your workspace in a few quick steps."
+                      : "Set up your workspace in a few steps. Takes about 10 minutes."
+                  }
+                  onSubmit={handleWelcome}
+                  pending={pending}
+                />
+              )}
+
+              {step === "intent" && (
+                <StepIntent
+                  ownerName={data.ownerName ?? ""}
+                  initialKey={data.intentKey}
+                  onSubmit={handleIntent}
+                  pending={pending}
+                />
+              )}
+
+              {step === "infrastructure" && (
+                <StepInfrastructure
+                  status={infraStatus}
+                  schemaInstall={schemaInstall}
+                  onValidateDb={handleValidateDb}
+                  onRunOneClick={handleRunOneClick}
+                  onConfirmSchema={handleConfirmSchema}
+                  onChooseGateway={handleChooseGateway}
+                  onContinue={handleInfraContinue}
+                  pending={pending}
+                />
+              )}
+
+              {step === "provider" && (
+                <StepProvider
+                  onSubmit={handleProvider}
+                  pending={pending}
+                  validating={validating}
+                  validated={validated}
+                  validationError={validationError}
+                  isHosted={isHosted}
+                />
+              )}
+
+              {step === "agent" && (
+                <StepAgent
+                  recommendation={getRecommendation()}
+                  onCreateAgent={handleCreateAgent}
+                  onConnectChannel={handleConnectChannel}
+                  onSubmitPairing={handleSubmitPairing}
+                  onSkipChannel={handleSkipChannel}
+                  provisionStatus={provisionStatus}
+                  provisionError={provisionError}
+                  pairingStatus={pairingStatus}
+                  pairingError={pairingError}
+                  pending={pending}
+                />
+              )}
+
+              {step === "account" && (
+                <StepAccount
+                  ownerName={data.preferredName ?? data.ownerName}
+                  onSubmit={handleAccount}
+                  pending={pending}
+                  error={accountError}
+                />
+              )}
             </div>
-          )}
-
-          <div
-            key={step}
-            className="animate-in fade-in slide-in-from-bottom-2 duration-300"
-          >
-            {step === "welcome" && (
-              <StepWelcome
-                initialName={data.ownerName}
-                onSubmit={handleWelcome}
-                pending={pending}
-              />
-            )}
-
-            {step === "intent" && (
-              <StepIntent
-                ownerName={data.ownerName ?? ""}
-                initialKey={data.intentKey}
-                onSubmit={handleIntent}
-                pending={pending}
-              />
-            )}
-
-            {step === "infrastructure" && (
-              <StepInfrastructure
-                status={infraStatus}
-                schemaInstall={schemaInstall}
-                onValidateDb={handleValidateDb}
-                onRunOneClick={handleRunOneClick}
-                onConfirmSchema={handleConfirmSchema}
-                onChooseGateway={handleChooseGateway}
-                onContinue={handleInfraContinue}
-                pending={pending}
-              />
-            )}
-
-            {step === "provider" && (
-              <StepProvider
-                onSubmit={handleProvider}
-                pending={pending}
-                validating={validating}
-                validated={validated}
-                validationError={validationError}
-              />
-            )}
-
-            {step === "agent" && (
-              <StepAgent
-                recommendation={getRecommendation()}
-                onCreateAgent={handleCreateAgent}
-                onConnectChannel={handleConnectChannel}
-                onSubmitPairing={handleSubmitPairing}
-                onSkipChannel={handleSkipChannel}
-                provisionStatus={provisionStatus}
-                provisionError={provisionError}
-                pairingStatus={pairingStatus}
-                pairingError={pairingError}
-                pending={pending}
-              />
-            )}
-
-            {step === "account" && (
-              <StepAccount
-                ownerName={data.preferredName ?? data.ownerName}
-                onSubmit={handleAccount}
-                pending={pending}
-                error={accountError}
-              />
-            )}
           </div>
-        </div>
+        )}
       </main>
-
-      {/* Progress dots */}
-      <ProgressDots steps={isHosted
-        ? ["welcome", "intent", "provider", "agent"]
-        : ["welcome", "intent", "infrastructure", "provider", "agent", "account"]
-      } current={step} />
     </div>
   );
 }
 
-function ProgressDots({ steps, current }: { steps: string[]; current: string }) {
-  const currentIdx = steps.indexOf(current);
-  return (
-    <footer className="flex h-10 items-center justify-center gap-1.5 border-t border-border/20">
-      {steps.map((s, i) => (
-        <div
-          key={s}
-          className={cn(
-            "h-1.5 w-1.5 rounded-full transition-all",
-            s === current
-              ? "w-4 bg-foreground"
-              : i < currentIdx
-                ? "bg-foreground/40"
-                : "bg-muted-foreground/20",
-          )}
-        />
-      ))}
-    </footer>
-  );
-}

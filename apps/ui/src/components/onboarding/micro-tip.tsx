@@ -42,7 +42,7 @@ export function MicroTip({
     timerRef.current = setTimeout(() => {
       setVisible(false);
       markTipSeen(tipKey);
-    }, 8000);
+    }, 12000);
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };

@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { WORKER_URL, workerHeaders } from "@/lib/worker-client";
+import { workerFetch } from "@/lib/worker-client";
 
 export async function createCheckoutAction(formData: FormData): Promise<void> {
   const email = formData.get("email") as string;
@@ -13,23 +13,29 @@ export async function createCheckoutAction(formData: FormData): Promise<void> {
   if (!email) throw new Error("Email is required");
   if (!ownerName) throw new Error("Name is required");
 
-  const res = await fetch(`${WORKER_URL}/checkout`, {
-    method: "POST",
-    headers: workerHeaders(),
-    body: JSON.stringify({
-      email,
-      ownerName,
-      workspaceLabel: label,
-      workspaceEmoji: emoji,
-      contextPreset,
-    }),
-  });
-
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Checkout failed: ${body}`);
+  let res: Response;
+  try {
+    res = await workerFetch("/checkout", {
+      method: "POST",
+      body: JSON.stringify({
+        email,
+        ownerName,
+        workspaceLabel: label,
+        workspaceEmoji: emoji,
+        contextPreset,
+      }),
+    });
+  } catch {
+    throw new Error("Unable to reach the checkout service. Please try again in a moment.");
   }
 
-  const { url } = (await res.json()) as { url: string };
-  redirect(url);
+  if (!res.ok) {
+    throw new Error("Something went wrong starting checkout. Please try again.");
+  }
+
+  const data = (await res.json()) as { url?: string };
+  if (!data.url) {
+    throw new Error("Checkout session could not be created. Please try again.");
+  }
+  redirect(data.url);
 }
