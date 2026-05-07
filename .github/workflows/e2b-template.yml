@@ -23,10 +23,10 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Install E2B CLI
-        run: npm install -g @e2b/cli
+      - name: Install E2B SDK
+        run: npm install e2b
 
       - name: Build and push template
         env:
-          E2B_ACCESS_TOKEN: ${{ secrets.E2B_ACCESS_TOKEN }}
-        run: e2b template build --config gateway/e2b.toml --path .
+          E2B_API_KEY: ${{ secrets.E2B_API_KEY }}
+        run: node gateway/build-template.mjs
