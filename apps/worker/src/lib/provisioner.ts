@@ -107,8 +107,8 @@ export async function provisionWorkspace(
       if (!keysRes.ok) throw new Error("Failed to fetch project API keys");
 
       const keys = (await keysRes.json()) as { name: string; api_key: string }[];
-      anonKey = keys.find((k) => k.name === "anon")?.api_key ?? null;
-      serviceRoleKey = keys.find((k) => k.name === "service_role")?.api_key ?? null;
+      anonKey = keys.find((k) => k.name === "publishable" || k.name === "anon")?.api_key ?? null;
+      serviceRoleKey = keys.find((k) => k.name === "secret" || k.name === "service_role")?.api_key ?? null;
       if (!anonKey || !serviceRoleKey) throw new Error("Missing API keys from project");
     }
 
