@@ -174,15 +174,37 @@ export async function canAccessWorkspace(workspaceId: string): Promise<boolean> 
   return siblings.some((p) => p.id === workspaceId);
 }
 
+function deriveHostedStep(
+  subscriptionStatus: string | undefined,
+  provisionStage: string | null | undefined,
+  metadata: Record<string, unknown>,
+): string {
+  if (subscriptionStatus === "pending") return "payment";
+  if (
+    subscriptionStatus === "provisioning" ||
+    (provisionStage && provisionStage !== "complete" && provisionStage !== "error")
+  ) {
+    return "provisioning";
+  }
+  if (typeof metadata.onboardingStep === "string") return metadata.onboardingStep;
+  return "provider";
+}
+
 export async function getOnboardingState(): Promise<OnboardingState> {
   const session = await getWorkspaceSession();
   if (session) {
     const project = await fetchHostedProject(session.workspaceId);
     const metadata = project?.setup_metadata ?? {};
     const complete = metadata.onboardingComplete === true;
-    const step = typeof metadata.onboardingStep === "string"
-      ? metadata.onboardingStep
-      : "provider";
+
+    const status = await getProvisionStatus(session.workspaceId).catch(() => null);
+    const subscriptionStatus = status?.subscription_status ?? project?.status;
+    const provisionStage = status?.provision_stage ?? null;
+
+    const step = complete
+      ? "done"
+      : deriveHostedStep(subscriptionStatus, provisionStage, metadata);
+
     return {
       version: 1 as const,
       step: complete ? "done" : "welcome",
@@ -202,6 +224,7 @@ export async function getOnboardingState(): Promise<OnboardingState> {
         agentName: metadata.agentName,
         agentEmoji: metadata.agentEmoji,
         hostedInitialStep: step,
+        hostedWorkspaceId: session.workspaceId,
       },
       updatedAt: new Date().toISOString(),
     };
@@ -250,7 +273,8 @@ export async function getProvisionStatus(workspaceId: string): Promise<{
   provision_error: string | null;
   subscription_status: string;
   e2b_sandbox_status: string;
-  auto_login_url: string | null;
+  auto_login_token_hash: string | null;
+  auto_login_type: string;
 } | null> {
   const res = await workerFetch(
     `/workspaces/${workspaceId}/status`,

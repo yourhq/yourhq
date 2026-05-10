@@ -107,10 +107,19 @@ export function useWizardState(opts: {
 
   const currentIndex = steps.indexOf(step);
 
-  // Hydrate from sessionStorage after mount (client-only)
+  // Hydrate from sessionStorage after mount (client-only).
+  // Discard stale sessions from a different user/workspace.
   useEffect(() => {
     const session = loadSession();
     if (!session) return;
+
+    const currentIdentity = opts.initialData?.hostedWorkspaceId;
+    const storedIdentity = session.data?.hostedWorkspaceId;
+    if (currentIdentity && storedIdentity && currentIdentity !== storedIdentity) {
+      clearWizardSession();
+      return;
+    }
+
     const hydratedStep = getInitialStep(steps, opts.initialStep, session);
     const hydratedData = getInitialData(opts.initialData, session);
     setStep(hydratedStep);

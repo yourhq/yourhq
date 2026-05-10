@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { Sparkles, Check, Loader2, AlertCircle } from "lucide-react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { Sparkles, Check, Loader2, AlertCircle, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { pollProvisionStatus } from "./hosted-actions";
 
@@ -46,26 +46,47 @@ function friendlyError(raw: string): string {
 }
 
 const MAX_POLL_MS = 5 * 60 * 1000;
+const SLOW_PAYMENT_MS = 60_000;
 
 interface StepProvisioningProps {
   workspaceId: string;
-  onComplete: (autoLoginUrl: string | null) => void;
+  onComplete: (tokenHash: string | null, tokenType: string) => void;
 }
 
 export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningProps) {
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
   const [currentStage, setCurrentStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showSlowPayment, setShowSlowPayment] = useState(false);
+  const pendingSinceRef = useRef<number | null>(null);
+  const completedRef = useRef(false);
 
   const poll = useCallback(async () => {
+    if (completedRef.current) return;
     const status = await pollProvisionStatus(workspaceId);
-    if (!status) return;
+    if (!status || completedRef.current) return;
+
     if (status.provision_error) {
       setError(status.provision_error);
       return;
     }
+
+    setSubscriptionStatus(status.subscription_status);
+
+    if (status.subscription_status === "pending") {
+      if (!pendingSinceRef.current) pendingSinceRef.current = Date.now();
+      if (Date.now() - pendingSinceRef.current > SLOW_PAYMENT_MS) {
+        setShowSlowPayment(true);
+      }
+      return;
+    }
+
+    pendingSinceRef.current = null;
     setCurrentStage(status.provision_stage);
+
     if (status.provision_stage === "complete") {
-      onComplete(status.auto_login_url);
+      completedRef.current = true;
+      onComplete(status.auto_login_token_hash, status.auto_login_type);
     }
   }, [workspaceId, onComplete]);
 
@@ -83,14 +104,29 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
     return () => clearInterval(interval);
   }, [poll]);
 
+  const isPending = subscriptionStatus === "pending" || subscriptionStatus === null;
   const current = stageIndex(currentStage);
   const isComplete = currentStage === "complete";
 
-  const progressPercent = isComplete
-    ? 100
-    : current >= 0
-      ? Math.round(((current + 0.5) / STAGES.length) * 100)
-      : 0;
+  const progressPercent = isPending
+    ? 0
+    : isComplete
+      ? 100
+      : current >= 0
+        ? Math.round(((current + 0.5) / STAGES.length) * 100)
+        : 0;
+
+  const title = isComplete
+    ? "Your workspace is ready"
+    : isPending
+      ? "Confirming payment"
+      : "Setting up your workspace";
+
+  const subtitle = isComplete
+    ? "Finishing up..."
+    : isPending
+      ? "Waiting for payment confirmation from Stripe."
+      : "This usually takes about a minute.";
 
   return (
     <div className="space-y-8">
@@ -100,23 +136,25 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
             "flex h-11 w-11 items-center justify-center rounded-xl shadow-sm transition-colors duration-500",
             isComplete
               ? "bg-green-500/10 text-green-600"
-              : "bg-foreground text-background",
+              : isPending
+                ? "bg-amber-500/10 text-amber-600"
+                : "bg-foreground text-background",
           )}
         >
           {isComplete ? (
             <Check className="h-[18px] w-[18px]" />
+          ) : isPending ? (
+            <CreditCard className="h-[18px] w-[18px]" />
           ) : (
             <Sparkles className="h-[18px] w-[18px]" />
           )}
         </div>
         <div className="text-center space-y-1">
           <h1 className="text-[20px] font-semibold tracking-tight text-foreground">
-            {isComplete ? "Your workspace is ready" : "Setting up your workspace"}
+            {title}
           </h1>
           <p className="text-[13px] text-muted-foreground">
-            {isComplete
-              ? "Finishing up..."
-              : "This usually takes about a minute."}
+            {subtitle}
           </p>
         </div>
       </div>
@@ -126,9 +164,9 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
           <div
             className={cn(
               "h-full rounded-full transition-all duration-700 ease-out",
-              isComplete ? "bg-green-500" : "bg-foreground",
+              isComplete ? "bg-green-500" : isPending ? "bg-amber-500" : "bg-foreground",
             )}
-            style={{ width: `${progressPercent}%` }}
+            style={{ width: `${Math.max(progressPercent, isPending ? 5 : 0)}%` }}
           />
         </div>
 
@@ -147,6 +185,21 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
                   </p>
                 </div>
               </div>
+            </div>
+          ) : isPending ? (
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3">
+                <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
+                <span className="text-[13px] font-medium text-foreground">
+                  Waiting for Stripe confirmation...
+                </span>
+              </div>
+              {showSlowPayment && (
+                <p className="text-[12px] text-muted-foreground pl-7">
+                  Payment is still being processed. This can take up to a minute.
+                  This page will update automatically.
+                </p>
+              )}
             </div>
           ) : (
             <div className="divide-y divide-border/40">

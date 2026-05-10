@@ -35,7 +35,7 @@ import {
   confirmSchemaInstalledAction,
   saveProjectToRegistry,
 } from "./actions";
-import { createHostedCheckout, getHostedEmail } from "./hosted-actions";
+import { createHostedCheckout, getHostedEmail, verifyAutoLogin } from "./hosted-actions";
 
 const INTENT_TO_TEMPLATE: Record<string, { branch: string; name: string; emoji: string; role: string; description: string }> = {
   reach: { branch: "template/crm-researcher", name: "Scout", emoji: "🦅", role: "Research & Outreach", description: "Researches people, verifies info, and helps you craft personalized outreach." },
@@ -494,12 +494,14 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
 
   // ─── Provisioning complete (Hosted) ───
   const handleProvisionComplete = useCallback(
-    (autoLoginUrl: string | null) => {
-      if (autoLoginUrl) {
-        window.location.href = autoLoginUrl;
-      } else {
-        advance();
+    async (tokenHash: string | null, tokenType: string) => {
+      if (tokenHash) {
+        const result = await verifyAutoLogin(tokenHash, tokenType as "magiclink" | "email");
+        if (!result.ok) {
+          console.warn("[onboarding] Auto-login failed, user can log in via email later:", result.error);
+        }
       }
+      advance();
     },
     [advance],
   );

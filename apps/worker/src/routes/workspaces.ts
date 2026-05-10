@@ -85,12 +85,25 @@ app.get("/workspaces/:id/status", async (c) => {
   const ws = await getWorkspace(c.req.param("id"));
   if (!ws) return c.json({ error: "Not found" }, 404);
 
+  let autoLoginTokenHash: string | null = null;
+  let autoLoginType = "magiclink";
+  if (ws.provision_stage === "complete" && (ws as any).auto_login_url) {
+    try {
+      const loginUrl = new URL((ws as any).auto_login_url);
+      autoLoginTokenHash = loginUrl.searchParams.get("token") ?? null;
+      autoLoginType = loginUrl.searchParams.get("type") ?? "magiclink";
+    } catch {
+      // URL parsing failed — non-fatal
+    }
+  }
+
   return c.json({
     provision_stage: ws.provision_stage,
     provision_error: ws.provision_error,
     subscription_status: ws.subscription_status,
     e2b_sandbox_status: ws.e2b_sandbox_status,
-    auto_login_url: ws.provision_stage === "complete" ? (ws as any).auto_login_url ?? null : null,
+    auto_login_token_hash: autoLoginTokenHash,
+    auto_login_type: autoLoginType,
   });
 });
 
@@ -117,7 +130,7 @@ app.get("/workspaces/:id/siblings", async (c) => {
   });
 });
 
-// Create Stripe Checkout session for a new workspace
+// Create Stripe Checkout session for a workspace
 app.post("/checkout", async (c) => {
   const body = await c.req.json<{
     email: string;
@@ -138,45 +151,72 @@ app.post("/checkout", async (c) => {
   }
 
   const db = getMasterSupabase();
-  const { data: ws, error } = await db
+  const setupMetadata = {
+    ownerName: body.ownerName || "",
+    preferredName: body.ownerName || "",
+    workspaceName: body.workspaceLabel || "My Workspace",
+    workspaceSlug: (body.workspaceLabel || "workspace")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 40) || "workspace",
+    intentKey: body.contextPreset || "other",
+    contextPresetKey: body.contextPreset || "other",
+    contextPreset: body.contextPreset || "other",
+    onboardingStep: "provider",
+    onboardingComplete: false,
+  };
+
+  // Reuse existing pending workspace if one exists for this user
+  const { data: existing } = await db
     .from("hosted_workspaces")
-    .insert({
-      user_id: user.id,
-      label: body.workspaceLabel || "My Workspace",
-      emoji: body.workspaceEmoji || "🏠",
-      subscription_status: "pending",
-      setup_metadata: {
-        ownerName: body.ownerName || "",
-        preferredName: body.ownerName || "",
-        workspaceName: body.workspaceLabel || "My Workspace",
-        workspaceSlug: (body.workspaceLabel || "workspace")
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-|-$/g, "")
-          .slice(0, 40) || "workspace",
-        intentKey: body.contextPreset || "other",
-        contextPresetKey: body.contextPreset || "other",
-        contextPreset: body.contextPreset || "other",
-        onboardingStep: "provider",
-        onboardingComplete: false,
-      },
-    })
     .select("id")
-    .single();
-  if (error || !ws) {
-    return c.json({ error: error?.message ?? "Failed to create workspace" }, 500);
+    .eq("user_id", user.id)
+    .eq("subscription_status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let workspaceId: string;
+
+  if (existing) {
+    workspaceId = existing.id;
+    await db
+      .from("hosted_workspaces")
+      .update({
+        label: body.workspaceLabel || "My Workspace",
+        emoji: body.workspaceEmoji || "🏠",
+        setup_metadata: setupMetadata,
+      })
+      .eq("id", existing.id);
+  } else {
+    const { data: ws, error } = await db
+      .from("hosted_workspaces")
+      .insert({
+        user_id: user.id,
+        label: body.workspaceLabel || "My Workspace",
+        emoji: body.workspaceEmoji || "🏠",
+        subscription_status: "pending",
+        setup_metadata: setupMetadata,
+      })
+      .select("id")
+      .single();
+    if (error || !ws) {
+      return c.json({ error: error?.message ?? "Failed to create workspace" }, 500);
+    }
+    workspaceId = ws.id;
   }
 
   const origin = getPublicSiteUrl();
   const url = await createCheckoutSession({
     customerEmail: email,
     customerId: user.stripe_customer_id,
-    workspaceId: ws.id,
-    successUrl: body.successUrl || `${origin}/provision/${ws.id}`,
+    workspaceId,
+    successUrl: body.successUrl || `${origin}/provision/${workspaceId}`,
     cancelUrl: body.cancelUrl || `${origin}/signup`,
   });
 
-  return c.json({ url, workspaceId: ws.id });
+  return c.json({ url, workspaceId });
 });
 
 // Cancel a workspace (30-day grace period, sandbox paused immediately)

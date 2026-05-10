@@ -1,9 +1,11 @@
 "use server";
 
 import { cookies, headers } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 import { workerFetch } from "@/lib/worker-client";
 import {
   getProvisionStatus,
+  getActiveProject,
   createWorkspaceSessionValue,
 } from "@/lib/projects/hosted-registry";
 
@@ -62,10 +64,54 @@ export async function createHostedCheckout(params: {
       maxAge: 60 * 60 * 24 * 30,
     },
   );
+  // Email cookie has been consumed — clean it up
+  jar.delete(HOSTED_EMAIL_COOKIE);
 
   return { url: data.url, workspaceId: data.workspaceId };
 }
 
 export async function pollProvisionStatus(workspaceId: string) {
   return getProvisionStatus(workspaceId);
+}
+
+export async function verifyAutoLogin(
+  tokenHash: string,
+  type: "magiclink" | "email" = "magiclink",
+): Promise<{ ok: boolean; error?: string }> {
+  const project = await getActiveProject().catch(() => null);
+  if (!project?.url || !project.anonKey) {
+    return { ok: false, error: "No workspace configured" };
+  }
+
+  const cookieStore = await cookies();
+  const cookiePrefix = `hq-${project.id.slice(0, 8)}`;
+
+  const supabase = createServerClient(project.url, project.anonKey, {
+    cookieOptions: { name: cookiePrefix },
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options),
+          );
+        } catch {
+          // May throw in certain RSC contexts
+        }
+      },
+    },
+  });
+
+  const { error } = await supabase.auth.verifyOtp({
+    token_hash: tokenHash,
+    type,
+  });
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true };
 }

@@ -95,4 +95,5 @@ export async function getBillingPortalAction(): Promise<{
 export async function logoutAction(): Promise<void> {
   const jar = await cookies();
   jar.delete("hq_workspace_session");
+  jar.delete("hq_hosted_email");
 }

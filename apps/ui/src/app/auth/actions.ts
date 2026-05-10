@@ -38,6 +38,8 @@ export async function hostedAuthAction(email: string): Promise<{
       sameSite: "lax",
       maxAge: 60 * 60 * 2,
     });
+    // Clear any stale workspace session from a previous user
+    jar.delete("hq_workspace_session");
 
     return { ok: true, isNewUser: true };
   }
