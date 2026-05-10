@@ -16,6 +16,8 @@ Endpoints:
   PUT    /branches/:branch/files/<path>     -> {path, sha}      (body: {content, sha?})
   POST   /branches/:branch/files/<path>     -> {path, sha}      (body: {content})
   DELETE /branches/:branch/files/<path>     -> {ok: true}       (body: {sha?})
+  GET    /browser/:slug/state               -> {url, title, tabs[]}
+  GET    /browser/:slug/screenshot           -> image/jpeg
 
 The `branch` segment is URL-encoded (slashes become %2F) and must already
 exist as a worktree at $HOME/.openclaw/workspace-<branch>. Writes commit
@@ -24,6 +26,7 @@ to the branch immediately with a generated message.
 
 from __future__ import annotations
 
+import base64
 import hmac
 import json
 import os
@@ -32,8 +35,11 @@ import subprocess
 import sys
 import threading
 import urllib.parse
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+
+import websocket
 
 # ── Config ─────────────────────────────────────────────────────────────
 
@@ -158,6 +164,77 @@ def list_tree(root: Path) -> list[dict]:
     return entries
 
 
+# ── Browser / CDP helpers ──────────────────────────────────────────────
+
+SLUG_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+OPENCLAW_CONFIG = Path(OPENCLAW_HOME) / "openclaw.json"
+
+
+def _get_cdp_port(slug: str) -> int | None:
+    """Read the CDP port for an agent's browser profile from openclaw.json."""
+    try:
+        cfg = json.loads(OPENCLAW_CONFIG.read_text())
+        return cfg.get("browser", {}).get("profiles", {}).get(slug, {}).get("cdpPort")
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _get_browser_tabs(cdp_port: int) -> list[dict]:
+    """Fetch open tabs from Chrome's /json endpoint."""
+    url = f"http://127.0.0.1:{cdp_port}/json"
+    try:
+        with urllib.request.urlopen(url, timeout=3) as resp:
+            targets = json.loads(resp.read())
+    except Exception:
+        return []
+    tabs = []
+    for t in targets:
+        if t.get("type") != "page":
+            continue
+        tabs.append({
+            "id": t.get("id", ""),
+            "url": t.get("url", ""),
+            "title": t.get("title", ""),
+        })
+    return tabs
+
+
+def _capture_screenshot(cdp_port: int, quality: int = 50) -> bytes | None:
+    """Capture a JPEG screenshot of the active page via CDP WebSocket."""
+    url = f"http://127.0.0.1:{cdp_port}/json"
+    try:
+        with urllib.request.urlopen(url, timeout=3) as resp:
+            targets = json.loads(resp.read())
+    except Exception:
+        return None
+
+    ws_url = None
+    for t in targets:
+        if t.get("type") == "page":
+            ws_url = t.get("webSocketDebuggerUrl")
+            break
+    if not ws_url:
+        return None
+
+    try:
+        ws = websocket.create_connection(ws_url, timeout=5)
+        try:
+            ws.send(json.dumps({
+                "id": 1,
+                "method": "Page.captureScreenshot",
+                "params": {"format": "jpeg", "quality": quality},
+            }))
+            result = json.loads(ws.recv())
+            data_b64 = result.get("result", {}).get("data")
+            if not data_b64:
+                return None
+            return base64.b64decode(data_b64)
+        finally:
+            ws.close()
+    except Exception:
+        return None
+
+
 # ── HTTP handler ───────────────────────────────────────────────────────
 
 
@@ -201,49 +278,86 @@ class Handler(BaseHTTPRequestHandler):
 
     # ── Dispatch ────────────────────────────────────────────────────
     def _route(self) -> tuple[str | None, str | None, str | None]:
-        """Return (kind, branch, path) where kind in {'healthz','tree','file'}."""
+        """Return (kind, segment, path) where kind identifies the handler."""
         parsed = urllib.parse.urlparse(self.path)
         parts = [p for p in parsed.path.split("/") if p]
         if not parts:
             return None, None, None
         if parts == ["healthz"]:
             return "healthz", None, None
+        # Browser endpoints: /browser/{slug}/state, /browser/{slug}/screenshot
+        if len(parts) == 3 and parts[0] == "browser":
+            slug = urllib.parse.unquote(parts[1])
+            if not SLUG_RE.match(slug):
+                return None, None, None
+            if parts[2] == "state":
+                return "browser_state", slug, None
+            if parts[2] == "screenshot":
+                return "browser_screenshot", slug, None
         if len(parts) >= 3 and parts[0] == "branches":
             branch = urllib.parse.unquote(parts[1])
             if not BRANCH_RE.match(branch):
                 return None, None, None
-            # Defense in depth: even though safe_join re-resolves paths and
-            # the regex above restricts characters, explicitly reject any
-            # segment equal to "..". Prevents cute traversal tricks.
             if ".." in branch.split("/"):
                 return None, None, None
             if parts[2] == "tree" and len(parts) == 3:
                 return "tree", branch, None
             if parts[2] == "files" and len(parts) >= 4:
                 filepath = "/".join(urllib.parse.unquote(p) for p in parts[3:])
-                # Same check for the filepath segments.
                 if ".." in filepath.split("/"):
                     return None, None, None
                 return "file", branch, filepath
         return None, None, None
 
     def do_GET(self) -> None:
-        kind, branch, path = self._route()
+        kind, segment, path = self._route()
         if kind == "healthz":
             return self._send_json(200, {"ok": True})
         if not self._authorized():
             return self._error(401, "Unauthorized")
+        if kind == "browser_state":
+            assert segment is not None
+            cdp_port = _get_cdp_port(segment)
+            if cdp_port is None:
+                return self._error(404, f"No browser profile for agent {segment!r}")
+            tabs = _get_browser_tabs(cdp_port)
+            if not tabs:
+                return self._error(503, "Chrome is not reachable")
+            active = tabs[0]
+            return self._send_json(200, {
+                "url": active.get("url"),
+                "title": active.get("title"),
+                "tabs": tabs,
+            })
+        if kind == "browser_screenshot":
+            assert segment is not None
+            cdp_port = _get_cdp_port(segment)
+            if cdp_port is None:
+                return self._error(404, f"No browser profile for agent {segment!r}")
+            parsed = urllib.parse.urlparse(self.path)
+            qs = urllib.parse.parse_qs(parsed.query)
+            quality = int(qs.get("quality", ["50"])[0])
+            img = _capture_screenshot(cdp_port, quality=quality)
+            if img is None:
+                return self._error(503, "Chrome is not reachable or screenshot failed")
+            self.send_response(200)
+            self.send_header("Content-Type", "image/jpeg")
+            self.send_header("Content-Length", str(len(img)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(img)
+            return
         if kind == "tree":
-            assert branch is not None
-            root = worktree_path(branch)
+            assert segment is not None
+            root = worktree_path(segment)
             if not root.is_dir():
-                return self._error(404, f"Worktree not found for branch {branch!r}")
+                return self._error(404, f"Worktree not found for branch {segment!r}")
             return self._send_json(200, list_tree(root))
         if kind == "file":
-            assert branch is not None and path is not None
-            root = worktree_path(branch)
+            assert segment is not None and path is not None
+            root = worktree_path(segment)
             if not root.is_dir():
-                return self._error(404, f"Worktree not found for branch {branch!r}")
+                return self._error(404, f"Worktree not found for branch {segment!r}")
             try:
                 full = safe_join(root, path)
             except ValueError as e:
@@ -267,7 +381,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_PUT(self) -> None:
         if not self._authorized():
             return self._error(401, "Unauthorized")
-        kind, branch, path = self._route()
+        kind, segment, path = self._route()
         if kind != "file":
             return self._error(404, "Not found")
         try:
@@ -277,10 +391,10 @@ class Handler(BaseHTTPRequestHandler):
         if "content" not in body or not isinstance(body["content"], str):
             return self._error(400, "Missing 'content' string in body")
 
-        assert branch is not None and path is not None
-        root = worktree_path(branch)
+        assert segment is not None and path is not None
+        root = worktree_path(segment)
         if not root.is_dir():
-            return self._error(404, f"Worktree not found for branch {branch!r}")
+            return self._error(404, f"Worktree not found for branch {segment!r}")
         try:
             full = safe_join(root, path)
         except ValueError as e:
@@ -304,7 +418,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         if not self._authorized():
             return self._error(401, "Unauthorized")
-        kind, branch, path = self._route()
+        kind, segment, path = self._route()
         if kind != "file":
             return self._error(404, "Not found")
         try:
@@ -312,10 +426,10 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError as e:
             return self._error(400, str(e))
 
-        assert branch is not None and path is not None
-        root = worktree_path(branch)
+        assert segment is not None and path is not None
+        root = worktree_path(segment)
         if not root.is_dir():
-            return self._error(404, f"Worktree not found for branch {branch!r}")
+            return self._error(404, f"Worktree not found for branch {segment!r}")
         try:
             full = safe_join(root, path)
         except ValueError as e:
@@ -340,7 +454,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_DELETE(self) -> None:
         if not self._authorized():
             return self._error(401, "Unauthorized")
-        kind, branch, path = self._route()
+        kind, segment, path = self._route()
         if kind != "file":
             return self._error(404, "Not found")
         try:
@@ -348,10 +462,10 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError as e:
             return self._error(400, str(e))
 
-        assert branch is not None and path is not None
-        root = worktree_path(branch)
+        assert segment is not None and path is not None
+        root = worktree_path(segment)
         if not root.is_dir():
-            return self._error(404, f"Worktree not found for branch {branch!r}")
+            return self._error(404, f"Worktree not found for branch {segment!r}")
         try:
             full = safe_join(root, path)
         except ValueError as e:

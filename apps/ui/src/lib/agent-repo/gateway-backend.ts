@@ -4,6 +4,7 @@
 // across a Tailscale tailnet, depending on deployment).
 
 import type { GitHubTreeEntry, GitHubFileContent } from "@/lib/agent-repo/types";
+import type { BrowserState } from "@/lib/agent-repo/browser-types";
 import { getOrCreateGatewayAuthToken } from "@/lib/workspaces/gateway-auth-token";
 
 async function getEnv() {
@@ -133,4 +134,32 @@ export async function createBranch(): Promise<void> {
       "agents are provisioned through the Create Agent wizard which " +
       "creates the branch on the gateway side."
   );
+}
+
+// ── Browser / CDP ─────────────────────────────────────────────────────
+
+export async function getBrowserState(slug: string): Promise<BrowserState> {
+  return request<BrowserState>("GET", `/browser/${encodeURIComponent(slug)}/state`);
+}
+
+export async function getBrowserScreenshot(
+  slug: string,
+  opts?: { quality?: number; maxWidth?: number }
+): Promise<Response> {
+  const { base, token } = await getEnv();
+  const params = new URLSearchParams();
+  if (opts?.quality) params.set("quality", String(opts.quality));
+  if (opts?.maxWidth) params.set("maxWidth", String(opts.maxWidth));
+  const qs = params.toString();
+  const url = `${base}/browser/${encodeURIComponent(slug)}/screenshot${qs ? `?${qs}` : ""}`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const err = new Error(`Gateway screenshot -> ${res.status}`) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
+  }
+  return res;
 }

@@ -40,6 +40,7 @@ import {
 import { InboxSection } from "@/components/inbox/inbox-section";
 import { AgentProvisioning } from "@/components/agents/agent-provisioning";
 import { AgentFileBrowser } from "./agent-file-browser";
+import { AgentBrowserTab } from "./agent-browser-tab";
 import { RoutinesSection } from "@/components/routines/routines-section";
 import { OpenDesktopModal } from "@/components/gateways/open-desktop-modal";
 import { getGatewayDesktopUrlAction } from "@/app/dashboard/settings/gateways/actions";
@@ -180,6 +181,9 @@ export function AgentDetailTabs({
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="usage">Usage</TabsTrigger>
                 <TabsTrigger value="files">Files</TabsTrigger>
+                {agent.gateway_id && (
+                  <TabsTrigger value="browser">Browser</TabsTrigger>
+                )}
                 <TabsTrigger value="operations">Operations</TabsTrigger>
               </TabsList>
             </div>
@@ -212,6 +216,12 @@ export function AgentDetailTabs({
                 <AgentFileBrowser slug={agent.slug} />
               </div>
             </TabsContent>
+
+            {agent.gateway_id && (
+              <TabsContent value="browser" className="min-h-0 flex-1">
+                <AgentBrowserTab slug={agent.slug} />
+              </TabsContent>
+            )}
 
             <TabsContent
               value="operations"
