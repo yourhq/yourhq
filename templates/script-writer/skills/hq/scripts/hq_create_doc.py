@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create a new knowledge item (page or playbook) with automatic embedding."""
+"""Create a new knowledge item (page or skill) with automatic embedding."""
 
 import argparse
 import os
@@ -21,7 +21,7 @@ check_env()
 ap = argparse.ArgumentParser()
 ap.add_argument("--title", required=True)
 ap.add_argument("--content", default="")
-ap.add_argument("--kind", default="page", choices=["page", "playbook"])
+ap.add_argument("--kind", default="page", choices=["page", "skill"])
 ap.add_argument("--scope", default="workspace", choices=["workspace", "agent"])
 ap.add_argument("--tags", default="", help="Comma-separated tags")
 ap.add_argument("--folder-id", default=None)

@@ -392,9 +392,9 @@ export async function toggleAgentPauseAction(
   return { ok: true, newStatus };
 }
 
-// ── Agent Playbook Upsert ─────────────────────────────────────────────
+// ── Agent Skill Upsert ────────────────────────────────────────────────
 
-export interface UpsertAgentPlaybookInput {
+export interface UpsertAgentSkillInput {
   agentId: string;
   title: string;
   content: string;
@@ -403,8 +403,8 @@ export interface UpsertAgentPlaybookInput {
   reason: string;
 }
 
-export async function upsertAgentPlaybook(
-  input: UpsertAgentPlaybookInput
+export async function upsertAgentSkill(
+  input: UpsertAgentSkillInput
 ): Promise<{ id: string; action: "created" | "updated" }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -421,7 +421,7 @@ export async function upsertAgentPlaybook(
     const { data: item, error } = await supabase
       .from("knowledge_items")
       .insert({
-        kind: "playbook",
+        kind: "skill",
         title: input.title.trim(),
         plain_text: input.content.trim(),
         scope: "agent",
@@ -429,7 +429,7 @@ export async function upsertAgentPlaybook(
       .select("id")
       .single();
 
-    if (error || !item) throw new Error(error?.message ?? "Failed to create playbook");
+    if (error || !item) throw new Error(error?.message ?? "Failed to create skill");
 
     await supabase.from("knowledge_item_agents").insert({
       knowledge_item_id: item.id,
@@ -442,7 +442,7 @@ export async function upsertAgentPlaybook(
       entity_type: "knowledge_item",
       entity_id: item.id,
       action: "created",
-      summary: input.reason?.trim() || `Created playbook '${input.title.trim()}' for agent '${agent.name}'`,
+      summary: input.reason?.trim() || `Created skill '${input.title.trim()}' for agent '${agent.name}'`,
     });
 
     return { id: item.id, action: "created" };
@@ -467,7 +467,7 @@ export async function upsertAgentPlaybook(
     entity_type: "knowledge_item",
     entity_id: input.knowledgeItemId,
     action: "updated",
-    summary: input.reason?.trim() || `Updated playbook '${input.title.trim()}' for agent '${agent.name}'`,
+    summary: input.reason?.trim() || `Updated skill '${input.title.trim()}' for agent '${agent.name}'`,
   });
 
   return { id: input.knowledgeItemId, action: "updated" };

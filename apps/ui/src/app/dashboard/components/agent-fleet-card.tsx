@@ -23,11 +23,11 @@ export function AgentFleetCard({
   agents: AgentFleetItem[];
   commandQueue: CommandQueueStats;
 }) {
-  const [playbooksUpdated, setPlaybooksUpdated] = useState<number | null>(null);
+  const [skillsLearned, setSkillsLearned] = useState<number | null>(null);
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
-    async function fetchPlaybookMetric() {
+    async function fetchSkillMetric() {
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - 7);
       const { count } = await supabase
@@ -37,9 +37,9 @@ export function AgentFleetCard({
         .eq("module", "knowledge")
         .in("action", ["created", "updated"])
         .gte("created_at", cutoff.toISOString());
-      setPlaybooksUpdated(count ?? 0);
+      setSkillsLearned(count ?? 0);
     }
-    if (agents.length > 0) fetchPlaybookMetric();
+    if (agents.length > 0) fetchSkillMetric();
   }, [supabase, agents.length]);
   const hasQueueActivity =
     commandQueue.pending > 0 || commandQueue.running > 0;
@@ -104,7 +104,7 @@ export function AgentFleetCard({
         </ul>
       )}
 
-      {(hasQueueActivity || (playbooksUpdated != null && playbooksUpdated > 0)) && (
+      {(hasQueueActivity || (skillsLearned != null && skillsLearned > 0)) && (
         <div className="mt-3 border-t border-border/40 pt-3 text-[11px] text-muted-foreground space-y-1">
           {hasQueueActivity && (
             <div>
@@ -120,13 +120,13 @@ export function AgentFleetCard({
               )}
             </div>
           )}
-          {playbooksUpdated != null && playbooksUpdated > 0 && (
+          {skillsLearned != null && skillsLearned > 0 && (
             <Link
               href="/dashboard/activity?module=knowledge&actor=agent"
               className="flex items-center gap-1 hover:text-foreground transition-colors"
             >
               <BookOpen className="h-3 w-3" />
-              {playbooksUpdated} playbook{playbooksUpdated !== 1 ? "s" : ""} updated this week
+              {skillsLearned} skill{skillsLearned !== 1 ? "s" : ""} learned this week
             </Link>
           )}
         </div>

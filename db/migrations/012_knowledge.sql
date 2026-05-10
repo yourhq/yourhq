@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS knowledge_items (
   updated_at            timestamptz NOT NULL DEFAULT now(),
   tenant_id             uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES tenants(id) ON DELETE CASCADE,
   folder_id             uuid REFERENCES knowledge_folders(id) ON DELETE SET NULL,
-  kind                  text NOT NULL CHECK (kind IN ('page', 'playbook', 'file', 'source')),
+  kind                  text NOT NULL CHECK (kind IN ('page', 'skill', 'file', 'source')),
   title                 text NOT NULL,
   content               jsonb,
   plain_text            text,
@@ -381,7 +381,7 @@ BEGIN
     SELECT c.id
     FROM public.knowledge_items c
     WHERE c.archived_at IS NULL
-      AND (c.kind IN ('page', 'playbook') OR (c.kind = 'file' AND c.processing_status = 'done'))
+      AND (c.kind IN ('page', 'skill') OR (c.kind = 'file' AND c.processing_status = 'done'))
       AND (
         c.embedding IS NULL
         OR c.embedding_status IN ('pending', 'failed')

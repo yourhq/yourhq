@@ -34,7 +34,7 @@ export function KnowledgeCreateDialog({
     <ResponsiveDialog open onOpenChange={(open) => !open && onCancel()}>
       <ResponsiveDialogContent className="sm:max-w-md">
         <ResponsiveDialogTitle>
-          New {kind === "playbook" ? "Playbook" : "Page"}
+          New {kind === "skill" ? "Skill" : "Page"}
         </ResponsiveDialogTitle>
         <ResponsiveDialogDescription className="sr-only">
           Create a new {kind}
@@ -49,7 +49,7 @@ export function KnowledgeCreateDialog({
                 handleSubmit();
               }
             }}
-            placeholder={kind === "playbook" ? "Playbook title..." : "Page title..."}
+            placeholder={kind === "skill" ? "Skill title..." : "Page title..."}
             autoFocus
             rows={1}
             className="w-full resize-none border-0 bg-transparent text-lg font-medium text-foreground placeholder:text-muted-foreground/50 focus:outline-none"

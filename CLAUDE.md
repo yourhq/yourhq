@@ -86,7 +86,7 @@ Daemons:
 
 - `gateways` — one row per gateway host. Seeded with a `default` row so single-gateway setups work immediately.
 - `agents` — agent definitions with `gateway_id`, `reports_to_id` hierarchy.
-- `knowledge_folders` / `knowledge_items` / `knowledge_item_agents` / `knowledge_chunks` — unified knowledge system. Items have `kind` (page/playbook/file/source), `scope` (workspace/agent), embedding pipeline fields. Agent-scoped items use the junction table.
+- `knowledge_folders` / `knowledge_items` / `knowledge_item_agents` / `knowledge_chunks` — unified knowledge system. Items have `kind` (page/skill/file/source), `scope` (workspace/agent), embedding pipeline fields. Agent-scoped items use the junction table.
 - `entity_links` — universal polymorphic linking. Any owner (task, routine, collection_record, agent) can link to any target (knowledge_item, collection_record, contact, organization, task, url).
 - `routines` — scheduled and event-driven agent behaviors. Has `trigger_type` (schedule/event), cadence fields (sub-daily to monthly), and event fields (entity_type, field, condition, value).
 - `collection_definitions` / `collection_fields` / `collection_records` / `collection_views` — user-defined tables with typed JSONB fields and saved views (table/kanban/calendar).
@@ -110,6 +110,6 @@ RLS: All tables use tenant-scoped policies via `current_tenant_id()` JWT claim. 
 
 ## Current Roadmap Shape
 
-- Shipped: self-hosted stack, browser onboarding, multi-project registry, UI-driven gateway registration, provider connections, noVNC modal, usage budgets, agent hierarchy, unified knowledge (pages/playbooks/files/sources), entity links, routines (schedule + event), collections (table/kanban/calendar views), file processing pipeline, source connections (Notion), modular onboarding, task calendar view, and agent-initiated skill learning (playbook auto-creation with version history).
+- Shipped: self-hosted stack, browser onboarding, multi-project registry, UI-driven gateway registration, provider connections, noVNC modal, usage budgets, agent hierarchy, unified knowledge (pages/skills/files/sources), entity links, routines (schedule + event), collections (table/kanban/calendar views), file processing pipeline, source connections (Notion), modular onboarding, task calendar view, and agent-initiated skill learning (auto-creation with version history).
 - Next: Google Drive sync, public deployment docs, richer pricing coverage, template docs, and docs site generation.
 - Later: hosted offering with account management, automated provisioning, and billing.

@@ -163,11 +163,11 @@ function KnowledgeContent() {
       <div className="flex-1 flex flex-col min-w-0">
         <PageHeader
           title="Knowledge"
-          description="Pages, playbooks, and files"
+          description="Pages, skills, and files"
           primaryAction={
             <KnowledgeCreateMenu
               onCreatePage={() => setShowCreate("page")}
-              onCreatePlaybook={() => setShowCreate("playbook")}
+              onCreateSkill={() => setShowCreate("skill")}
               onUploadFiles={() => fileInputRef.current?.click()}
               connectedSources={sc.connections}
               onPickFromSource={(connId) => setPickerConnectionId(connId)}
@@ -179,7 +179,7 @@ function KnowledgeContent() {
           <FirstVisitHint
             pageKey="knowledge"
             title="Give your agents context"
-            description="Add pages, playbooks, or files here. Agents reference this knowledge when working on tasks."
+            description="Add pages, skills, or files here. Agents reference this knowledge when working on tasks."
           />
         </div>
 
@@ -202,7 +202,7 @@ function KnowledgeContent() {
             <SelectContent>
               <SelectItem value="all">All kinds</SelectItem>
               <SelectItem value="page">Pages</SelectItem>
-              <SelectItem value="playbook">Playbooks</SelectItem>
+              <SelectItem value="skill">Skills</SelectItem>
               <SelectItem value="file">Files</SelectItem>
               <SelectItem value="source">Sources</SelectItem>
             </SelectContent>
@@ -269,7 +269,7 @@ function KnowledgeContent() {
               description={
                 k.filters.showArchived
                   ? "Archived items will appear here."
-                  : "Create a page, playbook, or upload files to get started."
+                  : "Create a page, skill, or upload files to get started."
               }
             />
           ) : viewMode === "list" ? (

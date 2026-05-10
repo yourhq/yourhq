@@ -102,9 +102,9 @@ Task assignment and comment mention triggers enqueue `agent_inbox_items` for aff
 
 ### Knowledge
 
-- `knowledge_items` — unified knowledge store for pages, playbooks, files, and sources. Supports scope (`workspace` or `agent`), pinning, folders, tags, embeddings, and full-text search.
+- `knowledge_items` — unified knowledge store for pages, skills, files, and sources. Supports scope (`workspace` or `agent`), pinning, folders, tags, embeddings, and full-text search.
 - `knowledge_folders` — folder hierarchy for organizing knowledge items.
-- `knowledge_item_agents` — junction table linking agent-scoped items to specific agents. Also used to track agent-created playbooks.
+- `knowledge_item_agents` — junction table linking agent-scoped items to specific agents. Also used to track agent-created skills.
 - `knowledge_chunks` — chunked content with per-chunk embeddings for granular retrieval. References `knowledge_item_id`.
 
 Boot context is controlled by scope and pinning:
@@ -112,7 +112,7 @@ Boot context is controlled by scope and pinning:
 - A **workspace-scoped, pinned** item is included in every agent's startup context.
 - An **agent-scoped** item assigned to specific agents via `knowledge_item_agents` is included only for those agents.
 
-Agents can autonomously create playbooks (`kind = 'playbook'`, `scope = 'agent'`) via `hq_playbook_upsert.py`. The script inserts into `knowledge_items`, links via `knowledge_item_agents`, and logs an audit entry with `actor_type = 'agent'`. The `audit_log.summary` field carries the agent's one-line reason, which is surfaced on the agent detail page.
+Agents can autonomously create skills (`kind = 'skill'`, `scope = 'agent'`) via `hq_skill_upsert.py`. The script inserts into `knowledge_items`, links via `knowledge_item_agents`, and logs an audit entry with `actor_type = 'agent'`. The `audit_log.summary` field carries the agent's one-line reason, which is surfaced on the agent detail page.
 
 Important RPCs:
 

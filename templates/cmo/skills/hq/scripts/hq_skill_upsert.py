@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create or update a playbook scoped to this agent, with automatic embedding and junction linking."""
+"""Create or update a skill scoped to this agent, with automatic embedding and junction linking."""
 
 import argparse
 import os
@@ -24,7 +24,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--title", required=True)
 ap.add_argument("--content", required=True)
 ap.add_argument("--reason", required=True, help="One-line explanation of what changed")
-ap.add_argument("--item-id", default=None, help="Existing playbook ID (for updates)")
+ap.add_argument("--item-id", default=None, help="Existing skill ID (for updates)")
 ap.add_argument("--tags", default="", help="Comma-separated tags")
 args = ap.parse_args()
 
@@ -36,7 +36,7 @@ if not agent_id:
 tags = [t.strip() for t in args.tags.split(",") if t.strip()] if args.tags else []
 
 if args.item_id:
-    # Update existing playbook
+    # Update existing skill
     changes = {
         "title": args.title,
         "content": args.content,
@@ -62,12 +62,12 @@ if args.item_id:
     output({"status": "updated", "id": args.item_id, "title": args.title, "reason": args.reason})
 
 else:
-    # Create new playbook scoped to this agent
+    # Create new skill scoped to this agent
     payload = {
         "title": args.title,
         "content": args.content,
         "plain_text": args.content,
-        "kind": "playbook",
+        "kind": "skill",
         "scope": "agent",
         "tags": tags,
         "embedding_status": "pending",
@@ -87,7 +87,7 @@ else:
     item = result[0] if isinstance(result, list) else result
     item_id = item["id"]
 
-    # Link playbook to this agent via junction table
+    # Link skill to this agent via junction table
     try:
         api_post(
             "knowledge_item_agents",
@@ -101,3 +101,4 @@ else:
 
     audit("knowledge", "knowledge_item", item_id, "created", summary=args.reason)
     output({"status": "created", "id": item_id, "title": args.title, "reason": args.reason})
+

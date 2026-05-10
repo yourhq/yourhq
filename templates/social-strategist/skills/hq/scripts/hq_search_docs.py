@@ -38,7 +38,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("query")
 ap.add_argument("--tags", default=None, help="Comma-separated tags to filter by")
 ap.add_argument("--folder-id", default=None)
-ap.add_argument("--kind", default=None, help="Filter by kind: page, playbook, file, source")
+ap.add_argument("--kind", default=None, help="Filter by kind: page, skill, file, source")
 ap.add_argument("--limit", type=int, default=5)
 args = ap.parse_args()
 

@@ -93,7 +93,7 @@ export function KnowledgeGrid({
               {item.kind === "file" && item.processing_status === "failed" && (
                 <AlertCircle className="h-3 w-3 text-red-400" />
               )}
-              {(item.kind === "page" || item.kind === "playbook" || (item.kind === "file" && item.processing_status === "done")) && (
+              {(item.kind === "page" || item.kind === "skill" || (item.kind === "file" && item.processing_status === "done")) && (
                 <EmbeddingStatus
                   embeddingStatus={item.embedding_status}
                   chunkStatus={item.chunk_status}

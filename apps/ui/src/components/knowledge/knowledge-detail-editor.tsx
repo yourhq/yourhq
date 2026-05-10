@@ -244,7 +244,7 @@ export function KnowledgeDetailEditor({
     [folders, item.folder_id]
   );
 
-  const isEditable = item.kind === "page" || item.kind === "playbook";
+  const isEditable = item.kind === "page" || item.kind === "skill";
 
   return (
     <div className="flex h-full flex-col">

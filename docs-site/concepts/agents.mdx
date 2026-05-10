@@ -251,15 +251,15 @@ For shared knowledge across agents, use the [knowledge system](/concepts/knowled
 
 ## Skill learning
 
-Agents improve over time by maintaining their own **playbooks** — reusable procedures they create when they discover a reliable method. This happens autonomously during work via `hq_playbook_upsert.py`:
+Agents improve over time by maintaining their own **skills** — reusable procedures they create when they discover a reliable method. This happens autonomously during work via `hq_skill_upsert.py`:
 
 - **When to learn:** after performing the same sequence 3+ times successfully, or after a breakthrough discovery (trial-and-error that yielded a non-obvious method).
-- **What gets stored:** a playbook (`kind: 'playbook'`, `scope: 'agent'`) linked to the agent via the `knowledge_item_agents` junction table.
-- **Visibility:** the agent detail page shows a "Playbooks" section with recency indicators (blue dot for recent agent edits) and the one-line reason the agent provided. The knowledge editor has a History panel showing who made each edit (agent vs. human).
+- **What gets stored:** a skill (`kind: 'skill'`, `scope: 'agent'`) linked to the agent via the `knowledge_item_agents` junction table.
+- **Visibility:** the agent detail page shows a "Skills" section with recency indicators (blue dot for recent agent edits) and the one-line reason the agent provided. The knowledge editor has a History panel showing who made each edit (agent vs. human).
 
-There is no approval gate — agents write directly. Operators observe via the audit trail and can edit, refine, or delete playbooks at any time through the standard knowledge editor.
+There is no approval gate — agents write directly. Operators observe via the audit trail and can edit, refine, or delete skills at any time through the standard knowledge editor.
 
-The `--reason` parameter on every playbook write is surfaced in the UI. It should be a one-line explanation of what changed and why (e.g., "Added YouTube channel research method after 3 successful tasks").
+The `--reason` parameter on every skill write is surfaced in the UI. It should be a one-line explanation of what changed and why (e.g., "Added YouTube channel research method after 3 successful tasks").
 
 ## Agent-to-agent
 

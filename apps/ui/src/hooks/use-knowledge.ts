@@ -271,7 +271,7 @@ export function useKnowledge() {
         title: input.title,
         folder_id: input.folderId || null,
         scope: input.scope ?? "workspace",
-        content: input.kind === "page" || input.kind === "playbook" ? "" : null,
+        content: input.kind === "page" || input.kind === "skill" ? "" : null,
         embedding_status: "pending",
         chunk_status: "pending",
       })

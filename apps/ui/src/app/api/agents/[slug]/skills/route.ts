@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
-interface UpsertPlaybookBody {
+interface UpsertSkillBody {
   title: string;
   content: string;
   action: "create" | "update";
@@ -22,7 +22,7 @@ export async function POST(
   }
 
   const { slug } = await params;
-  const body = (await req.json()) as UpsertPlaybookBody;
+  const body = (await req.json()) as UpsertSkillBody;
 
   if (!body.title?.trim()) {
     return NextResponse.json({ error: "title is required" }, { status: 400 });
@@ -54,7 +54,7 @@ export async function POST(
       const { data: item, error } = await supabase
         .from("knowledge_items")
         .insert({
-          kind: "playbook",
+          kind: "skill",
           title: body.title.trim(),
           content: null,
           plain_text: body.content.trim(),
@@ -65,7 +65,7 @@ export async function POST(
 
       if (error || !item) {
         return NextResponse.json(
-          { error: error?.message ?? "Failed to create playbook" },
+          { error: error?.message ?? "Failed to create skill" },
           { status: 500 }
         );
       }
@@ -82,7 +82,7 @@ export async function POST(
         entity_type: "knowledge_item",
         entity_id: item.id,
         action: "created",
-        summary: body.reason?.trim() || `Created playbook '${body.title.trim()}'`,
+        summary: body.reason?.trim() || `Created skill '${body.title.trim()}'`,
       });
 
       return NextResponse.json({ id: item.id, action: "created" }, { status: 201 });
@@ -110,7 +110,7 @@ export async function POST(
       entity_type: "knowledge_item",
       entity_id: body.knowledge_item_id!,
       action: "updated",
-      summary: body.reason?.trim() || `Updated playbook '${body.title.trim()}'`,
+      summary: body.reason?.trim() || `Updated skill '${body.title.trim()}'`,
     });
 
     return NextResponse.json({ id: body.knowledge_item_id, action: "updated" });
@@ -157,7 +157,7 @@ export async function GET(
     .from("knowledge_items")
     .select("id, title, kind, scope, plain_text, updated_at, created_at")
     .in("id", itemIds)
-    .eq("kind", "playbook")
+    .eq("kind", "skill")
     .is("archived_at", null)
     .order("updated_at", { ascending: false });
 

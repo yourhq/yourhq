@@ -1,6 +1,6 @@
 ---
 name: hq
-description: Connect to the HQ via Supabase. Use when you need to register yourself, search knowledge, create/update pages and playbooks, claim tasks, post comments, manage contacts and organizations, log interactions, or query the audit trail. Also use at session startup to register and load pinned knowledge items.
+description: Connect to the HQ via Supabase. Use when you need to register yourself, search knowledge, create/update pages and skills, claim tasks, post comments, manage contacts and organizations, log interactions, or query the audit trail. Also use at session startup to register and load pinned knowledge items.
 ---
 
 # HQ
@@ -102,13 +102,13 @@ python3 skills/hq/scripts/hq_search_docs.py "your natural language query"
 ```
 Optional flags: `--tags tag1,tag2` `--folder-id UUID` `--kind page` `--limit 5`
 
-Kind filter: `page`, `playbook`, `file`, `source`. Returns matched knowledge items ranked by similarity.
+Kind filter: `page`, `skill`, `file`, `source`. Returns matched knowledge items ranked by similarity.
 
 ### Create a knowledge item
 ```bash
 python3 skills/hq/scripts/hq_create_doc.py --title "Title" --content "Content here" --tags tag1,tag2
 ```
-Optional: `--kind playbook` (default: page), `--scope agent` (default: workspace), `--folder-id UUID`
+Optional: `--kind skill` (default: page), `--scope agent` (default: workspace), `--folder-id UUID`
 
 Automatically requests a local embedding on creation.
 
@@ -283,16 +283,16 @@ Sets task to `blocked`, posts a comment mentioning the workspace owner, sends Te
 - **Batch up to 3 items per wake** or up to 2 minutes of processing, whichever comes first.
 - **Foreground stays clean.** Never inject inbox work into a live human conversation.
 
-## Learning & Playbooks
+## Learning & Skills
 
-You maintain playbooks — reusable procedures for work you do repeatedly. Your human can see what you've learned on your agent detail page.
+You maintain skills — reusable procedures for work you do repeatedly. Your human can see what you've learned on your agent detail page.
 
-### When to create a new playbook
+### When to create a new skill
 - You've done the same sequence 3+ times successfully
 - You figured out a non-obvious method through trial and error (e.g. discovered that YouTube research requires checking channel "About" pages)
 - The user gave you a reusable instruction that isn't already documented
 
-### When to update an existing playbook
+### When to update an existing skill
 - You discovered a better approach than what's documented
 - The user corrected you — encode their preference immediately
 - A step no longer works and you found a fix
@@ -300,29 +300,29 @@ You maintain playbooks — reusable procedures for work you do repeatedly. Your 
 ### When NOT to update
 - You're still experimenting / the approach isn't proven yet
 - It's a one-off edge case unlikely to recur
-- The user is actively editing your playbooks (wait until they're done)
+- The user is actively editing your skills (wait until they're done)
 
-### Create a new playbook
+### Create a new skill
 ```bash
-python3 skills/hq/scripts/hq_playbook_upsert.py \
-  --title "Research Playbook" \
+python3 skills/hq/scripts/hq_skill_upsert.py \
+  --title "Research Skill" \
   --content "## Finding Decision Makers\n1. Start with LinkedIn..." \
   --reason "Codified after 3 successful research tasks" \
   --tags research,linkedin
 ```
 
-### Update an existing playbook
+### Update an existing skill
 ```bash
-python3 skills/hq/scripts/hq_playbook_upsert.py \
-  --item-id PLAYBOOK_UUID \
-  --title "Research Playbook" \
+python3 skills/hq/scripts/hq_skill_upsert.py \
+  --item-id SKILL_UUID \
+  --title "Research Skill" \
   --content "## Finding Decision Makers\n1. Start with YouTube..." \
   --reason "Added YouTube channel research method"
 ```
 
-### Find your existing playbooks
+### Find your existing skills
 ```bash
-python3 skills/hq/scripts/hq_search_docs.py "research" --kind playbook
+python3 skills/hq/scripts/hq_search_docs.py "research" --kind skill
 ```
 
 The `--reason` is important: it's shown to your human on the agent detail page so they can see what you learned and why. Keep it to one sentence.
@@ -335,7 +335,7 @@ The `--reason` is important: it's shown to your human on the agent detail page s
 - **Discover fields before writing.** Fetch `field_definitions` to know what extended fields exist and what they mean.
 - **Use valid pipeline stages.** Fetch `pipeline_stages` before setting a contact's status.
 - **When you claim a task, read its attachments.** They're fetched automatically.
-- **Create knowledge items for reusable info.** Use `--kind playbook` for SOPs and instructions, `--kind page` for general notes.
-- **Learn as you work.** When you discover a reusable method, save it as a playbook using `hq_playbook_upsert.py`.
+- **Create knowledge items for reusable info.** Use `--kind skill` for SOPs and instructions, `--kind page` for general notes.
+- **Learn as you work.** When you discover a reusable method, save it as a skill using `hq_skill_upsert.py`.
 - **Process your inbox without babysitting.** When woken, work through items before going idle.
 - **Escalate to unblock.** Don't sit on a stuck item — escalate and move to the next one.

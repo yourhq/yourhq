@@ -26,7 +26,7 @@ Initial public release.
 - Multi-gateway support — multiple gateway hosts per project, agents bound to a specific gateway.
 - 17 agent templates: cofounder, designer, analytics, CMO, ghostwriter, newsletter editor, social writer, sales copywriter, and more.
 - Agent runtime via OpenClaw with per-agent Chrome profile, git branch, and noVNC remote desktop.
-- Operational workspace: CRM (contacts, organizations), tasks, knowledge base (pages, playbooks, files, sources), collections (tables / kanban / calendar), routines (scheduled + event-driven), inbox, notifications, audit log.
+- Operational workspace: CRM (contacts, organizations), tasks, knowledge base (pages, skills, files, sources), collections (tables / kanban / calendar), routines (scheduled + event-driven), inbox, notifications, audit log.
 - File-processing pipeline (PDF, DOCX, XLSX, CSV, PPTX, TXT) with embedding + chunked vector search.
 - Source connections — Notion sync (Google Drive in progress).
 - Per-agent monthly usage budgets and append-only usage tracking.
