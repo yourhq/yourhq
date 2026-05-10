@@ -40,7 +40,7 @@
 
 - [Architecture](https://docs.yourhq.ai/concepts/architecture): How the UI, Supabase, gateways, queues, files API, and agents fit together.
 - [Agents](https://docs.yourhq.ai/concepts/agents): Agent workspaces, templates, memory, model/thinking configuration, Telegram, tools, org chart, and budgets.
-- [Projects and workspaces](https://docs.yourhq.ai/concepts/projects-and-workspaces): How one UI manages multiple Supabase-backed workspaces.
+- [Workspaces](https://docs.yourhq.ai/concepts/workspaces): How one UI manages multiple Supabase-backed workspaces.
 - [Gateways](https://docs.yourhq.ai/concepts/gateways): Docker hosts that run agents, desktops, files API, and daemons.
 - [Tasks, inbox, and commands](https://docs.yourhq.ai/concepts/tasks-inbox-and-commands): The queues that coordinate UI, gateways, and agents.
 - [Security model](https://docs.yourhq.ai/concepts/security-model): Trust boundaries behind HQ's self-hosted architecture.

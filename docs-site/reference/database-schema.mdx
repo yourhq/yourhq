@@ -38,7 +38,7 @@ For an existing project, review each migration before applying. All files are id
 
 ## Trust Model
 
-HQ uses a multi-project isolation model.
+HQ uses a multi-workspace isolation model.
 
 - Each Supabase project is a fully-isolated workspace. Within each database, every table enforces tenant-scoped RLS via `tenant_id`.
 - Every tenant-owned table has a `tenant_id` column referencing the `tenants` table. RLS policies enforce `tenant_id = current_tenant_id()` for the `authenticated` role, where `current_tenant_id()` extracts the tenant ID from the JWT's `app_metadata`.

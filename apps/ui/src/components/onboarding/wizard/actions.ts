@@ -1,11 +1,11 @@
 "use server";
 
 import { z } from "zod";
-import { patchOnboardingState, addProject, getActiveProject } from "@/lib/projects";
+import { patchOnboardingState, addWorkspace, getActiveWorkspace } from "@/lib/workspaces";
 import { cookies } from "next/headers";
-import { ACTIVE_PROJECT_COOKIE, ACTIVE_PROJECT_COOKIE_OPTIONS } from "@/lib/projects/cookie";
+import { ACTIVE_WORKSPACE_COOKIE, ACTIVE_WORKSPACE_COOKIE_OPTIONS } from "@/lib/workspaces/cookie";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { validateSupabaseCreds } from "@/lib/projects/validate";
+import { validateSupabaseCreds } from "@/lib/workspaces/validate";
 import {
   saveWelcome,
   saveContext,
@@ -119,22 +119,22 @@ export async function validateAndConnectDb(input: {
     return { ok: true, schemaNeeded: true };
   }
 
-  // Schema is present — save the project to the registry so the gateway
-  // step can look it up via getActiveProjectWithSecrets().
-  await saveProjectToRegistry(parsed.data);
+  // Schema is present — save the workspace to the registry so the gateway
+  // step can look it up via getActiveWorkspaceWithSecrets().
+  await saveWorkspaceToRegistry(parsed.data);
 
   return { ok: true, schemaNeeded: false };
 }
 
-export async function saveProjectToRegistry(creds: {
+export async function saveWorkspaceToRegistry(creds: {
   url: string;
   anonKey: string;
   serviceRoleKey: string;
 }) {
-  const existing = await getActiveProject();
+  const existing = await getActiveWorkspace();
   if (existing?.url === creds.url) return;
 
-  const project = await addProject({
+  const workspace = await addWorkspace({
     label: "My workspace",
     emoji: "🏠",
     url: creds.url,
@@ -144,9 +144,9 @@ export async function saveProjectToRegistry(creds: {
   });
 
   const jar = await cookies();
-  jar.set(ACTIVE_PROJECT_COOKIE, project.id, ACTIVE_PROJECT_COOKIE_OPTIONS);
+  jar.set(ACTIVE_WORKSPACE_COOKIE, workspace.id, ACTIVE_WORKSPACE_COOKIE_OPTIONS);
 
-  await patchOnboardingState({ data: { projectId: project.id } });
+  await patchOnboardingState({ data: { projectId: workspace.id } });
 }
 
 export async function setupGateway(

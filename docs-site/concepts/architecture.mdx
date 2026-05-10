@@ -159,7 +159,7 @@ The `gateway` container is deliberately fat in Phase 1 — it's one image that r
 
 **Volumes.** Four named volumes per Compose project:
 
-- `ui-config` (mounted at `/config` in the UI container): project registry (`projects.json`, `secrets.json`). Also mounted read-only in gateway services so they can read Supabase creds without `.env` edits.
+- `ui-config` (mounted at `/config` in the UI container): workspace registry (`workspaces.json`, `secrets.json`). Also mounted read-only in gateway services so they can read Supabase creds without `.env` edits.
 - `gateway-state` (mounted at `/home/openclaw/.openclaw` in gateway, dispatcher read-only, runner read-write): holds `openclaw.json`, `repo.git` (bare), `workspace-<branch>/` (worktrees), `browser/<profile>/user-data/`, `Desktop/`, `plugins/`, `shared-auth/`, `.vnc-password`.
 - `gateway-chrome-profile` (mounted at `/home/openclaw/.config/google-chrome`): Chrome's own profile dir. Kept separate so you can blow it away without destroying agent workspaces.
 - `gateway-embedding-cache` (mounted at `/models` in the embedder): cached BGE model files so restarts don't re-download.
@@ -233,7 +233,7 @@ What HQ **does not** provide: per-agent privilege separation, user-facing audit 
 
 Supabase is the backbone. Every piece of coordination — commands, inbox items, heartbeats, audit trails, realtime subscriptions, cross-agent observability — is a row in a Postgres table.
 
-**Why not a custom backend?** Three reasons. First, Realtime + Postgres triggers + RPCs cover the entire messaging surface HQ needs (enqueue, lease, complete, fail, subscribe). Second, hosting Postgres + auth + storage + realtime in one managed service that the operator already owns removes a huge ops burden versus running Redis, Postgres, a WebSocket gateway, and an auth service ourselves. Third, the schema already enforces tenant-scoped RLS via `tenant_id` on every table — the multi-project UI adds a second isolation layer on top by giving each workspace its own Supabase project entirely.
+**Why not a custom backend?** Three reasons. First, Realtime + Postgres triggers + RPCs cover the entire messaging surface HQ needs (enqueue, lease, complete, fail, subscribe). Second, hosting Postgres + auth + storage + realtime in one managed service that the operator already owns removes a huge ops burden versus running Redis, Postgres, a WebSocket gateway, and an auth service ourselves. Third, the schema already enforces tenant-scoped RLS via `tenant_id` on every table — the multi-workspace UI adds a second isolation layer on top by giving each workspace its own Supabase project entirely.
 
 The structures to know:
 
@@ -262,7 +262,7 @@ The UI is designed to be configured, not coded, for most everyday changes:
 
 ## 14. Where things are going
 
-- **Self-hosted hardening.** Better migration tooling, stronger validation around project setup, and clearer gateway health diagnostics.
+- **Self-hosted hardening.** Better migration tooling, stronger validation around workspace setup, and clearer gateway health diagnostics.
 - **Hosted offering.** Account management, automated Supabase/gateway provisioning, billing, and managed operations in front of the same core runtime.
 - **Integrations.** More MCP-first integrations, richer provider auth UX, optional email/calendar/Slack/Notion flows, and deeper routine primitives.
 - **Docs site.** The docs site at [docs.yourhq.ai](https://docs.yourhq.ai) is live and rendered from the `docs-site/` directory in this repo.

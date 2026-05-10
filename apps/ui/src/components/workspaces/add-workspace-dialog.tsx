@@ -15,10 +15,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertCircle, Loader2 } from "lucide-react";
 
-interface AddProjectDialogProps {
+interface AddWorkspaceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAdded?: (projectId: string) => void;
+  onAdded?: (workspaceId: string) => void;
 }
 
 interface AddResult {
@@ -27,14 +27,14 @@ interface AddResult {
   hint?: string;
 }
 
-async function addProject(input: {
+async function connectWorkspace(input: {
   label: string;
   emoji: string;
   url: string;
   anonKey: string;
   serviceRoleKey: string;
 }): Promise<AddResult> {
-  const validateRes = await fetch("/api/projects/validate", {
+  const validateRes = await fetch("/api/workspaces/validate", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
@@ -52,7 +52,7 @@ async function addProject(input: {
     };
   }
 
-  const createRes = await fetch("/api/projects", {
+  const createRes = await fetch("/api/workspaces", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(input),
@@ -64,11 +64,11 @@ async function addProject(input: {
   return { ok: true };
 }
 
-export function AddProjectDialog({
+export function AddWorkspaceDialog({
   open,
   onOpenChange,
   onAdded,
-}: AddProjectDialogProps) {
+}: AddWorkspaceDialogProps) {
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<AddResult | null>(null);
   const router = useRouter();
@@ -86,7 +86,7 @@ export function AddProjectDialog({
 
     setResult(null);
     startTransition(async () => {
-      const r = await addProject(input);
+      const r = await connectWorkspace(input);
       setResult(r);
       if (r.ok) {
         onOpenChange(false);
@@ -100,9 +100,9 @@ export function AddProjectDialog({
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogContent className="sm:max-w-md p-0 gap-0">
         <ResponsiveDialogHeader className="px-5 pt-5 pb-3 border-b border-border/50">
-          <ResponsiveDialogTitle className="text-heading">Add a Supabase project</ResponsiveDialogTitle>
+          <ResponsiveDialogTitle className="text-heading">Connect a new workspace</ResponsiveDialogTitle>
           <ResponsiveDialogDescription className="text-caption text-muted-foreground">
-            Each project is fully isolated — contacts, agents, tasks, and settings don&apos;t mix.
+            Each workspace is fully isolated — contacts, agents, tasks, and settings don&apos;t mix.
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
@@ -219,7 +219,7 @@ export function AddProjectDialog({
                   Validating…
                 </>
               ) : (
-                "Add project"
+                "Connect"
               )}
             </Button>
           </ResponsiveDialogFooter>

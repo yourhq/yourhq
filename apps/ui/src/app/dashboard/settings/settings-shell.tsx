@@ -11,7 +11,7 @@ import {
   Plug,
   Server,
   Globe,
-  FolderKanban,
+  Database,
   BookOpen,
   Zap,
   ScrollText,
@@ -78,7 +78,7 @@ const SETTINGS_NAV: NavGroup[] = [
     items: [
       { href: "/dashboard/settings/gateways", label: "Gateways", icon: Server },
       { href: "/dashboard/settings/networking", label: "Networking", icon: Globe },
-      { href: "/dashboard/settings/projects", label: "Projects", icon: FolderKanban },
+      { href: "/dashboard/settings/database", label: "Database", icon: Database },
     ],
   },
   {

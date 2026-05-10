@@ -441,7 +441,7 @@ HQ is an open-source platform for running AI agents on your own infrastructure. 
   
 
   
-    Yes. One HQ UI instance can manage multiple independent Supabase projects via the project registry. Use the project picker in the top nav to switch between workspaces. Each workspace is completely isolated — separate agents, data, gateways, and auth users.
+    Yes. One HQ UI instance can manage multiple independent Supabase projects via the workspace registry. Use the workspace switcher in the top nav to switch between workspaces. Each workspace is completely isolated — separate agents, data, gateways, and auth users.
 
     You can also run multiple Compose stacks on the same host by setting a different `COMPOSE_PROJECT` in each `.env` — they get separate volumes and container names.
   
@@ -528,7 +528,7 @@ HQ is an open-source platform for running AI agents on your own infrastructure. 
   
 
   
-    HQ uses tenant-scoped row-level security on every table — each row has a `tenant_id`, and RLS policies restrict access to rows matching the authenticated user's tenant. Self-hosted installs use a single default tenant. On top of that, the multi-project registry gives each workspace its own Supabase project for full database-level isolation. The UI's project switcher lets one HQ instance manage multiple isolated projects.
+    HQ uses tenant-scoped row-level security on every table — each row has a `tenant_id`, and RLS policies restrict access to rows matching the authenticated user's tenant. Self-hosted installs use a single default tenant. On top of that, the multi-workspace registry gives each workspace its own Supabase project for full database-level isolation. The UI's workspace switcher lets one HQ instance manage multiple isolated workspaces.
 
     See [Security model →](/concepts/security-model)
   
@@ -621,9 +621,9 @@ Where HQ is now, what ships in v0.1, and what comes after.
 ### Workspace and onboarding
 
 - First-boot onboarding in the browser
-- Project registry in `/config/projects.json` and `/config/secrets.json`
+- Workspace registry in `/config/workspaces.json` and `/config/secrets.json`
 - Runtime Supabase config injection with no `NEXT_PUBLIC_*` rebuild requirement
-- Project switcher and project settings
+- Workspace switcher and database settings
 - Supabase validation during onboarding
 - Account creation and sign-in flow
 - Unified onboarding wizard (welcome → intent → infrastructure → provider → first agent) with session persistence, progressive disclosure, and post-wizard mission panel
@@ -688,7 +688,7 @@ Small items to address before tagging. None are blockers, but they'd be good to 
 ## Next (post-v0.1)
 
 - **Sentry (env-gated)** — `sentry-sdk` in daemons, `@sentry/nextjs` in UI. Only active when `SENTRY_DSN` is set. Ships alongside other hosted integrations.
-- **Templates source UI** — switch between bundled templates and a custom git URL per project.
+- **Templates source UI** — switch between bundled templates and a custom git URL per workspace.
 - **Pretty tailnet URLs** — optional Tailscale Serve automation in the installer for `http://hq` instead of ported URLs.
 
 ## Hosted Offering
@@ -1439,13 +1439,13 @@ HQ uses your own Supabase project as its database, auth system, real-time event 
 
 ---
 
-## Multiple projects
+## Multiple workspaces
 
 One HQ UI can manage multiple Supabase projects. This is useful for keeping client workspaces, personal projects, or staging environments completely separate.
 
-Switch projects from the **project picker** in the top navigation. Each project is fully isolated — separate agents, data, gateways, and auth users.
+Switch workspaces from the **workspace switcher** in the top navigation. Each workspace is fully isolated — separate agents, data, gateways, and auth users.
 
-To add a second project: **Settings → Projects → Add project** and paste the creds for the new Supabase project.
+To add a second workspace: **Settings → Database → Add workspace** and paste the creds for the new Supabase project.
 
 ---
 
@@ -1624,7 +1624,7 @@ docker compose pull
 docker compose up -d
 ```
 
-UI Supabase config lives in the project registry (no rebuild needed after updates). Only pull and restart.
+UI Supabase config lives in the workspace registry (no rebuild needed after updates). Only pull and restart.
 
 ## Uninstalling
 
@@ -2182,8 +2182,8 @@ Set `NOVNC_BIND=local` in `.env` and restart `docker compose up -d gateway`.
 
 Almost always a Supabase URL / key mismatch. Check:
 
-UI Supabase config lives in the project registry, not `.env`. Open the UI,
-go to Settings → Projects, and verify the active project's URL and keys
+UI Supabase config lives in the workspace registry, not `.env`. Open the UI,
+go to Settings → Database, and verify the active workspace's URL and keys
 are correct. To rotate or fix, use the Edit / Rotate buttons there —
 no rebuild needed.
 
@@ -2398,7 +2398,7 @@ Three credential paths are tried in order:
 - One-shot — the marker file prevents re-exchange on subsequent boots
 - If it fails, the container exits (restart with a fresh token)
 
-**Path C: project registry** — For co-located installs where the UI writes creds to the shared `ui-config` volume. The entrypoint polls `/config/projects.json` + `/config/secrets.json` every 5 seconds until creds appear. This lets the gateway start before the user has completed browser onboarding — it will wait indefinitely, logging a status line every 30 seconds.
+**Path C: workspace registry** — For co-located installs where the UI writes creds to the shared `ui-config` volume. The entrypoint polls `/config/workspaces.json` + `/config/secrets.json` every 5 seconds until creds appear. This lets the gateway start before the user has completed browser onboarding — it will wait indefinitely, logging a status line every 30 seconds.
 
 On every subsequent boot, the pinned slug from `.gateway-slug` (if present) is restored into `GATEWAY_ID` so the gateway always registers as the same row in Supabase.
 
@@ -2583,7 +2583,7 @@ docker compose pull   # download latest images
 docker compose up -d  # restart with new images
 ```
 
-The UI's Supabase config lives in the project registry (runtime, not baked into the image), so updates never require a UI rebuild. Just pull and restart.
+The UI's Supabase config lives in the workspace registry (runtime, not baked into the image), so updates never require a UI rebuild. Just pull and restart.
 
 **Update from the UI:** Settings → Gateways → hover a gateway row → **Update gateway**. This runs `docker compose pull && up -d` on the gateway host via the runner daemon.
 
@@ -3682,7 +3682,7 @@ This page is the product tour. For system internals, read [Architecture](/concep
 
 ## Workspace
 
-Every HQ install connects to one or more Supabase projects. A project contains the workspace data: agents, tasks, CRM records, knowledge, routines, collections, settings, gateway registrations, command history, and usage data.
+Every HQ install connects to one or more Supabase projects. A workspace contains: agents, tasks, CRM records, knowledge, routines, collections, settings, gateway registrations, command history, and usage data.
 
 The first boot flow is intentionally config-light:
 
@@ -3690,7 +3690,7 @@ The first boot flow is intentionally config-light:
 2. Open the UI and sign in.
 3. Complete the onboarding wizard.
 
-After setup, the project can be managed from Settings. The UI stores project metadata in `/config/projects.json` and project secrets in `/config/secrets.json` on the `ui-config` volume. The active project is selected at runtime, so the published UI image does not need a rebuild for each user's Supabase project.
+After setup, the workspace can be managed from Settings. The UI stores workspace metadata in `/config/workspaces.json` and workspace secrets in `/config/secrets.json` on the `ui-config` volume. The active workspace is selected at runtime, so the published UI image does not need a rebuild for each user's Supabase project.
 
 ## Onboarding
 
@@ -4182,7 +4182,7 @@ The `gateway` container is deliberately fat in Phase 1 — it's one image that r
 
 **Volumes.** Four named volumes per Compose project:
 
-- `ui-config` (mounted at `/config` in the UI container): project registry (`projects.json`, `secrets.json`). Also mounted read-only in gateway services so they can read Supabase creds without `.env` edits.
+- `ui-config` (mounted at `/config` in the UI container): workspace registry (`workspaces.json`, `secrets.json`). Also mounted read-only in gateway services so they can read Supabase creds without `.env` edits.
 - `gateway-state` (mounted at `/home/openclaw/.openclaw` in gateway, dispatcher read-only, runner read-write): holds `openclaw.json`, `repo.git` (bare), `workspace-/` (worktrees), `browser//user-data/`, `Desktop/`, `plugins/`, `shared-auth/`, `.vnc-password`.
 - `gateway-chrome-profile` (mounted at `/home/openclaw/.config/google-chrome`): Chrome's own profile dir. Kept separate so you can blow it away without destroying agent workspaces.
 - `gateway-embedding-cache` (mounted at `/models` in the embedder): cached BGE model files so restarts don't re-download.
@@ -4256,7 +4256,7 @@ What HQ **does not** provide: per-agent privilege separation, user-facing audit 
 
 Supabase is the backbone. Every piece of coordination — commands, inbox items, heartbeats, audit trails, realtime subscriptions, cross-agent observability — is a row in a Postgres table.
 
-**Why not a custom backend?** Three reasons. First, Realtime + Postgres triggers + RPCs cover the entire messaging surface HQ needs (enqueue, lease, complete, fail, subscribe). Second, hosting Postgres + auth + storage + realtime in one managed service that the operator already owns removes a huge ops burden versus running Redis, Postgres, a WebSocket gateway, and an auth service ourselves. Third, the schema already enforces tenant-scoped RLS via `tenant_id` on every table — the multi-project UI adds a second isolation layer on top by giving each workspace its own Supabase project entirely.
+**Why not a custom backend?** Three reasons. First, Realtime + Postgres triggers + RPCs cover the entire messaging surface HQ needs (enqueue, lease, complete, fail, subscribe). Second, hosting Postgres + auth + storage + realtime in one managed service that the operator already owns removes a huge ops burden versus running Redis, Postgres, a WebSocket gateway, and an auth service ourselves. Third, the schema already enforces tenant-scoped RLS via `tenant_id` on every table — the multi-workspace UI adds a second isolation layer on top by giving each workspace its own Supabase project entirely.
 
 The structures to know:
 
@@ -4285,7 +4285,7 @@ The UI is designed to be configured, not coded, for most everyday changes:
 
 ## 14. Where things are going
 
-- **Self-hosted hardening.** Better migration tooling, stronger validation around project setup, and clearer gateway health diagnostics.
+- **Self-hosted hardening.** Better migration tooling, stronger validation around workspace setup, and clearer gateway health diagnostics.
 - **Hosted offering.** Account management, automated Supabase/gateway provisioning, billing, and managed operations in front of the same core runtime.
 - **Integrations.** More MCP-first integrations, richer provider auth UX, optional email/calendar/Slack/Notion flows, and deeper routine primitives.
 - **Docs site.** The docs site at [docs.yourhq.ai](https://docs.yourhq.ai) is live and rendered from the `docs-site/` directory in this repo.
@@ -4709,38 +4709,38 @@ All scripts use the Supabase PostgREST API via the service role key.
 
 ---
 
-# Projects and workspaces
+# Workspaces
 
-Source: https://docs.yourhq.ai/concepts/projects-and-workspaces
+Source: https://docs.yourhq.ai/concepts/workspaces
 
 > How one UI manages multiple Supabase-backed workspaces.
 
-An HQ project is a Supabase-backed workspace — your agents, tasks, CRM, knowledge, and settings all live in one Supabase project that you own.
+An HQ workspace is a Supabase-backed workspace — your agents, tasks, CRM, knowledge, and settings all live in one Supabase project that you own.
 
 ## How it works
 
-  - **Project registry**: 
-    The UI stores project metadata in `/config/projects.json` and secrets in `/config/secrets.json` on the `ui-config` Docker volume.
-  
+  - **Workspace registry**:
+    The UI stores workspace metadata in `/config/workspaces.json` and secrets in `/config/secrets.json` on the `ui-config` Docker volume.
 
-  - **Runtime injection**: 
-    The active project is selected at runtime and injected into the browser — no image rebuild needed when switching projects.
-  
 
-## Multi-project support
+  - **Runtime injection**:
+    The active workspace is selected at runtime and injected into the browser — no image rebuild needed when switching workspaces.
 
-One UI install can manage multiple Supabase projects. Each project is a fully isolated workspace with its own database, auth, and realtime. Within each database, every table enforces tenant-scoped RLS via `tenant_id`. The multi-project registry adds a second isolation layer on top — each workspace gets its own Supabase project entirely.
 
-> 
-  Use the project switcher in Settings → Projects to move between workspaces. Each project has its own agents, gateways, tasks, and CRM data.
+## Multi-workspace support
+
+One UI install can manage multiple Supabase projects. Each workspace is a fully isolated workspace with its own database, auth, and realtime. Within each database, every table enforces tenant-scoped RLS via `tenant_id`. The multi-workspace registry adds a second isolation layer on top — each workspace gets its own Supabase project entirely.
+
+>
+  Use the workspace switcher in Settings → Database to move between workspaces. Each workspace has its own agents, gateways, tasks, and CRM data.
 
 ## Isolation model
 
 | Boundary | Scope |
 |---|---|
 | **Supabase project** | Full isolation — separate database, auth, and realtime |
-| **Gateway** | Bound to one project via Supabase credentials |
-| **UI** | Can switch between projects at runtime |
+| **Gateway** | Bound to one workspace via Supabase credentials |
+| **UI** | Can switch between workspaces at runtime |
 
 ---
 
@@ -5588,7 +5588,7 @@ The thin bar at the top of the content area. Owned by the shell, never re-mounte
 - **Breadcrumbs** — derived from the current pathname. UUID segments are resolved to entity names by a Supabase lookup; everything else uses the route segment label.
 - **Theme toggle** — Light / Dark / System dropdown.
 - **Notifications** — bell icon with unread badge.
-- **User menu** — avatar with sign-out and project switcher actions.
+- **User menu** — avatar with sign-out and workspace switcher actions.
 
 A route should never render its own header bar. Page-level titles belong inside the [`PageHeader`](/design/components/composites) below the header bar.
 
@@ -6116,7 +6116,7 @@ The thin preset [`ConfirmDeleteDialog`](https://github.com/yourhq/yourhq/blob/ma
 
 For unrecoverable failures.
 
-Root fallback: [`apps/ui/src/app/error.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/error.tsx) — catches errors that escape segment-level `error.tsx` files. Detects project-related errors via regex against the message (Supabase, project, registry, database, fetch, DNS) and offers context-aware recovery: "Switch project" and "Onboarding" links for project issues, "Try again" plus collapsible technical details otherwise.
+Root fallback: [`apps/ui/src/app/error.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/error.tsx) — catches errors that escape segment-level `error.tsx` files. Detects workspace-related errors via regex against the message (Supabase, workspace, registry, database, fetch, DNS) and offers context-aware recovery: "Switch workspace" and "Onboarding" links for workspace issues, "Try again" plus collapsible technical details otherwise.
 
 Segment-level `error.tsx` files in `app/dashboard//` cover module-specific failure modes. They should:
 
@@ -6175,11 +6175,11 @@ Pass the count and any optional sizing. The preset is `animate-pulse` with `bg-a
 
 For persistent, page-level conditions.
 
-The [`Alert`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/alert.tsx) primitive carries a banner-style message inside the page, distinct from a toast. The only standardized one in the product today is [`SchemaVersionBanner`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/schema-version-banner.tsx) — shown when the active project's schema lags expected migrations.
+The [`Alert`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/alert.tsx) primitive carries a banner-style message inside the page, distinct from a toast. The only standardized one in the product today is [`SchemaVersionBanner`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/schema-version-banner.tsx) — shown when the active workspace's schema lags expected migrations.
 
 ### Rules
 
-- **Reserve `Alert` for page-level state that affects all interactions on the page.** "Your project is in read-only mode", "Schema migration required". Not for "Saved successfully" — that's a toast.
+- **Reserve `Alert` for page-level state that affects all interactions on the page.** "Your workspace is in read-only mode", "Schema migration required". Not for "Saved successfully" — that's a toast.
 - **Provide an action where possible.** A banner with no link out is just nagging.
 
 ## Empty interaction feedback
@@ -6399,7 +6399,7 @@ The installer (`installer/install.sh`) prompts for the minimum required values a
 There are two flavors of variable that behave very differently:
 
 - **Runtime variables** — read by the container process when it starts. Change the value in `.env`, run `docker compose up -d `, and the new value takes effect. Most variables are runtime.
-- **Build-time variables** — baked into the container image when `docker compose build` runs. Changing the value in `.env` does nothing until the image is rebuilt. HQ no longer uses `NEXT_PUBLIC_SUPABASE_*` for project config; Supabase browser config is injected at runtime from the project registry.
+- **Build-time variables** — baked into the container image when `docker compose build` runs. Changing the value in `.env` does nothing until the image is rebuilt. HQ no longer uses `NEXT_PUBLIC_SUPABASE_*` for workspace config; Supabase browser config is injected at runtime from the workspace registry.
 
 The installer always runs `docker compose pull` (and falls back to `build` if the image isn't in the registry), so on a fresh install the distinction is invisible. It only matters when you edit `.env` later.
 
@@ -6414,11 +6414,11 @@ Each variable below lists: **Name / Required / Default / What it does / When to 
 The gateway, dispatcher, and runner each read Supabase credentials from **two sources** in this order:
 
 1. **Environment variables** (`SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`) if set.
-2. **Project registry** at `/config/projects.json` + `/config/secrets.json` (written by the UI's onboarding screen and mounted read-only into the gateway services).
+2. **Workspace registry** at `/config/workspaces.json` + `/config/secrets.json` (written by the UI's onboarding screen and mounted read-only into the gateway services).
 
 The normal path is (2) — you never touch `.env` for Supabase. The onboarding screen writes the creds to the shared `ui-config` volume, the gateway polls `/config` on boot and picks them up automatically.
 
-Use (1) only as an override — e.g. a remote gateway that must always point at a specific project regardless of what the UI's active project is.
+Use (1) only as an override — e.g. a remote gateway that must always point at a specific workspace regardless of what the UI's active workspace is.
 
 - **`SUPABASE_URL`** — **Optional override**. No default. If set, takes precedence over the registry.
 
@@ -6430,7 +6430,7 @@ Use (1) only as an override — e.g. a remote gateway that must always point at 
 
 - **`EMBEDDER_CHUNK_CHARS`**, **`EMBEDDER_CHUNK_OVERLAP`**, **`EMBEDDER_MAX_CHUNKS`** — Optional. Defaults to `3500`, `500`, and `500`. These tune the source-agnostic knowledge chunker used for documents now and future file/external-source indexing.
 
-**Where the real creds live**: the project registry files (`/config/projects.json` for URL + anon key, `/config/secrets.json` for service role key). Don't edit these by hand — use the onboarding screen on first boot, or Settings → Projects afterward.
+**Where the real creds live**: the workspace registry files (`/config/workspaces.json` for URL + anon key, `/config/secrets.json` for service role key). Don't edit these by hand — use the onboarding screen on first boot, or Settings → Database afterward.
 
 `secrets.json` is mode `0644` inside the Docker-managed config volume so the UI, gateway, runner, and dispatcher containers can all read it despite running as different users. The host-level Docker volume directory is the real filesystem boundary. Treat the host and every container in the Compose stack as trusted.
 
@@ -6563,11 +6563,11 @@ Next.js enforces an origin allowlist on server actions and form submissions. Whe
 
 The UI used to bake `NEXT_PUBLIC_SUPABASE_*` into the client bundle at build time, which meant every user had to `docker compose build ui` locally to stamp in their own Supabase values. That's gone.
 
-Now the UI reads its Supabase config at **runtime** from the project registry (`/config/projects.json` + `/config/secrets.json`). The root layout renders a `window.__HQ_CONFIG__ = {...}` tag based on the active project's cookie, so the client bundle picks up whoever's connected without a rebuild.
+Now the UI reads its Supabase config at **runtime** from the workspace registry (`/config/workspaces.json` + `/config/secrets.json`). The root layout renders a `window.__HQ_CONFIG__ = {...}` tag based on the active workspace's cookie, so the client bundle picks up whoever's connected without a rebuild.
 
 **Practical consequences:**
 - The GHCR `yourhq-ui:latest` image works for every user. No `docker compose build ui` required — ever.
-- Changing Supabase creds is a UI action (Settings → Projects → Rotate), not a rebuild.
+- Changing Supabase creds is a UI action (Settings → Database → Rotate), not a rebuild.
 - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` env vars are no longer read by the UI. Leave them unset.
 
 ---
@@ -6578,9 +6578,9 @@ Every secret lives in plaintext in `.env` on disk. The installer `chmod 600` the
 
 If one of these leaks:
 
-- **`SUPABASE_SERVICE_ROLE_KEY`** — bypasses RLS and can read/write every row. **High severity.** Rotate in Supabase dashboard (Project Settings → API → "Generate new service_role key"). Update the affected project in Settings → Projects, or update `.env` if you use env overrides. Restart gateway services after changing env overrides. Audit `audit_log` for suspicious activity.
+- **`SUPABASE_SERVICE_ROLE_KEY`** — bypasses RLS and can read/write every row. **High severity.** Rotate in Supabase dashboard (Project Settings → API → "Generate new service_role key"). Update the affected workspace in Settings → Database, or update `.env` if you use env overrides. Restart gateway services after changing env overrides. Audit `audit_log` for suspicious activity.
 
-- **UI anon key** (stored in `/config/projects.json` per project) — subject to RLS, so damage is bounded by your policies. Rotate in the Supabase dashboard, then update it via Settings → Projects → the affected project in the UI.
+- **UI anon key** (stored in `/config/workspaces.json` per workspace) — subject to RLS, so damage is bounded by your policies. Rotate in the Supabase dashboard, then update it via Settings → Database → the affected workspace in the UI.
 
 - **`GATEWAY_AUTH_TOKEN`** — auth between UI and files-API. Rotate by picking a new value (`openssl rand -hex 32`), writing it to `.env`, and running `docker compose up -d ui gateway` (both services must restart together so they agree on the token).
 
@@ -6602,7 +6602,7 @@ If one of these leaks:
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 ```
 
-**No environment variables change between production and development** — the dev overlay only changes volume mounts, commands, and the UI image (`node:24-slim` instead of the prebuilt UI image). Your `.env` works as-is. Supabase creds for the UI come from the project registry in both modes, so there's no "did I rebuild" confusion.
+**No environment variables change between production and development** — the dev overlay only changes volume mounts, commands, and the UI image (`node:24-slim` instead of the prebuilt UI image). Your `.env` works as-is. Supabase creds for the UI come from the workspace registry in both modes, so there's no "did I rebuild" confusion.
 
 ---
 
@@ -6632,9 +6632,9 @@ Edit `.env`, then run the appropriate Compose command to pick up the change. The
 docker compose up -d ui
 ```
 
-### UI project config (no rebuild required)
+### UI workspace config (no rebuild required)
 
-Supabase URL, anon key, service role key per project live in the project registry on the `ui-config` volume, not in `.env`. Change them via the UI (Settings → Projects → Edit / Rotate) — takes effect immediately on the next request.
+Supabase URL, anon key, service role key per workspace live in the workspace registry on the `ui-config` volume, not in `.env`. Change them via the UI (Settings → Database → Edit / Rotate) — takes effect immediately on the next request.
 
 ### Gateway variables
 
@@ -6676,7 +6676,7 @@ docker compose pull && docker compose up -d
 
 ### Gateway Supabase keys
 
-Changing the gateway's Supabase connection (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) affects the gateway, dispatcher, and runner. UI Supabase creds live in the project registry and don't need any restart:
+Changing the gateway's Supabase connection (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) affects the gateway, dispatcher, and runner. UI Supabase creds live in the workspace registry and don't need any restart:
 
 ```bash
 docker compose up -d gateway dispatcher runner
@@ -6686,7 +6686,7 @@ docker compose up -d gateway dispatcher runner
 
 ## Troubleshooting checklist
 
-- **"The UI loads but login fails"** — the active project in the registry may have wrong creds. Open Settings → Projects → Edit or Rotate to fix, no restart needed.
+- **"The UI loads but login fails"** — the active workspace in the registry may have wrong creds. Open Settings → Database → Edit or Rotate to fix, no restart needed.
 - **"File browser says 401 / auth error"** — `GATEWAY_AUTH_TOKEN` differs between UI and gateway, or is empty. Set it identically in `.env` and run `docker compose up -d ui gateway`.
 - **"Changed the port but the old one still works"** — port bindings need `--force-recreate` (section 7).
 - **"Changed `TEMPLATES_SOURCE` but I still see old templates"** — it's only read on first boot. See section 2.5.
@@ -6738,7 +6738,7 @@ For an existing project, review each migration before applying. All files are id
 
 ## Trust Model
 
-HQ uses a multi-project isolation model.
+HQ uses a multi-workspace isolation model.
 
 - Each Supabase project is a fully-isolated workspace. Within each database, every table enforces tenant-scoped RLS via `tenant_id`.
 - Every tenant-owned table has a `tenant_id` column referencing the `tenants` table. RLS policies enforce `tenant_id = current_tenant_id()` for the `authenticated` role, where `current_tenant_id()` extracts the tenant ID from the JWT's `app_metadata`.
@@ -7668,7 +7668,7 @@ SUPABASE_SERVICE_ROLE_KEY=...
 GATEWAY_AUTH_TOKEN=...
 ```
 
-Then either complete browser onboarding against the dev server or set `HQ_CONFIG_DIR` to a local directory containing compatible `projects.json` and `secrets.json` files. Pages that depend on a gateway will error if no gateway is running — expected.
+Then either complete browser onboarding against the dev server or set `HQ_CONFIG_DIR` to a local directory containing compatible `workspaces.json` and `secrets.json` files. Pages that depend on a gateway will error if no gateway is running — expected.
 
 ## Working on just the gateway
 
@@ -7716,7 +7716,7 @@ docker compose build --no-cache ui
 docker compose up -d ui
 ```
 
-Needed when you add npm packages or change build-time UI behavior. Supabase browser config is runtime-injected from the project registry, so changing Supabase projects does not require an image rebuild.
+Needed when you add npm packages or change build-time UI behavior. Supabase browser config is runtime-injected from the workspace registry, so changing Supabase projects does not require an image rebuild.
 
 ### Reset the gateway state
 
@@ -7883,7 +7883,7 @@ npm install --legacy-peer-deps
 npm run dev
 ```
 
-Complete browser onboarding against the local dev server, or set `HQ_CONFIG_DIR` to a local directory with compatible `projects.json` and `secrets.json` files. You won't have a gateway in this setup, so gateway-dependent pages will error; that's expected.
+Complete browser onboarding against the local dev server, or set `HQ_CONFIG_DIR` to a local directory with compatible `workspaces.json` and `secrets.json` files. You won't have a gateway in this setup, so gateway-dependent pages will error; that's expected.
 
 ### Running just the gateway
 
@@ -8009,7 +8009,7 @@ Expected:
 - Build completes without errors (first build: 3–5 min — Next.js compile + optimize).
 - `ui` container shows "Ready on http://0.0.0.0:3000" in logs.
 - Codespaces shows a notification for port 3000; click to open the URL.
-- Browser loads the onboarding or login page. If the project registry is empty, onboarding is expected.
+- Browser loads the onboarding or login page. If the workspace registry is empty, onboarding is expected.
 
 Common failures:
 - `ENOENT ./public/...` → a COPY path in the Dockerfile is wrong.
@@ -8227,7 +8227,7 @@ A tighter future alternative is [docker-socket-proxy](https://github.com/Tecnati
 
 ### RLS and tenant isolation
 
-Every table uses tenant-scoped RLS policies — authenticated users can only access rows where `tenant_id` matches the JWT's `app_metadata.tenant_id`. Self-hosted installs use a single default tenant, so in practice all authenticated users see all data. **Make sure Supabase email signup is disabled or invite-only**, otherwise anyone who signs up for your Supabase project gets full HQ access within the default tenant. The multi-project registry adds database-level isolation on top; fine-grained per-role permissions are not implemented.
+Every table uses tenant-scoped RLS policies — authenticated users can only access rows where `tenant_id` matches the JWT's `app_metadata.tenant_id`. Self-hosted installs use a single default tenant, so in practice all authenticated users see all data. **Make sure Supabase email signup is disabled or invite-only**, otherwise anyone who signs up for your Supabase project gets full HQ access within the default tenant. The multi-workspace registry adds database-level isolation on top; fine-grained per-role permissions are not implemented.
 
 ### Default port bindings are loopback-only
 
@@ -8338,7 +8338,7 @@ Source: https://docs.yourhq.ai/troubleshooting/common-issues
 
     **Why it happens**
 
-    The UI reads Supabase config from the project registry stored in the `ui-config` Docker volume. The registry is empty, unreadable, or was cleared when volumes were recreated.
+    The UI reads Supabase config from the workspace registry stored in the `ui-config` Docker volume. The registry is empty, unreadable, or was cleared when volumes were recreated.
 
     **Fix**
 
@@ -8363,7 +8363,7 @@ Source: https://docs.yourhq.ai/troubleshooting/common-issues
 
     **Fix**
 
-    1. In Supabase → **Project Settings → API**, confirm `Project URL` and `anon public` match what you entered in HQ Settings → Projects.
+    1. In Supabase → **Project Settings → API**, confirm `Project URL` and `anon public` match what you entered in HQ Settings → Database.
     2. In Supabase → **Authentication → Users → Add user → Create new user**, create an email + password. Check **Auto Confirm User**.
     3. Log in with those credentials.
   
@@ -8585,7 +8585,7 @@ Source: https://docs.yourhq.ai/troubleshooting/common-issues
 
     **Fix**
 
-    1. Copy the service role key again from Supabase → Settings → API → `service_role` (not the anon key). Update it in HQ Settings → Projects or in `.env`.
+    1. Copy the service role key again from Supabase → Settings → API → `service_role` (not the anon key). Update it in HQ Settings → Database or in `.env`.
     2. Confirm migrations are complete: run every file in `db/migrations/` in order from Supabase SQL Editor.
     3. Restart: `docker compose restart gateway`.
 

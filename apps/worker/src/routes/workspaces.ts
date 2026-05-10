@@ -39,7 +39,7 @@ app.get("/users/by-email/:email", async (c) => {
 
 // Resolve the active workspace's Supabase config for the UI server.
 // This route is internal-token gated and should never be called from browser JS.
-app.get("/workspaces/:id/project", async (c) => {
+app.get("/workspaces/:id/connection", async (c) => {
   const ws = await getWorkspace(c.req.param("id"));
   if (!ws) return c.json({ error: "Not found" }, 404);
 

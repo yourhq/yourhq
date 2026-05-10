@@ -13,7 +13,7 @@ docker compose pull   # download latest images
 docker compose up -d  # restart with new images
 ```
 
-The UI's Supabase config lives in the project registry (runtime, not baked into the image), so updates never require a UI rebuild. Just pull and restart.
+The UI's Supabase config lives in the workspace registry (runtime, not baked into the image), so updates never require a UI rebuild. Just pull and restart.
 
 **Update from the UI:** Settings → Gateways → hover a gateway row → **Update gateway**. This runs `docker compose pull && up -d` on the gateway host via the runner daemon.
 

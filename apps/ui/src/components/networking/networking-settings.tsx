@@ -9,7 +9,7 @@ import {
   saveOrigins,
   refreshTailscaleStatus,
 } from "@/app/dashboard/settings/networking/actions";
-import type { UiOrigin } from "@/lib/projects/schema";
+import type { UiOrigin } from "@/lib/workspaces/schema";
 
 export interface NetworkingStatus {
   installed: boolean;
@@ -22,15 +22,15 @@ export interface NetworkingStatus {
 
 export function NetworkingSettings({
   initialStatus,
-  projectOrigins,
-  projectId,
+  workspaceOrigins,
+  workspaceId,
 }: {
   initialStatus: NetworkingStatus;
-  projectOrigins: UiOrigin[];
-  projectId: string | null;
+  workspaceOrigins: UiOrigin[];
+  workspaceId: string | null;
 }) {
   const [status, setStatus] = useState(initialStatus);
-  const [origins, setOrigins] = useState<UiOrigin[]>(projectOrigins);
+  const [origins, setOrigins] = useState<UiOrigin[]>(workspaceOrigins);
   const [pending, startTransition] = useTransition();
   const [newUrl, setNewUrl] = useState("");
   const [newLabel, setNewLabel] = useState("");
@@ -44,9 +44,9 @@ export function NetworkingSettings({
   };
 
   const save = () => {
-    if (!projectId) return;
+    if (!workspaceId) return;
     startTransition(async () => {
-      const r = await saveOrigins({ projectId, origins });
+      const r = await saveOrigins({ projectId: workspaceId, origins });
       if (r.ok) {
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
@@ -240,7 +240,7 @@ export function NetworkingSettings({
           {saved && (
             <span className="text-[11px] text-emerald-500">Saved</span>
           )}
-          <Button onClick={save} disabled={pending || !projectId}>
+          <Button onClick={save} disabled={pending || !workspaceId}>
             {pending ? "Saving…" : "Save"}
           </Button>
         </div>

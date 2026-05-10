@@ -341,7 +341,7 @@ export function StepInfrastructure({
             <div className="rounded-xl border border-border/60 bg-card/20 p-5 space-y-4">
               <div className="space-y-1.5">
                 <label htmlFor="sb-url" className="text-[12px] font-medium text-foreground">
-                  Project URL
+                  Supabase URL
                 </label>
                 <input
                   id="sb-url"

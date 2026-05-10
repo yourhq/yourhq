@@ -28,7 +28,7 @@ Expected:
 - Build completes without errors (first build: 3–5 min — Next.js compile + optimize).
 - `ui` container shows "Ready on http://0.0.0.0:3000" in logs.
 - Codespaces shows a notification for port 3000; click to open the URL.
-- Browser loads the onboarding or login page. If the project registry is empty, onboarding is expected.
+- Browser loads the onboarding or login page. If the workspace registry is empty, onboarding is expected.
 
 Common failures:
 - `ENOENT ./public/...` → a COPY path in the Dockerfile is wrong.

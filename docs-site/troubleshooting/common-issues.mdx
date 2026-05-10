@@ -13,14 +13,14 @@ description: "Fixes for the most common problems. Search for the exact error tex
 
 <AccordionGroup>
 
-  <Accordion title="UI keeps showing onboarding / 'no active project'">
+  <Accordion title="UI keeps showing onboarding / 'no active workspace'">
     **What you see**
 
     You open `http://localhost:3000` and get sent back to onboarding even though you already connected Supabase.
 
     **Why it happens**
 
-    The UI reads Supabase config from the project registry stored in the `ui-config` Docker volume. The registry is empty, unreadable, or was cleared when volumes were recreated.
+    The UI reads Supabase config from the workspace registry stored in the `ui-config` Docker volume. The registry is empty, unreadable, or was cleared when volumes were recreated.
 
     **Fix**
 
@@ -45,7 +45,7 @@ description: "Fixes for the most common problems. Search for the exact error tex
 
     **Fix**
 
-    1. In Supabase → **Project Settings → API**, confirm `Project URL` and `anon public` match what you entered in HQ Settings → Projects.
+    1. In Supabase → **Project Settings → API**, confirm `Project URL` and `anon public` match what you entered in HQ Settings → Database.
     2. In Supabase → **Authentication → Users → Add user → Create new user**, create an email + password. Check **Auto Confirm User**.
     3. Log in with those credentials.
   </Accordion>
@@ -271,7 +271,7 @@ description: "Fixes for the most common problems. Search for the exact error tex
 
     **Fix**
 
-    1. Copy the service role key again from Supabase → Settings → API → `service_role` (not the anon key). Update it in HQ Settings → Projects or in `.env`.
+    1. Copy the service role key again from Supabase → Settings → API → `service_role` (not the anon key). Update it in HQ Settings → Database or in `.env`.
     2. Confirm migrations are complete: run every file in `db/migrations/` in order from Supabase SQL Editor.
     3. Restart: `docker compose restart gateway`.
 

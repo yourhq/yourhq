@@ -5,7 +5,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import {
   createWorkspaceSessionValue,
   lookupUserWorkspaces,
-} from "@/lib/projects/hosted-registry";
+} from "@/lib/workspaces/hosted-registry";
 import { workerFetch } from "@/lib/worker-client";
 
 const HOSTED_EMAIL_COOKIE = "hq_hosted_email";

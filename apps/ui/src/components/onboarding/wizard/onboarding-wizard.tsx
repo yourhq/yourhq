@@ -33,7 +33,7 @@ import {
   prepareSchemaInstallAction,
   runOneClickMigrationAction,
   confirmSchemaInstalledAction,
-  saveProjectToRegistry,
+  saveWorkspaceToRegistry,
 } from "./actions";
 import { createHostedCheckout, getHostedEmail, verifyAutoLogin } from "./hosted-actions";
 
@@ -248,7 +248,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
       startTransition(async () => {
         const r = await runOneClickMigrationAction({ projectRef, region, dbPassword });
         if (r.ok) {
-          await saveProjectToRegistry(creds);
+          await saveWorkspaceToRegistry(creds);
           setSchemaInstall({ phase: "idle" });
           setInfraStatus((s) => ({ ...s, db: "connected" }));
         } else {
@@ -266,7 +266,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
     startTransition(async () => {
       const r = await confirmSchemaInstalledAction(creds);
       if (r.ok) {
-        await saveProjectToRegistry(creds);
+        await saveWorkspaceToRegistry(creds);
         setSchemaInstall({ phase: "idle" });
         setInfraStatus((s) => ({ ...s, db: "connected" }));
       } else {

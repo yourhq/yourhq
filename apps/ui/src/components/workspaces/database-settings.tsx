@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  FolderKanban,
+  Database,
   MoreHorizontal,
   Plus,
   Pencil,
@@ -32,10 +32,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { AddProjectDialog } from "./add-project-dialog";
+import { AddWorkspaceDialog } from "./add-workspace-dialog";
 import { cn } from "@/lib/utils";
 
-export interface ProjectsSettingsProject {
+export interface DatabaseSettingsWorkspace {
   id: string;
   label: string;
   emoji: string;
@@ -45,37 +45,37 @@ export interface ProjectsSettingsProject {
 }
 
 interface Props {
-  activeProjectId: string | null;
-  projects: ProjectsSettingsProject[];
+  activeWorkspaceId: string | null;
+  workspaces: DatabaseSettingsWorkspace[];
 }
 
-export function ProjectsSettings({ activeProjectId, projects }: Props) {
+export function DatabaseSettings({ activeWorkspaceId, workspaces }: Props) {
   const router = useRouter();
   const [addOpen, setAddOpen] = useState(false);
-  const [editing, setEditing] = useState<ProjectsSettingsProject | null>(null);
-  const [rotating, setRotating] = useState<ProjectsSettingsProject | null>(null);
-  const [deleting, setDeleting] = useState<ProjectsSettingsProject | null>(null);
+  const [editing, setEditing] = useState<DatabaseSettingsWorkspace | null>(null);
+  const [rotating, setRotating] = useState<DatabaseSettingsWorkspace | null>(null);
+  const [deleting, setDeleting] = useState<DatabaseSettingsWorkspace | null>(null);
 
   return (
     <div className="flex h-full flex-col">
       <PageHeader
-        icon={<FolderKanban className="h-4 w-4" />}
-        title="Projects"
-        description="Connect, edit, and switch between Supabase projects. Each project is fully isolated."
+        icon={<Database className="h-4 w-4" />}
+        title="Database"
+        description="Database connection for this workspace."
         primaryAction={
           <Button size="sm" onClick={() => setAddOpen(true)}>
             <Plus className="h-3.5 w-3.5 mr-1.5" />
-            Add project
+            Add workspace
           </Button>
         }
       />
 
       <div className="flex-1 overflow-auto">
         <div className="mx-auto w-full max-w-2xl px-5 py-5">
-          {projects.length === 0 ? (
+          {workspaces.length === 0 ? (
             <div className="rounded-md border border-dashed border-border/60 px-6 py-10 text-center">
               <p className="text-body text-muted-foreground">
-                No projects yet.
+                No workspaces connected yet.
               </p>
               <Button
                 size="sm"
@@ -84,21 +84,17 @@ export function ProjectsSettings({ activeProjectId, projects }: Props) {
                 onClick={() => setAddOpen(true)}
               >
                 <Plus className="h-3.5 w-3.5 mr-1.5" />
-                Add project
+                Add workspace
               </Button>
             </div>
           ) : (
             <div className="overflow-hidden rounded-md border border-border/60 bg-card">
-              {projects.map((p, idx) => {
-                const isActive = p.id === activeProjectId;
-                // We block deleting an active project unless it's the
-                // ONLY project — in that case there's no other to switch
-                // to, and the API + DeleteProjectDialog handle it by
-                // resetting to first-run state and bouncing to /onboarding.
-                const canDelete = !isActive || projects.length === 1;
+              {workspaces.map((w, idx) => {
+                const isActive = w.id === activeWorkspaceId;
+                const canDelete = !isActive || workspaces.length === 1;
                 return (
                   <div
-                    key={p.id}
+                    key={w.id}
                     className={cn(
                       "group flex items-center gap-3 px-3 py-2.5",
                       idx > 0 && "border-t border-border/50",
@@ -106,22 +102,22 @@ export function ProjectsSettings({ activeProjectId, projects }: Props) {
                     )}
                   >
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-[15px]">
-                      {p.emoji}
+                      {w.emoji}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <div className="truncate text-[13px] font-medium text-foreground">
-                          {p.label}
+                          {w.label}
                         </div>
                         {isActive && (
                           <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" title="Active" />
                         )}
-                        {p.isDefault && !isActive && (
+                        {w.isDefault && !isActive && (
                           <Star className="h-3 w-3 shrink-0 text-muted-foreground/60" />
                         )}
                       </div>
                       <div className="truncate text-[11px] text-muted-foreground/70 font-mono">
-                        {p.url.replace(/^https?:\/\//, "")}
+                        {w.url.replace(/^https?:\/\//, "")}
                       </div>
                     </div>
                     <DropdownMenu>
@@ -130,28 +126,28 @@ export function ProjectsSettings({ activeProjectId, projects }: Props) {
                           variant="ghost"
                           size="icon-sm"
                           className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
-                          aria-label="Project actions"
+                          aria-label="Workspace actions"
                         >
                           <MoreHorizontal className="h-3.5 w-3.5" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-44">
-                        <DropdownMenuItem onSelect={() => setEditing(p)} className="gap-2">
+                        <DropdownMenuItem onSelect={() => setEditing(w)} className="gap-2">
                           <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                           Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setRotating(p)} className="gap-2">
+                        <DropdownMenuItem onSelect={() => setRotating(w)} className="gap-2">
                           <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
                           Rotate service key
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          onSelect={() => setDeleting(p)}
+                          onSelect={() => setDeleting(w)}
                           disabled={!canDelete}
                           className="gap-2 text-destructive focus:text-destructive"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
-                          {!canDelete ? "Delete (switch first)" : "Delete"}
+                          {!canDelete ? "Disconnect (switch first)" : "Disconnect"}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -162,20 +158,20 @@ export function ProjectsSettings({ activeProjectId, projects }: Props) {
           )}
 
           <p className="mt-3 text-[11px] text-muted-foreground/60">
-            Active projects are marked with a green dot. The default project is used when no active-project cookie is set (e.g. first visit).
+            Active workspaces are marked with a green dot. The default workspace is used on first visit.
           </p>
         </div>
       </div>
 
-      <AddProjectDialog
+      <AddWorkspaceDialog
         open={addOpen}
         onOpenChange={setAddOpen}
         onAdded={() => router.refresh()}
       />
 
       {editing && (
-        <EditProjectDialog
-          project={editing}
+        <EditConnectionDialog
+          workspace={editing}
           onClose={(refresh) => {
             setEditing(null);
             if (refresh) router.refresh();
@@ -185,7 +181,7 @@ export function ProjectsSettings({ activeProjectId, projects }: Props) {
 
       {rotating && (
         <RotateKeyDialog
-          project={rotating}
+          workspace={rotating}
           onClose={(refresh) => {
             setRotating(null);
             if (refresh) router.refresh();
@@ -194,14 +190,9 @@ export function ProjectsSettings({ activeProjectId, projects }: Props) {
       )}
 
       {deleting && (
-        <DeleteProjectDialog
-          project={deleting}
-          // When deleting the last project, the registry becomes empty
-          // and middleware would otherwise just bounce the next request
-          // to /onboarding anyway. Doing the redirect here gives the
-          // user immediate feedback instead of showing them an empty
-          // settings page for a beat first.
-          isLast={projects.length === 1}
+        <DisconnectWorkspaceDialog
+          workspace={deleting}
+          isLast={workspaces.length === 1}
           onClose={(refresh) => {
             setDeleting(null);
             if (refresh) router.refresh();
@@ -217,11 +208,11 @@ export function ProjectsSettings({ activeProjectId, projects }: Props) {
 
 // ── Edit (label + emoji) ────────────────────────────────────────────────
 
-function EditProjectDialog({
-  project,
+function EditConnectionDialog({
+  workspace,
   onClose,
 }: {
-  project: ProjectsSettingsProject;
+  workspace: DatabaseSettingsWorkspace;
   onClose: (refresh: boolean) => void;
 }) {
   const [pending, startTransition] = useTransition();
@@ -235,7 +226,7 @@ function EditProjectDialog({
     const makeDefault = fd.get("makeDefault") === "on";
     setError(null);
     startTransition(async () => {
-      const res = await fetch(`/api/projects/${project.id}`, {
+      const res = await fetch(`/api/workspaces/${workspace.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ label, emoji, makeDefault }),
@@ -252,7 +243,7 @@ function EditProjectDialog({
     <ResponsiveDialog open onOpenChange={(o) => !o && onClose(false)}>
       <ResponsiveDialogContent variant="fullscreen" className="sm:max-w-sm p-0 gap-0">
         <ResponsiveDialogHeader className="px-5 pt-5 pb-3 border-b border-border/50">
-          <ResponsiveDialogTitle className="text-heading">Edit project</ResponsiveDialogTitle>
+          <ResponsiveDialogTitle className="text-heading">Edit workspace</ResponsiveDialogTitle>
           <ResponsiveDialogDescription className="text-caption text-muted-foreground">
             Rename or change the icon. Use Rotate for the service role key.
           </ResponsiveDialogDescription>
@@ -265,7 +256,7 @@ function EditProjectDialog({
                 <Input
                   id="edit-emoji"
                   name="emoji"
-                  defaultValue={project.emoji}
+                  defaultValue={workspace.emoji}
                   maxLength={8}
                   className="text-center text-base"
                   required
@@ -276,7 +267,7 @@ function EditProjectDialog({
                 <Input
                   id="edit-label"
                   name="label"
-                  defaultValue={project.label}
+                  defaultValue={workspace.label}
                   maxLength={80}
                   required
                   autoFocus
@@ -287,11 +278,11 @@ function EditProjectDialog({
               <input
                 type="checkbox"
                 name="makeDefault"
-                defaultChecked={project.isDefault}
-                disabled={project.isDefault}
+                defaultChecked={workspace.isDefault}
+                disabled={workspace.isDefault}
                 className="rounded border-border/60"
               />
-              <span>Make default project</span>
+              <span>Make default workspace</span>
             </label>
             {error && (
               <p className="text-[12px] text-destructive">{error}</p>
@@ -321,10 +312,10 @@ function EditProjectDialog({
 // ── Rotate service role key ─────────────────────────────────────────────
 
 function RotateKeyDialog({
-  project,
+  workspace,
   onClose,
 }: {
-  project: ProjectsSettingsProject;
+  workspace: DatabaseSettingsWorkspace;
   onClose: (refresh: boolean) => void;
 }) {
   const [pending, startTransition] = useTransition();
@@ -340,7 +331,7 @@ function RotateKeyDialog({
     }
     setError(null);
     startTransition(async () => {
-      const res = await fetch(`/api/projects/${project.id}`, {
+      const res = await fetch(`/api/workspaces/${workspace.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ serviceRoleKey }),
@@ -404,15 +395,15 @@ function RotateKeyDialog({
   );
 }
 
-// ── Delete ───────────────────────────────────────────────────────────────
+// ── Disconnect ──────────────────────────────────────────────────────────
 
-function DeleteProjectDialog({
-  project,
+function DisconnectWorkspaceDialog({
+  workspace,
   isLast,
   onClose,
   onLastDeleted,
 }: {
-  project: ProjectsSettingsProject;
+  workspace: DatabaseSettingsWorkspace;
   isLast: boolean;
   onClose: (refresh: boolean) => void;
   onLastDeleted: () => void;
@@ -421,7 +412,7 @@ function DeleteProjectDialog({
 
   const onConfirm = () => {
     startTransition(async () => {
-      const res = await fetch(`/api/projects/${project.id}`, {
+      const res = await fetch(`/api/workspaces/${workspace.id}`, {
         method: "DELETE",
       });
       if (!res.ok) {
@@ -439,13 +430,13 @@ function DeleteProjectDialog({
     <ConfirmDialog
       open
       onCancel={() => onClose(false)}
-      title={`Delete "${project.label}"?`}
+      title={`Disconnect "${workspace.label}"?`}
       description={
         isLast
-          ? "This is your only project. Deleting it will return you to the onboarding flow. Your Supabase project itself is not touched — you can reconnect later with the same URL and keys."
-          : "Removes the project from this machine's registry. Your Supabase project is not touched — you can reconnect later with the same URL and keys."
+          ? "This is your only workspace. Disconnecting it will return you to the onboarding flow. Your database is not touched — you can reconnect later with the same URL and keys."
+          : "Removes the workspace from this machine's registry. Your database is not touched — you can reconnect later with the same URL and keys."
       }
-      confirmLabel={pending ? "Deleting…" : "Delete"}
+      confirmLabel={pending ? "Disconnecting…" : "Disconnect"}
       tone="destructive"
       onConfirm={onConfirm}
     />

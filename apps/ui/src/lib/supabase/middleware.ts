@@ -1,26 +1,24 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import {
-  getActiveProject,
+  getActiveWorkspace,
   getOnboardingState,
-} from "@/lib/projects";
-import { ACTIVE_PROJECT_COOKIE } from "@/lib/projects/cookie";
+} from "@/lib/workspaces";
+import { ACTIVE_WORKSPACE_COOKIE } from "@/lib/workspaces/cookie";
 import {
   getWorkspaceSession,
   getProvisionStatus,
-} from "@/lib/projects/hosted-registry";
+} from "@/lib/workspaces/hosted-registry";
 
 const isHosted = process.env.DEPLOYMENT_MODE === "hosted";
 
 const ONBOARDING_PATH = "/onboarding";
 const LOGIN_PATH = "/login";
 const AUTH_PATH = "/auth";
-// Paths that work without a configured project.
-const NO_PROJECT_OK_PATHS_OSS = [ONBOARDING_PATH, "/api/config"];
-const NO_PROJECT_OK_PATHS_HOSTED = [
+const NO_WORKSPACE_OK_PATHS_OSS = [ONBOARDING_PATH, "/api/config"];
+const NO_WORKSPACE_OK_PATHS_HOSTED = [
   LOGIN_PATH, AUTH_PATH, "/signup", "/provision", ONBOARDING_PATH, "/api/config",
 ];
-// Paths that work without an authenticated user (but still need a project).
 const NO_AUTH_OK_PATHS = [LOGIN_PATH, AUTH_PATH, ONBOARDING_PATH];
 
 function matches(path: string, allowed: string[]): boolean {
@@ -31,15 +29,15 @@ export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
   const activeIdHint =
-    request.cookies.get(ACTIVE_PROJECT_COOKIE)?.value ?? null;
-  const project = await getActiveProject(activeIdHint).catch(() => null);
+    request.cookies.get(ACTIVE_WORKSPACE_COOKIE)?.value ?? null;
+  const workspace = await getActiveWorkspace(activeIdHint).catch(() => null);
 
-  if (!project) {
-    const noProjectPaths = isHosted
-      ? NO_PROJECT_OK_PATHS_HOSTED
-      : NO_PROJECT_OK_PATHS_OSS;
+  if (!workspace) {
+    const noWorkspacePaths = isHosted
+      ? NO_WORKSPACE_OK_PATHS_HOSTED
+      : NO_WORKSPACE_OK_PATHS_OSS;
 
-    if (matches(request.nextUrl.pathname, noProjectPaths)) {
+    if (matches(request.nextUrl.pathname, noWorkspacePaths)) {
       return supabaseResponse;
     }
     const url = request.nextUrl.clone();
@@ -47,16 +45,16 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (!isHosted && activeIdHint && activeIdHint !== project.id) {
-    supabaseResponse.cookies.set(ACTIVE_PROJECT_COOKIE, project.id, {
+  if (!isHosted && activeIdHint && activeIdHint !== workspace.id) {
+    supabaseResponse.cookies.set(ACTIVE_WORKSPACE_COOKIE, workspace.id, {
       path: "/",
       sameSite: "lax",
       maxAge: 60 * 60 * 24 * 365,
     });
   }
 
-  const cookiePrefix = `hq-${project.id.slice(0, 8)}`;
-  const supabase = createServerClient(project.url, project.anonKey, {
+  const cookiePrefix = `hq-${workspace.id.slice(0, 8)}`;
+  const supabase = createServerClient(workspace.url, workspace.anonKey, {
     cookieOptions: { name: cookiePrefix },
     cookies: {
       getAll() {

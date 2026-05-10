@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { getActiveProject } from "@/lib/projects";
+import { getActiveWorkspace } from "@/lib/workspaces";
 
 const isHosted = process.env.DEPLOYMENT_MODE === "hosted";
 const authPath = isHosted ? "/auth" : "/login";
@@ -18,8 +18,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  const project = await getActiveProject().catch(() => null);
-  if (!project) {
+  const workspace = await getActiveWorkspace().catch(() => null);
+  if (!workspace) {
     const url = new URL(authPath, origin);
     url.searchParams.set("error", "no_workspace");
     return NextResponse.redirect(url);
@@ -27,8 +27,8 @@ export async function GET(request: NextRequest) {
 
   const response = NextResponse.redirect(new URL(next, origin));
 
-  const cookiePrefix = `hq-${project.id.slice(0, 8)}`;
-  const supabase = createServerClient(project.url, project.anonKey, {
+  const cookiePrefix = `hq-${workspace.id.slice(0, 8)}`;
+  const supabase = createServerClient(workspace.url, workspace.anonKey, {
     cookieOptions: { name: cookiePrefix },
     cookies: {
       getAll() {

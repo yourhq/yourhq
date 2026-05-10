@@ -30,9 +30,9 @@ Where HQ is now, what ships in v0.1, and what comes after.
 ### Workspace and onboarding
 
 - First-boot onboarding in the browser
-- Project registry in `/config/projects.json` and `/config/secrets.json`
+- Workspace registry in `/config/workspaces.json` and `/config/secrets.json`
 - Runtime Supabase config injection with no `NEXT_PUBLIC_*` rebuild requirement
-- Project switcher and project settings
+- Workspace switcher and database settings
 - Supabase validation during onboarding
 - Account creation and sign-in flow
 - Unified onboarding wizard (welcome → intent → infrastructure → provider → first agent) with session persistence, progressive disclosure, and post-wizard mission panel
@@ -97,7 +97,7 @@ Small items to address before tagging. None are blockers, but they'd be good to 
 ## Next (post-v0.1)
 
 - **Sentry (env-gated)** — `sentry-sdk` in daemons, `@sentry/nextjs` in UI. Only active when `SENTRY_DSN` is set. Ships alongside other hosted integrations.
-- **Templates source UI** — switch between bundled templates and a custom git URL per project.
+- **Templates source UI** — switch between bundled templates and a custom git URL per workspace.
 - **Pretty tailnet URLs** — optional Tailscale Serve automation in the installer for `http://hq` instead of ported URLs.
 
 ## Hosted Offering

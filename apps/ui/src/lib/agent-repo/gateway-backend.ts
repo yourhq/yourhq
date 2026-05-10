@@ -4,7 +4,7 @@
 // across a Tailscale tailnet, depending on deployment).
 
 import type { GitHubTreeEntry, GitHubFileContent } from "@/lib/agent-repo/types";
-import { getOrCreateGatewayAuthToken } from "@/lib/projects/gateway-auth-token";
+import { getOrCreateGatewayAuthToken } from "@/lib/workspaces/gateway-auth-token";
 
 async function getEnv() {
   const base = process.env.GATEWAY_URL;

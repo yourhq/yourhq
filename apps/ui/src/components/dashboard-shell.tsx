@@ -44,7 +44,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { ProjectSwitcher } from "@/components/projects/project-switcher";
+import { WorkspaceSwitcher } from "@/components/workspaces/workspace-switcher";
 import { SignInModal } from "@/components/auth/sign-in-modal";
 import { useAuthWatcher } from "@/hooks/use-auth-watcher";
 import { ModulesProvider } from "@/components/shared/modules-context";
@@ -277,16 +277,16 @@ function SidebarInner({
   showLabels,
   pathname,
   onLinkClick,
-  activeProjectId,
-  projects,
+  activeWorkspaceId,
+  workspaces,
   isHosted,
   modules,
 }: {
   showLabels: boolean;
   pathname: string;
   onLinkClick?: () => void;
-  activeProjectId: string | null;
-  projects: SwitcherProject[];
+  activeWorkspaceId: string | null;
+  workspaces: SwitcherWorkspace[];
   isHosted: boolean;
   modules?: Record<string, boolean>;
 }) {
@@ -306,11 +306,12 @@ function SidebarInner({
 
   return (
     <>
-      {/* Project switcher (renders as a plain label when ≤1 project) */}
-      <ProjectSwitcher
-        activeProjectId={activeProjectId}
-        projects={projects}
+      {/* Workspace switcher (renders as a plain label when ≤1 workspace) */}
+      <WorkspaceSwitcher
+        activeWorkspaceId={activeWorkspaceId}
+        workspaces={workspaces}
         showLabels={showLabels}
+        isHosted={isHosted}
       />
 
       {/* Search hint — top of sidebar */}
@@ -485,7 +486,7 @@ function SidebarInner({
   );
 }
 
-interface SwitcherProject {
+interface SwitcherWorkspace {
   id: string;
   label: string;
   emoji: string;
@@ -494,15 +495,15 @@ interface SwitcherProject {
 export function DashboardShell({
   user,
   children,
-  activeProjectId,
-  projects,
+  activeWorkspaceId,
+  workspaces,
   isHosted = false,
   modules,
 }: {
   user: User;
   children: React.ReactNode;
-  activeProjectId: string | null;
-  projects: SwitcherProject[];
+  activeWorkspaceId: string | null;
+  workspaces: SwitcherWorkspace[];
   isHosted?: boolean;
   modules?: Record<string, boolean>;
 }) {
@@ -553,9 +554,9 @@ export function DashboardShell({
   // when the browser emits SIGNED_OUT (token expired), or when a later
   // caller invokes requireSignIn() after a 401.
   const auth = useAuthWatcher();
-  const activeProject = React.useMemo(
-    () => projects.find((p) => p.id === activeProjectId) ?? projects[0] ?? null,
-    [projects, activeProjectId],
+  const activeWorkspace = React.useMemo(
+    () => workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[0] ?? null,
+    [workspaces, activeWorkspaceId],
   );
 
   return (
@@ -563,12 +564,12 @@ export function DashboardShell({
       <ModulesProvider modules={modules}>
       <KeyboardShortcutsProvider>
         <TooltipProvider delayDuration={200}>
-          {activeProject && (
+          {activeWorkspace && (
             <SignInModal
               open={auth.needsSignIn}
               onSuccess={auth.close}
-              workspaceLabel={activeProject.label}
-              workspaceEmoji={activeProject.emoji}
+              workspaceLabel={activeWorkspace.label}
+              workspaceEmoji={activeWorkspace.emoji}
               defaultEmail={auth.email ?? user?.email ?? ""}
             />
           )}
@@ -589,8 +590,8 @@ export function DashboardShell({
                     showLabels
                     pathname={pathname}
                     onLinkClick={handleMobileClose}
-                    activeProjectId={activeProjectId}
-                    projects={projects}
+                    activeWorkspaceId={activeWorkspaceId}
+                    workspaces={workspaces}
                     isHosted={isHosted}
                     modules={modules}
                   />
@@ -608,8 +609,8 @@ export function DashboardShell({
               <SidebarInner
                 showLabels={!collapsed}
                 pathname={pathname}
-                activeProjectId={activeProjectId}
-                projects={projects}
+                activeWorkspaceId={activeWorkspaceId}
+                workspaces={workspaces}
                 isHosted={isHosted}
                 modules={modules}
               />

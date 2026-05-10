@@ -1,0 +1,33 @@
+---
+title: "Workspaces"
+description: "How one UI manages multiple Supabase-backed workspaces."
+---
+
+An HQ workspace is a Supabase-backed unit — your agents, tasks, CRM, knowledge, and settings all live in one Supabase project that you own.
+
+## How it works
+
+<CardGroup cols={2}>
+  <Card title="Workspace registry" icon="folder-open">
+    The UI stores workspace metadata in `/config/workspaces.json` and secrets in `/config/secrets.json` on the `ui-config` Docker volume.
+  </Card>
+  <Card title="Runtime injection" icon="bolt">
+    The active workspace is selected at runtime and injected into the browser — no image rebuild needed when switching workspaces.
+  </Card>
+</CardGroup>
+
+## Multi-workspace support
+
+One UI install can manage multiple Supabase projects. Each workspace is fully isolated with its own database, auth, and realtime. Within each database, every table enforces tenant-scoped RLS via `tenant_id`. The multi-workspace registry adds a second isolation layer on top — each workspace gets its own Supabase project entirely.
+
+<Tip>
+  Use the workspace switcher in Settings → Database to move between workspaces. Each workspace has its own agents, gateways, tasks, and CRM data.
+</Tip>
+
+## Isolation model
+
+| Boundary | Scope |
+|---|---|
+| **Supabase project** | Full isolation — separate database, auth, and realtime |
+| **Gateway** | Bound to one workspace via Supabase credentials |
+| **UI** | Can switch between workspaces at runtime |

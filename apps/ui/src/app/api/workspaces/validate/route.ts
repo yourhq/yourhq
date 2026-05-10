@@ -1,11 +1,11 @@
-// POST /api/projects/validate — checks a proposed set of Supabase creds
+// POST /api/workspaces/validate — checks a proposed set of Supabase creds
 // before saving. Same logic as the onboarding flow; lives here so the
-// client-side Add Project dialog can call it from the browser.
+// client-side Add Workspace dialog can call it from the browser.
 
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { validateSupabaseCreds } from "@/lib/projects/validate";
+import { validateSupabaseCreds } from "@/lib/workspaces/validate";
 
 const schema = z.object({
   url: z.string().url(),

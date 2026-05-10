@@ -1,9 +1,9 @@
 import "server-only";
 
 import type {
-  PublicProject,
-  ProjectSecrets,
-  ProjectWithSecrets,
+  PublicWorkspace,
+  WorkspaceSecrets,
+  WorkspaceWithSecrets,
   OnboardingState,
 } from "./schema";
 import { cookies } from "next/headers";
@@ -17,22 +17,13 @@ interface HostedWorkspaceData {
   status: string;
   supabase_url: string | null;
   supabase_anon_key: string | null;
+  supabase_service_role_key: string | null;
+  setup_metadata?: Record<string, unknown>;
 }
 
 interface WorkspaceSession {
   workspaceId: string;
   iat: number;
-}
-
-interface HostedProjectData {
-  id: string;
-  label: string;
-  emoji: string | null;
-  status: string;
-  supabase_url: string | null;
-  supabase_anon_key: string | null;
-  supabase_service_role_key: string | null;
-  setup_metadata?: Record<string, unknown>;
 }
 
 const SESSION_COOKIE = "hq_workspace_session";
@@ -77,63 +68,63 @@ export async function getWorkspaceSession(): Promise<WorkspaceSession | null> {
   }
 }
 
-async function fetchHostedProject(workspaceId: string): Promise<HostedProjectData | null> {
-  const res = await workerFetch(`/workspaces/${workspaceId}/project`, {
+async function fetchHostedWorkspace(workspaceId: string): Promise<HostedWorkspaceData | null> {
+  const res = await workerFetch(`/workspaces/${workspaceId}/connection`, {
     cache: "no-store" as RequestCache,
   });
   if (!res.ok) return null;
   return res.json();
 }
 
-function hostedProjectToPublicProject(project: HostedProjectData): PublicProject {
+function hostedToPublicWorkspace(data: HostedWorkspaceData): PublicWorkspace {
   return {
-    id: project.id,
-    label: project.label || "Workspace",
-    emoji: project.emoji || "🏠",
-    url: project.supabase_url || "",
-    anonKey: project.supabase_anon_key || "",
+    id: data.id,
+    label: data.label || "Workspace",
+    emoji: data.emoji || "🏠",
+    url: data.supabase_url || "",
+    anonKey: data.supabase_anon_key || "",
     isDefault: true,
     createdAt: new Date().toISOString(),
     uiOrigins: [],
   };
 }
 
-export async function getActiveProject(
+export async function getActiveWorkspace(
   _activeIdHint?: string | null,
-): Promise<PublicProject | null> {
+): Promise<PublicWorkspace | null> {
   const session = await getWorkspaceSession();
   if (!session) return null;
-  const project = await fetchHostedProject(session.workspaceId);
-  if (!project?.supabase_url || !project.supabase_anon_key) return null;
-  return hostedProjectToPublicProject(project);
+  const workspace = await fetchHostedWorkspace(session.workspaceId);
+  if (!workspace?.supabase_url || !workspace.supabase_anon_key) return null;
+  return hostedToPublicWorkspace(workspace);
 }
 
-export async function getActiveProjectWithSecrets(
+export async function getActiveWorkspaceWithSecrets(
   _activeIdHint?: string | null,
-): Promise<ProjectWithSecrets | null> {
+): Promise<WorkspaceWithSecrets | null> {
   const session = await getWorkspaceSession();
   if (!session) return null;
-  const project = await fetchHostedProject(session.workspaceId);
-  if (!project?.supabase_url || !project.supabase_anon_key || !project.supabase_service_role_key) {
+  const workspace = await fetchHostedWorkspace(session.workspaceId);
+  if (!workspace?.supabase_url || !workspace.supabase_anon_key || !workspace.supabase_service_role_key) {
     return null;
   }
   return {
-    ...hostedProjectToPublicProject(project),
-    serviceRoleKey: project.supabase_service_role_key,
+    ...hostedToPublicWorkspace(workspace),
+    serviceRoleKey: workspace.supabase_service_role_key,
   };
 }
 
-export async function getProjectSecrets(
+export async function getWorkspaceSecrets(
   id: string,
-): Promise<ProjectSecrets | null> {
+): Promise<WorkspaceSecrets | null> {
   const session = await getWorkspaceSession();
   if (!session || session.workspaceId !== id) return null;
-  const project = await fetchHostedProject(session.workspaceId);
-  if (!project?.supabase_service_role_key) return null;
-  return { serviceRoleKey: project.supabase_service_role_key };
+  const workspace = await fetchHostedWorkspace(session.workspaceId);
+  if (!workspace?.supabase_service_role_key) return null;
+  return { serviceRoleKey: workspace.supabase_service_role_key };
 }
 
-export async function listSiblingProjects(): Promise<PublicProject[]> {
+export async function listSiblingWorkspaces(): Promise<PublicWorkspace[]> {
   const session = await getWorkspaceSession();
   if (!session) return [];
 
@@ -170,8 +161,8 @@ export async function canAccessWorkspace(workspaceId: string): Promise<boolean> 
   const session = await getWorkspaceSession();
   if (!session) return false;
   if (session.workspaceId === workspaceId) return true;
-  const siblings = await listSiblingProjects();
-  return siblings.some((p) => p.id === workspaceId);
+  const siblings = await listSiblingWorkspaces();
+  return siblings.some((w) => w.id === workspaceId);
 }
 
 function deriveHostedStep(
@@ -193,12 +184,12 @@ function deriveHostedStep(
 export async function getOnboardingState(): Promise<OnboardingState> {
   const session = await getWorkspaceSession();
   if (session) {
-    const project = await fetchHostedProject(session.workspaceId);
-    const metadata = project?.setup_metadata ?? {};
+    const workspace = await fetchHostedWorkspace(session.workspaceId);
+    const metadata = workspace?.setup_metadata ?? {};
     const complete = metadata.onboardingComplete === true;
 
     const status = await getProvisionStatus(session.workspaceId).catch(() => null);
-    const subscriptionStatus = status?.subscription_status ?? project?.status;
+    const subscriptionStatus = status?.subscription_status ?? workspace?.status;
     const provisionStage = status?.provision_stage ?? null;
 
     const step = complete
@@ -212,8 +203,8 @@ export async function getOnboardingState(): Promise<OnboardingState> {
       data: {
         ownerName: metadata.ownerName,
         preferredName: metadata.preferredName ?? metadata.ownerName,
-        workspaceName: metadata.workspaceName ?? project?.label,
-        workspaceLabel: metadata.workspaceName ?? project?.label,
+        workspaceName: metadata.workspaceName ?? workspace?.label,
+        workspaceLabel: metadata.workspaceName ?? workspace?.label,
         workspaceSlug: metadata.workspaceSlug,
         intentKey: metadata.intentKey ?? metadata.contextPreset,
         contextPresetKey: metadata.contextPresetKey ?? metadata.contextPreset,

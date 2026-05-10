@@ -47,10 +47,10 @@ services:
     container_name: ${COMPOSE_PROJECT:-yourhq}-ui
     restart: unless-stopped
     environment:
-      # Supabase creds are runtime, per-project, from the registry volume
-      # (/config/projects.json + /config/secrets.json). No build-time or
+      # Supabase creds are runtime, per-workspace, from the registry volume
+      # (/config/workspaces.json + /config/secrets.json). No build-time or
       # compose-time Supabase env vars needed — the same image works for
-      # any user after they connect a project via the onboarding screen.
+      # any user after they connect a workspace via the onboarding screen.
       # Gateway file-browser: UI talks directly to the gateway's files-API
       # over the Docker internal network (default) or Tailscale.
       GATEWAY_URL: ${GATEWAY_URL:-http://gateway:18790}

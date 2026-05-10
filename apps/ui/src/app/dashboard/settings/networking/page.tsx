@@ -2,14 +2,14 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Globe } from "lucide-react";
 import { NetworkingSettings } from "@/components/networking/networking-settings";
 import { detectTailscale } from "@/lib/tailscale/detect";
-import { readActiveProjectPublic } from "@/lib/projects/server";
+import { readActiveWorkspacePublic } from "@/lib/workspaces/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function NetworkingSettingsPage() {
-  const [status, project] = await Promise.all([
+  const [status, workspace] = await Promise.all([
     detectTailscale(),
-    readActiveProjectPublic(),
+    readActiveWorkspacePublic(),
   ]);
 
   return (
@@ -30,8 +30,8 @@ export default async function NetworkingSettingsPage() {
               selfHostname: status.selfHostname,
               error: status.error,
             }}
-            projectOrigins={project?.uiOrigins ?? []}
-            projectId={project?.id ?? null}
+            workspaceOrigins={workspace?.uiOrigins ?? []}
+            workspaceId={workspace?.id ?? null}
           />
         </div>
       </div>

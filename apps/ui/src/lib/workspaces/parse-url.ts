@@ -22,7 +22,7 @@ export interface ParsedSupabaseUrl {
 export function parseSupabaseUrl(input: string): ParsedSupabaseUrl {
   const trimmed = input.trim();
   if (!trimmed) {
-    return { ok: false, error: "Project URL is empty." };
+    return { ok: false, error: "Database URL is empty." };
   }
 
   let parsed: URL;

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Plus, Check, ChevronsUpDown, Settings } from "lucide-react";
 import {
   DropdownMenu,
@@ -11,46 +12,47 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { AddProjectDialog } from "./add-project-dialog";
+import { AddWorkspaceDialog } from "./add-workspace-dialog";
 import { cn } from "@/lib/utils";
 
-export interface SwitcherProject {
+
+export interface SwitcherWorkspace {
   id: string;
   label: string;
   emoji: string;
 }
 
 interface Props {
-  activeProjectId: string | null;
-  projects: SwitcherProject[];
+  activeWorkspaceId: string | null;
+  workspaces: SwitcherWorkspace[];
   showLabels?: boolean;
+  isHosted?: boolean;
 }
 
-async function switchProject(projectId: string) {
-  const res = await fetch("/api/projects/switch", {
+async function switchWorkspace(workspaceId: string) {
+  const res = await fetch("/api/workspaces/switch", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ projectId }),
+    body: JSON.stringify({ workspaceId }),
   });
   if (!res.ok) {
-    console.error("Project switch failed", await res.text());
+    console.error("Workspace switch failed", await res.text());
     return;
   }
-  // Hard reload — tears down any open Realtime subscriptions pointed
-  // at the old project cleanly.
   window.location.reload();
 }
 
-export function ProjectSwitcher({
-  activeProjectId,
-  projects,
+export function WorkspaceSwitcher({
+  activeWorkspaceId,
+  workspaces,
   showLabels = true,
+  isHosted = false,
 }: Props) {
+  const router = useRouter();
   const [addOpen, setAddOpen] = useState(false);
   const active =
-    projects.find((p) => p.id === activeProjectId) ?? projects[0] ?? null;
+    workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[0] ?? null;
 
-  // Empty registry: plain "HQ" lockup (user is mid-onboarding if anywhere).
   if (!active) {
     return (
       <div className="flex h-12 shrink-0 items-center gap-2 px-3">
@@ -66,9 +68,7 @@ export function ProjectSwitcher({
     );
   }
 
-  // Single-project: static label. The emoji stands in for the HQ gradient
-  // logo so users with one workspace still get a recognizable identity.
-  if (projects.length <= 1) {
+  if (workspaces.length <= 1) {
     return (
       <div className="flex h-12 shrink-0 items-center gap-2 px-3">
         <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted text-[13px]">
@@ -83,7 +83,6 @@ export function ProjectSwitcher({
     );
   }
 
-  // Multi-project: dropdown switcher.
   return (
     <>
       <div className="h-12 shrink-0 px-2 py-2">
@@ -95,7 +94,7 @@ export function ProjectSwitcher({
                 "flex h-8 w-full items-center gap-2 rounded-md px-1.5 text-left",
                 "hover:bg-accent transition-colors outline-none focus-visible:ring-1 focus-visible:ring-border",
               )}
-              aria-label={`Switch project — currently ${active.label}`}
+              aria-label={`Switch workspace — currently ${active.label}`}
             >
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted text-[13px]">
                 {active.emoji}
@@ -116,22 +115,22 @@ export function ProjectSwitcher({
             sideOffset={6}
           >
             <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/70">
-              Projects
+              Workspaces
             </DropdownMenuLabel>
-            {projects.map((p) => {
-              const isActive = p.id === activeProjectId;
+            {workspaces.map((w) => {
+              const isActive = w.id === activeWorkspaceId;
               return (
                 <DropdownMenuItem
-                  key={p.id}
+                  key={w.id}
                   onSelect={() => {
-                    if (!isActive) switchProject(p.id);
+                    if (!isActive) switchWorkspace(w.id);
                   }}
                   className="gap-2"
                 >
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center text-[14px]">
-                    {p.emoji}
+                    {w.emoji}
                   </span>
-                  <span className="flex-1 truncate">{p.label}</span>
+                  <span className="flex-1 truncate">{w.label}</span>
                   {isActive && (
                     <Check className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   )}
@@ -139,26 +138,32 @@ export function ProjectSwitcher({
               );
             })}
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => setAddOpen(true)} className="gap-2">
+            <DropdownMenuItem
+              onSelect={() => {
+                if (isHosted) {
+                  router.push("/new-workspace");
+                } else {
+                  setAddOpen(true);
+                }
+              }}
+              className="gap-2"
+            >
               <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              Add project
+              Add workspace
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/dashboard/settings/projects" className="gap-2">
+              <Link href="/dashboard/settings/database" className="gap-2">
                 <Settings className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                Manage projects
+                Manage workspaces
               </Link>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <AddProjectDialog
+      <AddWorkspaceDialog
         open={addOpen}
         onOpenChange={setAddOpen}
         onAdded={() => {
-          // Dashboard layout caches the project list as a prop, so a plain
-          // router.refresh() doesn't show the new project in the switcher
-          // until navigation. A hard reload is the simplest reliable fix.
           window.location.reload();
         }}
       />

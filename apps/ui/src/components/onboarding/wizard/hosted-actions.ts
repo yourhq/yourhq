@@ -5,9 +5,9 @@ import { createServerClient } from "@supabase/ssr";
 import { workerFetch } from "@/lib/worker-client";
 import {
   getProvisionStatus,
-  getActiveProject,
+  getActiveWorkspace,
   createWorkspaceSessionValue,
-} from "@/lib/projects/hosted-registry";
+} from "@/lib/workspaces/hosted-registry";
 
 const HOSTED_EMAIL_COOKIE = "hq_hosted_email";
 
@@ -78,15 +78,15 @@ export async function verifyAutoLogin(
   tokenHash: string,
   type: "magiclink" | "email" = "magiclink",
 ): Promise<{ ok: boolean; error?: string }> {
-  const project = await getActiveProject().catch(() => null);
-  if (!project?.url || !project.anonKey) {
+  const workspace = await getActiveWorkspace().catch(() => null);
+  if (!workspace?.url || !workspace.anonKey) {
     return { ok: false, error: "No workspace configured" };
   }
 
   const cookieStore = await cookies();
-  const cookiePrefix = `hq-${project.id.slice(0, 8)}`;
+  const cookiePrefix = `hq-${workspace.id.slice(0, 8)}`;
 
-  const supabase = createServerClient(project.url, project.anonKey, {
+  const supabase = createServerClient(workspace.url, workspace.anonKey, {
     cookieOptions: { name: cookiePrefix },
     cookies: {
       getAll() {

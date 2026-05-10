@@ -2,9 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
-import { HqConfigProvider } from "@/lib/projects/hq-config-provider";
-import { readActiveProjectPublic } from "@/lib/projects/server";
-import { getOrCreateGatewayAuthToken } from "@/lib/projects/gateway-auth-token";
+import { HqConfigProvider } from "@/lib/workspaces/hq-config-provider";
+import { readActiveWorkspacePublic } from "@/lib/workspaces/server";
+import { getOrCreateGatewayAuthToken } from "@/lib/workspaces/gateway-auth-token";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -53,14 +53,14 @@ export default async function RootLayout({
     });
   }
 
-  const project = await readActiveProjectPublic();
-  const hqConfig = project
+  const workspace = await readActiveWorkspacePublic();
+  const hqConfig = workspace
     ? {
-        projectId: project.id,
-        url: project.url,
-        anonKey: project.anonKey,
-        label: project.label,
-        emoji: project.emoji,
+        workspaceId: workspace.id,
+        url: workspace.url,
+        anonKey: workspace.anonKey,
+        label: workspace.label,
+        emoji: workspace.emoji,
       }
     : null;
 

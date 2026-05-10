@@ -35,7 +35,7 @@ This page is the product tour. For system internals, read [Architecture](/concep
 
 ## Workspace
 
-Every HQ install connects to one or more Supabase projects. A project contains the workspace data: agents, tasks, CRM records, knowledge, routines, collections, settings, gateway registrations, command history, and usage data.
+Every HQ install connects to one or more Supabase projects. A workspace contains all the data: agents, tasks, CRM records, knowledge, routines, collections, settings, gateway registrations, command history, and usage data.
 
 The first boot flow is intentionally config-light:
 
@@ -43,7 +43,7 @@ The first boot flow is intentionally config-light:
 2. Open the UI and sign in.
 3. Complete the onboarding wizard.
 
-After setup, the project can be managed from Settings. The UI stores project metadata in `/config/projects.json` and project secrets in `/config/secrets.json` on the `ui-config` volume. The active project is selected at runtime, so the published UI image does not need a rebuild for each user's Supabase project.
+After setup, the workspace can be managed from Settings. The UI stores workspace metadata in `/config/workspaces.json` and workspace secrets in `/config/secrets.json` on the `ui-config` volume. The active workspace is selected at runtime, so the published UI image does not need a rebuild for each user's Supabase project.
 
 ## Onboarding
 

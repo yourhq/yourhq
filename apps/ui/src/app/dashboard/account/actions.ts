@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { getWorkspaceSession } from "@/lib/projects/hosted-registry";
+import { getWorkspaceSession } from "@/lib/workspaces/hosted-registry";
 import { workerFetch } from "@/lib/worker-client";
 
 interface WorkspaceInfo {

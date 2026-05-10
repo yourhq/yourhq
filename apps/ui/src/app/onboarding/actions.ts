@@ -4,21 +4,21 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
-  addProject,
-  getActiveProjectWithSecrets,
+  addWorkspace,
+  getActiveWorkspaceWithSecrets,
   patchOnboardingState,
   getOnboardingState,
-} from "@/lib/projects/registry";
+} from "@/lib/workspaces/registry";
 import { buildGatewayOneLiner } from "@/lib/gateways/one-liner";
 import {
-  ACTIVE_PROJECT_COOKIE,
-  ACTIVE_PROJECT_COOKIE_OPTIONS,
-} from "@/lib/projects/cookie";
-import { validateSupabaseCreds } from "@/lib/projects/validate";
-import { prepareSchemaInstall, verifySchemaInstalled } from "@/lib/projects/install-schema";
-import { createAuthUser } from "@/lib/projects/create-user";
-import { detectCollisions } from "@/lib/projects/detect-collisions";
-import { parseSupabaseUrl, apiKeysDashboardUrl } from "@/lib/projects/parse-url";
+  ACTIVE_WORKSPACE_COOKIE,
+  ACTIVE_WORKSPACE_COOKIE_OPTIONS,
+} from "@/lib/workspaces/cookie";
+import { validateSupabaseCreds } from "@/lib/workspaces/validate";
+import { prepareSchemaInstall, verifySchemaInstalled } from "@/lib/workspaces/install-schema";
+import { createAuthUser } from "@/lib/workspaces/create-user";
+import { detectCollisions } from "@/lib/workspaces/detect-collisions";
+import { parseSupabaseUrl, apiKeysDashboardUrl } from "@/lib/workspaces/parse-url";
 import { detectTailscale } from "@/lib/tailscale/detect";
 import { mintGatewayToken, checkTokenConsumed } from "@/lib/gateways/mint-token";
 import {
@@ -240,7 +240,7 @@ export async function validateProjectUrl(
 ): Promise<ValidateUrlResult> {
   const parsed = urlOnlySchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: "Project URL is required." };
+    return { ok: false, error: "Supabase URL is required." };
   }
 
   const r = parseSupabaseUrl(parsed.data.url);
@@ -393,7 +393,7 @@ export async function runOneClickMigrationAction(
 
   const { projectRef, region, dbPassword } = parsed.data;
   const encodedPassword = encodeURIComponent(dbPassword);
-  const { runMigrations } = await import("@/lib/projects/run-migrations");
+  const { runMigrations } = await import("@/lib/workspaces/run-migrations");
 
   const poolerPrefixes = ["aws-0", "aws-1", "aws-2"];
 
@@ -512,21 +512,19 @@ export async function createAuthUserAction(
   let url = parsed.data.url;
   let serviceRoleKey = parsed.data.serviceRoleKey;
   if (!url || !serviceRoleKey) {
-    const { getActiveProjectWithSecrets } = await import("@/lib/projects/registry");
-    const project = await getActiveProjectWithSecrets();
-    if (!project) {
+    const { getActiveWorkspaceWithSecrets } = await import("@/lib/workspaces/registry");
+    const workspace = await getActiveWorkspaceWithSecrets();
+    if (!workspace) {
       console.error(
-        "[createAuthUserAction] no active project in registry and form didn't supply creds",
+        "[createAuthUserAction] no active workspace in registry and form didn't supply creds",
       );
       return {
         ok: false,
-        error: "No project configured — connect Supabase first.",
+        error: "No workspace configured — connect Supabase first.",
       };
     }
-    // `||` (not `??`): the form sends empty strings rather than undefined
-    // when StepAccount doesn't have these values; treat empty as missing.
-    url = url || project.url;
-    serviceRoleKey = serviceRoleKey || project.serviceRoleKey;
+    url = url || workspace.url;
+    serviceRoleKey = serviceRoleKey || workspace.serviceRoleKey;
   }
 
   const r = await createAuthUser({
@@ -568,7 +566,7 @@ export async function saveProjectAction(
     return { ok: false, error: "Missing workspace label or creds." };
   }
 
-  const project = await addProject({
+  const workspace = await addWorkspace({
     label: parsed.data.workspaceLabel.trim(),
     emoji: parsed.data.workspaceEmoji,
     url: parsed.data.url,
@@ -578,18 +576,18 @@ export async function saveProjectAction(
   });
 
   const jar = await cookies();
-  jar.set(ACTIVE_PROJECT_COOKIE, project.id, ACTIVE_PROJECT_COOKIE_OPTIONS);
+  jar.set(ACTIVE_WORKSPACE_COOKIE, workspace.id, ACTIVE_WORKSPACE_COOKIE_OPTIONS);
 
   await patchOnboardingState({
     step: "account",
     data: {
-      projectId: project.id,
+      projectId: workspace.id,
       supabaseUrl: parsed.data.url,
       authEmail: parsed.data.authEmail,
     },
   });
 
-  return { ok: true, projectId: project.id };
+  return { ok: true, projectId: workspace.id };
 }
 
 // ─── Account step ──────────────────────────────────────────────────────
@@ -709,9 +707,9 @@ export async function mintGatewayTokenAction(input: {
 }): Promise<ActionResult<GatewayBootstrap>> {
   const state = await getOnboardingState();
   const projectId = (state.data.projectId as string | undefined) ?? null;
-  const projectWithSecrets = await getActiveProjectWithSecrets(projectId);
-  if (!projectWithSecrets) {
-    return { ok: false, error: "No project configured yet." };
+  const workspaceWithSecrets = await getActiveWorkspaceWithSecrets(projectId);
+  if (!workspaceWithSecrets) {
+    return { ok: false, error: "No workspace configured yet." };
   }
 
   const label = (input.label ?? "Gateway").trim() || "Gateway";
@@ -720,7 +718,7 @@ export async function mintGatewayTokenAction(input: {
   const oneLiner = buildGatewayOneLiner({
     token: minted.token,
     label,
-    project: projectWithSecrets,
+    project: workspaceWithSecrets,
     tailscaleAuthKey: input.tailscaleAuthKey,
   });
 

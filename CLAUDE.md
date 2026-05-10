@@ -15,8 +15,8 @@ Supabase (your own project) is the only shared state between UI and gateway — 
 
 ## Architectural shape
 
-- **Multi-project UI**: one UI instance manages N independent Supabase projects via the project registry. Each Supabase is a fully-isolated workspace. Within each database, every table enforces tenant-scoped RLS via `tenant_id`.
-- **Multi-gateway per project**: each Supabase can have multiple gateways (different hosts, different geos). Every agent has a `gateway_id`; daemons filter their command queue by their `GATEWAY_ID` env.
+- **Multi-workspace UI**: one UI instance manages N independent Supabase databases via the workspace registry. Each workspace is fully isolated. Within each database, every table enforces tenant-scoped RLS via `tenant_id`.
+- **Multi-gateway per workspace**: each workspace can have multiple gateways (different hosts, different geos). Every agent has a `gateway_id`; daemons filter their command queue by their `GATEWAY_ID` env.
 - **Local-git-volume default**: each gateway owns a bare git repo in a Docker volume. Per-agent branches live there. Templates from `/opt/templates/` (baked into the gateway image) seed this repo on first boot. Optional `GIT_REMOTE_URL` lets users sync to GitHub/Gitea for backup.
 - **Remote desktop** via noVNC served from the gateway container. Tailscale is the recommended network path (private, no port exposure); public HTTPS (Caddy + Let's Encrypt) and local-only are alternatives.
 - **Usage budgets and org chart**: agent usage is recorded in `agent_usage`, budgets roll up in `agent_budgets`, and `agents.reports_to_id` gives runtime delegation context.
@@ -110,6 +110,6 @@ RLS: All tables use tenant-scoped policies via `current_tenant_id()` JWT claim. 
 
 ## Current Roadmap Shape
 
-- Shipped: self-hosted stack, browser onboarding, multi-project registry, UI-driven gateway registration, provider connections, noVNC modal, usage budgets, agent hierarchy, unified knowledge (pages/skills/files/sources), entity links, routines (schedule + event), collections (table/kanban/calendar views), file processing pipeline, source connections (Notion), modular onboarding, task calendar view, and agent-initiated skill learning (auto-creation with version history).
+- Shipped: self-hosted stack, browser onboarding, multi-workspace registry, UI-driven gateway registration, provider connections, noVNC modal, usage budgets, agent hierarchy, unified knowledge (pages/skills/files/sources), entity links, routines (schedule + event), collections (table/kanban/calendar views), file processing pipeline, source connections (Notion), modular onboarding, task calendar view, and agent-initiated skill learning (auto-creation with version history).
 - Next: Google Drive sync, public deployment docs, richer pricing coverage, template docs, and docs site generation.
 - Later: hosted offering with account management, automated provisioning, and billing.

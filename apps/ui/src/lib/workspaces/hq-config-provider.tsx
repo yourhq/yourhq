@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, type ReactNode } from "react";
 
 export interface InjectedHqConfig {
-  projectId: string;
+  workspaceId: string;
   url: string;
   anonKey: string;
   label: string;

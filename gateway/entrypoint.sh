@@ -58,7 +58,7 @@ mkdir -p "$OPENCLAW_HOME" "$HOME/.ssh"
 # Three paths land here:
 #
 #   A) Co-located UI + gateway (the default install). The UI writes
-#      /config/projects.json and /config/secrets.json after onboarding;
+#      /config/workspaces.json and /config/secrets.json after onboarding;
 #      registry_config.py reads them and exports SUPABASE_URL +
 #      SUPABASE_SERVICE_ROLE_KEY. We poll with a long timeout so users
 #      running `docker compose up -d` before onboarding don't crash-loop.

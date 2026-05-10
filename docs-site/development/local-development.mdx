@@ -70,7 +70,7 @@ SUPABASE_SERVICE_ROLE_KEY=...
 GATEWAY_AUTH_TOKEN=...
 ```
 
-Then either complete browser onboarding against the dev server or set `HQ_CONFIG_DIR` to a local directory containing compatible `projects.json` and `secrets.json` files. Pages that depend on a gateway will error if no gateway is running — expected.
+Then either complete browser onboarding against the dev server or set `HQ_CONFIG_DIR` to a local directory containing compatible `workspaces.json` and `secrets.json` files. Pages that depend on a gateway will error if no gateway is running — expected.
 
 ## Working on just the gateway
 
@@ -118,7 +118,7 @@ docker compose build --no-cache ui
 docker compose up -d ui
 ```
 
-Needed when you add npm packages or change build-time UI behavior. Supabase browser config is runtime-injected from the project registry, so changing Supabase projects does not require an image rebuild.
+Needed when you add npm packages or change build-time UI behavior. Supabase browser config is runtime-injected from the workspace registry, so changing Supabase connections does not require an image rebuild.
 
 ### Reset the gateway state
 

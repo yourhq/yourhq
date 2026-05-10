@@ -22,7 +22,7 @@ Three credential paths are tried in order:
 - One-shot — the marker file prevents re-exchange on subsequent boots
 - If it fails, the container exits (restart with a fresh token)
 
-**Path C: project registry** — For co-located installs where the UI writes creds to the shared `ui-config` volume. The entrypoint polls `/config/projects.json` + `/config/secrets.json` every 5 seconds until creds appear. This lets the gateway start before the user has completed browser onboarding — it will wait indefinitely, logging a status line every 30 seconds.
+**Path C: workspace registry** — For co-located installs where the UI writes creds to the shared `ui-config` volume. The entrypoint polls `/config/workspaces.json` + `/config/secrets.json` every 5 seconds until creds appear. This lets the gateway start before the user has completed browser onboarding — it will wait indefinitely, logging a status line every 30 seconds.
 
 On every subsequent boot, the pinned slug from `.gateway-slug` (if present) is restored into `GATEWAY_ID` so the gateway always registers as the same row in Supabase.
 

@@ -1,18 +1,18 @@
-// Authenticated CRUD for the project registry.
+// Authenticated CRUD for the workspace registry.
 //
 // All routes require an authenticated Supabase session. The active
-// project (used for auth) comes from the hq_active_project cookie —
-// so users who switched projects are authorized against whichever
-// project they're currently on.
+// workspace (used for auth) comes from the hq_active_workspace cookie —
+// so users who switched workspaces are authorized against whichever
+// workspace they're currently on.
 //
-// Returns PublicProject shape only (no service role keys) to the
+// Returns PublicWorkspace shape only (no service role keys) to the
 // browser. Service role keys are set via POST/PATCH request bodies
 // and live in secrets.json on disk.
 
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { addProject, getRegistry } from "@/lib/projects/registry";
+import { addWorkspace, getRegistry } from "@/lib/workspaces/registry";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -25,7 +25,7 @@ async function requireUser() {
   return user;
 }
 
-// ── GET /api/projects ────────────────────────────────────────────────────
+// ── GET /api/workspaces ──────────────────────────────────────────────────
 // Returns the full public registry. Used by the settings page + switcher.
 export async function GET() {
   const user = await requireUser();
@@ -36,10 +36,10 @@ export async function GET() {
   return NextResponse.json(registry);
 }
 
-// ── POST /api/projects ───────────────────────────────────────────────────
-// Add a project. Body: { label, emoji, url, anonKey, serviceRoleKey,
+// ── POST /api/workspaces ─────────────────────────────────────────────────
+// Add a workspace. Body: { label, emoji, url, anonKey, serviceRoleKey,
 // makeDefault? }. Doesn't validate Supabase reachability here — the UI's
-// Add Project dialog should call /api/projects/validate first.
+// Add Workspace dialog should call /api/workspaces/validate first.
 const postSchema = z.object({
   label: z.string().min(1).max(80),
   emoji: z.string().min(1).max(8),
@@ -62,6 +62,6 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
-  const project = await addProject(parsed.data);
-  return NextResponse.json(project, { status: 201 });
+  const workspace = await addWorkspace(parsed.data);
+  return NextResponse.json(workspace, { status: 201 });
 }

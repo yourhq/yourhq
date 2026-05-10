@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { setUiOrigins } from "@/lib/projects/registry";
-import { uiOriginSchema } from "@/lib/projects/schema";
+import { setUiOrigins } from "@/lib/workspaces/registry";
+import { uiOriginSchema } from "@/lib/workspaces/schema";
 import { detectTailscale } from "@/lib/tailscale/detect";
 
 const saveSchema = z.object({

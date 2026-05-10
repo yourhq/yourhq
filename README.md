@@ -154,7 +154,7 @@ See [the networking docs](https://docs.yourhq.ai/self-host/networking) for deplo
 
 ## Current status
 
-HQ already includes the self-hosted stack, browser onboarding, multi-project registry, UI-driven gateway registration, provider connections, noVNC desktop access, agent templates, CRM, tasks, knowledge base, collections, routines, source connections (Notion), file processing pipeline, modular onboarding, agent usage budgets, and agent reporting hierarchy.
+HQ already includes the self-hosted stack, browser onboarding, multi-workspace registry, UI-driven gateway registration, provider connections, noVNC desktop access, agent templates, CRM, tasks, knowledge base, collections, routines, source connections (Notion), file processing pipeline, modular onboarding, agent usage budgets, and agent reporting hierarchy.
 
 The remaining roadmap is mostly hardening, polish, hosted deployment, and deeper integrations. See [the roadmap](https://docs.yourhq.ai/getting-started/roadmap).
 
