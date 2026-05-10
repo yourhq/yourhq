@@ -47,9 +47,11 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  void getOrCreateGatewayAuthToken().catch((err) => {
-    console.warn("[gateway-auth-token] init failed:", (err as Error).message);
-  });
+  if (process.env.DEPLOYMENT_MODE !== "hosted") {
+    void getOrCreateGatewayAuthToken().catch((err) => {
+      console.warn("[gateway-auth-token] init failed:", (err as Error).message);
+    });
+  }
 
   const project = await readActiveProjectPublic();
   const hqConfig = project

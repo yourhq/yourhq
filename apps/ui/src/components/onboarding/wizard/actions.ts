@@ -21,6 +21,8 @@ import {
 
 export { prepareSchemaInstallAction, runOneClickMigrationAction, confirmSchemaInstalledAction };
 
+const isHosted = process.env.DEPLOYMENT_MODE === "hosted";
+
 // ─── Welcome ──────────────────────────────────────────────────────────────
 
 export async function saveWelcomeStep(input: {
@@ -29,6 +31,21 @@ export async function saveWelcomeStep(input: {
   workspaceName: string;
   workspaceSlug: string;
 }): Promise<ActionResult> {
+  if (isHosted) {
+    await patchOnboardingState({
+      step: "workspace",
+      data: {
+        ownerName: input.ownerName.trim(),
+        preferredName: (input.preferredName || input.ownerName).trim(),
+        ownerEmoji: "👋",
+        workspaceName: input.workspaceName,
+        workspaceLabel: input.workspaceName,
+        workspaceSlug: input.workspaceSlug,
+      },
+    });
+    return { ok: true };
+  }
+
   const r = await saveWelcome({
     ownerName: input.ownerName,
     preferredName: input.preferredName,
@@ -49,6 +66,13 @@ export async function saveWelcomeStep(input: {
 // ─── Intent ───────────────────────────────────────────────────────────────
 
 export async function saveIntentStep(intentKey: string): Promise<ActionResult> {
+  if (isHosted) {
+    await patchOnboardingState({
+      step: "supabase",
+      data: { contextPresetKey: intentKey },
+    });
+    return { ok: true };
+  }
   return saveContext({ presetKey: intentKey });
 }
 

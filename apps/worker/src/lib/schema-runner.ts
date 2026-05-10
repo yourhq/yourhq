@@ -31,6 +31,7 @@ export async function applyMigrations(projectRef: string): Promise<void> {
 
     if (!res.ok) {
       const body = await res.text();
+      console.error(`[schema-runner] Migration ${file} failed (${res.status}): ${body}`);
       throw new Error(`Migration ${file} failed (${res.status}): ${body}`);
     }
   }

@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 
 const PREFIX = "enc:v1:";
+const warnedValues = new Set<string>();
 
 function getKey(): Buffer {
   const raw = process.env.HOSTED_SECRETS_KEY;
@@ -39,17 +40,31 @@ export function decryptSecret(value: string | null | undefined): string | null {
   if (!value.startsWith(PREFIX)) return value;
 
   const parts = value.slice(PREFIX.length).split(".");
-  if (parts.length !== 3) throw new Error("Invalid encrypted secret format");
-  const [ivRaw, tagRaw, ciphertextRaw] = parts;
-  const decipher = createDecipheriv(
-    "aes-256-gcm",
-    getKey(),
-    Buffer.from(ivRaw, "base64url"),
-  );
-  decipher.setAuthTag(Buffer.from(tagRaw, "base64url"));
-  const plaintext = Buffer.concat([
-    decipher.update(Buffer.from(ciphertextRaw, "base64url")),
-    decipher.final(),
-  ]);
-  return plaintext.toString("utf8");
+  if (parts.length !== 3) {
+    if (!warnedValues.has(value)) {
+      warnedValues.add(value);
+      console.warn("[secret-crypto] Invalid encrypted secret format — value may not have been encrypted correctly");
+    }
+    return null;
+  }
+  try {
+    const [ivRaw, tagRaw, ciphertextRaw] = parts;
+    const decipher = createDecipheriv(
+      "aes-256-gcm",
+      getKey(),
+      Buffer.from(ivRaw, "base64url"),
+    );
+    decipher.setAuthTag(Buffer.from(tagRaw, "base64url"));
+    const plaintext = Buffer.concat([
+      decipher.update(Buffer.from(ciphertextRaw, "base64url")),
+      decipher.final(),
+    ]);
+    return plaintext.toString("utf8");
+  } catch (err) {
+    if (!warnedValues.has(value)) {
+      warnedValues.add(value);
+      console.warn("[secret-crypto] Decryption failed — key mismatch or corrupted data");
+    }
+    return null;
+  }
 }

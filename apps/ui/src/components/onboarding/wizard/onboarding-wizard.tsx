@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWizardState, clearWizardSession, type WizardData, type WizardStep } from "./use-wizard-state";
@@ -13,6 +13,8 @@ import { StepInfrastructure, type InfraStatus, type SchemaInstallState } from ".
 import { StepProvider } from "./step-provider";
 import { StepAgent, type AgentRecommendation } from "./step-agent";
 import { StepAccount } from "./step-account";
+import { StepPayment } from "./step-payment";
+import { StepProvisioning } from "./step-provisioning";
 import { StepCelebration } from "./step-celebration";
 import { FIRST_TASK_SUGGESTIONS } from "@/lib/onboarding/first-task-suggestions";
 import { completeItem } from "@/lib/onboarding/progress";
@@ -33,6 +35,7 @@ import {
   confirmSchemaInstalledAction,
   saveProjectToRegistry,
 } from "./actions";
+import { createHostedCheckout, getHostedEmail } from "./hosted-actions";
 
 const INTENT_TO_TEMPLATE: Record<string, { branch: string; name: string; emoji: string; role: string; description: string }> = {
   reach: { branch: "template/crm-researcher", name: "Scout", emoji: "🦅", role: "Research & Outreach", description: "Researches people, verifies info, and helps you craft personalized outreach." },
@@ -50,6 +53,8 @@ const STEP_LAYOUT: Record<string, "narrow" | "wide"> = {
   provider: "wide",
   agent: "wide",
   account: "narrow",
+  payment: "wide",
+  provisioning: "narrow",
 };
 
 const OSS_PROGRESS_STEPS = [
@@ -64,6 +69,7 @@ const OSS_PROGRESS_STEPS = [
 const HOSTED_PROGRESS_STEPS = [
   { key: "welcome", label: "Welcome" },
   { key: "intent", label: "Your work" },
+  { key: "payment", label: "Setup" },
   { key: "provider", label: "AI Provider" },
   { key: "agent", label: "Agent" },
 ];
@@ -76,11 +82,13 @@ export interface OnboardingWizardProps {
 
 export function OnboardingWizard({ isHosted, initialStep, initialData }: OnboardingWizardProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const {
     step,
     data,
     patch,
     advance,
+    goTo,
     goBack,
     direction,
     pending,
@@ -92,6 +100,8 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
 
   const layout = STEP_LAYOUT[step] ?? "narrow";
   const progressSteps = isHosted ? HOSTED_PROGRESS_STEPS : OSS_PROGRESS_STEPS;
+  // Map provisioning to payment for progress bar display (both show as "Setup")
+  const progressStep = step === "provisioning" ? "payment" : step;
 
   // Infrastructure state (OSS only)
   const [infraStatus, setInfraStatus] = useState<InfraStatus>({
@@ -130,6 +140,37 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
 
   // Celebration screen
   const [showCelebration, setShowCelebration] = useState(false);
+
+  // Hosted payment + provisioning state
+  const [hostedEmail, setHostedEmail] = useState<string>("");
+  const [hostedWorkspaceId, setHostedWorkspaceId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isHosted) return;
+    getHostedEmail().then((email) => {
+      if (email) setHostedEmail(email);
+    });
+  }, [isHosted]);
+
+  // Handle Stripe return: ?stripe_success=1 means payment went through,
+  // jump straight to provisioning step
+  useEffect(() => {
+    if (!isHosted) return;
+    if (searchParams.get("stripe_success") === "1") {
+      goTo("provisioning");
+      // Clean up the URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete("stripe_success");
+      window.history.replaceState({}, "", url.toString());
+    }
+    if (searchParams.get("stripe_canceled") === "1") {
+      goTo("payment");
+      const url = new URL(window.location.href);
+      url.searchParams.delete("stripe_canceled");
+      window.history.replaceState({}, "", url.toString());
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -434,6 +475,35 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
     }
   }, [isHosted, advance]);
 
+  // ─── Payment (Hosted) ───
+  const handlePaymentCheckout = useCallback(
+    async (email: string) => {
+      const result = await createHostedCheckout({
+        email,
+        ownerName: (data.ownerName as string) || "",
+        workspaceLabel: (data.workspaceName as string) || "My Workspace",
+        workspaceEmoji: "🏠",
+        contextPreset: (data.intentKey as string) || "other",
+      });
+      setHostedWorkspaceId(result.workspaceId);
+      patch({ hostedWorkspaceId: result.workspaceId });
+      window.location.href = result.url;
+    },
+    [data.ownerName, data.workspaceName, data.intentKey, patch],
+  );
+
+  // ─── Provisioning complete (Hosted) ───
+  const handleProvisionComplete = useCallback(
+    (autoLoginUrl: string | null) => {
+      if (autoLoginUrl) {
+        window.location.href = autoLoginUrl;
+      } else {
+        advance();
+      }
+    },
+    [advance],
+  );
+
   // ─── Account (OSS only) ───
   const handleAccount = useCallback(
     (creds: { email: string; password: string }) => {
@@ -470,7 +540,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-border/40 px-5 lg:h-16 lg:px-8">
         <HqLogo size={24} className="text-foreground" />
         <div className="hidden md:flex flex-1 justify-center px-8">
-          <WizardProgress steps={progressSteps} currentStep={step} />
+          <WizardProgress steps={progressSteps} currentStep={progressStep} />
         </div>
         <div className="hidden lg:flex items-center">
           <kbd className="rounded-md border border-border/60 bg-muted/50 px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
@@ -478,7 +548,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
           </kbd>
         </div>
         <div className="md:hidden">
-          <WizardProgress steps={progressSteps} currentStep={step} />
+          <WizardProgress steps={progressSteps} currentStep={progressStep} />
         </div>
       </header>
 
@@ -511,8 +581,8 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
               layout === "wide" && "pt-8",
             )}
           >
-            {/* Back button — inline with content */}
-            {!isFirst && (
+            {/* Back button — inline with content (hidden during provisioning) */}
+            {!isFirst && step !== "provisioning" && (
               <button
                 type="button"
                 onClick={goBack}
@@ -614,6 +684,24 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
                   onSubmit={handleAccount}
                   pending={pending}
                   error={accountError}
+                />
+              )}
+
+              {step === "payment" && (
+                <StepPayment
+                  ownerName={(data.ownerName as string) ?? ""}
+                  workspaceLabel={(data.workspaceName as string) ?? "My Workspace"}
+                  intentKey={(data.intentKey as string) ?? "other"}
+                  email={hostedEmail}
+                  onCheckout={handlePaymentCheckout}
+                  pending={pending}
+                />
+              )}
+
+              {step === "provisioning" && (
+                <StepProvisioning
+                  workspaceId={hostedWorkspaceId || (data.hostedWorkspaceId as string) || ""}
+                  onComplete={handleProvisionComplete}
                 />
               )}
             </div>

@@ -31,7 +31,8 @@ startProvisioningRetryLoop(sandboxProvider);
 const port = Number(process.env.PORT ?? 3001);
 console.log(`[worker] Starting on port ${port}`);
 
-export default {
-  port,
-  fetch: app.fetch,
-};
+import { serve } from "@hono/node-server";
+
+serve({ fetch: app.fetch, port }, () => {
+  console.log(`[worker] Listening on http://localhost:${port}`);
+});

@@ -43,6 +43,8 @@ app.get("/workspaces/:id/project", async (c) => {
   const ws = await getWorkspace(c.req.param("id"));
   if (!ws) return c.json({ error: "Not found" }, 404);
 
+  const serviceRoleKey = decryptSecret(ws.supabase_service_role_key_enc);
+
   return c.json({
     id: ws.id,
     label: ws.label,
@@ -50,7 +52,7 @@ app.get("/workspaces/:id/project", async (c) => {
     status: ws.subscription_status,
     supabase_url: ws.supabase_url,
     supabase_anon_key: ws.supabase_anon_key,
-    supabase_service_role_key: decryptSecret(ws.supabase_service_role_key_enc),
+    supabase_service_role_key: serviceRoleKey,
     setup_metadata: ws.setup_metadata ?? {},
   });
 });
@@ -123,6 +125,8 @@ app.post("/checkout", async (c) => {
     workspaceLabel?: string;
     workspaceEmoji?: string;
     contextPreset?: string;
+    successUrl?: string;
+    cancelUrl?: string;
   }>();
 
   const email = body.email?.toLowerCase().trim();
@@ -168,11 +172,11 @@ app.post("/checkout", async (c) => {
     customerEmail: email,
     customerId: user.stripe_customer_id,
     workspaceId: ws.id,
-    successUrl: `${origin}/provision/${ws.id}`,
-    cancelUrl: `${origin}/signup`,
+    successUrl: body.successUrl || `${origin}/provision/${ws.id}`,
+    cancelUrl: body.cancelUrl || `${origin}/signup`,
   });
 
-  return c.json({ url });
+  return c.json({ url, workspaceId: ws.id });
 });
 
 // Cancel a workspace (30-day grace period, sandbox paused immediately)

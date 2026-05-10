@@ -2,6 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getActiveProject } from "@/lib/projects";
 
+const isHosted = process.env.DEPLOYMENT_MODE === "hosted";
+const authPath = isHosted ? "/auth" : "/login";
+
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;
   const tokenHash = searchParams.get("token_hash");
@@ -10,14 +13,14 @@ export async function GET(request: NextRequest) {
   const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/dashboard";
 
   if (!tokenHash || !type) {
-    const url = new URL("/login", origin);
+    const url = new URL(authPath, origin);
     url.searchParams.set("error", "missing_token");
     return NextResponse.redirect(url);
   }
 
   const project = await getActiveProject().catch(() => null);
   if (!project) {
-    const url = new URL("/login", origin);
+    const url = new URL(authPath, origin);
     url.searchParams.set("error", "no_workspace");
     return NextResponse.redirect(url);
   }
@@ -45,7 +48,7 @@ export async function GET(request: NextRequest) {
   });
 
   if (error) {
-    const url = new URL("/login", origin);
+    const url = new URL(authPath, origin);
     url.searchParams.set("error", "verification_failed");
     return NextResponse.redirect(url);
   }

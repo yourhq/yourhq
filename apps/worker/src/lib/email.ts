@@ -10,12 +10,14 @@ function getResend(): Resend {
   return resendClient;
 }
 
-const FROM = process.env.EMAIL_FROM ?? "HQ <noreply@yourhq.ai>";
+const FROM = process.env.EMAIL_FROM ?? "HQ <hello@email.yourhq.ai>";
+const REPLY_TO = process.env.EMAIL_REPLY_TO ?? "hello@yourhq.ai";
 
 export async function sendMagicLink(email: string, magicLink: string): Promise<void> {
   const resend = getResend();
   await resend.emails.send({
     from: FROM,
+    replyTo: REPLY_TO,
     to: email,
     subject: "Sign in to HQ",
     html: `
@@ -30,6 +32,7 @@ export async function sendProvisioningComplete(email: string, workspaceLabel: st
   const resend = getResend();
   await resend.emails.send({
     from: FROM,
+    replyTo: REPLY_TO,
     to: email,
     subject: `Your HQ workspace "${workspaceLabel}" is ready`,
     html: `
@@ -44,6 +47,7 @@ export async function sendPaymentFailed(email: string, workspaceLabel: string, b
   const isFinal = failureCount >= 3;
   await resend.emails.send({
     from: FROM,
+    replyTo: REPLY_TO,
     to: email,
     subject: isFinal
       ? `Action required: "${workspaceLabel}" has been suspended`

@@ -14,13 +14,14 @@ const isHosted = process.env.DEPLOYMENT_MODE === "hosted";
 
 const ONBOARDING_PATH = "/onboarding";
 const LOGIN_PATH = "/login";
+const AUTH_PATH = "/auth";
 // Paths that work without a configured project.
 const NO_PROJECT_OK_PATHS_OSS = [ONBOARDING_PATH, "/api/config"];
 const NO_PROJECT_OK_PATHS_HOSTED = [
-  LOGIN_PATH, "/auth", "/signup", "/provision", "/api/config",
+  LOGIN_PATH, AUTH_PATH, "/signup", "/provision", ONBOARDING_PATH, "/api/config",
 ];
 // Paths that work without an authenticated user (but still need a project).
-const NO_AUTH_OK_PATHS = [LOGIN_PATH, "/auth"];
+const NO_AUTH_OK_PATHS = [LOGIN_PATH, AUTH_PATH, ONBOARDING_PATH];
 
 function matches(path: string, allowed: string[]): boolean {
   return allowed.some((p) => path === p || path.startsWith(`${p}/`));
@@ -42,7 +43,7 @@ export async function updateSession(request: NextRequest) {
       return supabaseResponse;
     }
     const url = request.nextUrl.clone();
-    url.pathname = isHosted ? LOGIN_PATH : ONBOARDING_PATH;
+    url.pathname = isHosted ? AUTH_PATH : ONBOARDING_PATH;
     return NextResponse.redirect(url);
   }
 
@@ -91,11 +92,11 @@ export async function updateSession(request: NextRequest) {
 
   if (!user && !isDashboard && !isOnboarding && !isLogin) {
     const url = request.nextUrl.clone();
-    url.pathname = LOGIN_PATH;
+    url.pathname = isHosted ? AUTH_PATH : LOGIN_PATH;
     return NextResponse.redirect(url);
   }
 
-  if (user && request.nextUrl.pathname.startsWith(LOGIN_PATH)) {
+  if (user && (request.nextUrl.pathname.startsWith(LOGIN_PATH) || (isHosted && request.nextUrl.pathname === AUTH_PATH))) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
