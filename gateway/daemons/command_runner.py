@@ -1703,6 +1703,17 @@ def execute_command(command_row):
 
         if result.returncode == 0:
             log(f"Command {cmd_id} completed successfully (exit 0)")
+
+            if action == "provision":
+                try:
+                    subprocess.run(
+                        ["bash", "-c",
+                         "kill -HUP $(pgrep -f 'openclaw gateway run' | head -1) 2>/dev/null || true"],
+                        timeout=5,
+                    )
+                except Exception:
+                    pass
+
             api_rpc(
                 "complete_command",
                 {

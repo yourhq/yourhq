@@ -177,7 +177,10 @@ function deriveHostedStep(
   ) {
     return "provisioning";
   }
-  if (typeof metadata.onboardingStep === "string") return metadata.onboardingStep;
+
+  if (metadata.onboardingComplete) return "done";
+  if (metadata.agentId) return "agent";
+  if (metadata.providerId) return "agent";
   return "provider";
 }
 
@@ -195,6 +198,7 @@ export async function getOnboardingState(): Promise<OnboardingState> {
     const step = complete
       ? "done"
       : deriveHostedStep(subscriptionStatus, provisionStage, metadata);
+
 
     return {
       version: 1 as const,

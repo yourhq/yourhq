@@ -95,8 +95,9 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && (request.nextUrl.pathname.startsWith(LOGIN_PATH) || (isHosted && request.nextUrl.pathname === AUTH_PATH))) {
+    const onboarding = await getOnboardingState().catch(() => null);
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = onboarding && !onboarding.complete ? ONBOARDING_PATH : "/dashboard";
     return NextResponse.redirect(url);
   }
 
@@ -112,23 +113,21 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  if (!isHosted) {
-    if (user && request.nextUrl.pathname.startsWith(ONBOARDING_PATH)) {
-      const onboarding = await getOnboardingState().catch(() => null);
-      if (onboarding?.complete) {
-        const url = request.nextUrl.clone();
-        url.pathname = "/dashboard";
-        return NextResponse.redirect(url);
-      }
+  if (user && request.nextUrl.pathname.startsWith(ONBOARDING_PATH)) {
+    const onboarding = await getOnboardingState().catch(() => null);
+    if (onboarding?.complete) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
     }
+  }
 
-    if (user && request.nextUrl.pathname.startsWith("/dashboard")) {
-      const onboarding = await getOnboardingState().catch(() => null);
-      if (onboarding && !onboarding.complete) {
-        const url = request.nextUrl.clone();
-        url.pathname = ONBOARDING_PATH;
-        return NextResponse.redirect(url);
-      }
+  if (user && request.nextUrl.pathname.startsWith("/dashboard")) {
+    const onboarding = await getOnboardingState().catch(() => null);
+    if (onboarding && !onboarding.complete) {
+      const url = request.nextUrl.clone();
+      url.pathname = ONBOARDING_PATH;
+      return NextResponse.redirect(url);
     }
   }
 

@@ -82,8 +82,9 @@ function getInitialData(
   initialData: WizardData | undefined,
   session: WizardSession | null,
 ): WizardData {
-  if (initialData) return initialData;
-  return session?.data ?? {};
+  if (!session?.data) return initialData ?? {};
+  if (!initialData) return session.data;
+  return { ...session.data, ...initialData };
 }
 
 export function useWizardState(opts: {

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { OnboardingWizard } from "@/components/onboarding/wizard/onboarding-wizard";
 import { getOnboardingState } from "@/lib/workspaces";
 import type { WizardStep } from "@/components/onboarding/wizard/use-wizard-state";
@@ -20,6 +21,11 @@ async function getHostedWorkspaceId(): Promise<string | null> {
 
 export default async function OnboardingPage() {
   const state = await getOnboardingState();
+
+  if (state.complete) {
+    redirect("/dashboard");
+  }
+
   const hostedWorkspaceId = await getHostedWorkspaceId();
 
   const initialStep =

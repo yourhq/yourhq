@@ -23,6 +23,12 @@ export { prepareSchemaInstallAction, runOneClickMigrationAction, confirmSchemaIn
 
 const isHosted = process.env.DEPLOYMENT_MODE === "hosted";
 
+export async function signOutFromOnboarding(): Promise<void> {
+  const jar = await cookies();
+  jar.delete("hq_workspace_session");
+  jar.delete("hq_hosted_email");
+}
+
 // ─── Welcome ──────────────────────────────────────────────────────────────
 
 export async function saveWelcomeStep(input: {
@@ -243,7 +249,7 @@ export async function connectProvider(
   // Local and OAuth providers — just record the choice (OAuth auth already
   // happened via the inline startOAuthFlow / InteractivePhase)
   if (SKIP_VALIDATION_PROVIDERS.has(provider) || OAUTH_PROVIDERS.has(provider)) {
-    await patchOnboardingState({ data: { providerId: provider } });
+    await patchOnboardingState({ step: "agent", data: { providerId: provider } });
     return { ok: true };
   }
 
@@ -289,6 +295,7 @@ export async function connectProvider(
     }
 
     await patchOnboardingState({
+      step: "agent",
       data: { providerId: provider, providerCommandId: cmd.id },
     });
   } catch (err) {
@@ -393,7 +400,7 @@ export async function pollCommandState(
 }
 
 export async function saveOAuthProvider(provider: string): Promise<ActionResult> {
-  await patchOnboardingState({ data: { providerId: provider } });
+  await patchOnboardingState({ step: "agent", data: { providerId: provider } });
   return { ok: true };
 }
 
@@ -478,6 +485,7 @@ export async function createFirstAgent(input: {
     }
 
     await patchOnboardingState({
+      step: "agent",
       data: { agentId, agentSlug: slug, agentName: input.name },
     });
 
@@ -518,6 +526,7 @@ export async function connectChannelAction(input: {
   extras?: Record<string, string>;
 }): Promise<ActionResult<{ provisionCommandId: string }>> {
   try {
+    const { encryptSecret } = await import("@/lib/secrets/crypto");
     const supabase = await createAdminClient();
     const { data: gw } = await supabase
       .from("gateways")
@@ -525,18 +534,64 @@ export async function connectChannelAction(input: {
       .limit(1)
       .maybeSingle();
 
+    const gwId = gw?.id ?? null;
+
+    // Write channel token(s) to the secrets table (matches dashboard wizard).
+    // The gateway's secrets_sync daemon picks these up via Realtime and
+    // writes per-agent .env files that add-agent.sh reads.
+    if (input.channel === "telegram" && input.token.trim()) {
+      const encrypted = await encryptSecret(input.token.trim());
+      await supabase.from("secrets").insert({
+        gateway_id: gwId,
+        agent_id: input.agentId,
+        key: "TELEGRAM_BOT_TOKEN",
+        name: "Telegram Bot Token",
+        encrypted_value: encrypted,
+        category: "channel",
+        sync_status: "pending",
+      });
+    } else if (input.channel === "discord" && input.token.trim()) {
+      const encrypted = await encryptSecret(input.token.trim());
+      await supabase.from("secrets").insert({
+        gateway_id: gwId,
+        agent_id: input.agentId,
+        key: "DISCORD_BOT_TOKEN",
+        name: "Discord Bot Token",
+        encrypted_value: encrypted,
+        category: "channel",
+        sync_status: "pending",
+      });
+    } else if (input.channel === "slack" && input.token.trim()) {
+      const encrypted = await encryptSecret(input.token.trim());
+      await supabase.from("secrets").insert({
+        gateway_id: gwId,
+        agent_id: input.agentId,
+        key: "SLACK_APP_TOKEN",
+        name: "Slack App Token",
+        encrypted_value: encrypted,
+        category: "channel",
+        sync_status: "pending",
+      });
+      if (input.extras?.slack_bot_token?.trim()) {
+        const encBot = await encryptSecret(input.extras.slack_bot_token.trim());
+        await supabase.from("secrets").insert({
+          gateway_id: gwId,
+          agent_id: input.agentId,
+          key: "SLACK_BOT_TOKEN",
+          name: "Slack Bot Token",
+          encrypted_value: encBot,
+          category: "channel",
+          sync_status: "pending",
+        });
+      }
+    }
+
     const payload: Record<string, unknown> = {
       channel: input.channel,
     };
-    if (input.channel === "telegram") {
-      payload.telegram_token = input.token;
-    } else if (input.channel === "discord") {
-      payload.discord_token = input.token;
+    if (input.channel === "discord") {
       if (input.extras?.discord_server_id) payload.discord_server_id = input.extras.discord_server_id;
       if (input.extras?.discord_user_id) payload.discord_user_id = input.extras.discord_user_id;
-    } else if (input.channel === "slack") {
-      payload.slack_app_token = input.token;
-      if (input.extras?.slack_bot_token) payload.slack_bot_token = input.extras.slack_bot_token;
     }
 
     const { data: cmd, error } = await supabase
@@ -544,7 +599,7 @@ export async function connectChannelAction(input: {
       .insert({
         agent_id: input.agentId,
         agent_slug: input.agentSlug,
-        gateway_id: gw?.id ?? null,
+        gateway_id: gwId,
         action: "provision",
         payload,
       })
@@ -564,6 +619,22 @@ export async function connectChannelAction(input: {
       .from("agents")
       .update({ meta: metaUpdate })
       .eq("id", input.agentId);
+
+    // Queue a gateway restart so the new channel binding is picked up.
+    // The provision command's add-agent.sh tries `openclaw gateway restart`
+    // but that fails in E2B/exec-based setups. This explicit restart_gateway
+    // action uses the appropriate method per RUNTIME_MODE.
+    await supabase.from("agent_commands").insert({
+      gateway_id: gwId,
+      action: "restart_gateway",
+      payload: {},
+    });
+
+    await patchOnboardingState({
+      step: "done",
+      complete: true,
+      data: { channelType: input.channel },
+    });
 
     return { ok: true, data: { provisionCommandId: cmd.id } };
   } catch (err) {
@@ -643,6 +714,14 @@ export async function submitPairingAction(input: {
       error: err instanceof Error ? err.message : "Failed to submit pairing code",
     };
   }
+}
+
+// ─── Mark onboarding complete (hosted) ──────────────────────────────────
+
+export async function markOnboardingComplete(): Promise<ActionResult> {
+  if (!isHosted) return { ok: true };
+  await patchOnboardingState({ step: "done", complete: true });
+  return { ok: true };
 }
 
 // ─── Account creation + finalize ─────────────────────────────────────────

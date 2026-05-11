@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft, LogOut, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWizardState, clearWizardSession, type WizardData, type WizardStep } from "./use-wizard-state";
 import { HqLogo } from "@/components/shared/hq-logo";
@@ -34,6 +34,8 @@ import {
   runOneClickMigrationAction,
   confirmSchemaInstalledAction,
   saveWorkspaceToRegistry,
+  signOutFromOnboarding,
+  markOnboardingComplete,
 } from "./actions";
 import { createHostedCheckout, getHostedEmail, verifyAutoLogin } from "./hosted-actions";
 
@@ -457,8 +459,20 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
     [],
   );
 
+  const handleSignOut = useCallback(async () => {
+    await signOutFromOnboarding();
+    if (isHosted) {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    }
+    router.push(isHosted ? "/auth" : "/login");
+    router.refresh();
+  }, [isHosted, router]);
+
   const navigateToTasks = useCallback(() => {
     clearWizardSession();
+    markOnboardingComplete().catch(() => {});
 
     const progress = localStorage.getItem("hq_onboarding_progress");
     const parsed = progress ? JSON.parse(progress) : {};
@@ -478,6 +492,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
 
   const handleSkipChannel = useCallback(() => {
     if (isHosted) {
+      markOnboardingComplete().catch(() => {});
       setShowCelebration(true);
     } else {
       advance();
@@ -553,10 +568,18 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
         <div className="hidden md:flex flex-1 justify-center px-8">
           <WizardProgress steps={progressSteps} currentStep={progressStep} />
         </div>
-        <div className="hidden lg:flex items-center">
-          <kbd className="rounded-md border border-border/60 bg-muted/50 px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
+        <div className="flex items-center gap-3">
+          <kbd className="hidden lg:inline-block rounded-md border border-border/60 bg-muted/50 px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
             Enter ↵
           </kbd>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+          >
+            <LogOut className="h-3 w-3" />
+            <span className="hidden sm:inline">Sign out</span>
+          </button>
         </div>
         <div className="md:hidden">
           <WizardProgress steps={progressSteps} currentStep={progressStep} />
@@ -592,8 +615,8 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
               layout === "wide" && "pt-8",
             )}
           >
-            {/* Back button — inline with content (hidden during provisioning) */}
-            {!isFirst && step !== "provisioning" && (
+            {/* Back button — hidden during provisioning and at gates the user can't reverse */}
+            {!isFirst && step !== "provisioning" && !(isHosted && step === "provider") && (
               <button
                 type="button"
                 onClick={goBack}

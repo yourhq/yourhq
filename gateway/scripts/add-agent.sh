@@ -373,7 +373,12 @@ if [ -d "$SHARED_AUTH" ] && [ -f "$SHARED_AUTH/auth-profiles.json" ]; then
 fi
 
 # ── 11. Restart gateway to pick up new agent ───────────────────────────
-openclaw gateway restart 2>/dev/null || true
+# Try the service restart first (works in docker-compose setups where the
+# gateway runs as a managed service). Fall back to SIGHUP on the running
+# foreground process (E2B / exec-based setups).
+openclaw gateway restart 2>/dev/null \
+  || kill -HUP "$(pgrep -f 'openclaw gateway run' | head -1)" 2>/dev/null \
+  || true
 case "$CHANNEL" in
   telegram) echo "✓ Agent '$AGENT_NAME' added. Pair: openclaw pairing approve telegram <CODE>" ;;
   discord)  echo "✓ Agent '$AGENT_NAME' added. Pair: openclaw pairing approve discord <CODE>" ;;
