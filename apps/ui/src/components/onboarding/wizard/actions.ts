@@ -438,8 +438,6 @@ export async function createFirstAgent(input: {
     const meta = {
       emoji: input.emoji || undefined,
       template_branch: input.templateBranch,
-      channel: "telegram" as const,
-      telegram_token_env: `TELEGRAM_TOKEN_${slug.toUpperCase().replace(/-/g, "_")}`,
     };
 
     const { data: inserted, error: insertError } = await supabase

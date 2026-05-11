@@ -469,6 +469,196 @@ export async function upsertAgentSkill(
   return { id: input.knowledgeItemId, action: "updated" };
 }
 
+// ── Connect Channel ────────────────────────────────────────────────────
+
+export async function connectAgentChannel(input: {
+  agentId: string;
+  agentSlug: string;
+  channel: "telegram" | "discord" | "slack";
+  token: string;
+  extras?: Record<string, string>;
+}): Promise<{ ok: boolean; provisionCommandId?: string; error?: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Unauthorized" };
+
+  const { data: agent } = await supabase
+    .from("agents")
+    .select("id, slug, gateway_id")
+    .eq("id", input.agentId)
+    .single();
+  if (!agent) return { ok: false, error: "Agent not found" };
+
+  const gwId = agent.gateway_id;
+
+  const { encryptSecret } = await import("@/lib/secrets/crypto");
+
+  if (input.channel === "telegram" && input.token.trim()) {
+    const encrypted = await encryptSecret(input.token.trim());
+    await supabase.from("secrets").insert({
+      gateway_id: gwId,
+      agent_id: input.agentId,
+      key: "TELEGRAM_BOT_TOKEN",
+      name: "Telegram Bot Token",
+      encrypted_value: encrypted,
+      category: "channel",
+      sync_status: "pending",
+    });
+  } else if (input.channel === "discord" && input.token.trim()) {
+    const encrypted = await encryptSecret(input.token.trim());
+    await supabase.from("secrets").insert({
+      gateway_id: gwId,
+      agent_id: input.agentId,
+      key: "DISCORD_BOT_TOKEN",
+      name: "Discord Bot Token",
+      encrypted_value: encrypted,
+      category: "channel",
+      sync_status: "pending",
+    });
+  } else if (input.channel === "slack" && input.token.trim()) {
+    const encrypted = await encryptSecret(input.token.trim());
+    await supabase.from("secrets").insert({
+      gateway_id: gwId,
+      agent_id: input.agentId,
+      key: "SLACK_APP_TOKEN",
+      name: "Slack App Token",
+      encrypted_value: encrypted,
+      category: "channel",
+      sync_status: "pending",
+    });
+    if (input.extras?.slack_bot_token?.trim()) {
+      const encBot = await encryptSecret(input.extras.slack_bot_token.trim());
+      await supabase.from("secrets").insert({
+        gateway_id: gwId,
+        agent_id: input.agentId,
+        key: "SLACK_BOT_TOKEN",
+        name: "Slack Bot Token",
+        encrypted_value: encBot,
+        category: "channel",
+        sync_status: "pending",
+      });
+    }
+  }
+
+  const payload: Record<string, unknown> = { channel: input.channel };
+  if (input.channel === "discord") {
+    if (input.extras?.discord_server_id) payload.discord_server_id = input.extras.discord_server_id;
+    if (input.extras?.discord_user_id) payload.discord_user_id = input.extras.discord_user_id;
+  }
+
+  const { data: cmd, error } = await supabase
+    .from("agent_commands")
+    .insert({
+      agent_id: input.agentId,
+      agent_slug: agent.slug,
+      gateway_id: gwId,
+      action: "provision",
+      payload,
+      requested_by: user.id,
+    })
+    .select("id")
+    .single();
+
+  if (error || !cmd) {
+    return { ok: false, error: error?.message ?? "Failed to connect channel" };
+  }
+
+  const metaUpdate: Record<string, unknown> = { channel: input.channel };
+  if (input.channel === "telegram") {
+    metaUpdate.telegram_token_env = `TELEGRAM_TOKEN_${agent.slug.toUpperCase().replace(/-/g, "_")}`;
+  }
+  await supabase
+    .from("agents")
+    .update({ meta: metaUpdate })
+    .eq("id", input.agentId);
+
+  await supabase.from("agent_commands").insert({
+    gateway_id: gwId,
+    action: "restart_gateway",
+    payload: {},
+    requested_by: user.id,
+  });
+
+  return { ok: true, provisionCommandId: cmd.id };
+}
+
+export async function submitAgentPairing(input: {
+  agentId: string;
+  agentSlug: string;
+  channel: string;
+  pairingCode: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Unauthorized" };
+
+  const { data: agent } = await supabase
+    .from("agents")
+    .select("id, slug, gateway_id")
+    .eq("id", input.agentId)
+    .single();
+  if (!agent) return { ok: false, error: "Agent not found" };
+
+  const { data: cmd, error } = await supabase
+    .from("agent_commands")
+    .insert({
+      agent_id: input.agentId,
+      agent_slug: agent.slug,
+      gateway_id: agent.gateway_id,
+      action: "approve_pairing",
+      payload: { pairing_code: input.pairingCode, channel: input.channel },
+      requested_by: user.id,
+    })
+    .select("id")
+    .single();
+
+  if (error || !cmd) {
+    return { ok: false, error: error?.message ?? "Failed to submit pairing code" };
+  }
+
+  for (let i = 0; i < 15; i++) {
+    await new Promise((r) => setTimeout(r, 3000));
+    const { data: status } = await supabase
+      .from("agent_commands")
+      .select("status, error_message")
+      .eq("id", cmd.id)
+      .maybeSingle();
+    if (status?.status === "done") return { ok: true };
+    if (status?.status === "failed" || status?.status === "error") {
+      return { ok: false, error: (status.error_message as string) ?? "Pairing failed" };
+    }
+  }
+
+  const { data: final } = await supabase
+    .from("agent_commands")
+    .select("status")
+    .eq("id", cmd.id)
+    .maybeSingle();
+  if (final?.status === "done" || final?.status === "running" || final?.status === "pending") {
+    return { ok: true };
+  }
+
+  return { ok: false, error: "Pairing timed out" };
+}
+
+// ── Provision Polling ──────────────────────────────────────────────────
+
+export async function pollProvisionStatus(
+  commandId: string,
+): Promise<"pending" | "completed" | "error"> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("agent_commands")
+    .select("status")
+    .eq("id", commandId)
+    .maybeSingle();
+
+  if (!data) return "pending";
+  if (data.status === "done") return "completed";
+  if (data.status === "error" || data.status === "failed") return "error";
+  return "pending";
+}
+
 // ── Set Agent Model + Thinking ─────────────────────────────────────────
 
 export async function setAgentModelAction(

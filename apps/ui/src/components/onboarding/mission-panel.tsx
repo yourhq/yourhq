@@ -22,6 +22,7 @@ interface MissionItem {
 
 const TIER1_ITEMS: MissionItem[] = [
   { key: "agentCreated", label: "Create your first agent", description: "Go to Agents to create one", href: "/dashboard/agents", tier: 1 },
+  { key: "channelConnected", label: "Connect a channel", description: "Chat with your agent on Telegram, Discord, or Slack", href: "/dashboard/agents", tier: 1 },
   { key: "taskAssigned", label: "Assign a task to an agent", description: "Create a task and assign it", href: "/dashboard/tasks", tier: 1 },
   { key: "agentWorked", label: "Agent completes work", description: "Wait for your agent to finish a task", href: "/dashboard/tasks", tier: 1 },
   { key: "knowledgeCreated", label: "Add knowledge", description: "Give your agents context to work with", href: "/dashboard/knowledge", tier: 1 },

@@ -53,6 +53,13 @@ export function useOnboardingProgress() {
               tier1: { ...current.tier1, agentCreated: true, dashboardExplored: true },
             };
             if (agentCount > 1) updated.tier2 = { ...updated.tier2, secondAgentCreated: true };
+            const { data: agentMetas } = await supabase.from("agents").select("meta").limit(10);
+            if (!cancelled && agentMetas?.some((a) => {
+              const m = a.meta as Record<string, unknown> | null;
+              return m?.channel && m.channel !== "none";
+            })) {
+              updated.tier1.channelConnected = true;
+            }
             const { count: taskCount } = await supabase.from("tasks").select("id", { count: "exact", head: true }).not("assignee_agent_id", "is", null);
             if (!cancelled && taskCount && taskCount > 0) updated.tier1.taskAssigned = true;
             const { count: knowledgeCount } = await supabase.from("knowledge_items").select("id", { count: "exact", head: true });

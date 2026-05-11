@@ -24,8 +24,6 @@ import {
   connectProvider,
   createFirstAgent,
   pollAgentProvisionStatus,
-  connectChannelAction,
-  submitPairingAction,
   createAccountAndFinalize,
   validateAndConnectDb,
   setupGateway,
@@ -132,10 +130,6 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
   const [provisionStatus, setProvisionStatus] = useState<"idle" | "provisioning" | "ready" | "error">("idle");
   const [provisionError, setProvisionError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Pairing state
-  const [pairingStatus, setPairingStatus] = useState<"idle" | "submitting" | "done" | "error">("idle");
-  const [pairingError, setPairingError] = useState<string | null>(null);
 
   // Account step error
   const [accountError, setAccountError] = useState<string | null>(null);
@@ -394,71 +388,6 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
     [patch, setError],
   );
 
-  const handleConnectChannel = useCallback(
-    async (channelData: {
-      agentId: string;
-      agentSlug: string;
-      channel: "telegram" | "discord" | "slack";
-      token: string;
-      extras?: Record<string, string>;
-    }) => {
-      const r = await connectChannelAction(channelData);
-      if (!r.ok || !r.data) {
-        setError(r.error ?? "Failed to connect channel");
-        return null;
-      }
-
-      patch({ channelType: channelData.channel });
-      setProvisionStatus("provisioning");
-
-      // Poll the new provision command
-      const { provisionCommandId } = r.data;
-      if (pollRef.current) clearInterval(pollRef.current);
-      const channelStartedAt = Date.now();
-      const interval = setInterval(async () => {
-        const status = await pollAgentProvisionStatus(provisionCommandId);
-        if (status === "completed") {
-          clearInterval(interval);
-          setProvisionStatus("ready");
-        } else if (status === "error") {
-          clearInterval(interval);
-          setProvisionStatus("error");
-          setProvisionError("Channel setup failed");
-        } else if (Date.now() - channelStartedAt > 120_000) {
-          clearInterval(interval);
-          setProvisionStatus("error");
-          setProvisionError("Setup is taking longer than expected — you can skip and set it up later");
-        }
-      }, 3000);
-      pollRef.current = interval;
-
-      return { provisionCommandId };
-    },
-    [patch, setError],
-  );
-
-  const handleSubmitPairing = useCallback(
-    async (pairingData: {
-      agentId: string;
-      agentSlug: string;
-      channel: "telegram" | "discord" | "slack";
-      pairingCode: string;
-    }) => {
-      setPairingStatus("submitting");
-      setPairingError(null);
-      const r = await submitPairingAction(pairingData);
-      if (r.ok) {
-        setPairingStatus("done");
-        return true;
-      } else {
-        setPairingStatus("error");
-        setPairingError(r.error ?? "Pairing failed");
-        return false;
-      }
-    },
-    [],
-  );
-
   const handleSignOut = useCallback(async () => {
     await signOutFromOnboarding();
     if (isHosted) {
@@ -490,7 +419,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
     router.push(`/dashboard/tasks?${params.toString()}`);
   }, [data.intentKey, data.agentId, router]);
 
-  const handleSkipChannel = useCallback(() => {
+  const handleAgentDone = useCallback(() => {
     if (isHosted) {
       markOnboardingComplete().catch(() => {});
       setShowCelebration(true);
@@ -701,13 +630,9 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
                 <StepAgent
                   recommendation={getRecommendation()}
                   onCreateAgent={handleCreateAgent}
-                  onConnectChannel={handleConnectChannel}
-                  onSubmitPairing={handleSubmitPairing}
-                  onSkipChannel={handleSkipChannel}
+                  onDone={handleAgentDone}
                   provisionStatus={provisionStatus}
                   provisionError={provisionError}
-                  pairingStatus={pairingStatus}
-                  pairingError={pairingError}
                   pending={pending}
                 />
               )}

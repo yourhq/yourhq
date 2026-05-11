@@ -39,6 +39,7 @@ import {
 } from "@/components/shared/detail-sidebar";
 import { InboxSection } from "@/components/inbox/inbox-section";
 import { AgentProvisioning } from "@/components/agents/agent-provisioning";
+import { AgentChannelCard } from "@/components/agents/agent-channel-card";
 import { AgentFileBrowser } from "./agent-file-browser";
 import { AgentBrowserTab } from "./agent-browser-tab";
 import { RoutinesSection } from "@/components/routines/routines-section";
@@ -190,6 +191,7 @@ export function AgentDetailTabs({
 
             <TabsContent value="overview" className="min-h-0 flex-1 overflow-auto">
               <div className="mx-auto max-w-3xl space-y-6 px-5 py-5">
+                <AgentChannelCard agent={agent} onAgentUpdated={onAgentUpdated} />
                 {agent.description && (
                   <p className="text-sm text-muted-foreground">
                     {agent.description}
