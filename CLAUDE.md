@@ -52,7 +52,7 @@ Inside `apps/ui/src/`:
 
 - `app/` — App Router pages (dashboard, login, setup wizard).
 - `components/` — UI module folders: `crm/`, `tasks/`, `agents/`, `knowledge/`, `collections/`, `routines/`, `inbox/`, `notifications/`, etc. + `shared/` for cross-module + `ui/` for shadcn primitives.
-- `hooks/` — data-fetching hooks (`use-contacts.ts`, `use-agents.ts`, `use-knowledge.ts`, `use-collections.ts`, `use-routines.ts`, etc.).
+- `hooks/` — data-fetching hooks (`use-contacts.ts`, `use-agents.ts`, `use-knowledge.ts`, `use-collections.ts`, `use-routines.ts`, `use-task-relations.ts`, `use-labels.ts`, `use-deliverables.ts`, `use-task-templates.ts`, etc.).
 - `lib/` — domain types + Supabase clients + audit log helpers. Modules: `knowledge/`, `collections/`, `routines/`, `inbox/`, `entity-links/`, `audit/`, `tasks/`, etc.
 
 For the public-facing tour of the system, see [`docs-site/concepts/architecture.mdx`](docs-site/concepts/architecture.mdx).
@@ -74,7 +74,7 @@ For the public-facing tour of the system, see [`docs-site/concepts/architecture.
 
 Daemons:
 
-- `gateway/daemons/inbox_dispatcher.py` — watches `agent_inbox_items`, wakes agents via `openclaw agent`. Filters by `GATEWAY_ID` — only wakes agents bound to this gateway.
+- `gateway/daemons/inbox_dispatcher.py` — watches `agent_inbox_items`, wakes agents via `openclaw agent`. Filters by `GATEWAY_ID` — only wakes agents bound to this gateway. Enriches `task_assignment` inbox items with unresolved blocker information from `task_relations`.
 - `gateway/daemons/command_runner.py` — watches `agent_commands`, leases via `lease_command(p_gateway_slug=GATEWAY_ID)`, executes shell commands. Heartbeats to the `gateways` table every 30s. Also subscribes to `secrets` table changes and triggers `sync_secrets()`.
 - `gateway/daemons/secrets_sync.py` — fetches encrypted secrets from Supabase, decrypts with AES-256-GCM (key derived via HKDF from the service role key), and writes per-agent `.env` files to `~/.openclaw/secrets/`. Triggered by Realtime on the `secrets` table and a 5-minute safety re-sync. Started by command_runner on boot.
 - `gateway/daemons/file_processor.py` — leases `knowledge_items` with `kind='file'` and `processing_status='ready'`, downloads from storage, extracts text (PDF, DOCX, XLSX, CSV, PPTX, TXT), updates `plain_text` and triggers embedding.
@@ -83,12 +83,15 @@ Daemons:
 
 ## Database
 
-`db/migrations/` contains 27 ordered migrations (001–027). Key tables:
+`db/migrations/` contains 31 ordered migrations (001–031). Key tables:
 
 - `gateways` — one row per gateway host. Seeded with a `default` row so single-gateway setups work immediately.
 - `agents` — agent definitions with `gateway_id`, `reports_to_id` hierarchy.
 - `knowledge_folders` / `knowledge_items` / `knowledge_item_agents` / `knowledge_chunks` — unified knowledge system. Items have `kind` (page/skill/file/source), `scope` (workspace/agent), embedding pipeline fields. Agent-scoped items use the junction table.
-- `entity_links` — universal polymorphic linking. Any owner (task, routine, collection_record, agent) can link to any target (knowledge_item, collection_record, contact, organization, task, url).
+- `entity_links` — universal polymorphic linking. Any owner (task, routine, collection_record, agent) can link to any target (knowledge_item, collection_record, contact, organization, task, url). Extended with `is_deliverable`, `review_status`, `review_note`, `submitted_by_agent_id` for agent-submitted work products on tasks.
+- `task_relations` — task-to-task dependency links (`blocked_by`, `blocks`, `relates_to`, `parent_of`, `child_of`). Used for dependency tracking and blocker resolution.
+- `labels` / `task_labels` — managed labels with color and description, linked to tasks via junction table.
+- `task_templates` — reusable task group templates with dependency graphs, stored as JSONB.
 - `routines` — scheduled and event-driven agent behaviors. Has `trigger_type` (schedule/event), cadence fields (sub-daily to monthly), and event fields (entity_type, field, condition, value).
 - `collection_definitions` / `collection_fields` / `collection_records` / `collection_views` — user-defined tables with typed JSONB fields and saved views (table/kanban/calendar).
 - `source_connections` / `source_sync_runs` — external source integrations via plugin-based connectors (`gateway/connectors/<provider>/`). Each provider has a `manifest.json`, auto-discovered by the registry. `writable` flag enables write-back. `source_write` command action routes writes through the command queue. Source connections reference `secrets` via `secret_id` FK for OAuth token storage.
@@ -97,7 +100,9 @@ Daemons:
 - `agent_usage` / `agent_budgets` — append-only LLM usage plus per-agent budget rollups.
 - `tenants` — multi-tenant support via `tenant_id` on all tables, scoped RLS via `current_tenant_id()`.
 
-Key RPCs: `search_knowledge_items()`, `search_knowledge_chunks()`, `lease_knowledge_items_for_indexing()`, `lease_knowledge_items_for_processing()`, `routine_next_occurrence()`, `spawn_routine_schedule_items()`, `lease_command()`, `get_agent_daily_usage()`.
+Key RPCs: `search_knowledge_items()`, `search_knowledge_chunks()`, `lease_knowledge_items_for_indexing()`, `lease_knowledge_items_for_processing()`, `routine_next_occurrence()`, `spawn_routine_schedule_items()`, `lease_command()`, `get_agent_daily_usage()`, `get_task_relations()`.
+
+Additional task infrastructure: `notify_blocker_resolved` trigger fires when a blocking task completes. `escalate_overdue_tasks` pg_cron job (every minute) marks overdue tasks as `missed` and creates inbox items for assigned agents.
 
 RLS: All tables use tenant-scoped policies via `current_tenant_id()` JWT claim. OSS uses a single default tenant (`00000000-0000-0000-0000-000000000000`). The `service_role` key bypasses RLS.
 
@@ -113,6 +118,6 @@ RLS: All tables use tenant-scoped policies via `current_tenant_id()` JWT claim. 
 
 ## Current Roadmap Shape
 
-- Shipped: self-hosted stack, browser onboarding, multi-workspace registry, UI-driven gateway registration, provider connections, noVNC modal, usage budgets, agent hierarchy, unified knowledge (pages/skills/files/sources), entity links, routines (schedule + event), collections (table/kanban/calendar views), file processing pipeline, source connections (Notion) with plugin-based connector architecture (manifest-driven, auto-discovery, generic OAuth, gateway-proxied browse/validate, optional write-back, contributor template + guide), modular onboarding, task calendar view, agent-initiated skill learning (auto-creation with version history), and encrypted secrets management (AES-256-GCM, Settings UI + agent Secrets tab, gateway .env sync).
+- Shipped: self-hosted stack, browser onboarding, multi-workspace registry, UI-driven gateway registration, provider connections, noVNC modal, usage budgets, agent hierarchy, unified knowledge (pages/skills/files/sources), entity links, routines (schedule + event), collections (table/kanban/calendar views), file processing pipeline, source connections (Notion) with plugin-based connector architecture (manifest-driven, auto-discovery, generic OAuth, gateway-proxied browse/validate, optional write-back, contributor template + guide), modular onboarding, task calendar view, agent-initiated skill learning (auto-creation with version history), encrypted secrets management (AES-256-GCM, Settings UI + agent Secrets tab, gateway .env sync), task relations/dependencies (blocked_by, blocks, relates_to, parent_of, child_of with blocker resolution notifications), labels (managed colors, task picker, filter), deliverables (agent-submitted work products with review workflow: draft → approved/revision_requested/rejected), task templates (reusable task groups with dependency graphs), overdue escalation (pg_cron auto-miss + inbox notification), and agent delegation skill (subtask creation with org-chart validation).
 - Next: Google Drive connector (validates plugin architecture with second provider), public deployment docs, richer pricing coverage, template docs, and docs site generation.
 - Later: hosted offering with account management, automated provisioning, and billing.

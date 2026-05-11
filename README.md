@@ -115,7 +115,7 @@ apps/ui/         Next.js dashboard (App Router, Tailwind, shadcn)
 apps/migrate/    Database migration runner CLI
 gateway/         Gateway image, files API, daemons, lifecycle scripts
 templates/       Agent template library (16 templates)
-db/migrations/   Supabase SQL migrations (001–025)
+db/migrations/   Supabase SQL migrations (001–031)
 installer/       Interactive install scripts (install.sh + install-gateway.sh)
 docs-site/       Documentation source (docs.yourhq.ai)
 scripts/         Operational scripts (diagnostic bundle)
@@ -154,7 +154,7 @@ See [the networking docs](https://docs.yourhq.ai/self-host/networking) for deplo
 
 ## Current status
 
-HQ already includes the self-hosted stack, browser onboarding, multi-workspace registry, UI-driven gateway registration, provider connections, noVNC desktop access, agent templates, CRM, tasks, knowledge base, collections, routines, source connections (Notion), file processing pipeline, modular onboarding, agent usage budgets, and agent reporting hierarchy.
+HQ already includes the self-hosted stack, browser onboarding, multi-workspace registry, UI-driven gateway registration, provider connections, noVNC desktop access, agent templates, CRM, tasks (with relations/dependencies, labels, deliverables, templates, and overdue escalation), knowledge base, collections, routines, source connections (Notion), file processing pipeline, modular onboarding, agent usage budgets, agent reporting hierarchy, and encrypted secrets management.
 
 The remaining roadmap is mostly hardening, polish, hosted deployment, and deeper integrations. See [the roadmap](https://docs.yourhq.ai/getting-started/roadmap).
 

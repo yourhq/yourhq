@@ -31,8 +31,10 @@ import {
   RotateCcw,
   Trash2,
   Repeat,
+  Ban,
 } from "lucide-react";
 import { AgentStatusChip } from "./agent-status-chip";
+import { TaskLabelPills } from "./task-labels-picker";
 import { format, isPast, isToday } from "date-fns";
 import { shortCadenceLabel } from "@/lib/tasks/cadence";
 
@@ -173,10 +175,17 @@ export function TaskList({
               <StatusIcon className="h-3.5 w-3.5" />
             </button>
 
+            {/* Blocker icon */}
+            {!!task.blocker_count && task.blocker_count > 0 && (
+              <span title={`Blocked by ${task.blocker_count} task${task.blocker_count > 1 ? "s" : ""}`}>
+                <Ban className="h-3 w-3 shrink-0 text-[var(--status-error)]" />
+              </span>
+            )}
+
             {/* Title */}
             <span
               className={cn(
-                "flex-1 truncate text-[13px] text-foreground flex items-center gap-1.5",
+                "flex-1 truncate text-[13px] text-foreground flex items-center gap-1.5 min-w-0",
                 isDone && "line-through text-muted-foreground"
               )}
             >
@@ -188,6 +197,11 @@ export function TaskList({
               )}
               <span className="truncate">{task.title}</span>
             </span>
+
+            {/* Labels */}
+            {task.labels && task.labels.length > 0 && (
+              <TaskLabelPills labels={task.labels} max={2} className="hidden shrink-0 sm:flex" />
+            )}
 
             {/* Stream */}
             {task.stream && (

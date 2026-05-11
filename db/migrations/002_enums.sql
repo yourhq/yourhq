@@ -42,12 +42,23 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
   CREATE TYPE inbox_event_type AS ENUM (
     'task_assignment', 'task_reassignment', 'task_comment_mention',
-    'routine_schedule', 'routine_event', 'heartbeat'
+    'routine_schedule', 'routine_event', 'heartbeat',
+    'deliverable_review', 'blocker_resolved'
   );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
   CREATE TYPE automation_condition AS ENUM ('created', 'changed_to', 'changed_from', 'any_change');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE task_relation_type AS ENUM (
+    'blocks', 'blocked_by', 'relates_to', 'parent_of', 'child_of'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE work_product_status AS ENUM ('draft', 'in_review', 'approved', 'revision_requested', 'rejected');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN

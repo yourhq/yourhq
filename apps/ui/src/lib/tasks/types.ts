@@ -55,6 +55,10 @@ export interface Task {
   comment_count?: number;
   attachment_count?: number;
   subtasks?: Task[];
+  labels?: Label[];
+  blocker_count?: number;
+  deliverable_count?: number;
+  pending_deliverable_count?: number;
 }
 
 export interface TaskSeries {
@@ -181,4 +185,77 @@ export const DAY_OF_WEEK_LABELS: { value: number; short: string; label: string }
   { value: 4, short: "T", label: "Thu" },
   { value: 5, short: "F", label: "Fri" },
   { value: 6, short: "S", label: "Sat" },
+];
+
+// ── Labels ────────────────────────────────────────────────────────
+
+export interface Label {
+  id: string;
+  created_at: string;
+  name: string;
+  color: string;
+  description: string | null;
+}
+
+// ── Task Relations ────────────────────────────────────────────────
+
+export type TaskRelationType = "blocks" | "blocked_by" | "relates_to" | "parent_of" | "child_of";
+
+export interface TaskRelation {
+  id: string;
+  created_at: string;
+  source_task_id: string;
+  target_task_id: string;
+  relation_type: TaskRelationType;
+  created_by_type: ActorType;
+  created_by_agent_id: string | null;
+  related_task?: {
+    id: string;
+    title: string;
+    status: TaskStatus;
+    assignee_agent?: { name: string } | null;
+  };
+}
+
+export const RELATION_TYPES: {
+  value: TaskRelationType;
+  label: string;
+  icon: string;
+  inverse: TaskRelationType;
+}[] = [
+  { value: "blocked_by", label: "Blocked by", icon: "Ban", inverse: "blocks" },
+  { value: "blocks", label: "Blocks", icon: "ShieldAlert", inverse: "blocked_by" },
+  { value: "relates_to", label: "Related to", icon: "Link2", inverse: "relates_to" },
+  { value: "parent_of", label: "Parent of", icon: "GitBranch", inverse: "child_of" },
+  { value: "child_of", label: "Sub-task of", icon: "CornerDownRight", inverse: "parent_of" },
+];
+
+// ── Task Templates ────────────────────────────────────────────────
+
+export interface TaskTemplate {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  color: string | null;
+  items: TaskTemplateItem[];
+  meta: Record<string, unknown>;
+}
+
+export interface TaskTemplateItem {
+  ref: string;
+  title: string;
+  description?: string;
+  priority?: TaskPriority;
+  assignee_role?: string;
+  labels?: string[];
+  blocked_by?: string[];
+}
+
+export const LABEL_PRESET_COLORS = [
+  "#ef4444", "#f97316", "#f59e0b", "#eab308",
+  "#84cc16", "#22c55e", "#14b8a6", "#06b6d4",
+  "#3b82f6", "#6366f1", "#8b5cf6", "#ec4899",
 ];

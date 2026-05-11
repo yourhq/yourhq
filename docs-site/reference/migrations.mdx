@@ -3,7 +3,7 @@ title: "Migrations"
 description: "Ordered Supabase migration files and how to apply them."
 ---
 
-Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations). Run them in filename order for a fresh project. There are currently 27 migration files (001–027).
+Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations). Run them in filename order for a fresh project. There are currently 31 migration files (001–031).
 
 ## Migration files
 
@@ -36,6 +36,10 @@ Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main
 | `025_modular_workspace.sql` | Modular workspace onboarding |
 | `026_secrets.sql` | Encrypted secrets (AES-256-GCM), agent/gateway scoping, Realtime, `source_connections.secret_id` FK |
 | `027_source_plugin_support.sql` | Extensible source providers, `writable` flag, `source_write` command action |
+| `028_task_relations.sql` | Task dependencies (`task_relations`), `get_task_relations()` RPC, `notify_blocker_resolved` trigger |
+| `029_labels.sql` | Managed labels with color/description, `task_labels` junction table |
+| `030_task_templates.sql` | Reusable task group templates with dependency graphs (JSONB items) |
+| `031_overdue_escalation.sql` | pg_cron job to mark overdue tasks `missed`, inbox notification for assigned agents |
 
 ## Migration CLI
 

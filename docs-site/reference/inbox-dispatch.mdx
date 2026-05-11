@@ -96,6 +96,18 @@ If an agent was just provisioned it may not be in the cache yet — the one-time
 
 ---
 
+## Blocker enrichment
+
+For `task_assignment` inbox items, the dispatcher queries `task_relations` to check for unresolved `blocked_by` dependencies. If the assigned task has active blockers (blocking tasks not in `done` or `cancelled` status), the dispatcher appends a note to the inbox summary:
+
+```
+⚠ This task has N unresolved blocker(s). Check dependencies before starting.
+```
+
+This gives the agent awareness of dependency constraints without requiring it to query relations itself.
+
+---
+
 ## Supabase tables accessed
 
 | Table | Operation | Purpose |
@@ -105,3 +117,4 @@ If an agent was just provisioned it may not be in the cache yet — the one-time
 | `agents` | SELECT | Cache local agent IDs; check `status` per wake |
 | `agent_inbox_items` | SELECT, PATCH | Query actionable items; update wake tracking fields |
 | `agent_budgets` | SELECT | Check budget status before waking |
+| `task_relations` | SELECT | Check for unresolved blockers on task assignments |

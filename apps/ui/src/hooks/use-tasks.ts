@@ -123,22 +123,76 @@ export function useTasks() {
     if (!error && data) {
       const taskList = data as unknown as Task[];
 
-      // Batch-fetch link counts
+      // Batch-fetch link counts, labels, and blocker counts
       if (taskList.length > 0) {
         const taskIds = taskList.map((t) => t.id);
-        const { data: linkRows } = await supabase
-          .from("entity_links")
-          .select("owner_id")
-          .eq("owner_type", "task")
-          .in("owner_id", taskIds);
 
-        if (linkRows) {
+        const [linkResult, labelResult, blockerResult, deliverableResult] = await Promise.all([
+          supabase
+            .from("entity_links")
+            .select("owner_id, is_deliverable")
+            .eq("owner_type", "task")
+            .in("owner_id", taskIds),
+          supabase
+            .from("task_labels")
+            .select("task_id, labels(*)")
+            .in("task_id", taskIds),
+          supabase
+            .from("task_relations")
+            .select("source_task_id")
+            .eq("relation_type", "blocked_by")
+            .in("source_task_id", taskIds),
+          supabase
+            .from("entity_links")
+            .select("owner_id")
+            .eq("owner_type", "task")
+            .eq("is_deliverable", true)
+            .in("owner_id", taskIds),
+        ]);
+
+        if (linkResult.data) {
           const countMap = new Map<string, number>();
-          for (const row of linkRows) {
-            countMap.set(row.owner_id, (countMap.get(row.owner_id) ?? 0) + 1);
+          for (const row of linkResult.data) {
+            if (!row.is_deliverable) {
+              countMap.set(row.owner_id, (countMap.get(row.owner_id) ?? 0) + 1);
+            }
           }
           for (const task of taskList) {
             task.attachment_count = countMap.get(task.id) ?? 0;
+          }
+        }
+
+        if (labelResult.data) {
+          type LabelRow = { id: string; name: string; color: string; description: string | null; created_at: string };
+          const labelMap = new Map<string, LabelRow[]>();
+          for (const row of labelResult.data as unknown as { task_id: string; labels: LabelRow | null }[]) {
+            if (!row.labels) continue;
+            const existing = labelMap.get(row.task_id) ?? [];
+            existing.push(row.labels);
+            labelMap.set(row.task_id, existing);
+          }
+          for (const task of taskList) {
+            task.labels = labelMap.get(task.id) ?? [];
+          }
+        }
+
+        if (blockerResult.data) {
+          const blockerMap = new Map<string, number>();
+          for (const row of blockerResult.data) {
+            blockerMap.set(row.source_task_id, (blockerMap.get(row.source_task_id) ?? 0) + 1);
+          }
+          for (const task of taskList) {
+            task.blocker_count = blockerMap.get(task.id) ?? 0;
+          }
+        }
+
+        if (deliverableResult.data) {
+          const delivMap = new Map<string, number>();
+          for (const row of deliverableResult.data) {
+            delivMap.set(row.owner_id, (delivMap.get(row.owner_id) ?? 0) + 1);
+          }
+          for (const task of taskList) {
+            task.deliverable_count = delivMap.get(task.id) ?? 0;
           }
         }
       }
@@ -156,12 +210,36 @@ export function useTasks() {
   // Real-time: sync tasks via single-row refetch (has stream + agent JOINs)
   const taskPostProcess = useCallback(
     async (task: Task): Promise<Task> => {
-      const { data: linkRows } = await supabase
-        .from("entity_links")
-        .select("owner_id")
-        .eq("owner_type", "task")
-        .eq("owner_id", task.id);
-      task.attachment_count = linkRows?.length ?? 0;
+      const [linkResult, labelResult, blockerResult] = await Promise.all([
+        supabase
+          .from("entity_links")
+          .select("owner_id, is_deliverable")
+          .eq("owner_type", "task")
+          .eq("owner_id", task.id),
+        supabase
+          .from("task_labels")
+          .select("labels(*)")
+          .eq("task_id", task.id),
+        supabase
+          .from("task_relations")
+          .select("id")
+          .eq("source_task_id", task.id)
+          .eq("relation_type", "blocked_by"),
+      ]);
+
+      const nonDeliverableLinks = (linkResult.data ?? []).filter(
+        (r: { is_deliverable: boolean }) => !r.is_deliverable
+      );
+      task.attachment_count = nonDeliverableLinks.length;
+      task.deliverable_count = (linkResult.data ?? []).length - nonDeliverableLinks.length;
+      task.blocker_count = blockerResult.data?.length ?? 0;
+
+      if (labelResult.data) {
+        task.labels = (labelResult.data as unknown as { labels: { id: string; name: string; color: string; description: string | null; created_at: string } | null }[])
+          .map((r) => r.labels)
+          .filter((l): l is NonNullable<typeof l> => l !== null);
+      }
+
       return task;
     },
     [supabase]

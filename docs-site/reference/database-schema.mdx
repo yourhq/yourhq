@@ -33,6 +33,10 @@ HQ stores shared state in one Supabase project per workspace. The SQL source of 
 | `025_modular_workspace.sql` | Modular workspace onboarding |
 | `026_secrets.sql` | Encrypted secrets (AES-256-GCM), RLS, Realtime, `source_connections.secret_id` FK |
 | `027_source_plugin_support.sql` | Extensible source providers (drops hardcoded provider constraint), `writable` flag on `source_connections`, `source_write` command action |
+| `028_task_relations.sql` | Task dependencies and relations (`task_relations` table with `blocked_by`, `blocks`, `relates_to`, `parent_of`, `child_of`), `get_task_relations()` RPC, `notify_blocker_resolved` trigger |
+| `029_labels.sql` | Managed labels with color and description, `task_labels` junction table |
+| `030_task_templates.sql` | Reusable task group templates with dependency graphs (JSONB items) |
+| `031_overdue_escalation.sql` | pg_cron job to mark overdue tasks as `missed`, inbox notification for assigned agents |
 
 For a fresh Supabase project, run all files in filename order from the SQL Editor. The onboarding wizard handles this automatically — it concatenates all files and lets you copy/paste a single SQL blob.
 
@@ -94,13 +98,17 @@ Important RPCs:
 
 ### Tasks
 
-- `tasks` — operator and agent work items. Supports `model_override` and `thinking_override` columns for per-task model selection when assigned to an agent.
+- `tasks` — operator and agent work items. Supports `model_override` and `thinking_override` columns for per-task model selection when assigned to an agent. Status enum includes `missed` for overdue escalation.
 - `streams` — task grouping and workflow lanes.
 - `task_series` — recurring task definitions. Series-level `model_override` and `thinking_override` propagate to spawned instances.
+- `task_relations` — task-to-task dependency links. Relation types: `blocked_by`, `blocks`, `relates_to`, `parent_of`, `child_of`. The `get_task_relations(p_task_id)` RPC returns relations with joined task metadata. A `notify_blocker_resolved` trigger fires when a blocking task reaches `done` or `cancelled`, creating inbox items for the unblocked task's assignee.
+- `labels` — managed workspace labels with `name`, `color`, and optional `description`.
+- `task_labels` — junction table linking tasks to labels.
+- `task_templates` — reusable task group templates. Each template has a `name`, `description`, and `items` JSONB array containing task definitions with `ref`, `title`, `priority`, `assignee_role`, and `blocked_by` dependency references.
 - `comments` — polymorphic comments with mention support.
-- `entity_links` — universal polymorphic links from tasks (and other entities) to knowledge items, contacts, organizations, collection records, and URLs.
+- `entity_links` — universal polymorphic links from tasks (and other entities) to knowledge items, contacts, organizations, collection records, and URLs. Extended with deliverable support: `is_deliverable` flag, `review_status` (`draft`, `in_review`, `approved`, `revision_requested`, `rejected`), `review_note`, `reviewed_at`, and `submitted_by_agent_id`. Agents submit deliverables via the `hq_submit_deliverable.py` skill; humans review them in the task form's Deliverables tab.
 
-Task assignment and comment mention triggers enqueue `agent_inbox_items` for affected agents. When a task has model/thinking overrides, they are included in the inbox item's `context` JSONB and passed to the agent's session at wake time.
+Task assignment and comment mention triggers enqueue `agent_inbox_items` for affected agents. When a task has model/thinking overrides, they are included in the inbox item's `context` JSONB and passed to the agent's session at wake time. The `escalate_overdue_tasks` pg_cron job (every minute) marks tasks past their due date as `missed` and creates inbox items to notify assigned agents.
 
 ### Knowledge
 
@@ -160,6 +168,15 @@ The table is subscribed to Supabase Realtime (`REPLICA IDENTITY FULL`). The gate
 
 Entity links replace the earlier task-specific attachments with a generalized model. When an agent claims a task, it receives all linked entities as context.
 
+Entity links also serve as the deliverable system for tasks. When `is_deliverable = true`, the link represents an agent-submitted work product with a review workflow:
+
+- `review_status`: `draft` → `in_review` → `approved` / `revision_requested` / `rejected`
+- `review_note`: human feedback on revision requests or rejections
+- `submitted_by_agent_id`: which agent submitted the deliverable
+- `reviewed_at`: timestamp of the last review action
+
+Agents submit deliverables via `hq_submit_deliverable.py` (page, URL, or record types). Humans review and approve/reject from the task form UI.
+
 ### Routines
 
 - `routines` — event-driven and schedule-driven rules that turn CRM/task/collection/knowledge changes or cron ticks into agent inbox items.
@@ -172,6 +189,8 @@ Event routines are evaluated by trigger functions on contacts, tasks, knowledge 
 - `field_definitions` — custom fields by entity type.
 - `pipeline_stages` — runtime-configurable pipeline stages.
 - `streams` — task stream definitions.
+- `labels` — managed labels for task categorization (Settings → Labels).
+- `task_templates` — reusable task group templates with dependency graphs (Settings → Templates).
 
 These are configured from the UI and read by forms, tables, kanban views, filters, and agent skills.
 
@@ -191,7 +210,7 @@ These are configured from the UI and read by forms, tables, kanban views, filter
 
 ### Schema Version
 
-The `_schema_version` table tracks the current schema version (currently at v27). The UI reads `EXPECTED_SCHEMA_VERSION` and compares it to the applied version to show update banners when migrations are pending.
+The `_schema_version` table tracks the current schema version (currently at v31). The UI reads `EXPECTED_SCHEMA_VERSION` and compares it to the applied version to show update banners when migrations are pending.
 
 ## Realtime
 
@@ -208,7 +227,7 @@ Fresh project:
 
 1. Create a Supabase project.
 2. Open SQL Editor.
-3. Run every `.sql` file in `db/migrations/` in filename order (`001` through `025`). Or use the onboarding wizard, which concatenates them all into a single copy-paste blob.
+3. Run every `.sql` file in `db/migrations/` in filename order (`001` through `031`). Or use the onboarding wizard, which concatenates them all into a single copy-paste blob.
 4. Create an auth user and disable public signup unless needed.
 
 Existing project:
@@ -217,4 +236,4 @@ Existing project:
 2. Run all migration files — they are idempotent (`IF NOT EXISTS`, `CREATE OR REPLACE`) and safe to re-run.
 3. Confirm the UI onboarding validator passes.
 
-The schema version table currently tracks v27.
+The schema version table currently tracks v31.

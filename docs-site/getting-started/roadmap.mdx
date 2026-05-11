@@ -24,7 +24,7 @@ Where HQ is now, what ships in v0.1, and what comes after.
 - RLS policies scoped by `tenant_id` extracted from JWT `app_metadata`
 - All RPCs and triggers updated for tenant-aware leasing and filtering
 - Status enum unification: `ready`, `error`, `paused`, `provisioning`, `hibernating` for both agents and gateways
-- `_schema_version` tracking table (currently at v25)
+- `_schema_version` tracking table (currently at v31)
 - `last_heartbeat_at` on `gateways` table
 
 ### Workspace and onboarding
@@ -71,6 +71,12 @@ Where HQ is now, what ships in v0.1, and what comes after.
 - Per-agent LLM usage tracking and monthly budgets
 - Budget warning, exceeded notifications, and hard cutoff enforcement
 - Agent-initiated skill learning — agents autonomously create and update skills during work, with human visibility on the agent detail page and version history attribution in the knowledge editor
+- Task relations and dependencies — `blocked_by`, `blocks`, `relates_to`, `parent_of`, `child_of` with blocker highlighting, `notify_blocker_resolved` trigger, and dispatcher blocker enrichment
+- Labels — managed workspace labels with colors, inline creation, task form picker, list/board display, and toolbar filter
+- Deliverables — agent-submitted work products (page/URL/record) with human review workflow (approve, request revision, reject) in a dedicated task form tab
+- Task templates — reusable task group templates with dependency graphs, spawned from toolbar with preserved `blocked_by` relations
+- Overdue escalation — pg_cron auto-miss for overdue tasks with inbox notification for assigned agents and missed-task banner in UI
+- Agent delegation skill — `hq_delegate_task.py` for subtask creation with org-chart validation and `child_of` relation
 
 ### Observability and operations
 

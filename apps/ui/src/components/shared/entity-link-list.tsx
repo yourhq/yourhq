@@ -95,7 +95,10 @@ export function EntityLinkList({
   onUploadFile,
   onCreatePage,
 }: EntityLinkListProps) {
-  const { links, loading, actions } = useEntityLinks(ownerType, ownerId);
+  const { links: allLinks, loading, actions } = useEntityLinks(ownerType, ownerId);
+
+  // Filter out deliverable links — they render in the Deliverables tab
+  const links = allLinks.filter((l) => !l.is_deliverable);
 
   function handleLinkEntity(targetType: TargetType, targetId: string, label?: string) {
     actions.addLink({ target_type: targetType, target_id: targetId, label });

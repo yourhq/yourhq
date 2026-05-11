@@ -13,6 +13,8 @@ import { SeriesForm } from "@/components/tasks/series-form";
 import { useStreams } from "@/hooks/use-streams";
 import { useTasks } from "@/hooks/use-tasks";
 import { useTaskSeries } from "@/hooks/use-task-series";
+import { useLabels } from "@/hooks/use-labels";
+import { TaskTemplateLauncher } from "@/components/tasks/task-template-launcher";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -56,6 +58,7 @@ function TasksContent() {
   const streams = useStreams();
   const tasks = useTasks();
   const series = useTaskSeries();
+  const { labels } = useLabels();
 
   // Deep-link state: ?task=<id> and ?series=<id>.
   const searchParams = useSearchParams();
@@ -154,6 +157,7 @@ function TasksContent() {
                 <TaskFilters
                   filters={tasks.filters}
                   streams={streams.streams}
+                  labels={labels}
                 />
 
                 <div className="flex-1" />
@@ -232,10 +236,13 @@ function TasksContent() {
                 </Tooltip>
 
                 {!tasks.filters.showArchived && (
-                  <Button size="sm" onClick={tasks.form.openCreateForm}>
-                    <Plus className="mr-1.5 h-3.5 w-3.5" />
-                    New task
-                  </Button>
+                  <>
+                    <TaskTemplateLauncher onSpawned={tasks.actions.fetchTasks} />
+                    <Button size="sm" onClick={tasks.form.openCreateForm}>
+                      <Plus className="mr-1.5 h-3.5 w-3.5" />
+                      New task
+                    </Button>
+                  </>
                 )}
               </div>
             </TooltipProvider>

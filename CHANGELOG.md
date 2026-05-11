@@ -11,7 +11,16 @@ tagged release.
 
 ## [Unreleased]
 
-<!-- Add entries under Added / Changed / Fixed / Removed / Security as work lands. -->
+### Added
+
+- **Task relations and dependencies** — `blocked_by`, `blocks`, `relates_to`, `parent_of`, `child_of` relations between tasks. Blockers highlighted in task list. `notify_blocker_resolved` trigger creates inbox items when blocking tasks complete. `get_task_relations()` RPC.
+- **Labels** — managed workspace labels with configurable colors and descriptions. Inline creation from task form. Label filter in task toolbar. Settings → Labels management page.
+- **Deliverables** — agents submit work products (pages, URLs, collection records) to tasks via `hq_submit_deliverable.py`. Human review workflow: approve, request revision (with note), reject. Deliverables tab in task form.
+- **Task templates** — reusable task group templates with dependency graphs. Settings → Templates management page. "From template" launcher in task toolbar spawns task groups with preserved `blocked_by` relations.
+- **Overdue escalation** — pg_cron job marks overdue tasks as `missed` and creates inbox items for assigned agents. Missed-task banner in task form with reopen action.
+- **Agent delegation skill** — `hq_delegate_task.py` creates subtasks assigned to direct reports with org-chart validation and `child_of` relation.
+- **Blocker enrichment in dispatcher** — inbox dispatcher enriches task assignment items with unresolved blocker information from `task_relations`.
+- Migrations 028–031: `task_relations`, `labels`/`task_labels`, `task_templates`, overdue escalation.
 
 ## [0.1.0] — TBD
 

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { completeItem } from "@/lib/onboarding/progress";
 import { MicroTip } from "@/components/onboarding/micro-tip";
-import type { Task, TaskStatus, TaskPriority, Stream } from "@/lib/tasks/types";
+import type { Task, TaskStatus, TaskPriority, Stream, Label } from "@/lib/tasks/types";
 import type { Agent } from "@/lib/agents/types";
 import { TASK_STATUSES, TASK_PRIORITIES } from "@/lib/tasks/types";
 import { logAudit } from "@/lib/audit/log";
@@ -24,17 +24,17 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { EntityLinkList } from "@/components/shared/entity-link-list";
 import { CommentThread } from "./comment-thread";
 import { useComments } from "@/hooks/use-comments";
-import {
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
-} from "@/components/ui/collapsible";
-import { Paperclip, ChevronRight, Archive, Activity } from "lucide-react";
+import { useLabels } from "@/hooks/use-labels";
+import { Paperclip, Archive, AlertTriangle } from "lucide-react";
 import { TaskActivityFeed } from "./task-activity-feed";
+import { TaskRelations } from "./task-relations";
+import { TaskLabelsPicker } from "./task-labels-picker";
+import { TaskDeliverables } from "./task-deliverables";
 import {
   RecurrencePicker,
   DEFAULT_RECURRENCE,
@@ -118,6 +118,17 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
   const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
   const { actions: seriesActions } = useTaskSeries();
   const editingSeriesId = editingTask?.series_id ?? null;
+
+  // Labels state
+  const [taskLabels, setTaskLabels] = useState<Label[]>(editingTask?.labels ?? []);
+  const { actions: labelActions } = useLabels();
+
+  // Load task labels when editing
+  useEffect(() => {
+    if (!savedTaskId) return;
+    labelActions.getTaskLabels(savedTaskId).then(setTaskLabels);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedTaskId]);
 
   // Load workspace timezone
   useEffect(() => {
@@ -218,11 +229,9 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
     };
   }
 
-  async function handleSubmit(opts?: { autoSave?: boolean }) {
+  const handleSubmit = useCallback(async (opts?: { autoSave?: boolean }) => {
     if (!title.trim()) return;
 
-    // Editing an existing recurring instance with modifications that should
-    // apply to all future: ask for scope first.
     if (savedTaskId && editingSeriesId && recurrence.enabled && !opts?.autoSave) {
       setScopeDialogOpen(true);
       return;
@@ -232,9 +241,6 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
 
     const payload = buildTaskPayload();
 
-    // Recurrence enabled + no series yet (either no task saved, or a task
-    // was autosaved before recurrence was toggled on). Create series; if an
-    // orphan task row was autosaved, remove it — the spawn job owns instances.
     if (recurrence.enabled && !editingSeriesId) {
       const seriesPayload = buildSeriesPayload();
       const series = await seriesActions.createSeries(seriesPayload);
@@ -290,7 +296,8 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
 
     setSaving(false);
     if (!opts?.autoSave) onSave();
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, status, priority, streamId, assignee, dueDate, modelOverride, thinkingOverride, savedTaskId, editingSeriesId, recurrence]);
 
   async function handleScopeConfirm(scope: EditScope) {
     setScopeDialogOpen(false);
@@ -307,8 +314,6 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
         summary: `Updated task occurrence`,
       });
     } else if (scope === "series" && editingSeriesId) {
-      // Update the series (recurrence + shared fields). Also update this
-      // instance so the visible row reflects the new fields now.
       await seriesActions.updateSeries(editingSeriesId, buildSeriesPayload());
       await supabase.from("tasks").update(buildTaskPayload()).eq("id", savedTaskId);
     }
@@ -319,7 +324,6 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
 
   async function handleAttachClick() {
     if (!savedTaskId) {
-      // Auto-save the task first
       await handleSubmit({ autoSave: true });
     }
   }
@@ -333,6 +337,9 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
 
   const selectedStream = streams.find((s) => s.id === streamId);
   const selectedPriority = TASK_PRIORITIES.find((p) => p.value === priority);
+  const isMissed = status === "missed";
+  const isAgentAssigned = assignee !== "none" && assignee !== "me";
+  const deliverableCount = editingTask?.deliverable_count ?? 0;
 
   return (
     <ResponsiveDialog open onOpenChange={(open) => !open && onCancel()}>
@@ -343,6 +350,24 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
         <ResponsiveDialogDescription className="sr-only">
           Create or edit a task with title, description, status, priority, stream, assignee, and due date.
         </ResponsiveDialogDescription>
+
+        {/* Missed task banner */}
+        {isMissed && editingTask?.due_date && (
+          <div className="flex items-center gap-2 bg-status-warning/10 border-b border-status-warning/20 px-4 sm:px-5 py-2 text-xs text-status-warning shrink-0">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            <span>This task missed its deadline on {editingTask.due_date}.</span>
+            <div className="flex items-center gap-1 ml-auto">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 text-[11px] text-status-warning hover:text-status-warning px-1.5"
+                onClick={() => setStatus("todo")}
+              >
+                Reopen
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Title + description — non-scrollable */}
         <div className="px-4 sm:px-5 pt-4 sm:pt-5 pb-1 shrink-0">
@@ -422,6 +447,15 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
             </SelectContent>
           </Select>
 
+          {/* Labels */}
+          {savedTaskId && (
+            <TaskLabelsPicker
+              taskId={savedTaskId}
+              selectedLabels={taskLabels}
+              onLabelsChange={setTaskLabels}
+            />
+          )}
+
           {/* Assignee */}
           <MicroTip tipKey="task-assignee" content="Assign to an agent and it starts working immediately." position="bottom">
             <Select value={assignee} onValueChange={setAssignee}>
@@ -465,14 +499,60 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
           )}
         </div>
 
-        {/* Scrollable content area — links, comments, activity */}
-        <div className="flex-1 overflow-y-auto min-h-0">
-          {/* Links section */}
-          {savedTaskId ? (
-            <div className="border-t border-border/40 px-4 sm:px-5 py-2.5">
-              <EntityLinkList ownerType="task" ownerId={savedTaskId} />
-            </div>
-          ) : (
+        {/* Tabbed content area */}
+        {savedTaskId ? (
+          <Tabs defaultValue="details" className="flex-1 min-h-0 flex flex-col gap-0">
+            <TabsList variant="line" className="w-full justify-start border-t border-b border-border/40 px-4 sm:px-5 rounded-none h-9">
+              <TabsTrigger value="details" className="text-xs px-3">
+                Details
+              </TabsTrigger>
+              {(isAgentAssigned || deliverableCount > 0) && (
+                <TabsTrigger value="deliverables" className="text-xs px-3">
+                  Deliverables
+                  {deliverableCount > 0 && (
+                    <span className="ml-1 text-[10px] text-muted-foreground/60">
+                      {deliverableCount}
+                    </span>
+                  )}
+                </TabsTrigger>
+              )}
+              <TabsTrigger value="activity" className="text-xs px-3">
+                Activity
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Details tab */}
+            <TabsContent value="details" className="flex-1 overflow-y-auto min-h-0 m-0">
+              {/* Relations */}
+              <div className="border-b border-border/40 px-4 sm:px-5 py-2.5">
+                <TaskRelations taskId={savedTaskId} />
+              </div>
+
+              {/* Links */}
+              <div className="border-b border-border/40 px-4 sm:px-5 py-2.5">
+                <EntityLinkList ownerType="task" ownerId={savedTaskId} />
+              </div>
+
+              {/* Comments */}
+              <div className="px-4 sm:px-5 py-3">
+                <TaskFormComments taskId={savedTaskId} />
+              </div>
+            </TabsContent>
+
+            {/* Deliverables tab */}
+            {(isAgentAssigned || deliverableCount > 0) && (
+              <TabsContent value="deliverables" className="flex-1 overflow-y-auto min-h-0 m-0 px-4 sm:px-5 py-3">
+                <TaskDeliverables taskId={savedTaskId} />
+              </TabsContent>
+            )}
+
+            {/* Activity tab */}
+            <TabsContent value="activity" className="flex-1 overflow-y-auto min-h-0 m-0 px-4 sm:px-5 py-3">
+              <TaskActivityFeed taskId={savedTaskId} />
+            </TabsContent>
+          </Tabs>
+        ) : (
+          <div className="flex-1 overflow-y-auto min-h-0">
             <div className="border-t border-border/40 px-4 sm:px-5 py-2">
               <button
                 type="button"
@@ -484,31 +564,8 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
                 Attach link
               </button>
             </div>
-          )}
-
-          {/* Comments */}
-          {savedTaskId && (
-            <div className="border-t border-border/40 px-4 sm:px-5 py-3">
-              <TaskFormComments taskId={savedTaskId} />
-            </div>
-          )}
-
-          {/* Activity — collapsible, secondary */}
-          {savedTaskId && (
-            <div className="border-t border-border/40">
-              <Collapsible>
-                <CollapsibleTrigger className="flex w-full items-center gap-1.5 px-4 sm:px-5 py-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                  <ChevronRight className="h-3 w-3 transition-transform duration-200 [[data-state=open]>&]:rotate-90" />
-                  <Activity className="h-3.5 w-3.5" />
-                  <span className="font-medium">Activity</span>
-                </CollapsibleTrigger>
-                <CollapsibleContent forceMount className="px-4 sm:px-5 pb-3 data-[state=closed]:hidden">
-                  <TaskActivityFeed taskId={savedTaskId} />
-                </CollapsibleContent>
-              </Collapsible>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Footer bar */}
         <div className="flex items-center justify-between border-t border-border/40 px-4 sm:px-5 py-2.5 sm:py-2.5 shrink-0 bg-card/50">

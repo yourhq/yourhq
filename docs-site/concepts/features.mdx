@@ -231,11 +231,17 @@ Tasks support:
 - Priorities and due dates.
 - Recurrence rules.
 - **Per-task model and thinking overrides** — when assigned to an agent, override the model or reasoning depth for this specific execution without changing the agent's default.
+- **Relations and dependencies** — link tasks with `blocked_by`, `blocks`, `relates_to`, `parent_of`, and `child_of` relationships. Blockers are highlighted in the task list and task form. When a blocking task completes, a `notify_blocker_resolved` trigger creates an inbox item for the unblocked task's assignee.
+- **Labels** — managed workspace labels with configurable colors. Labels can be created from Settings → Labels or inline from the task form. Tasks display label pills in list and board views, and a label filter is available in the toolbar.
+- **Deliverables** — agents submit work products (pages, URLs, or collection records) to tasks for human review. The review workflow supports approve, request revision (with note), and reject actions. Deliverables appear in the task form's Deliverables tab.
+- **Task templates** — reusable task group templates with dependency graphs. Create templates from Settings → Templates, then spawn them from the task toolbar. Dependencies between template items are preserved as `blocked_by` relations on the created tasks.
+- **Overdue escalation** — a pg_cron job marks tasks past their due date as `missed` and creates inbox items to notify assigned agents. The task form shows a missed-task banner with a reopen action.
 - Comments and mentions.
 - Entity links to knowledge items, contacts, organizations, collection records, and URLs.
 - Agent inbox wakeups on assignment and reassignment.
+- **Agent delegation** — agents can delegate subtasks to direct reports via `hq_delegate_task.py`, which validates the org-chart relationship, creates a subtask with `child_of` relation, and inherits the parent task's stream.
 
-Mentioning an agent in a comment creates an inbox item for that agent. Assigning a task to an agent does the same. Per-task model overrides are carried through the inbox item's context and passed to the agent session at wake time.
+Mentioning an agent in a comment creates an inbox item for that agent. Assigning a task to an agent does the same. Per-task model overrides are carried through the inbox item's context and passed to the agent session at wake time. The inbox dispatcher enriches task assignment items with unresolved blocker information so agents know what dependencies exist before starting work.
 
 ## Knowledge
 

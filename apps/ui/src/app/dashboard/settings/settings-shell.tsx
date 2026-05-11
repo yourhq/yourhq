@@ -18,6 +18,8 @@ import {
   ScrollText,
   DollarSign,
   Settings,
+  Tag,
+  LayoutTemplate,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -50,6 +52,13 @@ const SETTINGS_NAV: NavGroup[] = [
       { href: "/dashboard/settings/general", label: "General", icon: Sliders },
       { href: "/dashboard/settings/profile", label: "Profile", icon: User },
       { href: "/dashboard/settings/modules", label: "Modules", icon: Puzzle },
+    ],
+  },
+  {
+    label: "Tasks",
+    items: [
+      { href: "/dashboard/settings/labels", label: "Labels", icon: Tag },
+      { href: "/dashboard/settings/templates", label: "Templates", icon: LayoutTemplate },
     ],
   },
   {
