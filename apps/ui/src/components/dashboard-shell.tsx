@@ -371,7 +371,10 @@ function SidebarInner({
                     </div>
                     {showLabels && <span className="flex-1">{item.label}</span>}
                     {showBadge && showLabels && (
-                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground">
+                      <span
+                        className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground"
+                        aria-label={`${unreadCount} unread notifications`}
+                      >
                         {unreadCount > 99 ? "99+" : unreadCount}
                       </span>
                     )}

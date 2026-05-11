@@ -202,7 +202,10 @@ export function HeaderBar({
           <Kbd className="text-[10px]">⌘K</Kbd>
         </button>
 
-        <Link href="/dashboard/notifications" aria-label="Notifications">
+        <Link
+          href="/dashboard/notifications"
+          aria-label={unreadCount > 0 ? `Notifications — ${unreadCount} unread` : "Notifications"}
+        >
           <Button
             variant="ghost"
             size="icon-sm"
@@ -210,7 +213,10 @@ export function HeaderBar({
           >
             <Bell className="h-4 w-4" />
             {unreadCount > 0 && (
-              <span className="absolute right-1 top-1 flex h-1.5 w-1.5 items-center justify-center rounded-full bg-primary" />
+              <span
+                className="absolute right-1 top-1 flex h-1.5 w-1.5 items-center justify-center rounded-full bg-primary"
+                aria-hidden="true"
+              />
             )}
           </Button>
         </Link>

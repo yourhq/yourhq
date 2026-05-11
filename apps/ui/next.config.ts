@@ -14,7 +14,7 @@ const codespacesHost = process.env.CODESPACE_NAME
   : null;
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  output: process.env.VERCEL ? undefined : "standalone",
   allowedDevOrigins: [
     ...(codespacesHost ? [codespacesHost] : []),
     ...extraAllowedOrigins,

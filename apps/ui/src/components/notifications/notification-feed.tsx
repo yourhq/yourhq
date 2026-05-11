@@ -18,6 +18,12 @@ import {
   Info,
   X,
   CheckCheck,
+  MessageSquare,
+  UserCheck,
+  CircleCheck,
+  ShieldAlert,
+  PackageCheck,
+  AlarmClock,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -35,7 +41,13 @@ const TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   follow_up: Clock,
   stale_contact: UserX,
   agent_suggestion: Sparkles,
+  agent_comment: MessageSquare,
   task_reminder: CheckCircle2,
+  task_assigned: UserCheck,
+  task_completed: CircleCheck,
+  task_blocked: ShieldAlert,
+  task_overdue: AlarmClock,
+  deliverable_submitted: PackageCheck,
   system: Info,
   "budget.warned": AlertTriangle,
   "budget.exceeded": Ban,
@@ -53,8 +65,11 @@ function entityHref(entityType: string | null, entityId: string | null): string 
     case "document":
     case "knowledge_item":
       return `/dashboard/knowledge/${entityId}`;
+    case "agent":
     case "agent_budget":
       return `/dashboard/agents/${entityId}`;
+    case "routine":
+      return `/dashboard/routines`;
     default:
       return null;
   }
@@ -125,11 +140,20 @@ export function NotificationFeed({
           return (
             <div
               key={n.id}
+              role="button"
+              tabIndex={0}
+              aria-label={`${n.title}${!n.is_read ? " (unread)" : ""}`}
               className={cn(
-                "group flex items-start gap-3 rounded-md border border-border/50 px-3 py-2.5 cursor-pointer transition-colors hover:bg-accent/40",
+                "group flex items-start gap-3 rounded-md border border-border/50 px-3 py-2.5 cursor-pointer transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 !n.is_read && "bg-accent/20"
               )}
               onClick={() => handleClick(n)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleClick(n);
+                }
+              }}
             >
               <div
                 className={cn(
@@ -144,7 +168,7 @@ export function NotificationFeed({
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium truncate">{n.title}</span>
                   {!n.is_read && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" aria-hidden="true" />
                   )}
                 </div>
                 {n.body && (
@@ -168,7 +192,8 @@ export function NotificationFeed({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                aria-label="Dismiss notification"
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shrink-0"
                 onClick={(e) => {
                   e.stopPropagation();
                   onDismiss(n.id);

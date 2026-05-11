@@ -231,3 +231,39 @@ jobs:
           docker buildx imagetools create $TAG_ARGS \
             "${IMAGE}@${AMD64_DIGEST}" \
             "${IMAGE}@${ARM64_DIGEST}"
+
+  # ─── Phase 4: Push Worker image to ECR for App Runner ──────────
+  ecr-push:
+    needs: [changes, manifest]
+    if: >-
+      needs.changes.outputs.has-changes == 'true' &&
+      github.ref == 'refs/heads/main' &&
+      contains(toJSON(fromJSON(needs.changes.outputs.manifest-matrix).include.*.name), 'yourhq-worker')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      id-token: write
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ECR_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr-login
+
+      - name: Pull from GHCR and push to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          ECR_REPOSITORY: ${{ vars.ECR_WORKER_REPOSITORY || 'yourhq-worker' }}
+        run: |
+          GHCR_IMAGE="ghcr.io/${{ github.repository_owner }}/yourhq-worker:latest"
+          ECR_IMAGE="${ECR_REGISTRY}/${ECR_REPOSITORY}"
+          SHORT_SHA=$(echo "${{ github.sha }}" | head -c 7)
+
+          docker pull "${GHCR_IMAGE}"
+          docker tag "${GHCR_IMAGE}" "${ECR_IMAGE}:latest"
+          docker tag "${GHCR_IMAGE}" "${ECR_IMAGE}:${SHORT_SHA}"
+          docker push "${ECR_IMAGE}:latest"
+          docker push "${ECR_IMAGE}:${SHORT_SHA}"
