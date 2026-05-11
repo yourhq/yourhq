@@ -428,6 +428,18 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
     }
   }, [isHosted, advance]);
 
+  // Auto-advance once agent provisioning finishes (ready or error)
+  const agentDoneFired = useRef(false);
+  useEffect(() => {
+    if (step !== "agent") return;
+    if (agentDoneFired.current) return;
+    if (provisionStatus === "ready" || provisionStatus === "error") {
+      agentDoneFired.current = true;
+      const timer = setTimeout(handleAgentDone, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [step, provisionStatus, handleAgentDone]);
+
   // ─── Payment (Hosted) ───
   const handlePaymentCheckout = useCallback(
     async (email: string) => {
@@ -630,7 +642,6 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
                 <StepAgent
                   recommendation={getRecommendation()}
                   onCreateAgent={handleCreateAgent}
-                  onDone={handleAgentDone}
                   provisionStatus={provisionStatus}
                   provisionError={provisionError}
                   pending={pending}
