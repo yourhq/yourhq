@@ -16,15 +16,13 @@ Commands are rows in `agent_commands`. Each row has an `action` field that tells
 
 Create a new agent: runs `~/add-agent.sh` which creates a git branch, checks out a template, and registers the agent with OpenClaw.
 
+Before executing, the runner forces a `sync_secrets()` call to ensure the agent's per-agent `.env` file is written to disk with any channel tokens that were stored in the `secrets` table by the UI.
+
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `channel` | string | No | `telegram` / `discord` / `slack` / `none`. Default `telegram` |
-| `telegram_token` | string | If `channel=telegram` | Bot token from @BotFather |
-| `discord_token` | string | If `channel=discord` | Discord bot token |
 | `discord_server_id` | string | No | Discord guild ID |
 | `discord_user_id` | string | No | Discord user ID for DM fallback |
-| `slack_app_token` | string | If `channel=slack` | App-level token (`xapp-...`) |
-| `slack_bot_token` | string | If `channel=slack` | Bot token (`xoxb-...`) |
 | `model` | string | No | Full model ID (e.g. `anthropic/claude-sonnet-4-6`). Sets the agent's default model at provision time |
 | `source_template` | string | No | Git branch name to copy from (e.g. `template/researcher`) |
 | `name` | string | No | Display name |
@@ -34,7 +32,7 @@ Create a new agent: runs `~/add-agent.sh` which creates a git branch, checks out
 | `owner_preferred_name` | string | No | Owner's preferred first name |
 | `owner_timezone` | string | No | Owner's timezone (e.g. `America/New_York`) |
 
-After success, the runner scrubs all `*_token` fields from the row's `payload` and sets `tokens_scrubbed = true`.
+Channel tokens (Telegram, Discord, Slack) are **not** in the payload. They are stored encrypted in the `secrets` table and delivered to the gateway via the secrets sync daemon. The `add-agent.sh` script reads them from `~/.openclaw/secrets/agents/<slug>.env`.
 
 ---
 

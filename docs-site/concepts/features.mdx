@@ -25,6 +25,9 @@ This page is the product tour. For system internals, read [Architecture](/concep
   <Card title="Routines" icon="bolt" href="#routines-and-inbox">
     Convert CRM, task, and comment events into agent work via schedule and event triggers.
   </Card>
+  <Card title="Secrets" icon="lock" href="#secrets-management">
+    Encrypted credential storage with per-agent scoping and automatic gateway sync.
+  </Card>
   <Card title="Usage budgets" icon="gauge-high" href="#usage-tracking-and-budgets">
     Track model spend and stop agents when they exceed limits.
   </Card>
@@ -99,16 +102,12 @@ Agents are created from templates under `templates/`. The creation wizard lets y
 
 The agent detail page includes:
 
-- Overview, status, capabilities, and activity.
+- **Overview** — status, capabilities, knowledge items, skills, direct reports, and routines.
+- **Secrets** — credentials and keys this agent can use, with inherited gateway secrets and per-agent overrides.
+- **Files** — file browser/editor for the agent's git branch.
+- **Browser** — remote desktop access through the assigned gateway.
+- **Activity** — usage summary, inbox history, and command/operation history.
 - **Model and thinking level** — pick any connected model and reasoning depth from the right rail. Changes take effect on the next wake, no restart needed.
-- Knowledge items (workspace pinned + agent-scoped boot context).
-- Agent skills — skills the agent created or updated autonomously, with recency indicators and edit reasons.
-- Direct reports and manager assignment.
-- Trigger and inbox history.
-- File browser/editor for the agent branch.
-- Operations and command history.
-- Usage and budget controls.
-- Remote desktop access through the assigned gateway.
 
 ## Agent Templates
 
@@ -174,6 +173,34 @@ The budget system tracks:
 - Hard cutoff status.
 
 Budgets can be configured per agent. When a hard cutoff is enabled and an agent exceeds its monthly limit, the runtime blocks further replies and the inbox dispatcher stops waking that agent for background work. Budget transitions also create notifications.
+
+## Secrets Management
+
+Agents need credentials — API keys, OAuth tokens, webhook secrets — to interact with external services. HQ provides a unified encrypted secrets system that stores, syncs, and injects these values securely.
+
+<CardGroup cols={3}>
+  <Card title="Encrypted at rest" icon="lock">
+    AES-256-GCM encryption. Values are never visible after saving — not in the UI, API responses, logs, or LLM context.
+  </Card>
+  <Card title="Gateway sync" icon="rotate">
+    Secrets propagate to the gateway within seconds via Supabase Realtime. The sync status is visible in the UI.
+  </Card>
+  <Card title="Scoped access" icon="shield-halved">
+    Gateway-wide or per-agent. Agent-scoped secrets override gateway defaults automatically.
+  </Card>
+</CardGroup>
+
+**Settings → Secrets** manages workspace-level credentials available to all agents. The **agent detail → Secrets tab** shows per-agent overrides and inherited gateway secrets.
+
+Three categories:
+
+- **User** — manually added API keys and credentials (e.g. `SALESFORCE_API_KEY`).
+- **Channel** — auto-created when an agent is provisioned with a messaging channel (e.g. `TELEGRAM_BOT_TOKEN`).
+- **Integration** — auto-created by OAuth flows (e.g. Notion access tokens for source sync).
+
+Secrets are delivered to agents as environment variables via per-agent `.env` files on the gateway filesystem. Agent tools read them with `os.environ.get("SECRET_KEY")`. The AI model never sees secret values — only the tools it runs can access them.
+
+For details on encryption, key derivation, and the sync protocol, see [Secrets management](/guides/secrets-management).
 
 ## CRM
 

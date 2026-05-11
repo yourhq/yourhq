@@ -31,6 +31,7 @@ HQ stores shared state in one Supabase project per workspace. The SQL source of 
 | `023_source_connections.sql` | External source connections for knowledge sync |
 | `024_routines_extension.sql` | Event triggers for collections, knowledge items, and tasks |
 | `025_modular_workspace.sql` | Modular workspace onboarding |
+| `026_secrets.sql` | Encrypted secrets (AES-256-GCM), RLS, Realtime, `source_connections.secret_id` FK |
 
 For a fresh Supabase project, run all files in filename order from the SQL Editor. The onboarding wizard handles this automatically — it concatenates all files and lets you copy/paste a single SQL blob.
 
@@ -130,9 +131,26 @@ Important RPCs:
 - `collection_records` — JSONB-backed rows belonging to a collection.
 - `collection_views` — saved views (table, kanban, calendar) with filters and sorting.
 
+### Secrets
+
+- `secrets` — encrypted credentials stored as AES-256-GCM ciphertext (`enc:v1:` prefix format). Scoped per gateway, optionally per agent. Used for channel tokens (Telegram/Discord/Slack), integration OAuth tokens (Notion, Google Drive), and user-managed API keys.
+
+Key columns:
+
+- `gateway_id` (required) — which gateway can decrypt and use this secret.
+- `agent_id` (nullable) — if set, the secret is scoped to one agent; if NULL, it's available to all agents on the gateway.
+- `key` — the environment variable name (e.g. `TELEGRAM_BOT_TOKEN`, `NOTION_SOURCE_A1B2C3D4`). Validated `/^[A-Z][A-Z0-9_]*$/`.
+- `encrypted_value` — the ciphertext. Never returned in API responses (excluded from SELECT columns in server actions).
+- `category` — `user` (operator-managed), `channel` (auto-created at agent provision), or `integration` (auto-created by OAuth flows).
+- `sync_status` — `pending` → `active` (synced to gateway filesystem), or `error`/`waiting`.
+
+Unique indexes enforce one value per key at each scope level (gateway-wide or per-agent). When both exist, agent-scoped secrets override gateway-level ones.
+
+The table is subscribed to Supabase Realtime (`REPLICA IDENTITY FULL`). The gateway's `secrets_sync` daemon picks up INSERT/UPDATE/DELETE events and regenerates `.env` files within seconds.
+
 ### Source Connections
 
-- `source_connections` — external source integrations (Notion, Google Drive) with credentials and sync schedules.
+- `source_connections` — external source integrations (Notion, Google Drive) with credentials and sync schedules. References `secrets` via `secret_id` FK for encrypted OAuth token storage.
 - `source_sync_runs` — sync execution history and status tracking.
 
 ### Entity Links

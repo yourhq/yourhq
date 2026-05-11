@@ -75,6 +75,7 @@
           "guides/connect-model-provider",
           "guides/agent-boot-docs",
           "guides/automations",
+          "guides/secrets-management",
           "guides/usage-budgets"
         ]
       },

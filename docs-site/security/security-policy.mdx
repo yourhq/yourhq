@@ -74,6 +74,26 @@ The one-line installer (`curl install.yourhq.ai | bash`) pipes untrusted input t
 
 The installer itself invokes `curl | sh` from `get.docker.com` and `tailscale.com/install.sh` — we're not signing or pinning those scripts. They're canonical upstream install scripts. If you don't trust them, install Docker and Tailscale manually and skip the installer.
 
+### Secrets are encrypted at rest
+
+All credentials stored in the `secrets` table (channel tokens, OAuth tokens, user API keys) are encrypted with AES-256-GCM before writing to the database. The plaintext value is never stored in Supabase and never returned in API responses.
+
+**Key derivation (self-hosted):** The encryption key is derived from your `SUPABASE_SERVICE_ROLE_KEY` via HKDF-SHA256 (salt: `yourhq-secrets-v1`, info: `aes-256-gcm`, 32 bytes). Anyone with your service role key can derive the encryption key and decrypt secrets — this is the same trust boundary as the service role key itself.
+
+**Key derivation (hosted):** Uses a dedicated `HOSTED_SECRETS_KEY` held in the worker environment, separate from the service role key.
+
+**Gateway-side decryption:** The `secrets_sync` daemon (running in the runner container) fetches encrypted values, decrypts them in memory, and writes plaintext to `.env` files on the `gateway-state` volume (`chmod 0600`). These files are the same trust boundary as the service role key and the Docker socket. Agent tools read secrets from the environment — the LLM never sees the values.
+
+**What this protects against:**
+- Database dumps or backups leaking plaintext credentials.
+- SQL injection or RLS bypass exposing raw values.
+- Supabase dashboard viewers accidentally seeing token values.
+
+**What this does NOT protect against:**
+- Compromise of the gateway container (secrets are in plaintext `.env` files on the volume).
+- Compromise of the service role key (derives the encryption key).
+- An agent's tools intentionally logging or exfiltrating secrets (treat agent tool code as trusted).
+
 ### Agent capabilities
 
 Each agent runs in the gateway container with a full Chrome browser, a messaging channel (Telegram, Discord, Slack, or none), and the ability to call openclaw plugins. Agents can:
@@ -136,6 +156,8 @@ Each hosted workspace gets its own Supabase project. Your data is not shared wit
 ### Credentials are encrypted at rest
 
 Your Supabase service-role key, database password, and VNC password are encrypted with ChaCha20-Poly1305 before being stored in the control-plane database. The encryption key (`HOSTED_SECRETS_KEY`) is held in the worker's environment, not in the database.
+
+User-managed secrets (API keys, channel tokens, OAuth tokens) in your workspace's `secrets` table are separately encrypted with AES-256-GCM using the same `HOSTED_SECRETS_KEY`. This is a different encryption scheme from the control-plane credentials above, but uses the same key material.
 
 ### What the control plane stores
 

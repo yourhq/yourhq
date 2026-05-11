@@ -191,9 +191,23 @@ Now the UI reads its Supabase config at **runtime** from the workspace registry 
 
 ---
 
+### 2.11 Secrets encryption
+
+These variables control how user-managed secrets (channel tokens, API keys, OAuth tokens) are encrypted in the `secrets` table and decrypted on the gateway.
+
+- **`HOSTED_SECRETS_KEY`** — **Optional (hosted only), secret**. Empty. A 32-byte encryption key (base64url, base64, or hex encoded) used for AES-256-GCM encryption of secrets. When set, takes precedence over the HKDF-derived key. Used by the hosted offering where the service role key is not a stable derivation source.
+
+- **`SOURCE_SYNC_POLL_INTERVAL`** — **Optional**. Default `60`. Seconds between source-sync poll cycles (checks `source_connections` for connections due for sync). Not secrets-specific but relevant because source sync now reads OAuth tokens from the secrets filesystem.
+
+Self-hosted deployments do not need `HOSTED_SECRETS_KEY` — the encryption key is automatically derived from `SUPABASE_SERVICE_ROLE_KEY` via HKDF-SHA256 (salt: `yourhq-secrets-v1`, info: `aes-256-gcm`, 32 bytes). This means rotating your service role key requires re-encrypting all secrets.
+
+---
+
 ## 4. Secrets handling
 
-Every secret lives in plaintext in `.env` on disk. The installer `chmod 600` the file, which is the only layer of protection. Don't commit `.env`, don't paste it into issues, don't ship it in backups unencrypted.
+Stack-level secrets (Supabase keys, gateway auth tokens) live in plaintext in `.env` on disk. The installer `chmod 600` the file, which is the only layer of protection. Don't commit `.env`, don't paste it into issues, don't ship it in backups unencrypted.
+
+User-managed secrets (API keys, channel tokens, OAuth tokens) are stored **encrypted** in the `secrets` table using AES-256-GCM. They are never in `.env` on the UI host. On the gateway, they're decrypted and written to `~/.openclaw/secrets/` as per-agent `.env` files (`chmod 0600`). These derived files are regenerated on every change and do not need manual management. See [Secrets management](/guides/secrets-management) for the full architecture.
 
 If one of these leaks:
 
