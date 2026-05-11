@@ -45,9 +45,26 @@ export function useAgentRoutines(agentId: string) {
 
   async function toggleActive(id: string, currentState: boolean) {
     const newState = !currentState;
+    const routine = routines.find((r) => r.id === id);
+
+    const payload: Record<string, unknown> = { is_active: newState };
+
+    if (newState && routine?.trigger_type === "schedule" && routine.cadence_type && routine.timezone) {
+      const { data: nextRun } = await supabase.rpc("routine_next_occurrence", {
+        p_cadence_type: routine.cadence_type,
+        p_interval_n: routine.interval_n ?? null,
+        p_days_of_week: routine.days_of_week ?? [],
+        p_day_of_month: routine.day_of_month ?? null,
+        p_time_of_day: routine.time_of_day ?? null,
+        p_timezone: routine.timezone,
+        p_from: new Date().toISOString(),
+      });
+      payload.next_run_at = nextRun;
+    }
+
     const { error } = await supabase
       .from("routines")
-      .update({ is_active: newState })
+      .update(payload)
       .eq("id", id);
     if (error) {
       toast.error("Failed to toggle", { description: error.message });
@@ -79,9 +96,46 @@ export function useAgentRoutines(agentId: string) {
     fetchRoutines();
   }
 
+  async function runNow(id: string) {
+    const routine = routines.find((r) => r.id === id);
+    if (!routine) return;
+
+    const { error } = await supabase.from("agent_inbox_items").insert({
+      agent_id: routine.agent_id,
+      agent_slug: routine.agent_slug,
+      event_type: routine.trigger_type === "schedule" ? "routine_schedule" : "routine_event",
+      status: "pending",
+      summary: routine.instruction || routine.name,
+      context: {
+        routine_id: routine.id,
+        routine_name: routine.name,
+        instruction: routine.instruction,
+        manual_trigger: true,
+      },
+      dedup_key: `routine_manual:${routine.id}:${Date.now()}`,
+    });
+
+    if (error) {
+      toast.error("Failed to trigger routine", { description: error.message });
+      return;
+    }
+
+    toast.success(`"${routine.name}" triggered`, {
+      description: "The agent will process it shortly.",
+    });
+
+    logAudit(supabase, {
+      module: "routines",
+      entity_type: "routine",
+      entity_id: routine.id,
+      action: "updated",
+      summary: `Manually triggered routine "${routine.name}"`,
+    });
+  }
+
   return {
     routines,
     loading,
-    actions: { toggleActive, deleteRoutine, refetch: fetchRoutines },
+    actions: { toggleActive, deleteRoutine, runNow, refetch: fetchRoutines },
   };
 }

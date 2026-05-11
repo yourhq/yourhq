@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { useEntityAuditLog } from "@/hooks/use-audit-log";
 import type { AuditLogEntry } from "@/lib/audit/types";
 import { formatDistanceToNow } from "date-fns";
 import { Bot, ArrowRight, UserPlus, Pencil, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 const actionIcons: Record<string, typeof ArrowRight> = {
   status_changed: ArrowRight,
@@ -37,8 +39,11 @@ function EntryRow({ entry }: { entry: AuditLogEntry }) {
   );
 }
 
+const PAGE_SIZE = 20;
+
 export function TaskActivityFeed({ taskId }: { taskId: string }) {
   const { entries, loading } = useEntityAuditLog({ entity_type: "task", entity_id: taskId });
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   if (loading) {
     return (
@@ -56,11 +61,25 @@ export function TaskActivityFeed({ taskId }: { taskId: string }) {
     );
   }
 
+  const hasMore = entries.length > visibleCount;
+
   return (
     <div className="divide-y divide-border/30">
-      {entries.slice(0, 20).map((entry) => (
+      {entries.slice(0, visibleCount).map((entry) => (
         <EntryRow key={entry.id} entry={entry} />
       ))}
+      {hasMore && (
+        <div className="pt-2 pb-1 text-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 text-[11px] text-muted-foreground"
+            onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+          >
+            Show older activity ({entries.length - visibleCount} more)
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

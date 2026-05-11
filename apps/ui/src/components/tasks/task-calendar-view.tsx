@@ -23,21 +23,21 @@ interface TaskCalendarViewProps {
   tasks: Task[];
   loading: boolean;
   onSelect: (task: Task) => void;
-  onStatusChange: (taskId: string, status: TaskStatus) => void;
   onCreateForDate?: (date: string) => void;
 }
 
 const STATUS_DOT: Record<TaskStatus, string> = {
-  todo: "bg-gray-400",
-  in_progress: "bg-blue-400",
-  blocked: "bg-red-400",
-  done: "bg-green-400",
-  cancelled: "bg-zinc-400",
-  missed: "bg-amber-400",
+  todo: "bg-muted-foreground/40",
+  in_progress: "bg-status-info",
+  blocked: "bg-status-error",
+  done: "bg-status-success",
+  cancelled: "bg-muted-foreground/30",
+  missed: "bg-status-warning",
 };
 
 export function TaskCalendarView({
   tasks,
+  loading,
   onSelect,
   onCreateForDate,
 }: TaskCalendarViewProps) {
@@ -287,7 +287,10 @@ export function TaskCalendarView({
                   </button>
                 ))}
                 {dayTasks.length > 3 && (
-                  <span className="text-[9px] text-muted-foreground/60 px-1">
+                  <span
+                    className="text-[9px] text-muted-foreground/60 px-1 hover:text-muted-foreground cursor-default transition-colors"
+                    title={dayTasks.slice(3).map((t) => t.title).join("\n")}
+                  >
                     +{dayTasks.length - 3} more
                   </span>
                 )}

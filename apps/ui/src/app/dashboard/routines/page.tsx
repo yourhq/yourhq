@@ -103,6 +103,7 @@ function RoutinesContent() {
             onEdit={form.openEditForm}
             onDelete={actions.deleteRoutine}
             onToggleActive={actions.toggleActive}
+            onRunNow={actions.runNow}
           />
         )}
       </div>

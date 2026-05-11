@@ -24,6 +24,8 @@ BEGIN
     WHERE is_active = true
       AND trigger_type = 'event'
       AND entity_type = 'collection_record'
+      AND archived_at IS NULL
+      AND tenant_id = NEW.tenant_id
       AND (collection_id IS NULL OR collection_id = NEW.collection_id)
   LOOP
     v_matched := false;
@@ -97,6 +99,8 @@ SET search_path = ''
 AS $$
 DECLARE
   r RECORD;
+  v_old_value text;
+  v_new_value text;
   v_matched boolean;
 BEGIN
   FOR r IN
@@ -105,13 +109,32 @@ BEGIN
     WHERE is_active = true
       AND trigger_type = 'event'
       AND entity_type = 'knowledge_item'
+      AND archived_at IS NULL
+      AND tenant_id = NEW.tenant_id
   LOOP
     v_matched := false;
+
+    v_old_value := NULL;
+    v_new_value := NULL;
 
     IF r.condition = 'created' AND TG_OP = 'INSERT' THEN
       v_matched := true;
     ELSIF r.condition = 'any_change' AND TG_OP = 'UPDATE' THEN
-      v_matched := true;
+      IF r.field IS NOT NULL THEN
+        EXECUTE format('SELECT ($1).%I::text, ($2).%I::text', r.field, r.field)
+          INTO v_old_value, v_new_value USING OLD, NEW;
+        v_matched := (v_old_value IS DISTINCT FROM v_new_value);
+      ELSE
+        v_matched := true;
+      END IF;
+    ELSIF r.condition = 'changed_to' AND TG_OP = 'UPDATE' AND r.field IS NOT NULL THEN
+      EXECUTE format('SELECT ($1).%I::text, ($2).%I::text', r.field, r.field)
+        INTO v_old_value, v_new_value USING OLD, NEW;
+      v_matched := (v_old_value IS DISTINCT FROM v_new_value) AND v_new_value = r.value;
+    ELSIF r.condition = 'changed_from' AND TG_OP = 'UPDATE' AND r.field IS NOT NULL THEN
+      EXECUTE format('SELECT ($1).%I::text, ($2).%I::text', r.field, r.field)
+        INTO v_old_value, v_new_value USING OLD, NEW;
+      v_matched := (v_old_value IS DISTINCT FROM v_new_value) AND v_old_value = r.value;
     END IF;
 
     IF v_matched THEN
@@ -129,7 +152,11 @@ BEGIN
           'entity_type', 'knowledge_item',
           'entity_id', NEW.id,
           'title', NEW.title,
-          'kind', NEW.kind
+          'kind', NEW.kind,
+          'field', r.field,
+          'condition', r.condition,
+          'old_value', v_old_value,
+          'new_value', v_new_value
         ),
         'routine_event:' || r.id || ':' || NEW.id || ':' || to_char(now(), 'YYYY-MM-DD-HH24-MI')
       )
@@ -170,6 +197,8 @@ BEGIN
     WHERE is_active = true
       AND trigger_type = 'event'
       AND entity_type = 'task'
+      AND archived_at IS NULL
+      AND tenant_id = NEW.tenant_id
   LOOP
     v_matched := false;
 

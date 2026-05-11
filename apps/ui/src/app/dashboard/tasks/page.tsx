@@ -286,7 +286,6 @@ function TasksContent() {
                 tasks={tasks.tasks}
                 loading={tasks.loading}
                 onSelect={tasks.form.openEditForm}
-                onStatusChange={tasks.actions.handleStatusChange}
               />
             )}
             {viewMode === "recurring" && (

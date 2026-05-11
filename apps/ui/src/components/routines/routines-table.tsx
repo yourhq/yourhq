@@ -41,7 +41,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowUpDown, Bot, Clock, MoreHorizontal, Pencil, Trash2, Zap } from "lucide-react";
+import { ArrowUpDown, Bot, Clock, MoreHorizontal, Pencil, Play, Trash2, Zap } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface RoutinesTableProps {
@@ -49,6 +49,7 @@ interface RoutinesTableProps {
   onEdit: (routine: Routine) => void;
   onDelete: (id: string) => void;
   onToggleActive: (id: string, currentState: boolean) => void;
+  onRunNow?: (id: string) => void;
 }
 
 export function RoutinesTable({
@@ -56,6 +57,7 @@ export function RoutinesTable({
   onEdit,
   onDelete,
   onToggleActive,
+  onRunNow,
 }: RoutinesTableProps) {
   const mobile = useIsMobile();
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -146,6 +148,23 @@ export function RoutinesTable({
       ),
     },
     {
+      id: "nextRun",
+      accessorFn: (row) => row.next_run_at,
+      header: "Next run",
+      size: 110,
+      cell: ({ row }) => {
+        const r = row.original;
+        if (r.trigger_type !== "schedule" || !r.is_active || !r.next_run_at) {
+          return <span className="text-[11px] text-muted-foreground/50">—</span>;
+        }
+        return (
+          <span className="text-[11px] text-muted-foreground">
+            {formatDistanceToNow(new Date(r.next_run_at), { addSuffix: true })}
+          </span>
+        );
+      },
+    },
+    {
       id: "lastRun",
       accessorFn: (row) => row.last_run_at,
       header: ({ column }) => (
@@ -211,6 +230,12 @@ export function RoutinesTable({
               <Pencil className="mr-2 h-3.5 w-3.5" />
               Edit
             </DropdownMenuItem>
+            {onRunNow && (
+              <DropdownMenuItem onClick={() => onRunNow(row.original.id)}>
+                <Play className="mr-2 h-3.5 w-3.5" />
+                Run now
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
@@ -298,6 +323,12 @@ export function RoutinesTable({
                       <Pencil className="mr-2 h-3.5 w-3.5" />
                       Edit
                     </DropdownMenuItem>
+                    {onRunNow && (
+                      <DropdownMenuItem onClick={() => onRunNow(r.id)}>
+                        <Play className="mr-2 h-3.5 w-3.5" />
+                        Run now
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-destructive focus:text-destructive"

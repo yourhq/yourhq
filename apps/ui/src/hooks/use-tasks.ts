@@ -133,7 +133,7 @@ export function useTasks() {
       if (taskList.length > 0) {
         const taskIds = taskList.map((t) => t.id);
 
-        const [linkResult, labelResult, blockerResult] = await Promise.all([
+        const [linkResult, labelResult, blockerResult, commentResult] = await Promise.all([
           supabase
             .from("entity_links")
             .select("owner_id, is_deliverable")
@@ -148,6 +148,11 @@ export function useTasks() {
             .select("source_task_id")
             .eq("relation_type", "blocked_by")
             .in("source_task_id", taskIds),
+          supabase
+            .from("comments")
+            .select("entity_id")
+            .eq("entity_type", "task")
+            .in("entity_id", taskIds),
         ]);
 
         if (linkResult.data) {
@@ -189,6 +194,16 @@ export function useTasks() {
             task.blocker_count = blockerMap.get(task.id) ?? 0;
           }
         }
+
+        if (commentResult.data) {
+          const commentMap = new Map<string, number>();
+          for (const row of commentResult.data) {
+            commentMap.set(row.entity_id, (commentMap.get(row.entity_id) ?? 0) + 1);
+          }
+          for (const task of taskList) {
+            task.comment_count = commentMap.get(task.id) ?? 0;
+          }
+        }
       }
 
       const filtered = labelFilter !== "all"
@@ -208,7 +223,7 @@ export function useTasks() {
   // Real-time: sync tasks via single-row refetch (has stream + agent JOINs)
   const taskPostProcess = useCallback(
     async (task: Task): Promise<Task> => {
-      const [linkResult, labelResult, blockerResult] = await Promise.all([
+      const [linkResult, labelResult, blockerResult, commentResult] = await Promise.all([
         supabase
           .from("entity_links")
           .select("owner_id, is_deliverable")
@@ -223,6 +238,11 @@ export function useTasks() {
           .select("id")
           .eq("source_task_id", task.id)
           .eq("relation_type", "blocked_by"),
+        supabase
+          .from("comments")
+          .select("id")
+          .eq("entity_type", "task")
+          .eq("entity_id", task.id),
       ]);
 
       const nonDeliverableLinks = (linkResult.data ?? []).filter(
@@ -231,6 +251,7 @@ export function useTasks() {
       task.attachment_count = nonDeliverableLinks.length;
       task.deliverable_count = (linkResult.data ?? []).length - nonDeliverableLinks.length;
       task.blocker_count = blockerResult.data?.length ?? 0;
+      task.comment_count = commentResult.data?.length ?? 0;
 
       if (labelResult.data) {
         task.labels = (labelResult.data as unknown as { labels: { id: string; name: string; color: string; description: string | null; created_at: string } | null }[])
@@ -280,7 +301,11 @@ export function useTasks() {
   async function handleStatusChange(id: string, status: TaskStatus) {
     const task = tasks.find((t) => t.id === id);
     const oldStatus = task?.status;
-    await supabase.from("tasks").update({ status }).eq("id", id);
+    const { error } = await supabase.from("tasks").update({ status }).eq("id", id);
+    if (error) {
+      toast.error("Failed to update task status", { description: error.message });
+      return;
+    }
     logAudit(supabase, {
       module: "tasks",
       entity_type: "task",
@@ -294,7 +319,11 @@ export function useTasks() {
 
   async function handleArchiveTask(id: string) {
     const task = tasks.find((t) => t.id === id);
-    await supabase.from("tasks").update({ archived_at: new Date().toISOString() }).eq("id", id);
+    const { error } = await supabase.from("tasks").update({ archived_at: new Date().toISOString() }).eq("id", id);
+    if (error) {
+      toast.error("Failed to archive task", { description: error.message });
+      return;
+    }
     logAudit(supabase, {
       module: "tasks",
       entity_type: "task",
@@ -311,7 +340,11 @@ export function useTasks() {
 
   async function handleRestoreTask(id: string) {
     const task = tasks.find((t) => t.id === id);
-    await supabase.from("tasks").update({ archived_at: null }).eq("id", id);
+    const { error } = await supabase.from("tasks").update({ archived_at: null }).eq("id", id);
+    if (error) {
+      toast.error("Failed to restore task", { description: error.message });
+      return;
+    }
     logAudit(supabase, {
       module: "tasks",
       entity_type: "task",
@@ -356,7 +389,11 @@ export function useTasks() {
 
   async function handleDeleteTask(id: string) {
     const task = tasks.find((t) => t.id === id);
-    await supabase.from("tasks").delete().eq("id", id);
+    const { error } = await supabase.from("tasks").delete().eq("id", id);
+    if (error) {
+      toast.error("Failed to delete task", { description: error.message });
+      return;
+    }
     logAudit(supabase, {
       module: "tasks",
       entity_type: "task",

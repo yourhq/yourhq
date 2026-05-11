@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTaskRelations } from "@/hooks/use-task-relations";
 import type { TaskRelationType, TaskStatus } from "@/lib/tasks/types";
 import { RELATION_TYPES } from "@/lib/tasks/types";
@@ -62,18 +62,22 @@ export function TaskRelations({ taskId }: TaskRelationsProps) {
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<{ id: string; title: string; status: string }[]>([]);
   const [searching, setSearching] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  async function handleSearch(value: string) {
+  function handleSearch(value: string) {
     setSearch(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!value.trim()) {
       setResults([]);
       return;
     }
-    setSearching(true);
-    const found = await actions.searchTasks(value);
-    const existingIds = new Set(relations.map((r) => r.related_task?.id).filter(Boolean));
-    setResults(found.filter((t) => !existingIds.has(t.id)));
-    setSearching(false);
+    debounceRef.current = setTimeout(async () => {
+      setSearching(true);
+      const found = await actions.searchTasks(value);
+      const existingIds = new Set(relations.map((r) => r.related_task?.id).filter(Boolean));
+      setResults(found.filter((t) => !existingIds.has(t.id)));
+      setSearching(false);
+    }, 300);
   }
 
   async function handleSelect(targetId: string) {

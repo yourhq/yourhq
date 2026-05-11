@@ -30,7 +30,7 @@ import { EntityLinkList } from "@/components/shared/entity-link-list";
 import { CommentThread } from "./comment-thread";
 import { useComments } from "@/hooks/use-comments";
 import { useLabels } from "@/hooks/use-labels";
-import { Paperclip, Archive, AlertTriangle } from "lucide-react";
+import { Paperclip, Archive, AlertTriangle, Tag } from "lucide-react";
 import { TaskActivityFeed } from "./task-activity-feed";
 import { TaskRelations } from "./task-relations";
 import { TaskLabelsPicker } from "./task-labels-picker";
@@ -265,7 +265,12 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
     }
 
     if (savedTaskId) {
-      await supabase.from("tasks").update(payload).eq("id", savedTaskId);
+      const { error } = await supabase.from("tasks").update(payload).eq("id", savedTaskId);
+      if (error) {
+        toast.error("Failed to save task", { description: error.message });
+        setSaving(false);
+        return;
+      }
       logAudit(supabase, {
         module: "tasks",
         entity_type: "task",
@@ -274,23 +279,26 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
         summary: `Updated task '${payload.title}'`,
       });
     } else {
-      const { data: inserted } = await supabase
+      const { data: inserted, error } = await supabase
         .from("tasks")
         .insert(payload)
         .select("id")
         .single();
-      if (inserted) {
-        setSavedTaskId(inserted.id);
-        logAudit(supabase, {
-          module: "tasks",
-          entity_type: "task",
-          entity_id: inserted.id,
-          action: "created",
-          summary: `Created task '${payload.title}'`,
-        });
-        if (payload.assignee_agent_id) {
-          completeItem("taskAssigned");
-        }
+      if (error || !inserted) {
+        toast.error("Failed to create task", { description: error?.message });
+        setSaving(false);
+        return;
+      }
+      setSavedTaskId(inserted.id);
+      logAudit(supabase, {
+        module: "tasks",
+        entity_type: "task",
+        entity_id: inserted.id,
+        action: "created",
+        summary: `Created task '${payload.title}'`,
+      });
+      if (payload.assignee_agent_id) {
+        completeItem("taskAssigned");
       }
     }
 
@@ -305,7 +313,12 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
     setSaving(true);
 
     if (scope === "instance") {
-      await supabase.from("tasks").update(buildTaskPayload()).eq("id", savedTaskId);
+      const { error } = await supabase.from("tasks").update(buildTaskPayload()).eq("id", savedTaskId);
+      if (error) {
+        toast.error("Failed to update task", { description: error.message });
+        setSaving(false);
+        return;
+      }
       logAudit(supabase, {
         module: "tasks",
         entity_type: "task",
@@ -315,7 +328,12 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
       });
     } else if (scope === "series" && editingSeriesId) {
       await seriesActions.updateSeries(editingSeriesId, buildSeriesPayload());
-      await supabase.from("tasks").update(buildTaskPayload()).eq("id", savedTaskId);
+      const { error } = await supabase.from("tasks").update(buildTaskPayload()).eq("id", savedTaskId);
+      if (error) {
+        toast.error("Failed to update task", { description: error.message });
+        setSaving(false);
+        return;
+      }
     }
 
     setSaving(false);
@@ -448,12 +466,22 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
           </Select>
 
           {/* Labels */}
-          {savedTaskId && (
+          {savedTaskId ? (
             <TaskLabelsPicker
               taskId={savedTaskId}
               selectedLabels={taskLabels}
               onLabelsChange={setTaskLabels}
             />
+          ) : (
+            <button
+              type="button"
+              onClick={() => { if (title.trim()) handleSubmit({ autoSave: true }); }}
+              disabled={!title.trim() || saving}
+              className="h-8 sm:h-6 flex items-center gap-1 border border-border/50 bg-transparent px-2.5 sm:px-2 text-xs font-normal hover:bg-accent rounded-md transition-colors text-muted-foreground disabled:opacity-50"
+            >
+              <Tag className="h-3 w-3" />
+              Labels
+            </button>
           )}
 
           {/* Assignee */}
@@ -585,7 +613,7 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
               </Button>
             )}
             <p className="text-[10px] text-muted-foreground/40">
-              {savedTaskId ? "Changes auto-save" : "⏎ to create"}
+              {savedTaskId ? "Press Save or ⏎" : "⏎ to create"}
             </p>
           </div>
           <div className="flex items-center gap-1.5">

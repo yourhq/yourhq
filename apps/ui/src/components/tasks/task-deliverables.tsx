@@ -18,6 +18,7 @@ import {
   Bot,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
 
 const STATUS_STYLES: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -108,17 +109,22 @@ function DeliverableCard({
 
   async function handleApprove() {
     setReviewing(true);
-    await actions.approve(deliverable.id);
+    const { error } = await actions.approve(deliverable.id);
+    if (error) toast.error("Failed to approve deliverable");
     setReviewing(false);
   }
 
   async function handleSubmitNote() {
     if (!revisionNote.trim()) return;
     setReviewing(true);
+    let result: { error: unknown } | undefined;
     if (actionType === "revision") {
-      await actions.requestRevision(deliverable.id, revisionNote.trim());
+      result = await actions.requestRevision(deliverable.id, revisionNote.trim());
     } else if (actionType === "reject") {
-      await actions.reject(deliverable.id, revisionNote.trim());
+      result = await actions.reject(deliverable.id, revisionNote.trim());
+    }
+    if (result?.error) {
+      toast.error(actionType === "reject" ? "Failed to reject deliverable" : "Failed to request revision");
     }
     setReviewing(false);
     setRevisionNote("");
