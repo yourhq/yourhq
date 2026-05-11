@@ -244,9 +244,11 @@ The knowledge system is the unified store for all workspace knowledge. It replac
 - **Pages** — rich-text documents (company briefs, style guides, meeting notes).
 - **Skills** — structured procedures and SOPs.
 - **Files** — uploaded files (PDFs, images, spreadsheets, audio, video).
-- **Sources** — externally synced content from connected integrations.
+- **Sources** — externally synced content from connected integrations via the plugin-based source connector system.
 
 Knowledge items support folders, tags, pinned state, rich editing, and semantic + full-text search.
+
+Source connectors are self-contained plugins — each provider is a folder under `gateway/connectors/<provider>/` with a `manifest.json` that declares auth, UI metadata, and capabilities. The platform handles credential encryption, OAuth flows, UI forms, sync scheduling, and embedding automatically. Providers that support it can enable two-way sync with a `writable` toggle per connection. See [Knowledge system — Source connectors](/concepts/knowledge#source-connectors) for the architecture.
 
 Agent boot context is controlled by **scope** and **pinning**:
 
@@ -392,3 +394,4 @@ Code extension points include:
 - New routine behavior in database functions/triggers.
 - New agent skills under template `skills/`.
 - New OpenClaw plugins in `gateway/scripts/plugins/`.
+- New source connectors under `gateway/connectors/<provider>/` — copy the `_template/` directory and implement the connector interface. See `CONTRIBUTING-SOURCES.md`.

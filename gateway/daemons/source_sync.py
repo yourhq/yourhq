@@ -243,18 +243,36 @@ def _load_gateway_secrets() -> dict:
     return pairs
 
 
+def _resolve_credentials(provider: str, connection_id: str, creds: dict) -> dict:
+    """Merge secrets from gateway.env into the credential dict.
+
+    Supports two naming conventions written by the secrets_sync daemon:
+      - Single-key:  {PROVIDER}_SOURCE_{ID_PREFIX}        → injected as ``api_key``
+      - Multi-key:   {PROVIDER}_SOURCE_{ID_PREFIX}__{FIELD} → injected as ``{field}`` (lowercase)
+    """
+    secrets = _load_gateway_secrets()
+    prefix = f"{provider.upper()}_SOURCE_{connection_id[:8].upper()}"
+
+    if prefix in secrets and not creds.get("api_key"):
+        creds["api_key"] = secrets[prefix]
+
+    multi_prefix = prefix + "__"
+    for key, value in secrets.items():
+        if key.startswith(multi_prefix):
+            field_name = key[len(multi_prefix):].lower()
+            if field_name not in creds:
+                creds[field_name] = value
+
+    return creds
+
+
 def sync_connection(connection: dict) -> None:
     provider = connection["provider"]
     connection_id = connection["id"]
     interval = connection.get("sync_interval_hours", 6)
-    creds = dict(connection.get("credentials", {}))
-
-    # If api_key is not in credentials, resolve from secrets .env file on disk
-    if not creds.get("api_key"):
-        secret_key = f"{provider.upper()}_SOURCE_{connection_id[:8].upper()}"
-        secrets = _load_gateway_secrets()
-        if secret_key in secrets:
-            creds["api_key"] = secrets[secret_key]
+    creds = _resolve_credentials(
+        provider, connection_id, dict(connection.get("credentials", {}))
+    )
 
     log(f"Syncing {provider} connection")
 

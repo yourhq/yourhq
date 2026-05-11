@@ -25,6 +25,19 @@ The API is gated by `GATEWAY_AUTH_TOKEN` — a pre-shared secret between the UI 
 - Path traversal is rejected via `safe_join()` — requests can't escape the agent's worktree.
 - After a successful write, the UI automatically enqueues an `update` command so OpenClaw reloads the agent with the changed files.
 
+## Source connector endpoints
+
+The files API also serves as the bridge for source connector operations. The UI proxies these requests to the gateway so that provider-specific API calls (validate credentials, browse content) happen on the gateway side, keeping credentials local.
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/sources/validate` | POST | Test credentials for a source provider. Body: `{ provider, credentials }`. Returns `{ valid, error?, account_name? }`. |
+| `/sources/browse` | POST | Browse content from a connected source. Body: `{ connection_id, parent_id?, search? }`. Resolves credentials from the gateway's local secrets. Returns `{ items }`. |
+
+The validate endpoint accepts raw credentials (they haven't been stored yet at validation time). The browse endpoint takes a `connection_id` — the gateway resolves credentials from its encrypted secrets `.env` file, which is more secure than passing decrypted credentials over the network.
+
+Both endpoints use the connector registry (`gateway/connectors/registry.py`) to dynamically load the appropriate provider connector.
+
 <Warning>
   Do not expose the files API directly to the public internet. It should only be reachable by the UI server process or over a private network like Tailscale.
 </Warning>

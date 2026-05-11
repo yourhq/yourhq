@@ -243,6 +243,22 @@ The runner calls `lease_command(p_gateway_slug, p_lease_seconds)` to atomically 
 - **Timeout.** Shell commands are killed after `COMMAND_TIMEOUT` seconds (default 120). Auth flows have a separate 5-minute ceiling.
 - **Parallelism.** `auth_start` runs in a background thread. All other actions run sequentially on the main lease loop. This ensures an `auth_paste` can be leased and processed while an `auth_start` is waiting for user input.
 
+## Source actions
+
+### `source_write`
+
+Execute a write operation against an external source connection. Requires the connection's `writable` flag to be enabled.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `connection_id` | string | Yes | The source connection ID |
+| `action` | string | Yes | Provider-specific action name (e.g. `create_page`) |
+| `params` | object | Yes | Action parameters (schema varies by provider and action) |
+
+The runner looks up the connection, verifies `writable = true`, loads the provider's `ACTION_PROVIDER` from the connector registry, resolves credentials from the gateway's secrets `.env` file, and calls `execute(action, params, creds)`. Results are written to the command's `stdout`.
+
+---
+
 ## Credential scrubbing
 
 The runner redacts secrets from command rows immediately after they're used:

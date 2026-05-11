@@ -18,6 +18,29 @@ Every knowledge item has a `kind` that determines how it's stored and rendered:
 
 Pages and skills support rich editing in the UI. Files go through a processing pipeline (upload, extract text, embed). Sources sync from external integrations and track their sync status.
 
+## Source connectors
+
+Source connections use a **plugin-based connector architecture**. Each provider is a self-contained folder under `gateway/connectors/<provider>/` containing:
+
+- `manifest.json` — declarative config for auth, UI metadata, setup steps, and capabilities.
+- `read.py` — `BaseConnector` subclass implementing validate, browse, list, fetch, and change detection.
+- `api.py` — HTTP helpers for the provider's API.
+- `transforms.py` — response-to-markdown conversion logic.
+- `write.py` (optional) — `BaseActionProvider` subclass for write-back operations.
+- `__init__.py` — exports `CONNECTOR` (and optionally `ACTION_PROVIDER`).
+
+The manifest is the contract between the connector and the platform. A build script (`scripts/build-source-manifests.mjs`) generates a TypeScript module from all manifests so the UI renders provider setup forms, icons, and labels without hardcoded constants.
+
+**Auto-discovery**: `gateway/connectors/registry.py` scans subdirectories for exported `CONNECTOR` instances. Adding a new provider requires only the provider folder — no changes to existing platform code.
+
+**Credential handling**: The manifest declares what credentials are needed. The platform encrypts and stores them in the `secrets` table, `secrets_sync.py` decrypts them to the gateway filesystem, and `source_sync.py` assembles a `creds` dict for the connector. Single-key credentials use `{PROVIDER}_SOURCE_{ID_PREFIX}`, multi-key credentials use `{PROVIDER}_SOURCE_{ID_PREFIX}__{FIELD}`.
+
+**Write support**: Providers that support writes set `supports_write: true` in their manifest and implement a `BaseActionProvider`. The UI shows a "Write access" toggle on the connection detail page. Write operations flow through the `source_write` command action in the existing command queue.
+
+**Browse and validate**: The UI proxies browse and validate requests to the gateway's files API (`/sources/browse` and `/sources/validate`), so provider-specific API calls happen on the gateway side where credentials are local.
+
+See `CONTRIBUTING-SOURCES.md` in the repository root for the full contributor guide.
+
 Skills can also be created autonomously by agents during work via `hq_skill_upsert.py`. When an agent discovers a reusable method, it codifies the procedure as an agent-scoped skill. These appear on the agent detail page with edit reasons and recency indicators.
 
 ## Scope and agent access
@@ -95,6 +118,8 @@ Entity links are stored in `entity_links` with polymorphic `owner_type`/`target_
 | `knowledge_items` | All knowledge content — pages, skills, files, sources |
 | `knowledge_item_agents` | Junction table linking agent-scoped items to specific agents |
 | `knowledge_chunks` | Chunked content with per-chunk embeddings for granular retrieval |
+| `source_connections` | External source integrations with plugin-based providers, credentials, and sync schedules |
+| `source_sync_runs` | Sync execution history and status tracking |
 | `entity_links` | Universal polymorphic links between any entities |
 
 ## Agent scripts

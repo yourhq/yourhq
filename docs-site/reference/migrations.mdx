@@ -3,7 +3,7 @@ title: "Migrations"
 description: "Ordered Supabase migration files and how to apply them."
 ---
 
-Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations). Run them in filename order for a fresh project.
+Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations). Run them in filename order for a fresh project. There are currently 27 migration files (001–027).
 
 ## Migration files
 
@@ -35,6 +35,7 @@ Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main
 | `024_routines_extension.sql` | Event triggers for collections, knowledge, and tasks |
 | `025_modular_workspace.sql` | Modular workspace onboarding |
 | `026_secrets.sql` | Encrypted secrets (AES-256-GCM), agent/gateway scoping, Realtime, `source_connections.secret_id` FK |
+| `027_source_plugin_support.sql` | Extensible source providers, `writable` flag, `source_write` command action |
 
 ## Migration CLI
 

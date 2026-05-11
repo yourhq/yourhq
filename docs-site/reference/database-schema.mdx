@@ -32,6 +32,7 @@ HQ stores shared state in one Supabase project per workspace. The SQL source of 
 | `024_routines_extension.sql` | Event triggers for collections, knowledge items, and tasks |
 | `025_modular_workspace.sql` | Modular workspace onboarding |
 | `026_secrets.sql` | Encrypted secrets (AES-256-GCM), RLS, Realtime, `source_connections.secret_id` FK |
+| `027_source_plugin_support.sql` | Extensible source providers (drops hardcoded provider constraint), `writable` flag on `source_connections`, `source_write` command action |
 
 For a fresh Supabase project, run all files in filename order from the SQL Editor. The onboarding wizard handles this automatically — it concatenates all files and lets you copy/paste a single SQL blob.
 
@@ -150,7 +151,7 @@ The table is subscribed to Supabase Realtime (`REPLICA IDENTITY FULL`). The gate
 
 ### Source Connections
 
-- `source_connections` — external source integrations (Notion, Google Drive) with credentials and sync schedules. References `secrets` via `secret_id` FK for encrypted OAuth token storage.
+- `source_connections` — external source integrations with credentials and sync schedules. Providers are plugin-based — each connector is a self-contained folder under `gateway/connectors/<provider>/` with a `manifest.json` that defines auth, UI metadata, and capabilities. The `writable` flag controls whether agents can write back to the source. References `secrets` via `secret_id` FK for encrypted OAuth token storage.
 - `source_sync_runs` — sync execution history and status tracking.
 
 ### Entity Links
@@ -190,7 +191,7 @@ These are configured from the UI and read by forms, tables, kanban views, filter
 
 ### Schema Version
 
-The `_schema_version` table tracks the current schema version (currently at v25). The UI reads `EXPECTED_SCHEMA_VERSION` and compares it to the applied version to show update banners when migrations are pending.
+The `_schema_version` table tracks the current schema version (currently at v27). The UI reads `EXPECTED_SCHEMA_VERSION` and compares it to the applied version to show update banners when migrations are pending.
 
 ## Realtime
 
@@ -215,3 +216,5 @@ Existing project:
 1. Back up the database.
 2. Run all migration files — they are idempotent (`IF NOT EXISTS`, `CREATE OR REPLACE`) and safe to re-run.
 3. Confirm the UI onboarding validator passes.
+
+The schema version table currently tracks v27.

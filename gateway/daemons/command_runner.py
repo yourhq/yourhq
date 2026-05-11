@@ -1530,6 +1530,69 @@ def handle_list_models(cmd_id, payload):
         )
 
 
+def handle_source_write(cmd_id, payload):
+    """Execute a write action on a source provider.
+
+    payload: { connection_id: str, action: str, params: dict }
+    """
+    connection_id = payload.get("connection_id")
+    action_name = payload.get("action")
+    action_params = payload.get("params") or {}
+
+    if not connection_id or not action_name:
+        api_rpc("fail_command", {
+            "p_command_id": cmd_id,
+            "p_exit_code": None, "p_stdout": None, "p_stderr": None,
+            "p_error": "Missing connection_id or action",
+        })
+        return
+
+    try:
+        api_rpc("start_command", {"p_command_id": cmd_id})
+    except Exception:
+        pass
+
+    try:
+        rows = api_get("source_connections", {
+            "id": f"eq.{connection_id}",
+            "select": "provider,writable",
+            "limit": "1",
+        })
+        if not rows:
+            raise ValueError("Connection not found")
+
+        connection = rows[0]
+        if not connection.get("writable"):
+            raise ValueError("Connection is not writable")
+
+        provider = connection["provider"]
+
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from connectors.registry import get_action_provider
+        from daemons.source_sync import _resolve_credentials
+
+        action_provider = get_action_provider(provider)
+        if not action_provider:
+            raise ValueError(f"Provider '{provider}' does not support write actions")
+
+        creds = _resolve_credentials(provider, connection_id, {})
+        result = action_provider.execute(action_name, action_params, creds)
+
+        api_rpc("complete_command", {
+            "p_command_id": cmd_id,
+            "p_exit_code": 0,
+            "p_stdout": json.dumps(result) if result else "OK",
+            "p_stderr": None,
+        })
+    except Exception as e:
+        log(f"source_write failed: {e}")
+        api_rpc("fail_command", {
+            "p_command_id": cmd_id,
+            "p_exit_code": None, "p_stdout": None, "p_stderr": None,
+            "p_error": str(e),
+        })
+
+
 CONNECTION_HANDLERS = {
     "auth_set_api_key": handle_auth_set_api_key,
     "auth_start": handle_auth_start,
@@ -1540,6 +1603,7 @@ CONNECTION_HANDLERS = {
     "auth_set_default": handle_auth_set_default,
     "set_agent_model": handle_set_agent_model,
     "list_models": handle_list_models,
+    "source_write": handle_source_write,
 }
 
 # auth_start blocks for up to 5 minutes waiting for the user to paste back.

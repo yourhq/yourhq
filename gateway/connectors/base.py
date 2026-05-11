@@ -82,3 +82,26 @@ class BaseConnector(ABC):
         """Return IDs of items modified after *since*, and IDs that were
         deleted (present in known_ids but no longer in the source)."""
         ...
+
+
+# ── Write support ─────────────────────────────────────────────────
+
+
+@dataclass
+class ActionDefinition:
+    name: str
+    label: str
+    description: str
+    parameters: dict = field(default_factory=dict)
+
+
+class BaseActionProvider(ABC):
+    @abstractmethod
+    def list_actions(self) -> list[ActionDefinition]:
+        """Return the actions this provider supports."""
+        ...
+
+    @abstractmethod
+    def execute(self, action: str, params: dict, creds: dict) -> dict:
+        """Execute a named action. Returns a result dict."""
+        ...

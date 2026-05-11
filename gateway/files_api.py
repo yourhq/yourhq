@@ -294,6 +294,11 @@ class Handler(BaseHTTPRequestHandler):
                 return "browser_state", slug, None
             if parts[2] == "screenshot":
                 return "browser_screenshot", slug, None
+        if len(parts) == 2 and parts[0] == "sources":
+            if parts[1] == "validate":
+                return "sources_validate", None, None
+            if parts[1] == "browse":
+                return "sources_browse", None, None
         if len(parts) >= 3 and parts[0] == "branches":
             branch = urllib.parse.unquote(parts[1])
             if not BRANCH_RE.match(branch):
@@ -419,6 +424,12 @@ class Handler(BaseHTTPRequestHandler):
         if not self._authorized():
             return self._error(401, "Unauthorized")
         kind, segment, path = self._route()
+
+        if kind == "sources_validate":
+            return self._handle_sources_validate()
+        if kind == "sources_browse":
+            return self._handle_sources_browse()
+
         if kind != "file":
             return self._error(404, "Not found")
         try:
@@ -450,6 +461,97 @@ class Handler(BaseHTTPRequestHandler):
             )
         except Exception as e:
             return self._error(500, f"Create failed: {e}")
+
+    # ── Source connector endpoints ────────────────────────────────────
+
+    def _handle_sources_validate(self) -> None:
+        try:
+            body = self._read_body()
+        except ValueError as e:
+            return self._error(400, str(e))
+
+        provider = body.get("provider")
+        credentials = body.get("credentials")
+        if not provider or not credentials:
+            return self._error(400, "provider and credentials are required")
+
+        try:
+            from connectors import get_connector
+            connector = get_connector(provider)
+            if not connector:
+                return self._send_json(200, {"valid": False, "error": f"Unknown provider: {provider}"})
+
+            valid = connector.validate_credentials(credentials)
+            if valid:
+                account_name = credentials.get("account_name")
+                if not account_name and hasattr(connector, "_get_account_name"):
+                    account_name = connector._get_account_name(credentials)
+                return self._send_json(200, {"valid": True, "account_name": account_name})
+            return self._send_json(200, {"valid": False, "error": "Invalid credentials"})
+        except Exception as e:
+            return self._send_json(200, {"valid": False, "error": str(e)})
+
+    def _handle_sources_browse(self) -> None:
+        try:
+            body = self._read_body()
+        except ValueError as e:
+            return self._error(400, str(e))
+
+        connection_id = body.get("connection_id")
+        parent_id = body.get("parent_id")
+        search = body.get("search")
+
+        if not connection_id:
+            return self._error(400, "connection_id is required")
+
+        try:
+            from connectors import get_connector
+            from daemons.source_sync import _load_gateway_secrets, _resolve_credentials
+
+            supabase_url = os.environ.get("SUPABASE_URL", "")
+            supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+            if not supabase_url or not supabase_key:
+                return self._error(500, "Supabase not configured")
+
+            url = f"{supabase_url}/rest/v1/source_connections?id=eq.{connection_id}&select=provider,credentials&limit=1"
+            req = urllib.request.Request(
+                url,
+                headers={
+                    "apikey": supabase_key,
+                    "Authorization": f"Bearer {supabase_key}",
+                    "Accept": "application/json",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                rows = json.loads(resp.read().decode())
+
+            if not rows:
+                return self._error(404, "Connection not found")
+
+            connection = rows[0]
+            provider = connection["provider"]
+            creds = _resolve_credentials(
+                provider, connection_id, dict(connection.get("credentials") or {})
+            )
+
+            connector = get_connector(provider)
+            if not connector:
+                return self._error(400, f"Unknown provider: {provider}")
+
+            result = connector.browse(creds, parent_id=parent_id, search=search)
+            items = [
+                {
+                    "external_id": item.external_id,
+                    "title": item.title,
+                    "source_url": item.source_url,
+                    "item_type": item.item_type,
+                    "has_children": item.has_children,
+                }
+                for item in result.items
+            ]
+            return self._send_json(200, {"items": items})
+        except Exception as e:
+            return self._error(500, f"Browse failed: {e}")
 
     def do_DELETE(self) -> None:
         if not self._authorized():

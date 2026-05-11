@@ -78,12 +78,12 @@ Daemons:
 - `gateway/daemons/command_runner.py` — watches `agent_commands`, leases via `lease_command(p_gateway_slug=GATEWAY_ID)`, executes shell commands. Heartbeats to the `gateways` table every 30s. Also subscribes to `secrets` table changes and triggers `sync_secrets()`.
 - `gateway/daemons/secrets_sync.py` — fetches encrypted secrets from Supabase, decrypts with AES-256-GCM (key derived via HKDF from the service role key), and writes per-agent `.env` files to `~/.openclaw/secrets/`. Triggered by Realtime on the `secrets` table and a 5-minute safety re-sync. Started by command_runner on boot.
 - `gateway/daemons/file_processor.py` — leases `knowledge_items` with `kind='file'` and `processing_status='ready'`, downloads from storage, extracts text (PDF, DOCX, XLSX, CSV, PPTX, TXT), updates `plain_text` and triggers embedding.
-- `gateway/daemons/source_sync.py` — syncs external source connections (Notion, Google Drive). Polls `source_connections` where `next_sync_at <= now()`, fetches changes, upserts `knowledge_items` with `kind='source'`. Reads credentials from `~/.openclaw/secrets/gateway.env` (written by secrets_sync).
+- `gateway/daemons/source_sync.py` — syncs external source connections via the plugin-based connector registry (`gateway/connectors/`). Polls `source_connections` where `next_sync_at <= now()`, fetches changes, upserts `knowledge_items` with `kind='source'`. Reads credentials from `~/.openclaw/secrets/gateway.env` (written by secrets_sync).
 - `gateway/embedder/embedder.py` — leases `knowledge_items` pending embedding via `lease_knowledge_items_for_indexing`, generates vector embeddings, creates chunks. HTTP server at `:9100` with `/embed` and `/healthz` endpoints.
 
 ## Database
 
-`db/migrations/` contains 26 ordered migrations (001–026). Key tables:
+`db/migrations/` contains 27 ordered migrations (001–027). Key tables:
 
 - `gateways` — one row per gateway host. Seeded with a `default` row so single-gateway setups work immediately.
 - `agents` — agent definitions with `gateway_id`, `reports_to_id` hierarchy.
@@ -91,7 +91,7 @@ Daemons:
 - `entity_links` — universal polymorphic linking. Any owner (task, routine, collection_record, agent) can link to any target (knowledge_item, collection_record, contact, organization, task, url).
 - `routines` — scheduled and event-driven agent behaviors. Has `trigger_type` (schedule/event), cadence fields (sub-daily to monthly), and event fields (entity_type, field, condition, value).
 - `collection_definitions` / `collection_fields` / `collection_records` / `collection_views` — user-defined tables with typed JSONB fields and saved views (table/kanban/calendar).
-- `source_connections` / `source_sync_runs` — external source integrations (Notion, Google Drive). Source connections reference `secrets` via `secret_id` FK for OAuth token storage.
+- `source_connections` / `source_sync_runs` — external source integrations via plugin-based connectors (`gateway/connectors/<provider>/`). Each provider has a `manifest.json`, auto-discovered by the registry. `writable` flag enables write-back. `source_write` command action routes writes through the command queue. Source connections reference `secrets` via `secret_id` FK for OAuth token storage.
 - `secrets` — encrypted credentials (AES-256-GCM). Scoped per gateway, optionally per agent. Categories: `user` (manual), `channel` (Telegram/Discord/Slack tokens), `integration` (OAuth tokens). Synced to gateway filesystem via Realtime. Values never exposed in API responses or logs.
 - `agent_commands` / `agent_inbox_items` — command queue and inbox for agent execution.
 - `agent_usage` / `agent_budgets` — append-only LLM usage plus per-agent budget rollups.
@@ -107,11 +107,12 @@ RLS: All tables use tenant-scoped policies via `current_tenant_id()` JWT claim. 
 - **Supabase migrations**: always include explicit `GRANT` statements for `authenticated` and `service_role`. The project's Supabase setup does not grant these by default. *(Saved as memory — see user preferences.)*
 - **New UI modules**: follow the existing pattern — types in `lib/<module>/types.ts`, hooks in `hooks/use-<module>.ts`, components in `components/<module>/`.
 - **New daemon actions**: add the case to `command_runner.py`'s `build_command()`, add or migrate the `command_action` enum, and expose it as a server action in `apps/ui/src/app/dashboard/agents/actions.ts`.
+- **New source connectors**: copy `gateway/connectors/_template/` to a new folder, fill in `manifest.json` and the connector methods, run `node scripts/build-source-manifests.mjs` to generate UI types. See `CONTRIBUTING-SOURCES.md`.
 - **Dockerfile edits**: multi-arch build (amd64 + arm64) is the target. Use `TARGETARCH` arg when installing arch-specific binaries (Chrome vs Chromium, Tailscale, Caddy).
 - **Comments**: default to none. Only add one when the *why* is non-obvious (a hidden constraint, a subtle invariant, a workaround). Don't narrate what the code does.
 
 ## Current Roadmap Shape
 
-- Shipped: self-hosted stack, browser onboarding, multi-workspace registry, UI-driven gateway registration, provider connections, noVNC modal, usage budgets, agent hierarchy, unified knowledge (pages/skills/files/sources), entity links, routines (schedule + event), collections (table/kanban/calendar views), file processing pipeline, source connections (Notion), modular onboarding, task calendar view, agent-initiated skill learning (auto-creation with version history), and encrypted secrets management (AES-256-GCM, Settings UI + agent Secrets tab, gateway .env sync).
-- Next: Google Drive sync, public deployment docs, richer pricing coverage, template docs, and docs site generation.
+- Shipped: self-hosted stack, browser onboarding, multi-workspace registry, UI-driven gateway registration, provider connections, noVNC modal, usage budgets, agent hierarchy, unified knowledge (pages/skills/files/sources), entity links, routines (schedule + event), collections (table/kanban/calendar views), file processing pipeline, source connections (Notion) with plugin-based connector architecture (manifest-driven, auto-discovery, generic OAuth, gateway-proxied browse/validate, optional write-back, contributor template + guide), modular onboarding, task calendar view, agent-initiated skill learning (auto-creation with version history), and encrypted secrets management (AES-256-GCM, Settings UI + agent Secrets tab, gateway .env sync).
+- Next: Google Drive connector (validates plugin architecture with second provider), public deployment docs, richer pricing coverage, template docs, and docs site generation.
 - Later: hosted offering with account management, automated provisioning, and billing.

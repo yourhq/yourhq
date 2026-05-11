@@ -652,7 +652,8 @@ Where HQ is now, what ships in v0.1, and what comes after.
 - Collections for custom structured data
 - Entity links for universal cross-entity references
 - File processing pipeline for knowledge items
-- Source connections for external knowledge sync
+- Source connections for external knowledge sync with plugin-based connector architecture
+- Source connector plugin system — manifest-driven providers, auto-discovery registry, generic OAuth, gateway-proxied browse/validate, optional write-back support, contributor template (`_template/`) and guide (`CONTRIBUTING-SOURCES.md`)
 - Agent triggers and inbox history
 - Schedule routines with cron presets (15 min to daily) via pg_cron
 - Inline model and provider default selection
@@ -4147,9 +4148,11 @@ The knowledge system is the unified store for all workspace knowledge. It replac
 - **Pages** — rich-text documents (company briefs, style guides, meeting notes).
 - **Skills** — structured procedures and SOPs.
 - **Files** — uploaded files (PDFs, images, spreadsheets, audio, video).
-- **Sources** — externally synced content from connected integrations.
+- **Sources** — externally synced content from connected integrations via the plugin-based source connector system.
 
 Knowledge items support folders, tags, pinned state, rich editing, and semantic + full-text search.
+
+Source connectors are self-contained plugins — each provider is a folder under `gateway/connectors//` with a `manifest.json` that declares auth, UI metadata, and capabilities. The platform handles credential encryption, OAuth flows, UI forms, sync scheduling, and embedding automatically. Providers that support it can enable two-way sync with a `writable` toggle per connection. See [Knowledge system — Source connectors](/concepts/knowledge#source-connectors) for the architecture.
 
 Agent boot context is controlled by **scope** and **pinning**:
 
@@ -4294,6 +4297,7 @@ Code extension points include:
 - New routine behavior in database functions/triggers.
 - New agent skills under template `skills/`.
 - New OpenClaw plugins in `gateway/scripts/plugins/`.
+- New source connectors under `gateway/connectors//` — copy the `_template/` directory and implement the connector interface. See `CONTRIBUTING-SOURCES.md`.
 
 ---
 
@@ -4540,7 +4544,7 @@ Supabase is the backbone. Every piece of coordination — commands, inbox items,
 
 The structures to know:
 
-- **`agent_commands`** — command queue consumed by the runner. Schema in [`015_agent_commands.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/015_agent_commands.sql). Action enum covers `provision`, `update`, `remove`, `approve_pairing`, `restart_gateway`, `restart_dispatcher`, `update_all`, `update_gateway`, `set_agent_model`, `list_models`, and the `auth_*` connection actions. `lease_command(p_lease_seconds, p_gateway_slug)` is the atomic claim; `start_command`, `complete_command`, `fail_command` report back. Rows persist forever (with `stdout`/`stderr`) for the command-history UI.
+- **`agent_commands`** — command queue consumed by the runner. Schema in [`015_agent_commands.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/015_agent_commands.sql). Action enum covers `provision`, `update`, `remove`, `approve_pairing`, `restart_gateway`, `restart_dispatcher`, `update_all`, `update_gateway`, `set_agent_model`, `list_models`, `source_write`, and the `auth_*` connection actions. `lease_command(p_lease_seconds, p_gateway_slug)` is the atomic claim; `start_command`, `complete_command`, `fail_command` report back. Rows persist forever (with `stdout`/`stderr`) for the command-history UI.
 - **`agent_inbox_items`** — background-work queue consumed by agents, not the runner. Inserted by Postgres triggers on `tasks` (task assignment / reassignment), `comments` (@-mentions), and `contacts` (via routines). The dispatcher wakes agents; the agent's own session claims work via `lease_inbox_item(p_agent_id, p_lease_seconds)` (see [`014_agent_inbox.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/014_agent_inbox.sql)) and reports via `complete_inbox_item` / `fail_inbox_item`. `dedup_key` + unique constraint prevents duplicates. `attempt_count < max_attempts` bounds retries before dead-lettering.
 - **`gateways`** — registry of known gateway hosts. Each row has `slug`, `label`, `status`, `last_seen_at`, and `meta.reachable_urls`. Seeded with a `default` row so single-gateway installs work without setup.
 - **`gateway_registration_tokens`** — single-use token records minted by the UI when adding a gateway. The plaintext token is shown once in the installer command; the database stores only the hash and expiry metadata.
@@ -4562,6 +4566,7 @@ The UI is designed to be configured, not coded, for most everyday changes:
 - **Agent hierarchy.** Manager/direct-report structure is a regular column on `agents`. Runtime prompt context is assembled by the HQ bootstrap plugin, not hard-coded into templates.
 - **Usage budgets.** Budget config is stored in `agent_budgets`; raw usage is append-only in `agent_usage`. New provider pricing support belongs in the bootstrap plugin's pricing map and should degrade to unmetered calls when unknown.
 - **New command actions.** Add a case in [`command_runner.py`'s `build_command()`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/command_runner.py), extend the `command_action` enum in the schema migration, and expose it as a server action call in [`apps/ui/src/app/dashboard/agents/actions.ts`](https://github.com/yourhq/yourhq/tree/main/apps/ui/src/app/dashboard/agents/actions.ts). This is the extension point for anything a runner needs to do on the gateway host.
+- **Source connectors.** Add a folder under [`gateway/connectors//`](https://github.com/yourhq/yourhq/tree/main/gateway/connectors) with a `manifest.json` and a `BaseConnector` subclass. The auto-discovery registry picks it up, the build script generates UI types from the manifest, and the platform handles secrets, OAuth, sync scheduling, and embedding. Copy `_template/` to start. See `CONTRIBUTING-SOURCES.md`.
 
 ## 14. Where things are going
 
@@ -4890,6 +4895,29 @@ Every knowledge item has a `kind` that determines how it's stored and rendered:
 
 Pages and skills support rich editing in the UI. Files go through a processing pipeline (upload, extract text, embed). Sources sync from external integrations and track their sync status.
 
+## Source connectors
+
+Source connections use a **plugin-based connector architecture**. Each provider is a self-contained folder under `gateway/connectors//` containing:
+
+- `manifest.json` — declarative config for auth, UI metadata, setup steps, and capabilities.
+- `read.py` — `BaseConnector` subclass implementing validate, browse, list, fetch, and change detection.
+- `api.py` — HTTP helpers for the provider's API.
+- `transforms.py` — response-to-markdown conversion logic.
+- `write.py` (optional) — `BaseActionProvider` subclass for write-back operations.
+- `__init__.py` — exports `CONNECTOR` (and optionally `ACTION_PROVIDER`).
+
+The manifest is the contract between the connector and the platform. A build script (`scripts/build-source-manifests.mjs`) generates a TypeScript module from all manifests so the UI renders provider setup forms, icons, and labels without hardcoded constants.
+
+**Auto-discovery**: `gateway/connectors/registry.py` scans subdirectories for exported `CONNECTOR` instances. Adding a new provider requires only the provider folder — no changes to existing platform code.
+
+**Credential handling**: The manifest declares what credentials are needed. The platform encrypts and stores them in the `secrets` table, `secrets_sync.py` decrypts them to the gateway filesystem, and `source_sync.py` assembles a `creds` dict for the connector. Single-key credentials use `{PROVIDER}_SOURCE_{ID_PREFIX}`, multi-key credentials use `{PROVIDER}_SOURCE_{ID_PREFIX}__{FIELD}`.
+
+**Write support**: Providers that support writes set `supports_write: true` in their manifest and implement a `BaseActionProvider`. The UI shows a "Write access" toggle on the connection detail page. Write operations flow through the `source_write` command action in the existing command queue.
+
+**Browse and validate**: The UI proxies browse and validate requests to the gateway's files API (`/sources/browse` and `/sources/validate`), so provider-specific API calls happen on the gateway side where credentials are local.
+
+See `CONTRIBUTING-SOURCES.md` in the repository root for the full contributor guide.
+
 Skills can also be created autonomously by agents during work via `hq_skill_upsert.py`. When an agent discovers a reusable method, it codifies the procedure as an agent-scoped skill. These appear on the agent detail page with edit reasons and recency indicators.
 
 ## Scope and agent access
@@ -4967,6 +4995,8 @@ Entity links are stored in `entity_links` with polymorphic `owner_type`/`target_
 | `knowledge_items` | All knowledge content — pages, skills, files, sources |
 | `knowledge_item_agents` | Junction table linking agent-scoped items to specific agents |
 | `knowledge_chunks` | Chunked content with per-chunk embeddings for granular retrieval |
+| `source_connections` | External source integrations with plugin-based providers, credentials, and sync schedules |
+| `source_sync_runs` | Sync execution history and status tracking |
 | `entity_links` | Universal polymorphic links between any entities |
 
 ## Agent scripts
@@ -7026,6 +7056,7 @@ HQ stores shared state in one Supabase project per workspace. The SQL source of 
 | `024_routines_extension.sql` | Event triggers for collections, knowledge items, and tasks |
 | `025_modular_workspace.sql` | Modular workspace onboarding |
 | `026_secrets.sql` | Encrypted secrets (AES-256-GCM), RLS, Realtime, `source_connections.secret_id` FK |
+| `027_source_plugin_support.sql` | Extensible source providers (drops hardcoded provider constraint), `writable` flag on `source_connections`, `source_write` command action |
 
 For a fresh Supabase project, run all files in filename order from the SQL Editor. The onboarding wizard handles this automatically — it concatenates all files and lets you copy/paste a single SQL blob.
 
@@ -7144,7 +7175,7 @@ The table is subscribed to Supabase Realtime (`REPLICA IDENTITY FULL`). The gate
 
 ### Source Connections
 
-- `source_connections` — external source integrations (Notion, Google Drive) with credentials and sync schedules. References `secrets` via `secret_id` FK for encrypted OAuth token storage.
+- `source_connections` — external source integrations with credentials and sync schedules. Providers are plugin-based — each connector is a self-contained folder under `gateway/connectors//` with a `manifest.json` that defines auth, UI metadata, and capabilities. The `writable` flag controls whether agents can write back to the source. References `secrets` via `secret_id` FK for encrypted OAuth token storage.
 - `source_sync_runs` — sync execution history and status tracking.
 
 ### Entity Links
@@ -7184,7 +7215,7 @@ These are configured from the UI and read by forms, tables, kanban views, filter
 
 ### Schema Version
 
-The `_schema_version` table tracks the current schema version (currently at v25). The UI reads `EXPECTED_SCHEMA_VERSION` and compares it to the applied version to show update banners when migrations are pending.
+The `_schema_version` table tracks the current schema version (currently at v27). The UI reads `EXPECTED_SCHEMA_VERSION` and compares it to the applied version to show update banners when migrations are pending.
 
 ## Realtime
 
@@ -7210,6 +7241,8 @@ Existing project:
 2. Run all migration files — they are idempotent (`IF NOT EXISTS`, `CREATE OR REPLACE`) and safe to re-run.
 3. Confirm the UI onboarding validator passes.
 
+The schema version table currently tracks v27.
+
 ---
 
 # Migrations
@@ -7218,7 +7251,7 @@ Source: https://docs.yourhq.ai/reference/migrations
 
 > Ordered Supabase migration files and how to apply them.
 
-Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations). Run them in filename order for a fresh project.
+Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations). Run them in filename order for a fresh project. There are currently 27 migration files (001–027).
 
 ## Migration files
 
@@ -7250,6 +7283,7 @@ Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main
 | `024_routines_extension.sql` | Event triggers for collections, knowledge, and tasks |
 | `025_modular_workspace.sql` | Modular workspace onboarding |
 | `026_secrets.sql` | Encrypted secrets (AES-256-GCM), agent/gateway scoping, Realtime, `source_connections.secret_id` FK |
+| `027_source_plugin_support.sql` | Extensible source providers, `writable` flag, `source_write` command action |
 
 ## Migration CLI
 
@@ -7465,6 +7499,19 @@ The API is gated by `GATEWAY_AUTH_TOKEN` — a pre-shared secret between the UI 
 
 - Path traversal is rejected via `safe_join()` — requests can't escape the agent's worktree.
 - After a successful write, the UI automatically enqueues an `update` command so OpenClaw reloads the agent with the changed files.
+
+## Source connector endpoints
+
+The files API also serves as the bridge for source connector operations. The UI proxies these requests to the gateway so that provider-specific API calls (validate credentials, browse content) happen on the gateway side, keeping credentials local.
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/sources/validate` | POST | Test credentials for a source provider. Body: `{ provider, credentials }`. Returns `{ valid, error?, account_name? }`. |
+| `/sources/browse` | POST | Browse content from a connected source. Body: `{ connection_id, parent_id?, search? }`. Resolves credentials from the gateway's local secrets. Returns `{ items }`. |
+
+The validate endpoint accepts raw credentials (they haven't been stored yet at validation time). The browse endpoint takes a `connection_id` — the gateway resolves credentials from its encrypted secrets `.env` file, which is more secure than passing decrypted credentials over the network.
+
+Both endpoints use the connector registry (`gateway/connectors/registry.py`) to dynamically load the appropriate provider connector.
 
 > 
   Do not expose the files API directly to the public internet. It should only be reachable by the UI server process or over a private network like Tailscale.
@@ -7779,6 +7826,22 @@ The runner calls `lease_command(p_gateway_slug, p_lease_seconds)` to atomically 
 - **No auto-retry.** Failed commands are marked `failed` and stay that way. The UI surfaces failures; the operator re-enqueues if needed.
 - **Timeout.** Shell commands are killed after `COMMAND_TIMEOUT` seconds (default 120). Auth flows have a separate 5-minute ceiling.
 - **Parallelism.** `auth_start` runs in a background thread. All other actions run sequentially on the main lease loop. This ensures an `auth_paste` can be leased and processed while an `auth_start` is waiting for user input.
+
+## Source actions
+
+### `source_write`
+
+Execute a write operation against an external source connection. Requires the connection's `writable` flag to be enabled.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `connection_id` | string | Yes | The source connection ID |
+| `action` | string | Yes | Provider-specific action name (e.g. `create_page`) |
+| `params` | object | Yes | Action parameters (schema varies by provider and action) |
+
+The runner looks up the connection, verifies `writable = true`, loads the provider's `ACTION_PROVIDER` from the connector registry, resolves credentials from the gateway's secrets `.env` file, and calls `execute(action, params, creds)`. Results are written to the command's `stdout`.
+
+---
 
 ## Credential scrubbing
 
@@ -8101,12 +8164,14 @@ yourhq/
   apps/ui/              Next.js dashboard (App Router, Tailwind, shadcn)
   apps/migrate/         Database migration runner CLI (yourhq-migrate)
   apps/worker/          Hosted-mode worker service (Stripe, E2B, Resend) — behind `hosted` profile
-  gateway/              Gateway image, files API, daemons, connectors, lifecycle scripts
-  db/migrations/        Supabase SQL migrations (001–025)
+  gateway/              Gateway image, files API, daemons, lifecycle scripts
+  gateway/connectors/   Source connector plugins (one folder per provider + registry)
+  gateway/daemons/      Python daemons (command runner, dispatcher, source sync, secrets sync, etc.)
+  db/migrations/        Supabase SQL migrations (001–027)
   templates/            Agent template library (16 templates)
   installer/            Interactive install scripts (install.sh + install-gateway.sh)
   docs-site/            Mintlify documentation source (docs.yourhq.ai)
-  scripts/              Operational scripts (diagnostic-bundle.sh)
+  scripts/              Operational and build scripts
   .github/workflows/    CI and image publishing
 ```
 

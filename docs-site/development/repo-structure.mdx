@@ -8,12 +8,14 @@ yourhq/
   apps/ui/              Next.js dashboard (App Router, Tailwind, shadcn)
   apps/migrate/         Database migration runner CLI (yourhq-migrate)
   apps/worker/          Hosted-mode worker service (Stripe, E2B, Resend) — behind `hosted` profile
-  gateway/              Gateway image, files API, daemons, connectors, lifecycle scripts
-  db/migrations/        Supabase SQL migrations (001–025)
+  gateway/              Gateway image, files API, daemons, lifecycle scripts
+  gateway/connectors/   Source connector plugins (one folder per provider + registry)
+  gateway/daemons/      Python daemons (command runner, dispatcher, source sync, secrets sync, etc.)
+  db/migrations/        Supabase SQL migrations (001–027)
   templates/            Agent template library (16 templates)
   installer/            Interactive install scripts (install.sh + install-gateway.sh)
   docs-site/            Mintlify documentation source (docs.yourhq.ai)
-  scripts/              Operational scripts (diagnostic-bundle.sh)
+  scripts/              Operational and build scripts
   .github/workflows/    CI and image publishing
 ```
 
