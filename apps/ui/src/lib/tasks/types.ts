@@ -58,7 +58,6 @@ export interface Task {
   labels?: Label[];
   blocker_count?: number;
   deliverable_count?: number;
-  pending_deliverable_count?: number;
 }
 
 export interface TaskSeries {

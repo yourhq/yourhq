@@ -113,7 +113,7 @@ export function AccountPage() {
 
   async function handleLogout() {
     await logoutAction();
-    router.push("/login");
+    router.push("/auth");
     router.refresh();
   }
 

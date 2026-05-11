@@ -27,14 +27,21 @@
 set -euo pipefail
 [[ "${DEBUG:-}" == "1" ]] && set -x
 
-# Forward SIGTERM from tini to children
-trap 'kill -TERM $(jobs -p) 2>/dev/null || true; exit 0' TERM INT
-
 # RUNTIME_MODE controls which subsystems the entrypoint starts.
 #   docker   — default. Runs inside docker-compose; daemons are separate containers.
 #   systemd  — bare-metal / VM installs where systemd manages the process.
 #   e2b      — E2B sandbox. Daemons run in-process; no Docker socket; no registry polling.
 RUNTIME_MODE="${RUNTIME_MODE:-docker}"
+
+# In E2B, capture all output so diagnostics can read it, and enable tracing.
+if [ "$RUNTIME_MODE" = "e2b" ]; then
+  exec > >(tee -a /tmp/entrypoint.log) 2>&1
+  set -x
+  trap 'echo "[entrypoint] FATAL: exiting due to error on line $LINENO (exit $?)" | tee -a /tmp/entrypoint.log; kill -TERM $(jobs -p) 2>/dev/null || true; exit 1' ERR
+fi
+
+# Forward SIGTERM from tini to children
+trap 'kill -TERM $(jobs -p) 2>/dev/null || true; exit 0' TERM INT
 
 OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
 CONFIG="$OPENCLAW_HOME/openclaw.json"

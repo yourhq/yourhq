@@ -262,6 +262,7 @@ function TasksContent() {
                 onRestore={tasks.actions.handleRestoreTask}
                 onDelete={setDeleteId}
                 showArchived={tasks.filters.showArchived}
+                hasActiveFilters={tasks.filters.hasActiveFilters}
                 onCreateTask={tasks.form.openCreateForm}
               />
             )}

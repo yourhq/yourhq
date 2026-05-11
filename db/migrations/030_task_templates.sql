@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS task_templates (
   icon        text,
   color       text,
   items       jsonb NOT NULL DEFAULT '[]',
-  meta        jsonb NOT NULL DEFAULT '{}'
+  meta        jsonb NOT NULL DEFAULT '{}',
+  UNIQUE (tenant_id, name)
 );
 
 CREATE INDEX IF NOT EXISTS idx_task_templates_tenant ON task_templates(tenant_id);
@@ -33,6 +34,14 @@ CREATE POLICY "Tenant isolation" ON task_templates
 DROP POLICY IF EXISTS "Service role full access" ON task_templates;
 CREATE POLICY "Service role full access" ON task_templates
   FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+-- ── Realtime ───────────────────────────────────────────────────────
+
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE task_templates;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+ALTER TABLE task_templates REPLICA IDENTITY FULL;
 
 -- ── Grants ─────────────────────────────────────────────────────────
 

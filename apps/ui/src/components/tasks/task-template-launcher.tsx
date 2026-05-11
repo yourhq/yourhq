@@ -37,7 +37,7 @@ export function TaskTemplateLauncher({ onSpawned }: TaskTemplateLauncherProps) {
   async function handleSpawn() {
     if (!selected) return;
     setSpawning(true);
-    const { data, error } = await actions.spawnFromTemplate(selected.id, {
+    const { data, error, warnings } = await actions.spawnFromTemplate(selected.id, {
       stream_id: streamId !== "none" ? streamId : undefined,
     });
     setSpawning(false);
@@ -46,6 +46,11 @@ export function TaskTemplateLauncher({ onSpawned }: TaskTemplateLauncherProps) {
       toast.error("Failed to spawn tasks from template");
     } else {
       toast.success(`Created ${data?.length ?? 0} tasks from "${selected.name}"`);
+      if (warnings?.length) {
+        for (const w of warnings) {
+          toast.warning(w);
+        }
+      }
       setOpen(false);
       setSelected(null);
       onSpawned?.();

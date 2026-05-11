@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { TaskTemplate, TaskTemplateItem, TaskPriority } from "@/lib/tasks/types";
 import { logAudit } from "@/lib/audit/log";
+import { useRealtime } from "./use-realtime";
 
 interface SpawnOverrides {
   stream_id?: string;
@@ -32,6 +33,12 @@ export function useTaskTemplates() {
   useEffect(() => {
     fetchTemplates();
   }, [fetchTemplates]);
+
+  useRealtime({
+    table: "task_templates",
+    event: "*",
+    onPayload: () => fetchTemplates(),
+  });
 
   async function createTemplate(template: {
     name: string;
@@ -113,11 +120,12 @@ export function useTaskTemplates() {
 
   async function spawnFromTemplate(templateId: string, overrides?: SpawnOverrides) {
     const template = templates.find((t) => t.id === templateId);
-    if (!template) return { error: new Error("Template not found") };
+    if (!template) return { error: new Error("Template not found"), warnings: [] as string[] };
 
     const items = template.items;
     const refToTaskId = new Map<string, string>();
     const createdTaskIds: string[] = [];
+    const warnings: string[] = [];
 
     // Resolve assignee roles to agent IDs
     const assigneeMap = overrides?.assignee_map ?? {};
@@ -136,6 +144,15 @@ export function useTaskTemplates() {
       if (agents) {
         agentsBySlug = new Map(agents.map((a) => [a.slug, a.id]));
       }
+
+      const unresolvedRoles = [...new Set(roles)].filter(
+        (r) => !agentsBySlug.has(r),
+      );
+      if (unresolvedRoles.length > 0) {
+        warnings.push(
+          `${unresolvedRoles.length} agent role${unresolvedRoles.length > 1 ? "s" : ""} not found: ${unresolvedRoles.join(", ")}`,
+        );
+      }
     }
 
     // Resolve label names to IDs
@@ -150,6 +167,15 @@ export function useTaskTemplates() {
 
       if (labels) {
         labelNameToId = new Map(labels.map((l) => [l.name, l.id]));
+      }
+
+      const unresolvedLabels = allLabelNames.filter(
+        (n) => !labelNameToId.has(n),
+      );
+      if (unresolvedLabels.length > 0) {
+        warnings.push(
+          `${unresolvedLabels.length} label${unresolvedLabels.length > 1 ? "s" : ""} not found: ${unresolvedLabels.join(", ")}`,
+        );
       }
     }
 
@@ -173,7 +199,10 @@ export function useTaskTemplates() {
         .select("id")
         .single();
 
-      if (error || !task) continue;
+      if (error || !task) {
+        warnings.push(`Failed to create task "${item.title}"`);
+        continue;
+      }
 
       refToTaskId.set(item.ref, task.id);
       createdTaskIds.push(task.id);
@@ -219,7 +248,7 @@ export function useTaskTemplates() {
       summary: `Spawned ${createdTaskIds.length} tasks from template "${template.name}"`,
     });
 
-    return { data: createdTaskIds, error: null };
+    return { data: createdTaskIds, error: null, warnings };
   }
 
   return {

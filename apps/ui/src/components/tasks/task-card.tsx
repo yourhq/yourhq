@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { AgentStatusChip } from "./agent-status-chip";
 import { TaskLabelPills } from "./task-labels-picker";
-import { format, isPast, isToday } from "date-fns";
+import { format, isPast, isToday, parseISO } from "date-fns";
 import { shortCadenceLabel } from "@/lib/tasks/cadence";
 
 const priorityDot: Record<string, string> = {
@@ -41,8 +41,8 @@ interface TaskCardProps {
 export function TaskCard({ task, onClick, onArchive }: TaskCardProps) {
   const overdue =
     task.due_date &&
-    isPast(new Date(task.due_date)) &&
-    !isToday(new Date(task.due_date)) &&
+    isPast(parseISO(task.due_date)) &&
+    !isToday(parseISO(task.due_date)) &&
     task.status !== "done";
 
   return (
@@ -146,7 +146,7 @@ export function TaskCard({ task, onClick, onArchive }: TaskCardProps) {
                 )}
               >
                 <Calendar className="h-3 w-3" />
-                {format(new Date(task.due_date), "MMM d")}
+                {format(parseISO(task.due_date), "MMM d")}
               </span>
             )}
           </div>

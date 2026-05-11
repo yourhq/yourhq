@@ -94,6 +94,7 @@ function DeliverableCard({
   const [showRevisionInput, setShowRevisionInput] = useState(false);
   const [revisionNote, setRevisionNote] = useState("");
   const [actionType, setActionType] = useState<"revision" | "reject" | null>(null);
+  const [reviewing, setReviewing] = useState(false);
 
   const status = deliverable.review_status ?? "draft";
   const canReview = status === "draft" || status === "in_review";
@@ -106,16 +107,20 @@ function DeliverableCard({
   }
 
   async function handleApprove() {
+    setReviewing(true);
     await actions.approve(deliverable.id);
+    setReviewing(false);
   }
 
   async function handleSubmitNote() {
     if (!revisionNote.trim()) return;
+    setReviewing(true);
     if (actionType === "revision") {
       await actions.requestRevision(deliverable.id, revisionNote.trim());
     } else if (actionType === "reject") {
       await actions.reject(deliverable.id, revisionNote.trim());
     }
+    setReviewing(false);
     setRevisionNote("");
     setShowRevisionInput(false);
     setActionType(null);
@@ -181,9 +186,10 @@ function DeliverableCard({
             size="sm"
             className="h-6 text-xs text-status-success border-status-success/30 hover:bg-status-success/10"
             onClick={handleApprove}
+            disabled={reviewing}
           >
             <Check className="h-3 w-3 mr-1" />
-            Approve
+            {reviewing ? "Approving..." : "Approve"}
           </Button>
           <Button
             variant="outline"
@@ -193,6 +199,7 @@ function DeliverableCard({
               setActionType("revision");
               setShowRevisionInput(true);
             }}
+            disabled={reviewing}
           >
             <MessageSquare className="h-3 w-3 mr-1" />
             Request revision
@@ -205,6 +212,7 @@ function DeliverableCard({
               setActionType("reject");
               setShowRevisionInput(true);
             }}
+            disabled={reviewing}
           >
             <XCircle className="h-3 w-3 mr-1" />
             Reject
@@ -239,9 +247,9 @@ function DeliverableCard({
               size="sm"
               className="h-6 text-xs"
               onClick={handleSubmitNote}
-              disabled={!revisionNote.trim()}
+              disabled={!revisionNote.trim() || reviewing}
             >
-              {actionType === "reject" ? "Reject" : "Send"}
+              {reviewing ? "Sending..." : actionType === "reject" ? "Reject" : "Send"}
             </Button>
           </div>
         </div>

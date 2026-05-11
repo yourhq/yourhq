@@ -93,6 +93,6 @@ GRANT EXECUTE ON FUNCTION escalate_overdue_tasks() TO service_role;
 DO $$ BEGIN PERFORM cron.unschedule('escalate-overdue-tasks'); EXCEPTION WHEN OTHERS THEN NULL; END $$;
 SELECT cron.schedule(
   'escalate-overdue-tasks',
-  '* * * * *',
+  '*/5 * * * *',
   $$SELECT escalate_overdue_tasks()$$
 );

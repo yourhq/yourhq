@@ -34,6 +34,31 @@ export class E2BSandboxProvider implements SandboxProvider {
 
     await sandbox.files.write("/tmp/sandbox-host", sandboxHost);
 
+    // Diagnostic: immediately check the sandbox environment, then try
+    // running the entrypoint manually if it didn't auto-start.
+    setTimeout(async () => {
+      try {
+        const diag = await sandbox.commands.run(
+          [
+            "echo '=== whoami ===' && whoami",
+            "echo '=== env ===' && env | grep -E 'RUNTIME_MODE|SUPABASE_URL|HOME|USER|PATH' | sort",
+            "echo '=== entrypoint exists ===' && ls -la /usr/local/bin/entrypoint.sh 2>&1 || echo 'MISSING'",
+            "echo '=== file type ===' && file /usr/local/bin/entrypoint.sh 2>&1 || echo 'N/A'",
+            "echo '=== head of entrypoint ===' && head -5 /usr/local/bin/entrypoint.sh 2>&1 || echo 'N/A'",
+            "echo '=== processes ===' && ps aux --no-headers 2>/dev/null | head -30",
+            "echo '=== entrypoint log ===' && cat /tmp/entrypoint.log 2>/dev/null || echo 'no entrypoint log'",
+            "echo '=== try running entrypoint ===' && timeout 15 bash -x /usr/local/bin/entrypoint.sh > /tmp/entrypoint-manual.log 2>&1 || true",
+            "echo '=== manual run output ===' && tail -80 /tmp/entrypoint-manual.log 2>/dev/null || echo 'no manual log'",
+          ].join("; "),
+          { timeoutMs: 30_000 },
+        );
+        console.log(`[e2b-diag] sandbox=${sandboxId} stdout:\n${diag.stdout.slice(0, 4000)}`);
+        if (diag.stderr) console.log(`[e2b-diag] stderr:\n${diag.stderr.slice(0, 1000)}`);
+      } catch (err) {
+        console.log(`[e2b-diag] sandbox=${sandboxId} diag failed:`, err);
+      }
+    }, 5_000);
+
     return {
       sandboxId,
       novncUrl,

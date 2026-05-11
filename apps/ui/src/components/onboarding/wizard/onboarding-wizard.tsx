@@ -369,6 +369,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
       setProvisionStatus("provisioning");
 
       if (provisionCommandId) {
+        const startedAt = Date.now();
         const interval = setInterval(async () => {
           const status = await pollAgentProvisionStatus(provisionCommandId);
           if (status === "completed") {
@@ -378,6 +379,9 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
             clearInterval(interval);
             setProvisionStatus("error");
             setProvisionError("Agent provisioning failed");
+          } else if (Date.now() - startedAt > 120_000) {
+            clearInterval(interval);
+            setProvisionStatus("ready");
           }
         }, 3000);
         pollRef.current = interval;
@@ -408,6 +412,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
       // Poll the new provision command
       const { provisionCommandId } = r.data;
       if (pollRef.current) clearInterval(pollRef.current);
+      const channelStartedAt = Date.now();
       const interval = setInterval(async () => {
         const status = await pollAgentProvisionStatus(provisionCommandId);
         if (status === "completed") {
@@ -417,6 +422,10 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
           clearInterval(interval);
           setProvisionStatus("error");
           setProvisionError("Channel setup failed");
+        } else if (Date.now() - channelStartedAt > 120_000) {
+          clearInterval(interval);
+          setProvisionStatus("error");
+          setProvisionError("Setup is taking longer than expected — you can skip and set it up later");
         }
       }, 3000);
       pollRef.current = interval;

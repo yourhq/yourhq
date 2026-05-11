@@ -549,8 +549,8 @@ class InboxDispatcher:
                         f"{', '.join(blocker_names)}. "
                         f"Consider working on unblocked tasks first or doing preparatory work."
                     )
-            except Exception:
-                pass
+            except Exception as e:
+                log(f"Blocker enrichment failed for task {task_id}: {e}", level="warn")
 
         context = record.get("context")
         success = wake_agent(agent_slug, agent_id, f"New: {enriched_summary}", self.tracker, context=context)

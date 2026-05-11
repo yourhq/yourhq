@@ -105,10 +105,16 @@ DECLARE
   v_blocked_agent RECORD;
   v_remaining int;
   v_dedup_key text;
+  v_verb text;
 BEGIN
-  IF NEW.status != 'done' OR OLD.status = 'done' THEN
+  IF NEW.status NOT IN ('done', 'cancelled') THEN
     RETURN NEW;
   END IF;
+  IF OLD.status IN ('done', 'cancelled') THEN
+    RETURN NEW;
+  END IF;
+
+  v_verb := CASE WHEN NEW.status = 'done' THEN 'done' ELSE 'cancelled' END;
 
   FOR v_rel IN
     SELECT tr.source_task_id AS blocked_task_id, bt.title AS blocked_title,
@@ -143,13 +149,14 @@ BEGIN
           v_blocked_agent.slug,
           'blocker_resolved',
           v_rel.blocked_task_id,
-          'Blocker resolved: "' || NEW.title || '" is done. You can proceed with: "' || v_rel.blocked_title || '"',
+          'Blocker resolved: "' || NEW.title || '" is ' || v_verb || '. You can proceed with: "' || v_rel.blocked_title || '"',
           v_dedup_key,
           jsonb_build_object(
             'resolved_task_id', NEW.id,
             'resolved_task_title', NEW.title,
             'blocked_task_title', v_rel.blocked_title,
-            'remaining_blockers', 0
+            'remaining_blockers', 0,
+            'resolution', v_verb
           ),
           v_rel.tenant_id
         ) ON CONFLICT (dedup_key) DO NOTHING;

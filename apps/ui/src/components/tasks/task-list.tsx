@@ -32,10 +32,11 @@ import {
   Trash2,
   Repeat,
   Ban,
+  SearchX,
 } from "lucide-react";
 import { AgentStatusChip } from "./agent-status-chip";
 import { TaskLabelPills } from "./task-labels-picker";
-import { format, isPast, isToday } from "date-fns";
+import { format, isPast, isToday, parseISO } from "date-fns";
 import { shortCadenceLabel } from "@/lib/tasks/cadence";
 
 const statusIcons: Record<TaskStatus, typeof Circle> = {
@@ -74,11 +75,12 @@ interface TaskListProps {
   onRestore?: (id: string) => void;
   onDelete?: (id: string) => void;
   showArchived?: boolean;
+  hasActiveFilters?: boolean;
   onCreateTask?: () => void;
 }
 
 function DueDate({ iso, isDone }: { iso: string; isDone?: boolean }) {
-  const d = new Date(iso);
+  const d = parseISO(iso);
   const overdue = isPast(d) && !isToday(d) && !isDone;
   const today = isToday(d) && !isDone;
   return (
@@ -107,6 +109,7 @@ export function TaskList({
   onRestore,
   onDelete,
   showArchived,
+  hasActiveFilters,
   onCreateTask,
 }: TaskListProps) {
   if (loading) {
@@ -118,6 +121,15 @@ export function TaskList({
   }
 
   if (tasks.length === 0) {
+    if (hasActiveFilters) {
+      return (
+        <EmptyState
+          icon={SearchX}
+          title="No matching tasks"
+          description="Try adjusting your filters to find what you're looking for."
+        />
+      );
+    }
     return (
       <EmptyState
         icon={CheckSquare}
@@ -138,7 +150,7 @@ export function TaskList({
         const StatusIcon = statusIcons[task.status];
         const isDone = task.status === "done";
         const isOverdue =
-          task.due_date && isPast(new Date(task.due_date)) && !isDone;
+          task.due_date && isPast(parseISO(task.due_date)) && !isDone;
 
         return (
           <div

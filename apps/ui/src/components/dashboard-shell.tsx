@@ -1,8 +1,7 @@
 "use client";
 
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import {
   LayoutDashboard,
@@ -508,7 +507,6 @@ export function DashboardShell({
   modules?: Record<string, boolean>;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const isMobile = useIsMobile();
@@ -538,13 +536,6 @@ export function DashboardShell({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [toggle]);
 
-  const handleSignOut = React.useCallback(async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
-  }, [router]);
-
   const handleMobileClose = React.useCallback(() => {
     setMobileOpen(false);
   }, []);
@@ -553,7 +544,8 @@ export function DashboardShell({
   // user get kicked out to /login. Triggers on fresh load with no session,
   // when the browser emits SIGNED_OUT (token expired), or when a later
   // caller invokes requireSignIn() after a 401.
-  const auth = useAuthWatcher();
+  const auth = useAuthWatcher({ signOutPath: isHosted ? "/auth" : "/login" });
+  const handleSignOut = auth.signOut;
   const activeWorkspace = React.useMemo(
     () => workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[0] ?? null,
     [workspaces, activeWorkspaceId],
