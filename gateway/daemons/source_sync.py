@@ -251,7 +251,7 @@ def sync_connection(connection: dict) -> None:
 
     # If api_key is not in credentials, resolve from secrets .env file on disk
     if not creds.get("api_key"):
-        secret_key = f"NOTION_SOURCE_{connection_id[:8].upper()}"
+        secret_key = f"{provider.upper()}_SOURCE_{connection_id[:8].upper()}"
         secrets = _load_gateway_secrets()
         if secret_key in secrets:
             creds["api_key"] = secrets[secret_key]
