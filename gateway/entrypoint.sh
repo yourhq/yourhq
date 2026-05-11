@@ -695,4 +695,7 @@ export XDG_DATA_DIRS="/usr/local/share:/usr/share"
 [ -S "$XDG_RUNTIME_DIR/bus" ] && \
   export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
 
+SECRETS_ENV="$OPENCLAW_HOME/secrets/gateway.env"
+[ -f "$SECRETS_ENV" ] && set -a && . "$SECRETS_ENV" && set +a
+
 exec openclaw gateway run

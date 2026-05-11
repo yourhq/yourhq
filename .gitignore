@@ -8,7 +8,6 @@
 *.key
 *-credentials.*
 ec2-key.*
-**/secrets/**
 openclaw_deploy_key*
 
 # Node / Next

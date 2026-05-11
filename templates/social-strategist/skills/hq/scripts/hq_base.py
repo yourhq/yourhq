@@ -60,6 +60,24 @@ def _resolve_agent_channel() -> str:
     return "telegram"
 
 
+def _load_secrets():
+    slug = _resolve_agent_slug()
+    secrets_dir = Path(os.environ.get("OPENCLAW_HOME", str(Path.home() / ".openclaw"))) / "secrets" / "agents"
+    env_file = secrets_dir / f"{slug}.env"
+    if env_file.is_file():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            v = v.strip()
+            if len(v) >= 2 and v[0] == v[-1] and v[0] in ("'", '"'):
+                v = v[1:-1]
+            os.environ.setdefault(k.strip(), v)
+
+
+_load_secrets()
+
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 AGENT_SLUG = _resolve_agent_slug()

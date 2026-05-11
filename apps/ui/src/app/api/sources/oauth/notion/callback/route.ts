@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { encryptSecret } from "@/lib/secrets/crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -84,13 +85,22 @@ export async function GET(req: NextRequest) {
     "Notion workspace";
 
   const supabase = await createAdminClient();
+
+  // Resolve a gateway for storing the secret (use first available)
+  const { data: gateways } = await supabase
+    .from("gateways")
+    .select("id")
+    .order("created_at", { ascending: true })
+    .limit(1);
+  const gatewayId = gateways?.[0]?.id;
+
+  // Insert the source connection (credentials holds only non-secret metadata)
   const { data: connection, error: insertError } = await supabase
     .from("source_connections")
     .insert({
       provider: "notion",
       account_label: label,
       credentials: {
-        api_key: tokenData.access_token,
         oauth: true,
         bot_id: tokenData.bot_id,
         workspace_id: tokenData.workspace_id,
@@ -110,6 +120,45 @@ export async function GET(req: NextRequest) {
   if (insertError || !connection) {
     console.error("[notion-oauth] Insert failed:", insertError);
     return redirectWithError(req, "Failed to save connection");
+  }
+
+  // Store the access token as an encrypted secret
+  if (gatewayId) {
+    try {
+      const secretKey = `NOTION_SOURCE_${connection.id.slice(0, 8).toUpperCase()}`;
+      const encrypted = await encryptSecret(tokenData.access_token);
+      const { data: secret } = await supabase
+        .from("secrets")
+        .insert({
+          gateway_id: gatewayId,
+          key: secretKey,
+          name: `Notion (${label})`,
+          encrypted_value: encrypted,
+          category: "integration",
+          note: "Auto-created by Notion OAuth. Used for source sync.",
+        })
+        .select("id")
+        .single();
+
+      if (secret) {
+        await supabase
+          .from("source_connections")
+          .update({ secret_id: secret.id })
+          .eq("id", connection.id);
+      }
+    } catch (e) {
+      console.error("[notion-oauth] Failed to store encrypted secret, falling back to credentials:", e);
+      await supabase
+        .from("source_connections")
+        .update({ credentials: { oauth: true, bot_id: tokenData.bot_id, workspace_id: tokenData.workspace_id, api_key: tokenData.access_token } })
+        .eq("id", connection.id);
+    }
+  } else {
+    // No gateway available — store token in credentials as fallback
+    await supabase
+      .from("source_connections")
+      .update({ credentials: { oauth: true, bot_id: tokenData.bot_id, workspace_id: tokenData.workspace_id, api_key: tokenData.access_token } })
+      .eq("id", connection.id);
   }
 
   return NextResponse.redirect(

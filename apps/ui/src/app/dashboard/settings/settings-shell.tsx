@@ -9,6 +9,7 @@ import {
   Layers,
   LayoutGrid,
   Plug,
+  Lock,
   Server,
   Globe,
   Database,
@@ -69,6 +70,7 @@ const SETTINGS_NAV: NavGroup[] = [
     label: "Agents",
     items: [
       { href: "/dashboard/settings/connections", label: "Connections", icon: Plug },
+      { href: "/dashboard/settings/secrets", label: "Secrets", icon: Lock },
       { href: "/dashboard/settings/budgets", label: "Budget Defaults", icon: DollarSign },
     ],
   },

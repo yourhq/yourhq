@@ -79,15 +79,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 [ -z "$AGENT_NAME" ] && echo "ERROR: <branch> positional arg required. See --help." && exit 1
-if [ "$CHANNEL" = "telegram" ] && [ -z "$BOT_TOKEN" ]; then
-  echo "ERROR: --telegram-token required for telegram channel." && exit 1
-fi
-if [ "$CHANNEL" = "discord" ] && [ -z "$DISCORD_TOKEN" ]; then
-  echo "ERROR: --discord-token required for discord channel." && exit 1
-fi
-if [ "$CHANNEL" = "slack" ] && { [ -z "$SLACK_APP_TOKEN" ] || [ -z "$SLACK_BOT_TOKEN" ]; }; then
-  echo "ERROR: --slack-app-token and --slack-bot-token required for slack channel." && exit 1
-fi
 
 CONFIG="$HOME/.openclaw/openclaw.json"
 REPO_DIR="$HOME/.openclaw/repo.git"
@@ -98,6 +89,15 @@ WORKSPACE="$HOME/.openclaw/workspace-${AGENT_NAME}"
 # Fallbacks
 [ -z "$AGENT_SLUG" ] && AGENT_SLUG="${AGENT_NAME##*/}"
 [ -z "$SOURCE_BRANCH" ] && SOURCE_BRANCH="default"
+
+# Load channel tokens from secrets env (written by secrets_sync daemon)
+OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
+SECRETS_FILE="$OPENCLAW_HOME/secrets/agents/${AGENT_SLUG}.env"
+if [ -f "$SECRETS_FILE" ]; then
+  set -a; . "$SECRETS_FILE"; set +a
+fi
+[ -z "$BOT_TOKEN" ] && BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
+[ -z "$DISCORD_TOKEN" ] && DISCORD_TOKEN="${DISCORD_BOT_TOKEN:-}"
 
 echo "══════════════════════════════════════════"
 echo "  Adding agent: $AGENT_NAME"

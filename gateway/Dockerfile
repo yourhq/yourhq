@@ -183,6 +183,7 @@ COPY --chown=openclaw:openclaw gateway/connectors /opt/yourhq/connectors
 COPY --chown=openclaw:openclaw gateway/daemons/inbox_dispatcher.py /opt/yourhq/daemons/inbox_dispatcher.py
 COPY --chown=openclaw:openclaw gateway/daemons/command_runner.py /opt/yourhq/daemons/command_runner.py
 COPY --chown=openclaw:openclaw gateway/daemons/git_backup_sweep.py /opt/yourhq/daemons/git_backup_sweep.py
+COPY --chown=openclaw:openclaw gateway/daemons/secrets_sync.py /opt/yourhq/daemons/secrets_sync.py
 COPY --chown=openclaw:openclaw gateway/daemons/file_processor.py /opt/yourhq/daemons/file_processor.py
 COPY --chown=openclaw:openclaw gateway/daemons/source_sync.py /opt/yourhq/daemons/source_sync.py
 RUN chmod +x /usr/local/bin/entrypoint.sh

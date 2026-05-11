@@ -34,7 +34,7 @@ RUN install -m 0755 -d /etc/apt/keyrings \
        docker-ce-cli docker-compose-plugin \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir --break-system-packages websocket-client==1.8.0
+RUN pip install --no-cache-dir --break-system-packages websocket-client==1.8.0 cryptography==44.0.0
 
 RUN npm install -g openclaw@${OPENCLAW_VERSION}
 
@@ -45,6 +45,7 @@ RUN userdel -r ubuntu 2>/dev/null || true \
 
 COPY --chown=openclaw:openclaw gateway/daemons/command_runner.py /app/command_runner.py
 COPY --chown=openclaw:openclaw gateway/daemons/git_backup_sweep.py /app/git_backup_sweep.py
+COPY --chown=openclaw:openclaw gateway/daemons/secrets_sync.py /app/secrets_sync.py
 COPY --chown=openclaw:openclaw gateway/daemons/registry_config.py /app/registry_config.py
 COPY --chown=openclaw:openclaw gateway/runner/entrypoint.sh /app/entrypoint.sh
 COPY --chown=openclaw:openclaw gateway/scripts /home/openclaw/.yourhq-infra

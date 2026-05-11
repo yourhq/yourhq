@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { completeItem, loadProgress } from "@/lib/onboarding/progress";
 import { createAgentWithBranch, enqueueAgentCommand } from "@/app/dashboard/agents/actions";
+import { createSecret } from "@/app/dashboard/settings/secrets/actions";
 import type { AgentChannel, AgentTemplate } from "@/lib/agents/types";
 import { useAgentCommands } from "@/hooks/use-agent-commands";
 
@@ -260,20 +261,38 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
         reportsToId: reportsToId || undefined,
         gatewayId: selectedGatewayId || undefined,
         channel,
-        telegramToken: channel === "telegram" ? token.trim() || undefined : undefined,
-        discordToken: channel === "discord" ? discordToken.trim() || undefined : undefined,
         discordServerId: channel === "discord" ? discordServerId.trim() || undefined : undefined,
         discordUserId: channel === "discord" ? discordUserId.trim() || undefined : undefined,
-        slackAppToken: channel === "slack" ? slackAppToken.trim() || undefined : undefined,
-        slackBotToken: channel === "slack" ? slackBotToken.trim() || undefined : undefined,
       });
       setCreatedAgentId(result.agentId);
       setCreatedBranch(result.branch);
 
+      // Write channel token(s) to the secrets table (encrypted at rest).
+      // The gateway picks them up via Realtime and writes .env files.
+      const gwId = selectedGatewayId || result.gatewayId;
+      if (gwId) {
+        try {
+          if (channel === "telegram" && token.trim()) {
+            await createSecret({ gatewayId: gwId, agentId: result.agentId, name: "Telegram Bot Token", key: "TELEGRAM_BOT_TOKEN", value: token.trim(), category: "channel" });
+          } else if (channel === "discord" && discordToken.trim()) {
+            await createSecret({ gatewayId: gwId, agentId: result.agentId, name: "Discord Bot Token", key: "DISCORD_BOT_TOKEN", value: discordToken.trim(), category: "channel" });
+          } else if (channel === "slack") {
+            if (slackAppToken.trim()) {
+              await createSecret({ gatewayId: gwId, agentId: result.agentId, name: "Slack App Token", key: "SLACK_APP_TOKEN", value: slackAppToken.trim(), category: "channel" });
+            }
+            if (slackBotToken.trim()) {
+              await createSecret({ gatewayId: gwId, agentId: result.agentId, name: "Slack Bot Token", key: "SLACK_BOT_TOKEN", value: slackBotToken.trim(), category: "channel" });
+            }
+          }
+        } catch (e) {
+          console.error("[wizard] Could not write channel token to secrets:", e);
+          toast.error("Failed to store channel credentials. You can add them later in the Secrets tab.");
+        }
+      }
+
       // Auto-enqueue provisioning on the gateway. add-agent.sh on the
       // gateway side handles branch creation off the source template,
-      // agent.json/USER.md patching, and openclaw.json wiring — the UI
-      // just passes the wizard inputs through.
+      // agent.json/USER.md patching, and openclaw.json wiring.
       try {
         await enqueueAgentCommand({
           agentId: result.agentId,
@@ -281,12 +300,8 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
           action: "provision",
           payload: {
             channel,
-            ...(channel === "telegram" && token.trim() ? { telegram_token: token.trim() } : {}),
-            ...(channel === "discord" && discordToken.trim() ? { discord_token: discordToken.trim() } : {}),
             ...(channel === "discord" && discordServerId.trim() ? { discord_server_id: discordServerId.trim() } : {}),
             ...(channel === "discord" && discordUserId.trim() ? { discord_user_id: discordUserId.trim() } : {}),
-            ...(channel === "slack" && slackAppToken.trim() ? { slack_app_token: slackAppToken.trim() } : {}),
-            ...(channel === "slack" && slackBotToken.trim() ? { slack_bot_token: slackBotToken.trim() } : {}),
             source_template: result.sourceBranch,
             name: name.trim(),
             description: description.trim() || undefined,
@@ -377,12 +392,8 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
         action: "provision",
         payload: {
           channel,
-          ...(channel === "telegram" && token.trim() ? { telegram_token: token.trim() } : {}),
-          ...(channel === "discord" && discordToken.trim() ? { discord_token: discordToken.trim() } : {}),
           ...(channel === "discord" && discordServerId.trim() ? { discord_server_id: discordServerId.trim() } : {}),
           ...(channel === "discord" && discordUserId.trim() ? { discord_user_id: discordUserId.trim() } : {}),
-          ...(channel === "slack" && slackAppToken.trim() ? { slack_app_token: slackAppToken.trim() } : {}),
-          ...(channel === "slack" && slackBotToken.trim() ? { slack_bot_token: slackBotToken.trim() } : {}),
         },
       });
       refetch();
@@ -391,7 +402,7 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
     } finally {
       setRetryingProvision(false);
     }
-  }, [createdAgentId, retryingProvision, slug, channel, token, discordToken, discordServerId, discordUserId, slackAppToken, slackBotToken, refetch]);
+  }, [createdAgentId, retryingProvision, slug, channel, discordServerId, discordUserId, refetch]);
 
   const submitPairingCode = useCallback(async () => {
     if (!createdAgentId || submittingPair) return;

@@ -224,11 +224,37 @@ def mark_deleted(item_id: str) -> None:
     )
 
 
+def _load_gateway_secrets() -> dict:
+    """Read gateway.env from disk (written by secrets_sync daemon)."""
+    from pathlib import Path
+    env_file = Path(os.environ.get("OPENCLAW_HOME", os.path.expanduser("~/.openclaw"))) / "secrets" / "gateway.env"
+    if not env_file.is_file():
+        return {}
+    pairs = {}
+    for line in env_file.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        v = v.strip()
+        if len(v) >= 2 and v[0] == v[-1] and v[0] in ("'", '"'):
+            v = v[1:-1]
+        pairs[k.strip()] = v
+    return pairs
+
+
 def sync_connection(connection: dict) -> None:
     provider = connection["provider"]
     connection_id = connection["id"]
     interval = connection.get("sync_interval_hours", 6)
-    creds = connection.get("credentials", {})
+    creds = dict(connection.get("credentials", {}))
+
+    # If api_key is not in credentials, resolve from secrets .env file on disk
+    if not creds.get("api_key"):
+        secret_key = f"NOTION_SOURCE_{connection_id[:8].upper()}"
+        secrets = _load_gateway_secrets()
+        if secret_key in secrets:
+            creds["api_key"] = secrets[secret_key]
 
     log(f"Syncing {provider} connection")
 

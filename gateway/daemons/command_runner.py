@@ -50,6 +50,12 @@ except ImportError:
     def start_backup_sweep() -> None:  # type: ignore[misc]
         pass
 
+try:
+    from secrets_sync import start_secrets_sync
+except ImportError:
+    def start_secrets_sync(url: str, key: str, gw: str) -> None:  # type: ignore[misc]
+        pass
+
 
 try:
     from registry_config import resolve as resolve_hq_config
@@ -223,30 +229,11 @@ def build_command(action, agent_slug, payload):
             return None, f"Invalid agent slug: {agent_slug}"
         channel = payload.get("channel", "telegram")
         args = [f"{HOME}/add-agent.sh", branch, "--channel", channel]
-        if channel == "telegram":
-            token = payload.get("telegram_token")
-            if not token:
-                return None, "Missing telegram_token in payload for telegram channel"
-            args += ["--telegram-token", token]
-        elif channel == "discord":
-            token = payload.get("discord_token")
-            if not token:
-                return None, "Missing discord_token in payload for discord channel"
-            args += ["--discord-token", token]
+        if channel == "discord":
             if payload.get("discord_server_id"):
                 args += ["--discord-server-id", str(payload["discord_server_id"])]
             if payload.get("discord_user_id"):
                 args += ["--discord-user-id", str(payload["discord_user_id"])]
-        elif channel == "slack":
-            if not payload.get("slack_app_token") or not payload.get("slack_bot_token"):
-                return None, "Missing slack_app_token or slack_bot_token in payload for slack channel"
-            args += [
-                "--slack-app-token",
-                str(payload["slack_app_token"]),
-                "--slack-bot-token",
-                str(payload["slack_bot_token"]),
-            ]
-        # none: no credential args
         source_template = payload.get("source_template")
         if source_template:
             args += ["--source-branch", str(source_template)]
@@ -1609,6 +1596,13 @@ def execute_command(command_row):
     except Exception as e:
         log(f"Failed to mark command as running: {e}")
 
+    if action == "provision":
+        try:
+            from secrets_sync import sync_secrets
+            sync_secrets()
+        except Exception:
+            pass
+
     # Build the shell command
     args, description = build_command(action, agent_slug, payload)
     if args is None:
@@ -1655,16 +1649,6 @@ def execute_command(command_row):
                 },
             )
 
-            # Scrub credential tokens from payload after successful provisioning
-            if action == "provision":
-                token_keys = [k for k in payload if k.endswith("_token")]
-                if token_keys:
-                    try:
-                        scrubbed = {k: v for k, v in payload.items() if not k.endswith("_token")}
-                        scrubbed["tokens_scrubbed"] = True
-                        api_patch("agent_commands", cmd_id, {"payload": scrubbed})
-                    except Exception:
-                        pass
         else:
             log(f"Command {cmd_id} failed (exit {result.returncode})")
             api_rpc(
@@ -1817,8 +1801,24 @@ class CommandListener:
             },
         )
 
+        self._send(
+            "realtime:public:secrets",
+            "phx_join",
+            {
+                "config": {
+                    "postgres_changes": [
+                        {
+                            "event": "*",
+                            "schema": "public",
+                            "table": "secrets",
+                        }
+                    ]
+                }
+            },
+        )
+
         self._start_heartbeat()
-        log("Listening for agent_commands inserts")
+        log("Listening for agent_commands inserts + secrets changes")
 
     def _on_message(self, ws, raw):
         try:
@@ -1828,7 +1828,8 @@ class CommandListener:
 
         if msg.get("event") == "postgres_changes":
             data = msg.get("payload", {}).get("data", {})
-            if data.get("table") == "agent_commands" and data.get("type") == "INSERT":
+            table = data.get("table")
+            if table == "agent_commands" and data.get("type") == "INSERT":
                 record = data.get("record", {})
                 action = record.get("action", "?")
                 agent_slug = record.get("agent_slug", "")
@@ -1837,6 +1838,12 @@ class CommandListener:
                 count = process_pending()
                 if count > 0:
                     log(f"Realtime: processed {count} command(s)")
+            elif table == "secrets":
+                try:
+                    from secrets_sync import sync_secrets
+                    sync_secrets()
+                except Exception as e:
+                    log(f"Secrets sync on realtime event failed: {e}")
 
     def _on_error(self, ws, error):
         log(f"WebSocket error: {error}")
@@ -2011,6 +2018,11 @@ def main():
 
     # Pre-fetch workspace slug
     get_workspace_slug()
+
+    # Start secrets sync (decrypts + writes .env files for agents).
+    # Must complete initial sync before processing pending commands so
+    # provision commands find their channel tokens on disk.
+    start_secrets_sync(SUPABASE_URL, SUPABASE_KEY, GATEWAY_ID)
 
     # Process any commands queued before we started
     count = process_pending()

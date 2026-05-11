@@ -16,12 +16,8 @@ export interface CreateAgentInput {
   model?: string | null;
   thinking?: string | null;
   channel?: AgentChannel;
-  telegramToken?: string;
-  discordToken?: string;
   discordServerId?: string;
   discordUserId?: string;
-  slackAppToken?: string;
-  slackBotToken?: string;
 }
 
 export interface CreateAgentResult {
@@ -29,6 +25,7 @@ export interface CreateAgentResult {
   slug: string;
   branch: string;
   sourceBranch: string;
+  gatewayId?: string;
   ownerName?: string;
   ownerPreferredName?: string;
   ownerTimezone?: string;
@@ -88,7 +85,6 @@ export async function createAgentWithBranch(
   if (existingAgent) throw new Error(`Agent with slug "${slug}" already exists`);
 
   const channel = input.channel ?? "telegram";
-  const tokenEnvVar = `TELEGRAM_TOKEN_${slug.toUpperCase().replace(/-/g, "_")}`;
   const sourceTemplate = input.templateBranch ?? "default";
 
   // Resolve template metadata from the baked list so we can seed
@@ -103,7 +99,6 @@ export async function createAgentWithBranch(
     team: templateMeta?.team || undefined,
     template_branch: input.templateBranch,
     channel,
-    ...(channel === "telegram" ? { telegram_token_env: tokenEnvVar } : {}),
   };
 
   let gatewayId = input.gatewayId ?? null;
@@ -154,6 +149,7 @@ export async function createAgentWithBranch(
     slug,
     branch: branchName,
     sourceBranch: sourceTemplate,
+    gatewayId: gatewayId ?? undefined,
     ownerName: wsRow?.owner_name ?? undefined,
     ownerPreferredName: wsRow?.owner_preferred_name ?? undefined,
     ownerTimezone: wsRow?.owner_timezone ?? undefined,
