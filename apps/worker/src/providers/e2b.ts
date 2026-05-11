@@ -34,30 +34,33 @@ export class E2BSandboxProvider implements SandboxProvider {
 
     await sandbox.files.write("/tmp/sandbox-host", sandboxHost);
 
-    // Diagnostic: immediately check the sandbox environment, then try
-    // running the entrypoint manually if it didn't auto-start.
+    // E2B only allows user "user" or "root" (no custom users). The
+    // image was built for "openclaw". Run as root, fix ownership, then
+    // use su --preserve-environment so the entrypoint inherits the
+    // Supabase/gateway env vars that E2B injected.
+    sandbox.commands.run(
+      "chown openclaw:openclaw /home/openclaw && su --preserve-environment -c '/usr/local/bin/entrypoint.sh' openclaw",
+      {
+        user: "root",
+        envs: { HOME: "/home/openclaw" },
+        timeoutMs: DEFAULT_TIMEOUT_MS,
+      },
+    ).catch((err) => {
+      console.error(`[e2b] sandbox=${sandboxId} entrypoint exited:`, err);
+    });
+
+    // Give the entrypoint a moment, then log diagnostic state.
     setTimeout(async () => {
       try {
         const diag = await sandbox.commands.run(
-          [
-            "echo '=== whoami ===' && whoami",
-            "echo '=== env ===' && env | grep -E 'RUNTIME_MODE|SUPABASE_URL|HOME|USER|PATH' | sort",
-            "echo '=== entrypoint exists ===' && ls -la /usr/local/bin/entrypoint.sh 2>&1 || echo 'MISSING'",
-            "echo '=== file type ===' && file /usr/local/bin/entrypoint.sh 2>&1 || echo 'N/A'",
-            "echo '=== head of entrypoint ===' && head -5 /usr/local/bin/entrypoint.sh 2>&1 || echo 'N/A'",
-            "echo '=== processes ===' && ps aux --no-headers 2>/dev/null | head -30",
-            "echo '=== entrypoint log ===' && cat /tmp/entrypoint.log 2>/dev/null || echo 'no entrypoint log'",
-            "echo '=== try running entrypoint ===' && timeout 15 bash -x /usr/local/bin/entrypoint.sh > /tmp/entrypoint-manual.log 2>&1 || true",
-            "echo '=== manual run output ===' && tail -80 /tmp/entrypoint-manual.log 2>/dev/null || echo 'no manual log'",
-          ].join("; "),
-          { timeoutMs: 30_000 },
+          "ps aux --no-headers | grep -v '\\[' | head -20; echo '---'; tail -60 /tmp/entrypoint.log 2>/dev/null || echo 'no log yet'",
+          { timeoutMs: 10_000 },
         );
-        console.log(`[e2b-diag] sandbox=${sandboxId} stdout:\n${diag.stdout.slice(0, 4000)}`);
-        if (diag.stderr) console.log(`[e2b-diag] stderr:\n${diag.stderr.slice(0, 1000)}`);
+        console.log(`[e2b-diag] sandbox=${sandboxId}:\n${diag.stdout.slice(0, 3000)}`);
       } catch (err) {
         console.log(`[e2b-diag] sandbox=${sandboxId} diag failed:`, err);
       }
-    }, 5_000);
+    }, 15_000);
 
     return {
       sandboxId,

@@ -171,6 +171,16 @@ RUN mkdir -p /etc/xdg/xfce4 /etc/xdg \
 COPY --chown=openclaw:openclaw templates /opt/templates
 COPY --chown=openclaw:openclaw gateway/scripts/plugins /opt/openclaw-plugins
 
+# ── Agent lifecycle scripts (used by command_runner in e2b mode) ──
+COPY --chown=openclaw:openclaw gateway/scripts /home/openclaw/.yourhq-infra
+RUN set -eux; \
+    chmod +x /home/openclaw/.yourhq-infra/*.sh 2>/dev/null || true; \
+    for s in add-agent.sh remove-agent.sh update-agent.sh update-all-agents.sh list-agents.sh; do \
+      if [ -f "/home/openclaw/.yourhq-infra/$s" ]; then \
+        ln -sf "/home/openclaw/.yourhq-infra/$s" "/home/openclaw/$s"; \
+      fi; \
+    done
+
 # ── Entrypoint ───────────────────────────────────────────────
 COPY --chown=openclaw:openclaw gateway/files_api.py /usr/local/bin/files_api.py
 COPY --chown=openclaw:openclaw gateway/entrypoint.sh /usr/local/bin/entrypoint.sh
