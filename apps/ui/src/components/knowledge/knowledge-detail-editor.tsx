@@ -18,13 +18,16 @@ import {
   Clock,
   Download,
   ExternalLink,
+  FileDown,
   FolderOpen,
   Globe2,
   Bot,
+  Image as ImageIcon,
   Loader2,
   Pin,
   PinOff,
   RefreshCw,
+  RotateCw,
   Tag,
   X,
 } from "lucide-react";
@@ -38,7 +41,7 @@ import {
 } from "@/components/ui/select";
 import { TagInput } from "@/components/ui/tag-input";
 import { shouldReembed, withPendingEmbedding } from "@/lib/knowledge/embedding";
-import { convertMarkdownContent } from "@/lib/knowledge/markdown-to-tiptap";
+import { convertMarkdownContent, markdownToTiptap } from "@/lib/knowledge/markdown-to-tiptap";
 import { downloadAsMarkdown } from "@/lib/knowledge/export-markdown";
 import { buildFolderTree, flattenFolderTree, getFolderPath } from "@/lib/knowledge/tree";
 import { getSourceUrl, PROVIDER_LABELS } from "@/lib/sources/types";
@@ -70,6 +73,7 @@ export function KnowledgeDetailEditor({
   const [assignedAgentIds, setAssignedAgentIds] = useState<string[]>([]);
   const [embeddingStatus, setEmbeddingStatus] = useState(item.embedding_status);
   const [chunkStatus, setChunkStatus] = useState(item.chunk_status);
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useRealtime({
@@ -135,6 +139,7 @@ export function KnowledgeDetailEditor({
       });
       setSaving(false);
       setSaved(true);
+      setHistoryRefreshKey((k) => k + 1);
       setTimeout(() => setSaved(false), 2000);
     },
     [supabase, item.id, title]
@@ -220,13 +225,34 @@ export function KnowledgeDetailEditor({
       action: "archived",
       summary: `Archived '${item.title}'`,
     });
-    toast("Item archived");
+    toast("Item archived", {
+      action: {
+        label: "Undo",
+        onClick: async () => {
+          await supabase
+            .from("knowledge_items")
+            .update({ archived_at: null })
+            .eq("id", item.id);
+          router.push(`/dashboard/knowledge/${item.id}`);
+        },
+      },
+    });
     router.push("/dashboard/knowledge");
   }
 
   function handleExport() {
     downloadAsMarkdown(title, contentRef.current, item.id);
     toast("Downloaded as Markdown");
+  }
+
+  async function handleRetryEmbedding() {
+    await supabase
+      .from("knowledge_items")
+      .update(withPendingEmbedding({}))
+      .eq("id", item.id);
+    setEmbeddingStatus("pending");
+    setChunkStatus("pending");
+    toast.success("Re-indexing queued");
   }
 
   useEffect(() => {
@@ -268,6 +294,17 @@ export function KnowledgeDetailEditor({
             embeddingStatus={embeddingStatus}
             chunkStatus={chunkStatus}
           />
+          {(embeddingStatus === "failed" || chunkStatus === "failed") && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-red-400 hover:text-red-300"
+              onClick={handleRetryEmbedding}
+              title="Retry indexing"
+            >
+              <RotateCw className="h-3 w-3" />
+            </Button>
+          )}
 
           <span className="text-[11px] text-muted-foreground mr-2">
             {saving ? (
@@ -466,29 +503,7 @@ export function KnowledgeDetailEditor({
               className="min-h-[60vh]"
             />
           ) : item.kind === "file" ? (
-            <div className="rounded-lg border border-border/50 p-6 text-center text-sm text-muted-foreground">
-              <p>
-                {item.file_url
-                  ? `File: ${item.title}`
-                  : "No file attached"}
-              </p>
-              {item.processing_status === "processing" && (
-                <p className="mt-2 flex items-center justify-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Processing file...
-                </p>
-              )}
-              {item.processing_status === "failed" && (
-                <p className="mt-2 text-red-400">
-                  Processing failed: {item.processing_error}
-                </p>
-              )}
-              {item.plain_text && (
-                <div className="mt-4 text-left whitespace-pre-wrap text-xs text-muted-foreground/80 max-h-[60vh] overflow-auto">
-                  {item.plain_text}
-                </div>
-              )}
-            </div>
+            <FileDetailView item={item} supabase={supabase} />
           ) : item.kind === "source" ? (
             <SourceDetailView item={item} />
           ) : null}
@@ -498,6 +513,7 @@ export function KnowledgeDetailEditor({
         {showHistory && (
           <KnowledgeHistoryPanel
             itemId={item.id}
+            refreshKey={historyRefreshKey}
             onClose={() => setShowHistory(false)}
           />
         )}
@@ -508,9 +524,11 @@ export function KnowledgeDetailEditor({
 
 function KnowledgeHistoryPanel({
   itemId,
+  refreshKey,
   onClose,
 }: {
   itemId: string;
+  refreshKey?: number;
   onClose: () => void;
 }) {
   const supabase = useMemo(() => createClient(), []);
@@ -569,7 +587,7 @@ function KnowledgeHistoryPanel({
       setLoading(false);
     }
     fetch();
-  }, [supabase, itemId]);
+  }, [supabase, itemId, refreshKey]);
 
   return (
     <div className="w-72 shrink-0 border-l border-border/50 overflow-auto">
@@ -677,12 +695,95 @@ function SourceDetailView({ item }: { item: KnowledgeItem }) {
       </div>
 
       {item.plain_text ? (
-        <div className="prose prose-invert prose-sm max-w-none whitespace-pre-wrap text-sm text-foreground/90 leading-relaxed">
-          {item.plain_text}
-        </div>
+        <NovelEditor
+          initialContent={markdownToTiptap(item.plain_text)}
+          editable={false}
+          className="prose prose-invert prose-sm max-w-none"
+        />
       ) : (
         <div className="py-8 text-center text-sm text-muted-foreground">
           Content not yet synced. It will appear after the next sync cycle.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatFileSize(bytes: number | null): string {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function FileDetailView({
+  item,
+  supabase,
+}: {
+  item: KnowledgeItem;
+  supabase: ReturnType<typeof createClient>;
+}) {
+  const fileUrl = item.file_url
+    ? supabase.storage.from("assets").getPublicUrl(item.file_url).data.publicUrl
+    : null;
+  const isImage = item.mime_type?.startsWith("image/");
+
+  return (
+    <div className="space-y-4">
+      {isImage && fileUrl && (
+        <div className="rounded-lg border border-border/50 overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={fileUrl}
+            alt={item.title}
+            className="max-w-full max-h-[60vh] object-contain mx-auto"
+          />
+        </div>
+      )}
+
+      <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-muted/30 px-4 py-3 text-[13px] text-muted-foreground">
+        <div className="flex-1 min-w-0 space-y-0.5">
+          <p className="font-medium text-foreground truncate">{item.title}</p>
+          <div className="flex items-center gap-3 text-[11px]">
+            {item.mime_type && <span>{item.mime_type}</span>}
+            {item.file_size != null && <span>{formatFileSize(item.file_size)}</span>}
+          </div>
+        </div>
+        {fileUrl && (
+          <a
+            href={fileUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            download={item.title}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors shrink-0"
+          >
+            <FileDown className="h-3.5 w-3.5" />
+            Download
+          </a>
+        )}
+      </div>
+
+      {item.processing_status === "processing" && (
+        <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Processing file...
+        </div>
+      )}
+
+      {item.processing_status === "failed" && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-[13px] text-red-400">
+          Processing failed: {item.processing_error}
+        </div>
+      )}
+
+      {item.plain_text && (
+        <div className="rounded-lg border border-border/50 p-4">
+          <p className="text-[11px] font-medium text-muted-foreground mb-2 uppercase tracking-wider">
+            Extracted text
+          </p>
+          <div className="whitespace-pre-wrap text-sm text-foreground/80 leading-relaxed max-h-[60vh] overflow-auto">
+            {item.plain_text}
+          </div>
         </div>
       )}
     </div>

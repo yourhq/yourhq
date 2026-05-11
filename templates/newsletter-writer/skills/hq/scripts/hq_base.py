@@ -183,6 +183,20 @@ def api_patch(table, record_id, payload):
         _raise_http_error(e)
 
 
+def api_delete(table, record_id):
+    url = base_url(table) + "?" + urllib.parse.urlencode({"id": f"eq.{record_id}"})
+    req = urllib.request.Request(
+        url,
+        headers=headers(prefer="return=representation"),
+        method="DELETE",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return _read_json_response(r)
+    except urllib.error.HTTPError as e:
+        _raise_http_error(e)
+
+
 def api_rpc(function_name, payload):
     url = SUPABASE_URL.rstrip("/") + f"/rest/v1/rpc/{function_name}"
     data = json.dumps(payload).encode()

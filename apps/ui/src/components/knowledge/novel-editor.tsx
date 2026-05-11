@@ -178,6 +178,7 @@ interface NovelEditorProps {
   onChange?: (content: JSONContent) => void;
   onHtmlChange?: (html: string) => void;
   className?: string;
+  editable?: boolean;
 }
 
 export function NovelEditor({
@@ -185,6 +186,7 @@ export function NovelEditor({
   onChange,
   onHtmlChange,
   className,
+  editable = true,
 }: NovelEditorProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -204,15 +206,17 @@ export function NovelEditor({
     <EditorRoot>
       <EditorContent
         initialContent={initialContent}
-        extensions={extensions}
+        extensions={editable ? extensions : extensions.filter((e) => e.name !== "command")}
         className={cn(
-          "novel-editor relative min-h-[400px] w-full border-0",
+          "novel-editor relative w-full border-0",
+          editable ? "min-h-[400px]" : "min-h-0",
           className
         )}
         editorProps={{
-          handleDOMEvents: {
-            keydown: (_view, event) => handleCommandNavigation(event),
-          },
+          handleDOMEvents: editable
+            ? { keydown: (_view, event) => handleCommandNavigation(event) }
+            : {},
+          editable: () => editable,
           attributes: {
             class: "focus:outline-none",
           },
@@ -222,57 +226,61 @@ export function NovelEditor({
           onHtmlChange?.(editor.getHTML());
         }}
       >
-        <EditorCommand className="z-50 h-auto max-h-[330px] overflow-y-auto rounded-md border border-border bg-popover px-1 py-2 shadow-md">
-          <EditorCommandEmpty className="px-2 text-xs text-muted-foreground">
-            No results
-          </EditorCommandEmpty>
-          <EditorCommandList>
-            {suggestionItems.map((item) => (
-              <EditorCommandItem
-                value={item.title}
-                onCommand={(val) => item.command?.(val)}
-                key={item.title}
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent aria-selected:bg-accent"
-              >
-                <div className="flex h-8 w-8 items-center justify-center rounded-sm border border-border/50 bg-muted/30">
-                  {item.icon}
-                </div>
-                <div>
-                  <p className="text-sm font-medium">{item.title}</p>
-                  <p className="text-xs text-muted-foreground">{item.description}</p>
-                </div>
-              </EditorCommandItem>
-            ))}
-          </EditorCommandList>
-        </EditorCommand>
+        {editable && (
+          <EditorCommand className="z-50 h-auto max-h-[330px] overflow-y-auto rounded-md border border-border bg-popover px-1 py-2 shadow-md">
+            <EditorCommandEmpty className="px-2 text-xs text-muted-foreground">
+              No results
+            </EditorCommandEmpty>
+            <EditorCommandList>
+              {suggestionItems.map((item) => (
+                <EditorCommandItem
+                  value={item.title}
+                  onCommand={(val) => item.command?.(val)}
+                  key={item.title}
+                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent aria-selected:bg-accent"
+                >
+                  <div className="flex h-8 w-8 items-center justify-center rounded-sm border border-border/50 bg-muted/30">
+                    {item.icon}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{item.title}</p>
+                    <p className="text-xs text-muted-foreground">{item.description}</p>
+                  </div>
+                </EditorCommandItem>
+              ))}
+            </EditorCommandList>
+          </EditorCommand>
+        )}
 
-        <EditorBubble className="flex items-center gap-0.5 rounded-md border border-border bg-popover p-1 shadow-md">
-          <EditorBubbleItem onSelect={(editor) => editor.chain().focus().toggleBold().run()}>
-            <BubbleButton active={(editor) => editor.isActive("bold")}>
-              <Bold className="h-3.5 w-3.5" />
-            </BubbleButton>
-          </EditorBubbleItem>
-          <EditorBubbleItem onSelect={(editor) => editor.chain().focus().toggleItalic().run()}>
-            <BubbleButton active={(editor) => editor.isActive("italic")}>
-              <Italic className="h-3.5 w-3.5" />
-            </BubbleButton>
-          </EditorBubbleItem>
-          <EditorBubbleItem onSelect={(editor) => editor.chain().focus().toggleUnderline().run()}>
-            <BubbleButton active={(editor) => editor.isActive("underline")}>
-              <Underline className="h-3.5 w-3.5" />
-            </BubbleButton>
-          </EditorBubbleItem>
-          <EditorBubbleItem onSelect={(editor) => editor.chain().focus().toggleStrike().run()}>
-            <BubbleButton active={(editor) => editor.isActive("strike")}>
-              <Strikethrough className="h-3.5 w-3.5" />
-            </BubbleButton>
-          </EditorBubbleItem>
-          <EditorBubbleItem onSelect={(editor) => editor.chain().focus().toggleCode().run()}>
-            <BubbleButton active={(editor) => editor.isActive("code")}>
-              <Code className="h-3.5 w-3.5" />
-            </BubbleButton>
-          </EditorBubbleItem>
-        </EditorBubble>
+        {editable && (
+          <EditorBubble className="flex items-center gap-0.5 rounded-md border border-border bg-popover p-1 shadow-md">
+            <EditorBubbleItem onSelect={(editor) => editor.chain().focus().toggleBold().run()}>
+              <BubbleButton active={(editor) => editor.isActive("bold")}>
+                <Bold className="h-3.5 w-3.5" />
+              </BubbleButton>
+            </EditorBubbleItem>
+            <EditorBubbleItem onSelect={(editor) => editor.chain().focus().toggleItalic().run()}>
+              <BubbleButton active={(editor) => editor.isActive("italic")}>
+                <Italic className="h-3.5 w-3.5" />
+              </BubbleButton>
+            </EditorBubbleItem>
+            <EditorBubbleItem onSelect={(editor) => editor.chain().focus().toggleUnderline().run()}>
+              <BubbleButton active={(editor) => editor.isActive("underline")}>
+                <Underline className="h-3.5 w-3.5" />
+              </BubbleButton>
+            </EditorBubbleItem>
+            <EditorBubbleItem onSelect={(editor) => editor.chain().focus().toggleStrike().run()}>
+              <BubbleButton active={(editor) => editor.isActive("strike")}>
+                <Strikethrough className="h-3.5 w-3.5" />
+              </BubbleButton>
+            </EditorBubbleItem>
+            <EditorBubbleItem onSelect={(editor) => editor.chain().focus().toggleCode().run()}>
+              <BubbleButton active={(editor) => editor.isActive("code")}>
+                <Code className="h-3.5 w-3.5" />
+              </BubbleButton>
+            </EditorBubbleItem>
+          </EditorBubble>
+        )}
       </EditorContent>
     </EditorRoot>
   );

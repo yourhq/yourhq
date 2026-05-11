@@ -126,7 +126,7 @@ export function AgentKnowledgeSection({ agentId, agentSlug }: Props) {
           <BookOpen className="mr-1.5 inline h-3 w-3" />
           Skills {items.length > 0 && `(${items.length})`}
         </h2>
-        <Link href={`/dashboard/knowledge?scope=${agentSlug}`}>
+        <Link href={`/dashboard/knowledge?scope=${agentId}`}>
           <Button variant="ghost" size="icon-sm" className="h-5 w-5" title="Add skill">
             <Plus className="h-3 w-3" />
           </Button>
@@ -184,7 +184,7 @@ export function AgentKnowledgeSection({ agentId, agentSlug }: Props) {
           })}
           {items.length > MAX_ITEMS && (
             <Link
-              href={`/dashboard/knowledge?scope=${agentSlug}`}
+              href={`/dashboard/knowledge?scope=${agentId}`}
               className="block px-2 pt-1.5 text-[11px] text-muted-foreground hover:text-foreground"
             >
               Show all ({items.length})

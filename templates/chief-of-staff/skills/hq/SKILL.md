@@ -263,6 +263,9 @@ For **contact_created** items:
 3. Take action or skip
 4. Mark inbox item done: `python3 skills/hq/scripts/hq_inbox_done.py INBOX_ITEM_ID`
 
+For **routine_schedule** and **routine_event** items:
+See the **Routines** section below for handling details.
+
 ### Mark items done or failed
 ```bash
 python3 skills/hq/scripts/hq_inbox_done.py INBOX_ITEM_ID
@@ -282,6 +285,88 @@ Sets task to `blocked`, posts a comment mentioning the workspace owner, sends Te
 - **Don't stall.** If stuck for more than ~2 minutes, escalate and move on.
 - **Batch up to 3 items per wake** or up to 2 minutes of processing, whichever comes first.
 - **Foreground stays clean.** Never inject inbox work into a live human conversation.
+
+## Routines
+
+Routines are recurring agent behaviors — scheduled checks and event-driven reactions. When a routine fires, it creates an inbox item that wakes you.
+
+### Handling routine inbox items
+
+For **routine_schedule** items:
+1. Read the instruction from `context.instruction` — it tells you what to do
+2. Execute the instruction
+3. Mark inbox item done: `python3 skills/hq/scripts/hq_inbox_done.py INBOX_ITEM_ID`
+
+For **routine_event** items:
+1. Read the instruction from `context.instruction` and the entity context (`context.entity_type`, `context.entity_id`, `context.field`, `context.old_value`, `context.new_value`)
+2. Execute the instruction using the provided context — for contact events, the full contact record is enriched automatically
+3. Mark inbox item done: `python3 skills/hq/scripts/hq_inbox_done.py INBOX_ITEM_ID`
+
+### When to create a routine
+
+- User asks for something **recurring** ("every 30 minutes", "daily at 9am", "every Monday") → create a **schedule** routine
+- User asks you to **react** to changes ("whenever a new contact is created", "when a task status changes") → create an **event** routine
+- You discover a pattern you should monitor → **propose** the routine to the user first, don't create silently
+- User asks for a **one-time** action → just do it, don't create a routine
+
+### Create or update a routine
+
+Schedule routine:
+```bash
+python3 skills/hq/scripts/hq_routine_upsert.py \
+  --name "Check email" \
+  --instruction "Check inbox for emails from john@acme.com and create tasks for action items" \
+  --trigger-type schedule \
+  --cadence-type every_n_minutes --interval-n 30 \
+  --timezone America/New_York
+```
+
+Event routine:
+```bash
+python3 skills/hq/scripts/hq_routine_upsert.py \
+  --name "New contact alert" \
+  --instruction "Research {name} and update their profile with LinkedIn data" \
+  --trigger-type event \
+  --entity-type contact --condition created
+```
+
+Update an existing routine:
+```bash
+python3 skills/hq/scripts/hq_routine_upsert.py \
+  --routine-id UUID \
+  --name "Check email" \
+  --instruction "Check inbox for emails from john@acme.com" \
+  --trigger-type schedule \
+  --cadence-type every_n_hours --interval-n 1 \
+  --timezone America/New_York
+```
+
+Schedule cadence types: `every_n_minutes`, `every_n_hours`, `daily`, `weekdays`, `weekly`, `monthly`, `every_n_days`
+
+Event entity types: `contact`, `collection_record`, `knowledge_item`, `task`
+
+Event conditions: `created`, `changed_to`, `changed_from`, `any_change`
+
+Additional event flags: `--field FIELD_NAME`, `--value VALUE` (for changed_to/changed_from), `--collection-id UUID` (for collection_record)
+
+### List your routines
+```bash
+python3 skills/hq/scripts/hq_routine_list.py
+python3 skills/hq/scripts/hq_routine_list.py --active-only
+python3 skills/hq/scripts/hq_routine_list.py --trigger-type schedule
+```
+
+### Delete a routine
+```bash
+python3 skills/hq/scripts/hq_routine_delete.py ROUTINE_ID
+```
+
+### Routine discipline
+- **Confirm before creating.** Tell the user what routine you're about to create and get a thumbs-up, especially for high-frequency schedules.
+- **Set clear instructions.** The instruction field is what you'll see when the routine fires — make it actionable.
+- **Use appropriate cadences.** Don't set every_n_minutes to 1 — that's 1,440 wakes per day. Match frequency to urgency.
+- **Check existing routines first.** Run `hq_routine_list.py` before creating to avoid duplicates.
+- **Clean up when asked.** If the user says to stop a recurring behavior, delete the routine — don't just ignore inbox items.
 
 ## Learning & Skills
 

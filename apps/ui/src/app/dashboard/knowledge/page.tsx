@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SharedFolderTree } from "@/components/shared/folder-tree";
 import { computeDescendantCounts } from "@/lib/shared/folder-tree";
+import { buildFolderTree, flattenFolderTree } from "@/lib/knowledge/tree";
 import type { KnowledgeKind } from "@/lib/knowledge/types";
 import { KnowledgeList } from "@/components/knowledge/knowledge-list";
 import { KnowledgeGrid } from "@/components/knowledge/knowledge-grid";
@@ -16,16 +17,19 @@ import { PageHeader } from "@/components/shared/page-header";
 import { FirstVisitHint } from "@/components/onboarding/first-visit-hint";
 import { EmptyState } from "@/components/shared/empty-state";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
+import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
+  SelectGroup,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Search, Archive, LayoutList, LayoutGrid, BookOpen, FolderOpen, FileUp } from "lucide-react";
+import { Search, Archive, LayoutList, LayoutGrid, BookOpen, FolderOpen, FileUp, Bot } from "lucide-react";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -37,11 +41,29 @@ function KnowledgeContent() {
   const k = useKnowledge();
   const sc = useSourceConnections();
   const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
   const [showCreate, setShowCreate] = useState<KnowledgeKind | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteFolderId, setDeleteFolderId] = useState<string | null>(null);
   const [pickerConnectionId, setPickerConnectionId] = useState<string | null>(null);
+  const [agents, setAgents] = useState<{ id: string; name: string; emoji?: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    supabase
+      .from("agents")
+      .select("id, name, meta")
+      .order("name")
+      .then(({ data }) => {
+        setAgents(
+          (data ?? []).map((a) => ({
+            id: a.id,
+            name: a.name,
+            emoji: (a.meta as { emoji?: string } | null)?.emoji,
+          }))
+        );
+      });
+  }, [supabase]);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window === "undefined") return "list";
     return (localStorage.getItem(VIEW_KEY) as ViewMode) ?? "list";
@@ -121,6 +143,11 @@ function KnowledgeContent() {
     [k.folders, k.items]
   );
 
+  const flatFolders = useMemo(
+    () => flattenFolderTree(buildFolderTree(k.folders)),
+    [k.folders]
+  );
+
   return (
     <div
       className="relative flex h-full"
@@ -183,6 +210,24 @@ function KnowledgeContent() {
           />
         </div>
 
+        {/* Mobile folder selector */}
+        <div className="lg:hidden px-3 pt-2">
+          <Select value={k.filters.folderId} onValueChange={k.filters.setFolderId}>
+            <SelectTrigger className="h-8 text-xs">
+              <FolderOpen className="h-3.5 w-3.5 mr-1.5 shrink-0" />
+              <SelectValue placeholder="All Items" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Items</SelectItem>
+              {flatFolders.map(({ folder: f, depth }) => (
+                <SelectItem key={f.id} value={f.id} style={{ paddingLeft: depth * 12 + 8 }}>
+                  {f.icon ? `${f.icon} ` : ""}{f.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* Toolbar */}
         <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30">
           <div className="relative flex-1 max-w-xs">
@@ -215,6 +260,19 @@ function KnowledgeContent() {
             <SelectContent>
               <SelectItem value="all">All scopes</SelectItem>
               <SelectItem value="workspace">Workspace</SelectItem>
+              {agents.length > 0 && (
+                <SelectGroup>
+                  <SelectLabel className="text-[10px] text-muted-foreground/60 px-2">Agents</SelectLabel>
+                  {agents.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      <span className="flex items-center gap-1.5">
+                        {a.emoji ? <span className="text-[11px]">{a.emoji}</span> : <Bot className="h-3 w-3" />}
+                        {a.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              )}
             </SelectContent>
           </Select>
 
@@ -275,6 +333,7 @@ function KnowledgeContent() {
           ) : viewMode === "list" ? (
             <KnowledgeList
               items={k.items}
+              searchSnippets={k.searchSnippets}
               onArchive={k.actions.archiveItem}
               onRestore={k.actions.restoreItem}
               onDelete={(id) => setDeleteId(id)}
@@ -283,6 +342,7 @@ function KnowledgeContent() {
           ) : (
             <KnowledgeGrid
               items={k.items}
+              searchSnippets={k.searchSnippets}
               onArchive={k.actions.archiveItem}
               onRestore={k.actions.restoreItem}
               onDelete={(id) => setDeleteId(id)}

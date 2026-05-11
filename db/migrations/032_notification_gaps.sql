@@ -15,9 +15,9 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  IF NEW.review_status = 'in_review'
-     AND (OLD.review_status IS DISTINCT FROM 'in_review') THEN
-
+  -- Fire on initial submission (INSERT) — agents create deliverables as 'draft'
+  -- and the human reviews directly from that state.
+  IF TG_OP = 'INSERT' THEN
     SELECT name INTO v_agent_name
     FROM public.agents WHERE id = NEW.submitted_by_agent_id;
 
@@ -54,8 +54,10 @@ $$;
 
 DROP TRIGGER IF EXISTS entity_links_notify_deliverable_submitted ON entity_links;
 CREATE TRIGGER entity_links_notify_deliverable_submitted
-  AFTER INSERT OR UPDATE OF review_status ON entity_links
-  FOR EACH ROW EXECUTE FUNCTION notify_deliverable_submitted();
+  AFTER INSERT ON entity_links
+  FOR EACH ROW
+  WHEN (NEW.is_deliverable = true AND NEW.submitted_by_agent_id IS NOT NULL)
+  EXECUTE FUNCTION notify_deliverable_submitted();
 
 GRANT EXECUTE ON FUNCTION notify_deliverable_submitted() TO authenticated, service_role;
 
