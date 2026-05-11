@@ -34,10 +34,12 @@ CREATE INDEX IF NOT EXISTS idx_agent_usage_agent_model ON agent_usage(agent_id, 
 
 -- RLS
 ALTER TABLE agent_usage ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON agent_usage;
 CREATE POLICY "Tenant isolation" ON agent_usage
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON agent_usage;
 CREATE POLICY "Service role full access" ON agent_usage
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
@@ -76,10 +78,12 @@ CREATE TRIGGER agent_budgets_updated_at
 
 -- RLS
 ALTER TABLE agent_budgets ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON agent_budgets;
 CREATE POLICY "Tenant isolation" ON agent_budgets
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON agent_budgets;
 CREATE POLICY "Service role full access" ON agent_budgets
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 

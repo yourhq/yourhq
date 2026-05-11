@@ -24,11 +24,13 @@ CREATE TRIGGER task_templates_updated_at
 
 ALTER TABLE task_templates ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Tenant isolation" ON task_templates;
 CREATE POLICY "Tenant isolation" ON task_templates
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
 
+DROP POLICY IF EXISTS "Service role full access" ON task_templates;
 CREATE POLICY "Service role full access" ON task_templates
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 

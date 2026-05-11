@@ -51,7 +51,7 @@ npx tsc --noEmit     # type check
 Inside `apps/ui/src/`:
 
 - `app/` — App Router pages (dashboard, login, setup wizard).
-- `components/` — UI module folders: `crm/`, `tasks/`, `agents/`, `knowledge/`, `collections/`, `routines/`, `inbox/`, `notifications/`, etc. + `shared/` for cross-module + `ui/` for shadcn primitives.
+- `components/` — UI module folders: `crm/`, `tasks/`, `agents/`, `knowledge/`, `collections/`, `routines/`, `inbox/`, `notifications/`, `plugins/`, etc. + `shared/` for cross-module + `ui/` for shadcn primitives.
 - `hooks/` — data-fetching hooks (`use-contacts.ts`, `use-agents.ts`, `use-knowledge.ts`, `use-collections.ts`, `use-routines.ts`, `use-task-relations.ts`, `use-labels.ts`, `use-deliverables.ts`, `use-task-templates.ts`, etc.).
 - `lib/` — domain types + Supabase clients + audit log helpers. Modules: `knowledge/`, `collections/`, `routines/`, `inbox/`, `entity-links/`, `audit/`, `tasks/`, etc.
 
@@ -79,7 +79,15 @@ Daemons:
 - `gateway/daemons/secrets_sync.py` — fetches encrypted secrets from Supabase, decrypts with AES-256-GCM (key derived via HKDF from the service role key), and writes per-agent `.env` files to `~/.openclaw/secrets/`. Triggered by Realtime on the `secrets` table and a 5-minute safety re-sync. Started by command_runner on boot.
 - `gateway/daemons/file_processor.py` — leases `knowledge_items` with `kind='file'` and `processing_status='ready'`, downloads from storage, extracts text (PDF, DOCX, XLSX, CSV, PPTX, TXT), updates `plain_text` and triggers embedding.
 - `gateway/daemons/source_sync.py` — syncs external source connections via the plugin-based connector registry (`gateway/connectors/`). Polls `source_connections` where `next_sync_at <= now()`, fetches changes, upserts `knowledge_items` with `kind='source'`. Reads credentials from `~/.openclaw/secrets/gateway.env` (written by secrets_sync).
+- `gateway/daemons/plugin_runner.py` — watches `hq_plugin_event_queue` (SQL-trigger-emitted events), dispatches to enabled plugins (local Python handlers or remote webhook POSTs with HMAC). Subscribes to `hq_plugins` for config changes. Polling fallback every 5s.
 - `gateway/embedder/embedder.py` — leases `knowledge_items` pending embedding via `lease_knowledge_items_for_indexing`, generates vector embeddings, creates chunks. HTTP server at `:9100` with `/embed` and `/healthz` endpoints.
+
+Plugins:
+
+- `gateway/plugins/sdk.py` — Plugin SDK: `BasePlugin`, `PluginContext`, `PluginEvent`, `StateClient`, `SecretsClient`, `SupabaseClient`. Local plugins subclass `BasePlugin` and implement `on_event()`.
+- `gateway/plugins/_template/` — Scaffold for new plugins (manifest.json + handler.py).
+- `gateway/plugins/usage-alerts/` — Built-in plugin: logs warnings when agents approach budget limits.
+- `gateway/plugins/CONTRIBUTING.md` — Contributor guide for writing plugins.
 
 ## Database
 
@@ -96,6 +104,10 @@ Daemons:
 - `collection_definitions` / `collection_fields` / `collection_records` / `collection_views` — user-defined tables with typed JSONB fields and saved views (table/kanban/calendar).
 - `source_connections` / `source_sync_runs` — external source integrations via plugin-based connectors (`gateway/connectors/<provider>/`). Each provider has a `manifest.json`, auto-discovered by the registry. `writable` flag enables write-back. `source_write` command action routes writes through the command queue. Source connections reference `secrets` via `secret_id` FK for OAuth token storage.
 - `secrets` — encrypted credentials (AES-256-GCM). Scoped per gateway, optionally per agent. Categories: `user` (manual), `channel` (Telegram/Discord/Slack tokens), `integration` (OAuth tokens). Synced to gateway filesystem via Realtime. Values never exposed in API responses or logs.
+- `hq_plugins` — plugin registry. One row per installed plugin. Source types: `builtin`, `local`, `webhook`, `marketplace`. Has `hooks` (text array of subscribed events), `config` (operator settings), `config_schema` (JSON Schema), `webhook_url`/`webhook_secret` for remote plugins. Realtime-enabled.
+- `hq_plugin_events` — execution log. Every hook dispatch is recorded with status, duration, error message. 30-day retention via pg_cron.
+- `hq_plugin_state` — scoped key-value store for plugins. Keyed by `(plugin_id, scope_kind, scope_id, state_key)`.
+- `hq_plugin_event_queue` — lightweight append-only queue bridging SQL triggers to the plugin runner daemon. Triggers on tasks, agents, knowledge_items, inbox, comments, secrets write here; plugin_runner polls/subscribes and dispatches. 1-hour retention via pg_cron.
 - `agent_commands` / `agent_inbox_items` — command queue and inbox for agent execution.
 - `agent_usage` / `agent_budgets` — append-only LLM usage plus per-agent budget rollups.
 - `tenants` — multi-tenant support via `tenant_id` on all tables, scoped RLS via `current_tenant_id()`.
@@ -113,11 +125,12 @@ RLS: All tables use tenant-scoped policies via `current_tenant_id()` JWT claim. 
 - **New UI modules**: follow the existing pattern — types in `lib/<module>/types.ts`, hooks in `hooks/use-<module>.ts`, components in `components/<module>/`.
 - **New daemon actions**: add the case to `command_runner.py`'s `build_command()`, add or migrate the `command_action` enum, and expose it as a server action in `apps/ui/src/app/dashboard/agents/actions.ts`.
 - **New source connectors**: copy `gateway/connectors/_template/` to a new folder, fill in `manifest.json` and the connector methods, run `node scripts/build-source-manifests.mjs` to generate UI types. See `CONTRIBUTING-SOURCES.md`.
+- **New plugins**: copy `gateway/plugins/_template/` to a new folder, edit `manifest.json` (id, hooks, config_schema, capabilities), implement `handler.py` (subclass `BasePlugin`, implement `on_event()`). For webhook plugins, no gateway code — register via Settings → Plugins. See `gateway/plugins/CONTRIBUTING.md`.
 - **Dockerfile edits**: multi-arch build (amd64 + arm64) is the target. Use `TARGETARCH` arg when installing arch-specific binaries (Chrome vs Chromium, Tailscale, Caddy).
 - **Comments**: default to none. Only add one when the *why* is non-obvious (a hidden constraint, a subtle invariant, a workaround). Don't narrate what the code does.
 
 ## Current Roadmap Shape
 
-- Shipped: self-hosted stack, browser onboarding, multi-workspace registry, UI-driven gateway registration, provider connections, noVNC modal, usage budgets, agent hierarchy, unified knowledge (pages/skills/files/sources), entity links, routines (schedule + event), collections (table/kanban/calendar views), file processing pipeline, source connections (Notion) with plugin-based connector architecture (manifest-driven, auto-discovery, generic OAuth, gateway-proxied browse/validate, optional write-back, contributor template + guide), modular onboarding, task calendar view, agent-initiated skill learning (auto-creation with version history), encrypted secrets management (AES-256-GCM, Settings UI + agent Secrets tab, gateway .env sync), task relations/dependencies (blocked_by, blocks, relates_to, parent_of, child_of with blocker resolution notifications), labels (managed colors, task picker, filter), deliverables (agent-submitted work products with review workflow: draft → approved/revision_requested/rejected), task templates (reusable task groups with dependency graphs), overdue escalation (pg_cron auto-miss + inbox notification), and agent delegation skill (subtask creation with org-chart validation).
+- Shipped: self-hosted stack, browser onboarding, multi-workspace registry, UI-driven gateway registration, provider connections, noVNC modal, usage budgets, agent hierarchy, unified knowledge (pages/skills/files/sources), entity links, routines (schedule + event), collections (table/kanban/calendar views), file processing pipeline, source connections (Notion) with plugin-based connector architecture (manifest-driven, auto-discovery, generic OAuth, gateway-proxied browse/validate, optional write-back, contributor template + guide), modular onboarding, task calendar view, agent-initiated skill learning (auto-creation with version history), encrypted secrets management (AES-256-GCM, Settings UI + agent Secrets tab, gateway .env sync), task relations/dependencies (blocked_by, blocks, relates_to, parent_of, child_of with blocker resolution notifications), labels (managed colors, task picker, filter), deliverables (agent-submitted work products with review workflow: draft → approved/revision_requested/rejected), task templates (reusable task groups with dependency graphs), overdue escalation (pg_cron auto-miss + inbox notification), agent delegation skill (subtask creation with org-chart validation), and HQ plugin system (event-driven hooks, local Python + webhook plugins, plugin runner daemon, SDK with state/secrets/supabase clients, Settings UI for management).
 - Next: Google Drive connector (validates plugin architecture with second provider), public deployment docs, richer pricing coverage, template docs, and docs site generation.
 - Later: hosted offering with account management, automated provisioning, and billing.

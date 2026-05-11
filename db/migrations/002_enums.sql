@@ -81,3 +81,11 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
   CREATE TYPE gateway_status AS ENUM ('provisioning', 'ready', 'error', 'hibernating');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE plugin_source AS ENUM ('builtin', 'local', 'webhook', 'marketplace');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE plugin_event_status AS ENUM ('success', 'error', 'timeout', 'skipped');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;

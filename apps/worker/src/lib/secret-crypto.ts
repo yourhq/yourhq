@@ -27,8 +27,7 @@ export function encryptSecret(plaintext: string): string {
     cipher.final(),
   ]);
   const tag = cipher.getAuthTag();
-  return [
-    PREFIX,
+  return PREFIX + [
     iv.toString("base64url"),
     tag.toString("base64url"),
     ciphertext.toString("base64url"),
@@ -39,7 +38,12 @@ export function decryptSecret(value: string | null | undefined): string | null {
   if (!value) return null;
   if (!value.startsWith(PREFIX)) return value;
 
-  const parts = value.slice(PREFIX.length).split(".");
+  let parts = value.slice(PREFIX.length).split(".");
+  // Handle values encrypted with the old buggy format (PREFIX was
+  // joined into the array, producing an extra leading empty part).
+  if (parts.length === 4 && parts[0] === "") {
+    parts = parts.slice(1);
+  }
   if (parts.length !== 3) {
     if (!warnedValues.has(value)) {
       warnedValues.add(value);

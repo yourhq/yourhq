@@ -1,0 +1,352 @@
+---
+title: "Plugins"
+description: "Create, manage, and contribute plugins that extend HQ with custom integrations and automations."
+---
+
+Plugins let you react to HQ events and take action — send notifications, sync data to external tools, enforce policies, or run custom logic. This guide walks through creating both types of plugins and managing them from the UI.
+
+**Where to go:** Settings → Plugins
+
+---
+
+## Managing plugins
+
+### View installed plugins
+
+Go to **Settings → Plugins**. You'll see all installed plugins grouped by type:
+
+- **Built-in** — ship with HQ and cannot be removed (e.g. Usage Alerts)
+- **Installed** — local or webhook plugins you've added
+
+Each plugin shows its name, source type, version, and an enable/disable toggle. Click any plugin to see its details: source, version, plugin ID, webhook URL (if applicable), subscribed events, and recent activity.
+
+### Enable or disable a plugin
+
+Toggle the switch next to any plugin. Disabled plugins stop receiving events immediately. Re-enabling resumes event delivery. No events are queued while disabled — they're simply skipped.
+
+### Remove a plugin
+
+Click the `⋯` menu on any non-builtin plugin and select **Remove**. This deletes the plugin and all its configuration. Event history is retained for 30 days.
+
+---
+
+## Creating a webhook plugin
+
+Webhook plugins are the fastest way to integrate HQ with external services. No gateway code needed.
+
+<Steps>
+  <Step title="Prepare your endpoint">
+    Deploy an HTTP endpoint that accepts POST requests with a JSON body. This can be:
+
+    - A Zapier/Make/n8n catch hook
+    - A Slack incoming webhook
+    - A custom service (Cloudflare Worker, AWS Lambda, Vercel Edge Function)
+    - Any URL that returns a 2xx status
+  </Step>
+  <Step title="Add the plugin">
+    Go to **Settings → Plugins → Add plugin**. Fill in:
+
+    - **Name** — a display name (e.g. "Slack Notifications")
+    - **Description** — optional, shown in the plugin list
+    - **Webhook URL** — your endpoint URL
+    - **Signing secret** — optional, used for HMAC-SHA256 signature verification
+    - **Events** — check the events you want to receive
+  </Step>
+  <Step title="Test it">
+    Trigger one of the events you subscribed to (e.g. create a task if you selected "Task Created"). Check your endpoint for the incoming POST request.
+  </Step>
+  <Step title="Verify signatures (recommended)">
+    If you set a signing secret, verify the `X-HQ-Signature` header on incoming requests. See the [verification examples](/concepts/plugins#signature-verification) in the concepts page.
+  </Step>
+</Steps>
+
+### Webhook payload format
+
+Every webhook POST contains the full event envelope as JSON:
+
+```json
+{
+  "event_id": "550e8400-e29b-41d4-a716-446655440000",
+  "event_type": "task.completed",
+  "occurred_at": "2025-01-15T10:30:00+00:00",
+  "tenant_id": "00000000-0000-0000-0000-000000000000",
+  "entity_type": "tasks",
+  "entity_id": "d4f5e6a7-...",
+  "payload": { ... }
+}
+```
+
+Headers included with every request:
+
+| Header | Value |
+|--------|-------|
+| `Content-Type` | `application/json` |
+| `X-HQ-Event` | Event type (e.g. `task.completed`) |
+| `X-HQ-Plugin-Id` | Plugin identifier |
+| `X-HQ-Delivery` | Unique delivery ID |
+| `X-HQ-Signature` | `sha256=<hex>` (only if signing secret set) |
+
+---
+
+## Creating a local plugin
+
+Local plugins run on the gateway as Python modules. They have full access to the plugin SDK — state persistence, secret resolution, and Supabase queries.
+
+<Steps>
+  <Step title="Scaffold the plugin">
+    Copy the template directory:
+
+    ```bash
+    cp -r gateway/plugins/_template gateway/plugins/my-plugin
+    ```
+  </Step>
+  <Step title="Edit manifest.json">
+    Set the plugin identity and subscriptions:
+
+    ```json
+    {
+      "id": "my-plugin",
+      "name": "My Plugin",
+      "description": "What it does in one sentence.",
+      "version": "0.1.0",
+      "source": "local",
+      "hooks": ["task.completed", "agent.status_changed"],
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "notify_channel": {
+            "type": "string",
+            "title": "Notification channel",
+            "default": "#general"
+          }
+        },
+        "required": []
+      },
+      "capabilities": ["state.read", "state.write"]
+    }
+    ```
+
+    Key fields:
+    - `id` — unique slug, must match the directory name
+    - `hooks` — array of event types to subscribe to (see [event reference](/reference/plugin-events))
+    - `config_schema` — JSON Schema for operator-configurable settings
+    - `capabilities` — what SDK features the plugin uses
+  </Step>
+  <Step title="Implement handler.py">
+    Subclass `BasePlugin` and implement `on_event()`:
+
+    ```python
+    from gateway.plugins.sdk import BasePlugin, PluginEvent, PluginResponse
+
+    class Handler(BasePlugin):
+
+        def on_event(self, event: PluginEvent) -> PluginResponse | None:
+            if event.event_type == "task.completed":
+                title = event.payload.get("title", "Unknown")
+                self.ctx.logger.info(f"Task done: {title}")
+
+                # Use state to track what we've processed
+                key = f"notified_{event.entity_id}"
+                if self.ctx.state.get(key):
+                    return None
+
+                self.ctx.state.set(key, True)
+                return PluginResponse(
+                    log_message=f"Processed task completion: {title}"
+                )
+
+            return None
+    ```
+  </Step>
+  <Step title="Register and restart">
+    Two options:
+
+    **Option A — Auto-discovery:** Restart the gateway. The plugin runner discovers new modules on startup.
+
+    ```bash
+    docker compose restart runner
+    ```
+
+    **Option B — Manual registration:** Insert a row into `hq_plugins` from the Supabase SQL Editor or via Settings → Plugins (for webhook plugins).
+  </Step>
+</Steps>
+
+---
+
+## Plugin SDK reference
+
+### PluginEvent
+
+The event object passed to `on_event()`:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `event_id` | `str` | Unique event UUID |
+| `event_type` | `str` | Event name (e.g. `task.completed`) |
+| `occurred_at` | `str` | ISO 8601 timestamp |
+| `tenant_id` | `str` | Tenant UUID |
+| `entity_type` | `str \| None` | Source table name |
+| `entity_id` | `str \| None` | Entity UUID |
+| `payload` | `dict` | Event-specific data |
+
+### PluginResponse
+
+Optional return value from `on_event()`:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `data` | `dict \| None` | Arbitrary response data (logged) |
+| `log_message` | `str \| None` | Human-readable message for the event log |
+
+### StateClient
+
+Scoped key-value store backed by `hq_plugin_state`:
+
+```python
+# Read
+value = self.ctx.state.get("key")
+value = self.ctx.state.get("key", scope_kind="agent", scope_id="agent-uuid")
+
+# Write
+self.ctx.state.set("key", {"cursor": "2025-01-15"})
+self.ctx.state.set("key", True, scope_kind="task", scope_id="task-uuid")
+
+# Delete
+self.ctx.state.delete("key")
+```
+
+### SecretsClient
+
+Read-only access to gateway secrets (decrypted `.env` files written by `secrets_sync`):
+
+```python
+api_key = self.ctx.secrets.resolve("SLACK_API_KEY")
+```
+
+### SupabaseClient
+
+Read-only queries against HQ tables:
+
+```python
+budgets = self.ctx.supabase.query("agent_budgets", {
+    "agent_id": f"eq.{agent_id}",
+    "select": "spent_usd,monthly_limit_usd",
+    "limit": "1",
+})
+```
+
+---
+
+## Example plugins
+
+<AccordionGroup>
+  <Accordion title="Slack notifications (webhook)">
+    **Type:** Webhook — no gateway code needed
+
+    Register a Slack incoming webhook URL as a webhook plugin. Subscribe to `task.completed`, `agent.status_changed`, and `budget.exceeded`. Slack renders the raw JSON payload as a message.
+
+    For richer formatting, deploy a small relay service that transforms HQ events into [Slack Block Kit](https://api.slack.com/block-kit) messages.
+  </Accordion>
+
+  <Accordion title="Linear sync (local)">
+    **Type:** Local plugin
+
+    Create issues in Linear when HQ tasks are created, and close them when tasks complete. Uses the state client to track issue mappings:
+
+    ```python
+    class Handler(BasePlugin):
+        def on_event(self, event: PluginEvent) -> PluginResponse | None:
+            if event.event_type == "task.created":
+                api_key = self.ctx.secrets.resolve("LINEAR_API_KEY")
+                team_id = self.ctx.config.get("linear_team_id")
+                # Create Linear issue via API
+                # Store mapping: HQ task ID → Linear issue ID
+                self.ctx.state.set(
+                    f"linear_{event.entity_id}",
+                    {"linear_id": issue_id},
+                    scope_kind="task",
+                    scope_id=event.entity_id,
+                )
+            elif event.event_type == "task.completed":
+                mapping = self.ctx.state.get(
+                    f"linear_{event.entity_id}",
+                    scope_kind="task",
+                    scope_id=event.entity_id,
+                )
+                if mapping:
+                    # Update Linear issue to "Done"
+                    pass
+            return None
+    ```
+  </Accordion>
+
+  <Accordion title="PagerDuty alerts (webhook)">
+    **Type:** Webhook
+
+    Point a webhook plugin at PagerDuty's Events API v2 endpoint. Subscribe to `budget.exceeded` and `agent.status_changed`. When an agent goes over budget or enters an error state, PagerDuty creates an incident.
+  </Accordion>
+
+  <Accordion title="Audit logging to S3 (local)">
+    **Type:** Local plugin
+
+    Subscribe to all events. On each event, append a JSON line to a local file. Periodically upload the file to S3 using a state-tracked cursor. Useful for compliance or long-term retention beyond the 30-day event log.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Contributing a plugin
+
+We welcome plugin contributions. The goal is a rich ecosystem of community-built integrations.
+
+<Steps>
+  <Step title="Copy the template">
+    ```bash
+    cp -r gateway/plugins/_template gateway/plugins/your-plugin
+    ```
+  </Step>
+  <Step title="Implement and test">
+    Follow the local plugin steps above. Test by triggering events and checking your handler's behavior.
+  </Step>
+  <Step title="Document">
+    Add a clear description in `manifest.json`. If your plugin has non-obvious configuration, add comments in the config schema.
+  </Step>
+  <Step title="Open a PR">
+    Submit your plugin directory (`gateway/plugins/your-plugin/`) as a PR against `main`. Include:
+
+    - What the plugin does and why it's useful
+    - Any external service dependencies
+    - Example config values
+
+    See [Contributing](/development/contributing) for the full PR checklist.
+  </Step>
+</Steps>
+
+For the full contributor reference, see [`gateway/plugins/CONTRIBUTING.md`](https://github.com/yourhq/yourhq/blob/main/gateway/plugins/CONTRIBUTING.md) in the repository.
+
+---
+
+## Troubleshooting
+
+**Plugin isn't receiving events:**
+1. Check that the plugin is enabled (toggle should be on in Settings → Plugins)
+2. Verify the plugin subscribes to the correct hooks in its manifest or configuration
+3. Check the plugin runner logs: `docker compose logs -f runner`
+4. For webhook plugins: confirm the URL is reachable from the gateway host
+
+**Webhook returns errors:**
+1. Click the plugin in Settings → Plugins and check Recent activity for error messages
+2. Verify the webhook URL returns a 2xx status code
+3. Check that your endpoint handles the JSON payload format correctly
+4. If using signatures: ensure the signing secret matches on both sides
+
+**Local plugin handler not loading:**
+1. Confirm `handler.py` exists in the plugin directory and exports a `Handler` class
+2. Check that `Handler` subclasses `BasePlugin` from `gateway.plugins.sdk`
+3. Look for import errors in the plugin runner logs
+4. Verify the `entry_module` in `hq_plugins` matches the directory name
+
+**State not persisting:**
+1. Check that your plugin declares `state.write` in capabilities
+2. Verify the scope parameters match between `set()` and `get()` calls
+3. Check the `hq_plugin_state` table directly for your plugin's entries

@@ -668,6 +668,7 @@ Where HQ is now, what ships in v0.1, and what comes after.
 - Task templates — reusable task group templates with dependency graphs, spawned from toolbar with preserved `blocked_by` relations
 - Overdue escalation — pg_cron auto-miss for overdue tasks with inbox notification for assigned agents and missed-task banner in UI
 - Agent delegation skill — `hq_delegate_task.py` for subtask creation with org-chart validation and `child_of` relation
+- HQ plugin system — event-driven hooks for tasks, agents, knowledge, inbox, routines, comments, secrets, usage, and budgets. Local Python plugins with SDK (state, secrets, Supabase queries) and webhook plugins (remote HTTP with HMAC signatures). Plugin runner daemon, Settings UI for management, built-in usage-alerts plugin, contributor template and guide
 
 ### Observability and operations
 
@@ -3899,6 +3900,387 @@ This view is useful for identifying which agents are consuming the most model bu
 
 ---
 
+# Plugins
+
+Source: https://docs.yourhq.ai/guides/plugins
+
+> Create, manage, and contribute plugins that extend HQ with custom integrations and automations.
+
+Plugins let you react to HQ events and take action — send notifications, sync data to external tools, enforce policies, or run custom logic. This guide walks through creating both types of plugins and managing them from the UI.
+
+**Where to go:** Settings → Plugins
+
+---
+
+## Managing plugins
+
+### View installed plugins
+
+Go to **Settings → Plugins**. You'll see all installed plugins grouped by type:
+
+- **Built-in** — ship with HQ and cannot be removed (e.g. Usage Alerts)
+- **Installed** — local or webhook plugins you've added
+
+Each plugin shows its name, source type, version, and an enable/disable toggle. Click any plugin to see its details: source, version, plugin ID, webhook URL (if applicable), subscribed events, and recent activity.
+
+### Enable or disable a plugin
+
+Toggle the switch next to any plugin. Disabled plugins stop receiving events immediately. Re-enabling resumes event delivery. No events are queued while disabled — they're simply skipped.
+
+### Remove a plugin
+
+Click the `⋯` menu on any non-builtin plugin and select **Remove**. This deletes the plugin and all its configuration. Event history is retained for 30 days.
+
+---
+
+## Creating a webhook plugin
+
+Webhook plugins are the fastest way to integrate HQ with external services. No gateway code needed.
+
+  
+### Prepare your endpoint
+
+    Deploy an HTTP endpoint that accepts POST requests with a JSON body. This can be:
+
+    - A Zapier/Make/n8n catch hook
+    - A Slack incoming webhook
+    - A custom service (Cloudflare Worker, AWS Lambda, Vercel Edge Function)
+    - Any URL that returns a 2xx status
+  
+
+  
+### Add the plugin
+
+    Go to **Settings → Plugins → Add plugin**. Fill in:
+
+    - **Name** — a display name (e.g. "Slack Notifications")
+    - **Description** — optional, shown in the plugin list
+    - **Webhook URL** — your endpoint URL
+    - **Signing secret** — optional, used for HMAC-SHA256 signature verification
+    - **Events** — check the events you want to receive
+  
+
+  
+### Test it
+
+    Trigger one of the events you subscribed to (e.g. create a task if you selected "Task Created"). Check your endpoint for the incoming POST request.
+  
+
+  
+### Verify signatures (recommended)
+
+    If you set a signing secret, verify the `X-HQ-Signature` header on incoming requests. See the [verification examples](/concepts/plugins#signature-verification) in the concepts page.
+  
+
+### Webhook payload format
+
+Every webhook POST contains the full event envelope as JSON:
+
+```json
+{
+  "event_id": "550e8400-e29b-41d4-a716-446655440000",
+  "event_type": "task.completed",
+  "occurred_at": "2025-01-15T10:30:00+00:00",
+  "tenant_id": "00000000-0000-0000-0000-000000000000",
+  "entity_type": "tasks",
+  "entity_id": "d4f5e6a7-...",
+  "payload": { ... }
+}
+```
+
+Headers included with every request:
+
+| Header | Value |
+|--------|-------|
+| `Content-Type` | `application/json` |
+| `X-HQ-Event` | Event type (e.g. `task.completed`) |
+| `X-HQ-Plugin-Id` | Plugin identifier |
+| `X-HQ-Delivery` | Unique delivery ID |
+| `X-HQ-Signature` | `sha256=` (only if signing secret set) |
+
+---
+
+## Creating a local plugin
+
+Local plugins run on the gateway as Python modules. They have full access to the plugin SDK — state persistence, secret resolution, and Supabase queries.
+
+  
+### Scaffold the plugin
+
+    Copy the template directory:
+
+    ```bash
+    cp -r gateway/plugins/_template gateway/plugins/my-plugin
+    ```
+  
+
+  
+### Edit manifest.json
+
+    Set the plugin identity and subscriptions:
+
+    ```json
+    {
+      "id": "my-plugin",
+      "name": "My Plugin",
+      "description": "What it does in one sentence.",
+      "version": "0.1.0",
+      "source": "local",
+      "hooks": ["task.completed", "agent.status_changed"],
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "notify_channel": {
+            "type": "string",
+            "title": "Notification channel",
+            "default": "#general"
+          }
+        },
+        "required": []
+      },
+      "capabilities": ["state.read", "state.write"]
+    }
+    ```
+
+    Key fields:
+    - `id` — unique slug, must match the directory name
+    - `hooks` — array of event types to subscribe to (see [event reference](/reference/plugin-events))
+    - `config_schema` — JSON Schema for operator-configurable settings
+    - `capabilities` — what SDK features the plugin uses
+  
+
+  
+### Implement handler.py
+
+    Subclass `BasePlugin` and implement `on_event()`:
+
+    ```python
+    from gateway.plugins.sdk import BasePlugin, PluginEvent, PluginResponse
+
+    class Handler(BasePlugin):
+
+        def on_event(self, event: PluginEvent) -> PluginResponse | None:
+            if event.event_type == "task.completed":
+                title = event.payload.get("title", "Unknown")
+                self.ctx.logger.info(f"Task done: {title}")
+
+                # Use state to track what we've processed
+                key = f"notified_{event.entity_id}"
+                if self.ctx.state.get(key):
+                    return None
+
+                self.ctx.state.set(key, True)
+                return PluginResponse(
+                    log_message=f"Processed task completion: {title}"
+                )
+
+            return None
+    ```
+  
+
+  
+### Register and restart
+
+    Two options:
+
+    **Option A — Auto-discovery:** Restart the gateway. The plugin runner discovers new modules on startup.
+
+    ```bash
+    docker compose restart runner
+    ```
+
+    **Option B — Manual registration:** Insert a row into `hq_plugins` from the Supabase SQL Editor or via Settings → Plugins (for webhook plugins).
+  
+
+---
+
+## Plugin SDK reference
+
+### PluginEvent
+
+The event object passed to `on_event()`:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `event_id` | `str` | Unique event UUID |
+| `event_type` | `str` | Event name (e.g. `task.completed`) |
+| `occurred_at` | `str` | ISO 8601 timestamp |
+| `tenant_id` | `str` | Tenant UUID |
+| `entity_type` | `str \| None` | Source table name |
+| `entity_id` | `str \| None` | Entity UUID |
+| `payload` | `dict` | Event-specific data |
+
+### PluginResponse
+
+Optional return value from `on_event()`:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `data` | `dict \| None` | Arbitrary response data (logged) |
+| `log_message` | `str \| None` | Human-readable message for the event log |
+
+### StateClient
+
+Scoped key-value store backed by `hq_plugin_state`:
+
+```python
+# Read
+value = self.ctx.state.get("key")
+value = self.ctx.state.get("key", scope_kind="agent", scope_id="agent-uuid")
+
+# Write
+self.ctx.state.set("key", {"cursor": "2025-01-15"})
+self.ctx.state.set("key", True, scope_kind="task", scope_id="task-uuid")
+
+# Delete
+self.ctx.state.delete("key")
+```
+
+### SecretsClient
+
+Read-only access to gateway secrets (decrypted `.env` files written by `secrets_sync`):
+
+```python
+api_key = self.ctx.secrets.resolve("SLACK_API_KEY")
+```
+
+### SupabaseClient
+
+Read-only queries against HQ tables:
+
+```python
+budgets = self.ctx.supabase.query("agent_budgets", {
+    "agent_id": f"eq.{agent_id}",
+    "select": "spent_usd,monthly_limit_usd",
+    "limit": "1",
+})
+```
+
+---
+
+## Example plugins
+
+  
+    **Type:** Webhook — no gateway code needed
+
+    Register a Slack incoming webhook URL as a webhook plugin. Subscribe to `task.completed`, `agent.status_changed`, and `budget.exceeded`. Slack renders the raw JSON payload as a message.
+
+    For richer formatting, deploy a small relay service that transforms HQ events into [Slack Block Kit](https://api.slack.com/block-kit) messages.
+  
+
+  
+    **Type:** Local plugin
+
+    Create issues in Linear when HQ tasks are created, and close them when tasks complete. Uses the state client to track issue mappings:
+
+    ```python
+    class Handler(BasePlugin):
+        def on_event(self, event: PluginEvent) -> PluginResponse | None:
+            if event.event_type == "task.created":
+                api_key = self.ctx.secrets.resolve("LINEAR_API_KEY")
+                team_id = self.ctx.config.get("linear_team_id")
+                # Create Linear issue via API
+                # Store mapping: HQ task ID → Linear issue ID
+                self.ctx.state.set(
+                    f"linear_{event.entity_id}",
+                    {"linear_id": issue_id},
+                    scope_kind="task",
+                    scope_id=event.entity_id,
+                )
+            elif event.event_type == "task.completed":
+                mapping = self.ctx.state.get(
+                    f"linear_{event.entity_id}",
+                    scope_kind="task",
+                    scope_id=event.entity_id,
+                )
+                if mapping:
+                    # Update Linear issue to "Done"
+                    pass
+            return None
+    ```
+  
+
+  
+    **Type:** Webhook
+
+    Point a webhook plugin at PagerDuty's Events API v2 endpoint. Subscribe to `budget.exceeded` and `agent.status_changed`. When an agent goes over budget or enters an error state, PagerDuty creates an incident.
+  
+
+  
+    **Type:** Local plugin
+
+    Subscribe to all events. On each event, append a JSON line to a local file. Periodically upload the file to S3 using a state-tracked cursor. Useful for compliance or long-term retention beyond the 30-day event log.
+  
+
+---
+
+## Contributing a plugin
+
+We welcome plugin contributions. The goal is a rich ecosystem of community-built integrations.
+
+  
+### Copy the template
+
+    ```bash
+    cp -r gateway/plugins/_template gateway/plugins/your-plugin
+    ```
+  
+
+  
+### Implement and test
+
+    Follow the local plugin steps above. Test by triggering events and checking your handler's behavior.
+  
+
+  
+### Document
+
+    Add a clear description in `manifest.json`. If your plugin has non-obvious configuration, add comments in the config schema.
+  
+
+  
+### Open a PR
+
+    Submit your plugin directory (`gateway/plugins/your-plugin/`) as a PR against `main`. Include:
+
+    - What the plugin does and why it's useful
+    - Any external service dependencies
+    - Example config values
+
+    See [Contributing](/development/contributing) for the full PR checklist.
+  
+
+For the full contributor reference, see [`gateway/plugins/CONTRIBUTING.md`](https://github.com/yourhq/yourhq/blob/main/gateway/plugins/CONTRIBUTING.md) in the repository.
+
+---
+
+## Troubleshooting
+
+**Plugin isn't receiving events:**
+1. Check that the plugin is enabled (toggle should be on in Settings → Plugins)
+2. Verify the plugin subscribes to the correct hooks in its manifest or configuration
+3. Check the plugin runner logs: `docker compose logs -f runner`
+4. For webhook plugins: confirm the URL is reachable from the gateway host
+
+**Webhook returns errors:**
+1. Click the plugin in Settings → Plugins and check Recent activity for error messages
+2. Verify the webhook URL returns a 2xx status code
+3. Check that your endpoint handles the JSON payload format correctly
+4. If using signatures: ensure the signing secret matches on both sides
+
+**Local plugin handler not loading:**
+1. Confirm `handler.py` exists in the plugin directory and exports a `Handler` class
+2. Check that `Handler` subclasses `BasePlugin` from `gateway.plugins.sdk`
+3. Look for import errors in the plugin runner logs
+4. Verify the `entry_module` in `hq_plugins` matches the directory name
+
+**State not persisting:**
+1. Check that your plugin declares `state.write` in capabilities
+2. Verify the scope parameters match between `set()` and `get()` calls
+3. Check the `hq_plugin_state` table directly for your plugin's entries
+
+---
+
 # What HQ includes
 
 Source: https://docs.yourhq.ai/concepts/features
@@ -3937,6 +4319,10 @@ This page is the product tour. For system internals, read [Architecture](/concep
 
   - **Usage budgets**: 
     Track model spend and stop agents when they exceed limits.
+  
+
+  - **Plugins**: 
+    Extend HQ with event-driven integrations — local Python handlers or remote webhooks.
   
 
   - **Open source**: 
@@ -4292,6 +4678,22 @@ HQ records important workspace events in `notifications`, `audit_log`, command h
 
 This gives the operator a single place to understand what happened and why.
 
+## Plugins
+
+HQ has a built-in plugin system for reacting to workspace events. Plugins can send Slack notifications when tasks complete, sync data to Linear, trigger webhooks for Zapier, log budget alerts, or run any custom logic.
+
+  - **Local plugins**: 
+    Python modules on the gateway with full SDK access — state persistence, secret resolution, and Supabase queries. Best for logic that needs to read HQ data.
+  
+
+  - **Webhook plugins**: 
+    Remote HTTP endpoints. Zero gateway code — HQ POSTs events with HMAC signatures. Best for connecting to external services and no-code tools.
+  
+
+16 built-in events cover tasks, agents, knowledge, inbox, routines, comments, secrets, usage, and budgets. The plugin runner daemon dispatches events to all matching plugins in real time.
+
+Manage plugins from **Settings → Plugins** — enable/disable, configure, view event logs, and add new webhook plugins from the UI. See [Plugins](/concepts/plugins) for the full architecture and [Plugin events](/reference/plugin-events) for the event reference.
+
 ## Extensibility
 
 Most customization does not require changing code:
@@ -4301,6 +4703,7 @@ Most customization does not require changing code:
 - Configure fields, pipeline stages, streams, and routines in the UI.
 - Add model providers through connections.
 - Add gateways through Settings.
+- Add webhook plugins from Settings → Plugins (no code needed).
 
 Code extension points include:
 
@@ -4310,6 +4713,7 @@ Code extension points include:
 - New agent skills under template `skills/`.
 - New OpenClaw plugins in `gateway/scripts/plugins/`.
 - New source connectors under `gateway/connectors//` — copy the `_template/` directory and implement the connector interface. See `CONTRIBUTING-SOURCES.md`.
+- New HQ plugins under `gateway/plugins//` — copy `_template/`, implement `on_event()`, and subscribe to events. See [`gateway/plugins/CONTRIBUTING.md`](https://github.com/yourhq/yourhq/blob/main/gateway/plugins/CONTRIBUTING.md).
 
 ---
 
@@ -4579,6 +4983,7 @@ The UI is designed to be configured, not coded, for most everyday changes:
 - **Usage budgets.** Budget config is stored in `agent_budgets`; raw usage is append-only in `agent_usage`. New provider pricing support belongs in the bootstrap plugin's pricing map and should degrade to unmetered calls when unknown.
 - **New command actions.** Add a case in [`command_runner.py`'s `build_command()`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/command_runner.py), extend the `command_action` enum in the schema migration, and expose it as a server action call in [`apps/ui/src/app/dashboard/agents/actions.ts`](https://github.com/yourhq/yourhq/tree/main/apps/ui/src/app/dashboard/agents/actions.ts). This is the extension point for anything a runner needs to do on the gateway host.
 - **Source connectors.** Add a folder under [`gateway/connectors//`](https://github.com/yourhq/yourhq/tree/main/gateway/connectors) with a `manifest.json` and a `BaseConnector` subclass. The auto-discovery registry picks it up, the build script generates UI types from the manifest, and the platform handles secrets, OAuth, sync scheduling, and embedding. Copy `_template/` to start. See `CONTRIBUTING-SOURCES.md`.
+- **Plugins.** HQ has a full event-driven plugin system. Local plugins are Python modules in `gateway/plugins//` that subclass `BasePlugin` and implement `on_event()`. Webhook plugins are remote HTTP endpoints registered from Settings → Plugins — zero gateway code. Both receive the same events (task.created, agent.status_changed, budget.exceeded, etc.) from SQL triggers and daemon emission points. The plugin runner daemon (`gateway/daemons/plugin_runner.py`) subscribes to the `hq_plugin_event_queue` via Realtime and dispatches to all matching plugins. Full details in [Plugins](/concepts/plugins).
 
 ## 14. Where things are going
 
@@ -5165,6 +5570,294 @@ Inbox items are **not** leased by the dispatcher — the agent's background sess
 If the Realtime connection drops, the dispatcher's reconciliation sweep (every `RECONCILE_INTERVAL` seconds, default 120) acts as a safety net and wakes any agents with pending work that were missed.
 
 See [Command lifecycle](/reference/command-lifecycle) for the command state machine and [Inbox dispatch](/reference/inbox-dispatch) for full dispatcher details.
+
+---
+
+# Plugins
+
+Source: https://docs.yourhq.ai/concepts/plugins
+
+> Extend HQ with event-driven plugins that react to tasks, agents, knowledge, and more — locally or via webhooks.
+
+HQ has a built-in plugin system that lets you hook into workspace events and take action. When a task completes, an agent goes over budget, or a knowledge item is created, plugins receive the event and run your code — post to Slack, sync to Linear, trigger a Zapier workflow, log an alert, or anything else.
+
+Two plugin types, same event system:
+
+- **Local plugins** — Python modules on the gateway. Full access to the plugin SDK (state, secrets, Supabase queries). Best for logic that needs to read HQ data or maintain state.
+- **Webhook plugins** — Remote HTTP endpoints. Zero gateway code. HQ POSTs events with HMAC signatures. Best for connecting to external services, no-code tools, or teams without gateway access.
+
+Both types are managed from **Settings → Plugins** in the UI.
+
+---
+
+## How it works
+
+```
+Workspace event          Plugin runner daemon           Your plugin
+(task completed,    →    polls event queue,        →    local: Python handler
+ agent provisioned,      matches subscribed hooks,      webhook: HTTP POST
+ budget exceeded)        dispatches to plugins          with HMAC signature
+```
+
+Events originate from two sources:
+
+1. **SQL triggers** on core tables (tasks, agents, knowledge, inbox, comments, secrets). These write to an internal event queue (`hq_plugin_event_queue`) that the plugin runner daemon polls.
+2. **Python daemons** that emit events directly (command runner after provisioning, file processor after extraction, embedder after indexing, bootstrap plugin after usage recording).
+
+The plugin runner daemon subscribes to the event queue via Supabase Realtime (with a polling fallback every 5 seconds) and dispatches matching events to all enabled plugins.
+
+---
+
+## Event model
+
+Every event follows the same envelope:
+
+```json
+{
+  "event_id": "550e8400-e29b-41d4-a716-446655440000",
+  "event_type": "task.completed",
+  "occurred_at": "2025-01-15T10:30:00+00:00",
+  "tenant_id": "00000000-0000-0000-0000-000000000000",
+  "entity_type": "tasks",
+  "entity_id": "d4f5e6a7-...",
+  "payload": {
+    "title": "Draft Q1 report",
+    "assignee_agent_id": "...",
+    "completed_at": "2025-01-15T10:30:00+00:00"
+  }
+}
+```
+
+Events are named `.`. HQ ships with 16 built-in events covering tasks, agents, knowledge, inbox, routines, comments, secrets, usage, and budgets. See [Plugin events reference](/reference/plugin-events) for the full list.
+
+---
+
+## Plugin sources
+
+Plugins come from four sources, tracked by the `source` field:
+
+| Source | Description | Can uninstall? |
+|--------|-------------|----------------|
+| `builtin` | Ships with HQ (e.g. usage-alerts). Always available. | No |
+| `local` | Python module on the gateway filesystem. For self-hosters and power users. | Yes |
+| `webhook` | Remote HTTP endpoint. For SaaS integrations and no-code tools. | Yes |
+| `marketplace` | Installed from the HQ marketplace (future). | Yes |
+
+---
+
+## Local plugins
+
+A local plugin is a Python module in `gateway/plugins//` with two files:
+
+**`manifest.json`** — declares identity, hooks, config schema, and capabilities:
+
+```json
+{
+  "id": "slack-notify",
+  "name": "Slack Notifications",
+  "description": "Post to Slack when tasks complete or budgets exceed.",
+  "version": "1.0.0",
+  "source": "local",
+  "hooks": ["task.completed", "budget.exceeded"],
+  "config_schema": {
+    "type": "object",
+    "properties": {
+      "webhook_url": {
+        "type": "string",
+        "title": "Slack Webhook URL"
+      }
+    },
+    "required": ["webhook_url"]
+  },
+  "capabilities": ["secrets.read", "http.outbound"]
+}
+```
+
+**`handler.py`** — subclasses `BasePlugin` and implements `on_event()`:
+
+```python
+from gateway.plugins.sdk import BasePlugin, PluginEvent, PluginResponse
+
+class Handler(BasePlugin):
+
+    def on_event(self, event: PluginEvent) -> PluginResponse | None:
+        if event.event_type == "task.completed":
+            title = event.payload.get("title", "Unknown task")
+            self.ctx.logger.info(f"Task completed: {title}")
+            # Post to Slack, update Linear, etc.
+            return PluginResponse(log_message=f"Notified about: {title}")
+        return None
+```
+
+### Plugin context
+
+Every local plugin receives a `PluginContext` with:
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `config` | `dict` | Operator-supplied config from Settings → Plugins |
+| `state` | `StateClient` | Scoped key-value store (persists across events) |
+| `secrets` | `SecretsClient` | Read-only access to gateway secrets |
+| `supabase` | `SupabaseClient` | Read-only Supabase queries against HQ tables |
+| `logger` | `Logger` | Plugin-namespaced structured logger |
+
+### State management
+
+Plugins can persist state across events using the `StateClient`. State is scoped by kind and optional entity:
+
+```python
+# Global state
+self.ctx.state.set("last_sync", "2025-01-15T10:30:00Z")
+cursor = self.ctx.state.get("last_sync")
+
+# Scoped to a specific agent
+self.ctx.state.set("warned", True, scope_kind="agent", scope_id=agent_id)
+
+# Scoped to a specific task
+self.ctx.state.set("linear_issue_id", "LIN-42", scope_kind="task", scope_id=task_id)
+```
+
+State is stored in the `hq_plugin_state` table, keyed by `(plugin_id, scope_kind, scope_id, state_key)`.
+
+---
+
+## Webhook plugins
+
+Webhook plugins have no gateway-side code. You register them entirely from the UI:
+
+1. Go to **Settings → Plugins → Add plugin**
+2. Enter a name, your endpoint URL, and optionally a signing secret
+3. Select which events to receive
+4. Save
+
+HQ POSTs every matching event to your URL as JSON. The request includes:
+
+| Header | Description |
+|--------|-------------|
+| `Content-Type` | `application/json` |
+| `X-HQ-Event` | Event type (e.g. `task.completed`) |
+| `X-HQ-Plugin-Id` | Your plugin's identifier |
+| `X-HQ-Delivery` | Unique delivery ID for deduplication |
+| `X-HQ-Signature` | `sha256=` HMAC-SHA256 signature (if secret configured) |
+
+### Signature verification
+
+If you set a signing secret, verify the `X-HQ-Signature` header before processing:
+
+```javascript Node.js
+const crypto = require("crypto");
+
+function verify(secret, body, signature) {
+  const expected = "sha256=" + crypto
+    .createHmac("sha256", secret)
+    .update(body)
+    .digest("hex");
+  return crypto.timingSafeEqual(
+    Buffer.from(signature),
+    Buffer.from(expected),
+  );
+}
+```
+
+```python Python
+import hashlib
+import hmac
+
+def verify(secret: str, body: bytes, signature: str) -> bool:
+    expected = "sha256=" + hmac.new(
+        secret.encode(), body, hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature)
+```
+
+### Webhook plugin examples
+
+**Zapier integration** — register your Zapier catch hook URL as a webhook plugin subscribing to `task.completed`. Every completed task triggers your Zap.
+
+**Discord notifications** — point a webhook plugin at a Discord webhook URL. HQ sends the event payload; Discord renders it as a message.
+
+**Custom relay** — deploy a small service (Cloudflare Worker, AWS Lambda, Vercel Edge Function) that transforms HQ events into provider-specific formats (Slack Block Kit, Linear GraphQL mutations, PagerDuty alerts).
+
+---
+
+## Capabilities
+
+Plugins declare what they need in `manifest.json → capabilities[]`. This documents intent and will be enforced when sandboxing is added:
+
+| Capability | Grants |
+|-----------|--------|
+| `secrets.read` | Access to `ctx.secrets.resolve()` |
+| `http.outbound` | Permission to make external HTTP requests |
+| `supabase.read` | Access to `ctx.supabase.query()` for reading HQ tables |
+| `state.read` | Access to `ctx.state.get()` |
+| `state.write` | Access to `ctx.state.set()` and `ctx.state.delete()` |
+
+---
+
+## Execution and observability
+
+Every plugin dispatch is logged in the `hq_plugin_events` table with:
+
+- Plugin ID and hook name
+- Status (`success`, `error`, `timeout`, `skipped`)
+- Duration in milliseconds
+- Error message (if any)
+
+You can see recent activity for any plugin in **Settings → Plugins → click a plugin → Recent activity**. Events are retained for 30 days.
+
+---
+
+## Architecture
+
+### Database tables
+
+| Table | Purpose |
+|-------|---------|
+| `hq_plugins` | Plugin registry — one row per installed plugin. Realtime-enabled for live UI updates. |
+| `hq_plugin_events` | Execution log — every dispatch recorded for observability. 30-day retention via pg_cron. |
+| `hq_plugin_state` | Scoped key-value store — plugins persist state across events. |
+| `hq_plugin_event_queue` | Internal event queue — SQL triggers write here; plugin runner reads and dispatches. 1-hour retention. |
+
+### Gateway daemon
+
+The plugin runner (`gateway/daemons/plugin_runner.py`) follows the same patterns as the command runner and inbox dispatcher:
+
+1. Connects to Supabase on startup
+2. Loads enabled plugins from `hq_plugins`
+3. Subscribes to `hq_plugin_event_queue` via Realtime for new events
+4. Subscribes to `hq_plugins` for config changes (enable/disable/update → hot reload)
+5. Dispatches matching events to plugins (in-process for local, HTTP POST for webhook)
+6. Records results in `hq_plugin_events`
+7. Falls back to polling every 5 seconds if Realtime disconnects
+
+### Relationship to other systems
+
+**hq-bootstrap** (the OpenClaw plugin) hooks into the LLM call lifecycle — model routing, usage logging, budget enforcement. It's adapter-specific. The HQ plugin system hooks into the business logic lifecycle — tasks, agents, knowledge, inbox. They coexist: hq-bootstrap forwards `usage.recorded` and `budget.exceeded` events to the plugin event queue.
+
+**Source connectors** (`gateway/connectors/`) sync external data into HQ's knowledge system. They're purpose-built for data ingestion. Plugins react to HQ events and take actions. If you want to sync GitHub Wiki → HQ knowledge, use a connector. If you want to create Linear issues when HQ tasks are created, use a plugin.
+
+---
+
+## Built-in plugins
+
+### Usage Alerts
+
+Ships with HQ. Monitors `usage.recorded` events and logs warnings when agents approach their budget threshold (default: 80%). Uses the plugin state system to avoid duplicate warnings.
+
+Configuration:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `warn_at_percent` | number | 80 | Percentage of budget at which to log a warning |
+
+---
+
+## Next reads
+
+- [Plugin events reference](/reference/plugin-events) — full list of all 16 events with payloads
+- [Creating plugins guide](/guides/plugins) — step-by-step walkthrough for your first plugin
+- [Architecture](/concepts/architecture) — how plugins fit into the broader system
+- [Contributing](/development/contributing) — how to submit a plugin PR
 
 ---
 
@@ -7075,6 +7768,7 @@ HQ stores shared state in one Supabase project per workspace. The SQL source of 
 | `029_labels.sql` | Managed labels with color and description, `task_labels` junction table |
 | `030_task_templates.sql` | Reusable task group templates with dependency graphs (JSONB items) |
 | `031_overdue_escalation.sql` | pg_cron job to mark overdue tasks as `missed`, inbox notification for assigned agents |
+| `032_plugins.sql` | Plugin system: `hq_plugins`, `hq_plugin_events`, `hq_plugin_state`, `hq_plugin_event_queue` tables, `emit_plugin_event()` trigger function, 11 event triggers, pg_cron cleanup jobs |
 
 For a fresh Supabase project, run all files in filename order from the SQL Editor. The onboarding wizard handles this automatically — it concatenates all files and lets you copy/paste a single SQL blob.
 
@@ -7221,6 +7915,17 @@ Agents submit deliverables via `hq_submit_deliverable.py` (page, URL, or record 
 - `agent_inbox_items` — stores the resulting work items, lease state, retry counters, dedup keys, and failure state.
 
 Event routines are evaluated by trigger functions on contacts, tasks, knowledge items, and collection records. Schedule routines use `spawn_routine_schedule_items` via pg_cron to create inbox items at defined intervals.
+
+### Plugins
+
+- `hq_plugins` — plugin registry. One row per installed plugin. Source types: `builtin`, `local`, `webhook`, `marketplace`. Key columns: `hooks` (text array of subscribed events), `config` (operator settings JSONB), `config_schema` (JSON Schema for validation), `webhook_url`/`webhook_secret` (for remote plugins), `capabilities` (declared permissions), `is_enabled` (toggle). Subscribed to Supabase Realtime for live UI updates.
+- `hq_plugin_events` — execution log. Every hook dispatch is recorded with `plugin_id`, `hook`, `status` (success/error/timeout/skipped), `duration_ms`, and `error_message`. 30-day retention via pg_cron.
+- `hq_plugin_state` — scoped key-value store for plugins. Keyed by `(plugin_id, scope_kind, scope_id, state_key)`. Scope kinds: `global`, `agent`, `task`, `workspace`.
+- `hq_plugin_event_queue` — lightweight append-only queue bridging SQL triggers to the plugin runner daemon. Triggers on tasks, agents, knowledge_items, inbox, comments, and secrets write here. The plugin runner polls/subscribes and dispatches to matching plugins. Processed rows are cleaned up hourly via pg_cron.
+
+The `emit_plugin_event()` function is a generic trigger function that writes to the event queue and strips sensitive fields (e.g. `encrypted_value`). It's attached to 11 triggers across core tables.
+
+See [Plugins](/concepts/plugins) for the full architecture and [Plugin events](/reference/plugin-events) for the complete event reference.
 
 ### Configuration Tables
 
@@ -7436,6 +8141,10 @@ HQ's default Compose stack has six services that work together. The UI runs on i
 
   - **file-processor**: 
     **File processing daemon.** Leases uploaded knowledge files (PDF, DOCX, XLSX, CSV, PPTX, TXT), extracts plain text, and triggers embedding. Runs independently so file processing doesn't block other gateway operations.
+  
+
+  - **plugin-runner**: 
+    **Plugin daemon.** Watches the `hq_plugin_event_queue` for events emitted by SQL triggers and dispatches them to enabled plugins — local Python handlers or remote webhook endpoints with HMAC signatures. See [Plugins](/concepts/plugins).
   
 
 ## Shared state
@@ -8016,6 +8725,267 @@ This gives the agent awareness of dependency constraints without requiring it to
 
 ---
 
+# Plugin events
+
+Source: https://docs.yourhq.ai/reference/plugin-events
+
+> Complete reference of all events available to HQ plugins, with payload schemas and emission sources.
+
+HQ plugins subscribe to events using the `hooks` field in their manifest (local plugins) or configuration (webhook plugins). Events follow the `.` naming convention.
+
+## Event envelope
+
+Every event includes these standard fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `event_id` | UUID | Unique identifier for this event instance |
+| `event_type` | string | The event name (e.g. `task.completed`) |
+| `occurred_at` | ISO 8601 | When the event occurred |
+| `tenant_id` | UUID | Tenant this event belongs to |
+| `entity_type` | string | Source table name (e.g. `tasks`, `agents`) |
+| `entity_id` | UUID | Primary key of the affected entity |
+| `payload` | object | Event-specific data (see below) |
+
+---
+
+## Task events
+
+### `task.created`
+
+Fires when a new task is inserted into the `tasks` table.
+
+**Emitted by:** SQL trigger on `tasks` INSERT
+
+**Payload:** Full task row as JSON — includes `title`, `status`, `priority`, `assignee_agent_id`, `stream_id`, `due_date`, and all other task fields.
+
+---
+
+### `task.completed`
+
+Fires when a task's status changes to `done`.
+
+**Emitted by:** SQL trigger on `tasks.status` UPDATE (only when new status = `done` and old status != `done`)
+
+**Payload:** Task row with both old and new values. Key fields: `title`, `assignee_agent_id`, `status` (= `done`).
+
+---
+
+### `task.assigned`
+
+Fires when a task's `assignee_agent_id` changes.
+
+**Emitted by:** SQL trigger on `tasks.assignee_agent_id` UPDATE (only when the value actually changes)
+
+**Payload:** Task row with old and new values. Key fields: old `assignee_agent_id`, new `assignee_agent_id`, `title`.
+
+---
+
+## Agent events
+
+### `agent.provisioned`
+
+Fires after a new agent is successfully provisioned on the gateway.
+
+**Emitted by:** `command_runner.py` after a successful `provision` command (exit code 0)
+
+**Payload:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agent_id` | UUID | Agent's database ID |
+| `slug` | string | Agent's unique slug |
+| `runtime_type` | string | Runtime type (e.g. `openclaw`) |
+| `gateway_id` | string | Gateway that provisioned the agent |
+
+---
+
+### `agent.deprovisioned`
+
+Fires after an agent is successfully removed from the gateway.
+
+**Emitted by:** `command_runner.py` after a successful `remove` command
+
+**Payload:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agent_id` | UUID | Agent's database ID |
+| `slug` | string | Agent's unique slug |
+
+---
+
+### `agent.status_changed`
+
+Fires when an agent's status changes (e.g. `provisioning` → `ready`, `ready` → `paused`).
+
+**Emitted by:** SQL trigger on `agents.status` UPDATE
+
+**Payload:** Agent row with old and new values. Key fields: old `status`, new `status`, `slug`, `name`.
+
+---
+
+## Knowledge events
+
+### `knowledge.created`
+
+Fires when a new knowledge item is inserted.
+
+**Emitted by:** SQL trigger on `knowledge_items` INSERT
+
+**Payload:** Full knowledge item row. Key fields: `title`, `kind` (page/skill/file/source), `scope` (workspace/agent).
+
+---
+
+### `knowledge.processed`
+
+Fires after text extraction completes for a file-type knowledge item.
+
+**Emitted by:** `file_processor.py` after successful text extraction
+
+**Payload:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `item_id` | UUID | Knowledge item ID |
+| `title` | string | Item title |
+| `content_length` | integer | Length of extracted plain text |
+
+---
+
+### `knowledge.embedded`
+
+Fires after embedding generation completes for a knowledge item.
+
+**Emitted by:** `embedder.py` after successful embedding
+
+**Payload:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `item_id` | UUID | Knowledge item ID |
+| `chunk_count` | integer | Number of chunks created |
+
+---
+
+## Inbox events
+
+### `inbox.created`
+
+Fires when a new inbox item is queued for an agent.
+
+**Emitted by:** SQL trigger on `agent_inbox_items` INSERT
+
+**Payload:** Full inbox item row. Key fields: `agent_id`, `event_type`, `task_id`, `summary`.
+
+---
+
+### `inbox.completed`
+
+Fires when an inbox item's status changes to `done`.
+
+**Emitted by:** SQL trigger on `agent_inbox_items.status` UPDATE (only when new status = `done`)
+
+**Payload:** Inbox item row with old and new values. Key fields: `agent_id`, `event_type`.
+
+---
+
+## Routine events
+
+### `routine.triggered`
+
+Fires when a routine creates an inbox item (either from a schedule or an event trigger).
+
+**Emitted by:** SQL trigger on `agent_inbox_items` INSERT (only when `event_type` is `routine_schedule` or `routine_event`)
+
+**Payload:** Inbox item row. Key fields: `routine_id` (from metadata), `agent_id`, `event_type`.
+
+---
+
+## Communication events
+
+### `comment.created`
+
+Fires when a comment is posted on any entity (task, contact, etc.).
+
+**Emitted by:** SQL trigger on `comments` INSERT
+
+**Payload:** Full comment row. Key fields: `entity_type`, `entity_id`, `author_agent_id`, `body`, `mentioned_agent_ids`.
+
+---
+
+## Security events
+
+### `secret.changed`
+
+Fires when a secret is added, updated, or removed. **The secret value is never included in the payload** — only metadata.
+
+**Emitted by:** SQL trigger on `secrets` INSERT/UPDATE/DELETE
+
+**Payload:** Secret metadata with sensitive fields stripped. Key fields: `key`, `category`, `action` (insert/update/delete).
+
+---
+
+## Usage and budget events
+
+### `usage.recorded`
+
+Fires when LLM usage is logged for an agent.
+
+**Emitted by:** hq-bootstrap plugin (forwarded to event queue via Supabase REST)
+
+**Payload:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agent_id` | UUID | Agent that consumed tokens |
+| `provider` | string | Model provider (e.g. `anthropic`, `openai`) |
+| `model` | string | Model name (e.g. `claude-sonnet-4-20250514`) |
+| `input_tokens` | integer | Input tokens consumed |
+| `output_tokens` | integer | Output tokens consumed |
+| `cost_usd` | number | Estimated cost in USD |
+
+---
+
+### `budget.exceeded`
+
+Fires when an agent's spending exceeds its monthly budget limit.
+
+**Emitted by:** hq-bootstrap plugin (forwarded to event queue)
+
+**Payload:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agent_id` | UUID | Agent that exceeded the budget |
+| `monthly_limit_usd` | number | Configured monthly limit |
+| `spent_usd` | number | Amount spent this period |
+
+---
+
+## Summary table
+
+| Event | Emitted by | Entity type |
+|-------|-----------|-------------|
+| `task.created` | SQL trigger | `tasks` |
+| `task.completed` | SQL trigger | `tasks` |
+| `task.assigned` | SQL trigger | `tasks` |
+| `agent.provisioned` | command_runner.py | `agents` |
+| `agent.deprovisioned` | command_runner.py | `agents` |
+| `agent.status_changed` | SQL trigger | `agents` |
+| `knowledge.created` | SQL trigger | `knowledge_items` |
+| `knowledge.processed` | file_processor.py | `knowledge_items` |
+| `knowledge.embedded` | embedder.py | `knowledge_items` |
+| `inbox.created` | SQL trigger | `agent_inbox_items` |
+| `inbox.completed` | SQL trigger | `agent_inbox_items` |
+| `routine.triggered` | SQL trigger | `agent_inbox_items` |
+| `comment.created` | SQL trigger | `comments` |
+| `secret.changed` | SQL trigger | `secrets` |
+| `usage.recorded` | hq-bootstrap | `agent_usage` |
+| `budget.exceeded` | hq-bootstrap | `agent_budgets` |
+
+---
+
 # Local Development
 
 Source: https://docs.yourhq.ai/development/local-development
@@ -8216,7 +9186,8 @@ yourhq/
   apps/worker/          Hosted-mode worker service (Stripe, E2B, Resend) — behind `hosted` profile
   gateway/              Gateway image, files API, daemons, lifecycle scripts
   gateway/connectors/   Source connector plugins (one folder per provider + registry)
-  gateway/daemons/      Python daemons (command runner, dispatcher, source sync, secrets sync, etc.)
+  gateway/plugins/      HQ plugin system (SDK, template, built-in plugins, contributor guide)
+  gateway/daemons/      Python daemons (command runner, dispatcher, source sync, secrets sync, plugin runner, etc.)
   db/migrations/        Supabase SQL migrations (001–031)
   templates/            Agent template library (16 templates)
   installer/            Interactive install scripts (install.sh + install-gateway.sh)
@@ -8264,9 +9235,10 @@ Thanks for wanting to help. This doc covers the contribution flow — code, temp
 1. **Agent templates** — add a new starting point for a role/persona (see below)
 2. **Bug fixes** — check existing issues, open a PR
 3. **UI improvements** — Next.js + Tailwind + shadcn; changes go in `apps/ui/`
-4. **Gateway plugins** — openclaw plugins or integrations (MCP, CDP, custom)
-5. **Documentation** — if something confused you, a doc PR will save the next person
-6. **Translations** — not shipped yet, but we'll accept i18n contributions when the framework is in
+4. **HQ plugins** — event-driven integrations that react to tasks, agents, knowledge, and more (see below)
+5. **Source connectors** — data source integrations for knowledge sync; see `CONTRIBUTING-SOURCES.md`
+6. **Documentation** — if something confused you, a doc PR will save the next person
+7. **Translations** — not shipped yet, but we'll accept i18n contributions when the framework is in
 
 ## Before you start
 
@@ -8341,6 +9313,30 @@ docker compose logs -f gateway
 7. Open a PR with the new template + the updated generated index
 
 Templates live in the monorepo so they're versioned together. Breaking changes to the template format show up as PRs touching multiple templates.
+
+## Adding an HQ plugin
+
+HQ plugins react to workspace events (task created, agent provisioned, budget exceeded, etc.) and take action. Two types:
+
+**Local plugins** — Python modules on the gateway with full SDK access:
+
+1. Copy the template:
+   ```bash
+   cp -r gateway/plugins/_template gateway/plugins/my-plugin
+   ```
+2. Edit `manifest.json` — set `id`, `name`, `hooks` (events to subscribe to), `config_schema`, and `capabilities`
+3. Implement `handler.py` — subclass `BasePlugin`, implement `on_event()`
+4. Test locally by restarting the gateway
+5. Open a PR with the plugin directory
+
+**Webhook plugins** — remote HTTP endpoints, no gateway code:
+- Register from Settings → Plugins in the UI. No PR needed unless you want to document the integration.
+
+For the full reference, see:
+- [Plugins concept](/concepts/plugins) — architecture and design
+- [Plugins guide](/guides/plugins) — step-by-step walkthrough
+- [Plugin events](/reference/plugin-events) — all 16 available events
+- [`gateway/plugins/CONTRIBUTING.md`](https://github.com/yourhq/yourhq/blob/main/gateway/plugins/CONTRIBUTING.md) — in-repo contributor guide
 
 ## PR checklist
 

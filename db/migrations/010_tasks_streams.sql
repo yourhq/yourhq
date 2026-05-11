@@ -481,28 +481,34 @@ GRANT EXECUTE ON FUNCTION public.recurring_tasks_debug() TO authenticated;
 -- ── RLS ───────────────────────────────────────────────────────────
 
 ALTER TABLE streams ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON streams;
 CREATE POLICY "Tenant isolation" ON streams
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON streams;
 CREATE POLICY "Service role full access" ON streams
   FOR ALL TO service_role
   USING (true) WITH CHECK (true);
 
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON tasks;
 CREATE POLICY "Tenant isolation" ON tasks
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON tasks;
 CREATE POLICY "Service role full access" ON tasks
   FOR ALL TO service_role
   USING (true) WITH CHECK (true);
 
 ALTER TABLE task_series ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON task_series;
 CREATE POLICY "Tenant isolation" ON task_series
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON task_series;
 CREATE POLICY "Service role full access" ON task_series
   FOR ALL TO service_role
   USING (true) WITH CHECK (true);

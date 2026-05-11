@@ -1,0 +1,29 @@
+{
+  "id": "usage-alerts",
+  "name": "Usage Alerts",
+  "description": "Log warnings when agents approach or exceed their budget limits.",
+  "version": "1.0.0",
+  "author": "hq",
+  "source": "builtin",
+  "hooks": [
+    "usage.recorded",
+    "budget.exceeded"
+  ],
+  "config_schema": {
+    "type": "object",
+    "properties": {
+      "warn_at_percent": {
+        "type": "number",
+        "title": "Warning threshold (%)",
+        "description": "Percentage of budget at which to log a warning.",
+        "default": 80
+      }
+    },
+    "required": []
+  },
+  "capabilities": [
+    "supabase.read",
+    "state.read",
+    "state.write"
+  ]
+}

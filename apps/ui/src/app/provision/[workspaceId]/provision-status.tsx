@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Sparkles,
@@ -8,9 +8,10 @@ import {
   Loader2,
   AlertCircle,
   ArrowRight,
+  RotateCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { pollProvisionAction } from "./actions";
+import { pollProvisionAction, retryProvisionAction } from "./actions";
 
 interface Stage {
   key: string;
@@ -57,7 +58,9 @@ const MAX_POLL_MS = 5 * 60 * 1000;
 export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
   const [currentStage, setCurrentStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
   const router = useRouter();
+  const pollStartRef = useRef<number>(Date.now());
 
   const poll = useCallback(async () => {
     const status = await pollProvisionAction(workspaceId);
@@ -69,12 +72,24 @@ export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
     setCurrentStage(status.provision_stage);
   }, [workspaceId]);
 
+  const handleRetry = useCallback(async () => {
+    if (retrying) return;
+    setRetrying(true);
+    const result = await retryProvisionAction(workspaceId);
+    if (result.ok) {
+      setError(null);
+      setCurrentStage(null);
+      pollStartRef.current = Date.now();
+    }
+    setRetrying(false);
+  }, [workspaceId, retrying]);
+
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    const startedAt = Date.now();
+    if (error) return;
     poll();
     const interval = setInterval(() => {
-      if (Date.now() - startedAt > MAX_POLL_MS) {
+      if (Date.now() - pollStartRef.current > MAX_POLL_MS) {
         clearInterval(interval);
         setError("Provisioning is taking longer than expected. Please refresh the page or contact support@yourhq.ai.");
         return;
@@ -82,7 +97,7 @@ export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
       poll();
     }, 2000);
     return () => clearInterval(interval);
-  }, [poll]);
+  }, [poll, error]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const current = stageIndex(currentStage);
@@ -147,7 +162,7 @@ export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
         {/* Stages card */}
         <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden">
           {error ? (
-            <div className="p-6">
+            <div className="p-6 space-y-4">
               <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
                 <div className="min-w-0 space-y-1">
@@ -157,6 +172,14 @@ export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
                   <p className="text-[12px] text-destructive/80">{friendlyError(error)}</p>
                 </div>
               </div>
+              <button
+                onClick={handleRetry}
+                disabled={retrying}
+                className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-border bg-background text-[13px] font-medium text-foreground transition-all hover:bg-accent active:scale-[0.98] disabled:opacity-50"
+              >
+                <RotateCw className={cn("h-3.5 w-3.5", retrying && "animate-spin")} />
+                {retrying ? "Retrying…" : "Try again"}
+              </button>
             </div>
           ) : (
             <div className="divide-y divide-border/40">

@@ -76,7 +76,8 @@
           "guides/agent-boot-docs",
           "guides/automations",
           "guides/secrets-management",
-          "guides/usage-budgets"
+          "guides/usage-budgets",
+          "guides/plugins"
         ]
       },
       {
@@ -89,6 +90,7 @@
           "concepts/workspaces",
           "concepts/gateways",
           "concepts/tasks-inbox-and-commands",
+          "concepts/plugins",
           "concepts/security-model"
         ]
       },
@@ -119,7 +121,8 @@
           "reference/files-api",
           "reference/command-lifecycle",
           "reference/command-actions",
-          "reference/inbox-dispatch"
+          "reference/inbox-dispatch",
+          "reference/plugin-events"
         ]
       },
       {

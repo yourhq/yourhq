@@ -9,6 +9,7 @@ import {
   logSandboxEvent,
 } from "../lib/master-supabase.js";
 import { createCheckoutSession, createBillingPortalSession, getStripe } from "../lib/stripe.js";
+import { provisionWorkspace } from "../lib/provisioner.js";
 import { decryptSecret } from "../lib/secret-crypto.js";
 import { getPublicSiteUrl } from "../lib/env.js";
 import { E2BSandboxProvider } from "../providers/e2b.js";
@@ -217,6 +218,31 @@ app.post("/checkout", async (c) => {
   });
 
   return c.json({ url, workspaceId });
+});
+
+// Retry provisioning for a workspace stuck in error state
+app.post("/workspaces/:id/retry-provision", async (c) => {
+  const ws = await getWorkspace(c.req.param("id"));
+  if (!ws) return c.json({ error: "Not found" }, 404);
+
+  if (ws.provision_stage !== "error") {
+    return c.json({ error: "Workspace is not in an error state" }, 400);
+  }
+
+  const user = await getMasterSupabase()
+    .from("hosted_users")
+    .select("email")
+    .eq("id", ws.user_id)
+    .single();
+  if (!user.data?.email) {
+    return c.json({ error: "User not found" }, 404);
+  }
+
+  provisionWorkspace(ws.id, user.data.email, sandboxProvider).catch((err) => {
+    console.error(`[retry-provision] ${ws.id} failed:`, err);
+  });
+
+  return c.json({ ok: true });
 });
 
 // Cancel a workspace (30-day grace period, sandbox paused immediately)

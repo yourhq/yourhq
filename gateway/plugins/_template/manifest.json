@@ -1,0 +1,17 @@
+{
+  "id": "my-plugin",
+  "name": "My Plugin",
+  "description": "Describe what this plugin does.",
+  "version": "0.1.0",
+  "author": "community",
+  "source": "local",
+  "hooks": [
+    "task.completed"
+  ],
+  "config_schema": {
+    "type": "object",
+    "properties": {},
+    "required": []
+  },
+  "capabilities": []
+}

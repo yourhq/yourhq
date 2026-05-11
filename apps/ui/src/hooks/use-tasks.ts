@@ -25,6 +25,7 @@ export function useTasks() {
   const [statusFilter, setStatusFilterState] = useState(searchParams.get("status") || "all");
   const [priorityFilter, setPriorityFilterState] = useState(searchParams.get("priority") || "all");
   const [assigneeFilter, setAssigneeFilterState] = useState(searchParams.get("assignee") || "all");
+  const [labelFilter, setLabelFilterState] = useState(searchParams.get("label") || "all");
   const [showArchived, setShowArchivedState] = useState(searchParams.get("archived") === "1");
   const [sorting, setSortingState] = useState<SortingState>(() => {
     const sortParam = searchParams.get("sort");
@@ -71,6 +72,11 @@ export function useTasks() {
   function setAssigneeFilter(value: string) {
     setAssigneeFilterState(value);
     updateUrl({ assignee: value === "all" ? null : value });
+  }
+
+  function setLabelFilter(value: string) {
+    setLabelFilterState(value);
+    updateUrl({ label: value === "all" ? null : value });
   }
 
   function setShowArchived(value: boolean) {
@@ -127,7 +133,7 @@ export function useTasks() {
       if (taskList.length > 0) {
         const taskIds = taskList.map((t) => t.id);
 
-        const [linkResult, labelResult, blockerResult, deliverableResult] = await Promise.all([
+        const [linkResult, labelResult, blockerResult] = await Promise.all([
           supabase
             .from("entity_links")
             .select("owner_id, is_deliverable")
@@ -142,23 +148,21 @@ export function useTasks() {
             .select("source_task_id")
             .eq("relation_type", "blocked_by")
             .in("source_task_id", taskIds),
-          supabase
-            .from("entity_links")
-            .select("owner_id")
-            .eq("owner_type", "task")
-            .eq("is_deliverable", true)
-            .in("owner_id", taskIds),
         ]);
 
         if (linkResult.data) {
-          const countMap = new Map<string, number>();
+          const attachMap = new Map<string, number>();
+          const delivMap = new Map<string, number>();
           for (const row of linkResult.data) {
-            if (!row.is_deliverable) {
-              countMap.set(row.owner_id, (countMap.get(row.owner_id) ?? 0) + 1);
+            if (row.is_deliverable) {
+              delivMap.set(row.owner_id, (delivMap.get(row.owner_id) ?? 0) + 1);
+            } else {
+              attachMap.set(row.owner_id, (attachMap.get(row.owner_id) ?? 0) + 1);
             }
           }
           for (const task of taskList) {
-            task.attachment_count = countMap.get(task.id) ?? 0;
+            task.attachment_count = attachMap.get(task.id) ?? 0;
+            task.deliverable_count = delivMap.get(task.id) ?? 0;
           }
         }
 
@@ -185,22 +189,16 @@ export function useTasks() {
             task.blocker_count = blockerMap.get(task.id) ?? 0;
           }
         }
-
-        if (deliverableResult.data) {
-          const delivMap = new Map<string, number>();
-          for (const row of deliverableResult.data) {
-            delivMap.set(row.owner_id, (delivMap.get(row.owner_id) ?? 0) + 1);
-          }
-          for (const task of taskList) {
-            task.deliverable_count = delivMap.get(task.id) ?? 0;
-          }
-        }
       }
 
-      setTasks(taskList);
+      const filtered = labelFilter !== "all"
+        ? taskList.filter((t) => t.labels?.some((l) => l.id === labelFilter))
+        : taskList;
+
+      setTasks(filtered);
     }
     setLoading(false);
-  }, [supabase, streamFilter, statusFilter, priorityFilter, assigneeFilter, showArchived]);
+  }, [supabase, streamFilter, statusFilter, priorityFilter, assigneeFilter, labelFilter, showArchived]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -426,6 +424,7 @@ export function useTasks() {
     statusFilter !== "all" ||
     priorityFilter !== "all" ||
     assigneeFilter !== "all" ||
+    labelFilter !== "all" ||
     showArchived;
 
   function clearFilters() {
@@ -433,6 +432,7 @@ export function useTasks() {
     setStatusFilterState("all");
     setPriorityFilterState("all");
     setAssigneeFilterState("all");
+    setLabelFilterState("all");
     setShowArchivedState(false);
     setSortingState([]);
     router.replace(pathname, { scroll: false });
@@ -452,6 +452,8 @@ export function useTasks() {
       setPriorityFilter,
       assigneeFilter,
       setAssigneeFilter,
+      labelFilter,
+      setLabelFilter,
       showArchived,
       setShowArchived,
       hasActiveFilters,

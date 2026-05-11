@@ -22,11 +22,13 @@ CREATE INDEX IF NOT EXISTS idx_task_relations_tenant ON task_relations(tenant_id
 
 ALTER TABLE task_relations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Tenant isolation" ON task_relations;
 CREATE POLICY "Tenant isolation" ON task_relations
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
 
+DROP POLICY IF EXISTS "Service role full access" ON task_relations;
 CREATE POLICY "Service role full access" ON task_relations
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 

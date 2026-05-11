@@ -24,6 +24,9 @@ HQ's default Compose stack has six services that work together. The UI runs on i
   <Card title="file-processor" icon="file-import">
     **File processing daemon.** Leases uploaded knowledge files (PDF, DOCX, XLSX, CSV, PPTX, TXT), extracts plain text, and triggers embedding. Runs independently so file processing doesn't block other gateway operations.
   </Card>
+  <Card title="plugin-runner" icon="puzzle-piece">
+    **Plugin daemon.** Watches the `hq_plugin_event_queue` for events emitted by SQL triggers and dispatches them to enabled plugins — local Python handlers or remote webhook endpoints with HMAC signatures. See [Plugins](/concepts/plugins).
+  </Card>
 </CardGroup>
 
 ## Shared state

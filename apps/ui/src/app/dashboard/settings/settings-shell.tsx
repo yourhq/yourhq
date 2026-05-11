@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
+  Blocks,
   Sliders,
   User,
   Puzzle,
@@ -81,6 +82,7 @@ const SETTINGS_NAV: NavGroup[] = [
       { href: "/dashboard/settings/connections", label: "Connections", icon: Plug },
       { href: "/dashboard/settings/secrets", label: "Secrets", icon: Lock },
       { href: "/dashboard/settings/budgets", label: "Budget Defaults", icon: DollarSign },
+      { href: "/dashboard/settings/plugins", label: "Plugins", icon: Blocks },
     ],
   },
   {

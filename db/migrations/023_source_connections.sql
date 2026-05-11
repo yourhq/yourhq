@@ -77,6 +77,7 @@ CREATE POLICY "Tenant isolation" ON source_connections
   FOR ALL TO authenticated
   USING (tenant_id = public.current_tenant_id())
   WITH CHECK (tenant_id = public.current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON source_connections;
 CREATE POLICY "Service role full access" ON source_connections
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
@@ -86,6 +87,7 @@ CREATE POLICY "Tenant isolation" ON source_sync_runs
   FOR ALL TO authenticated
   USING (tenant_id = public.current_tenant_id())
   WITH CHECK (tenant_id = public.current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON source_sync_runs;
 CREATE POLICY "Service role full access" ON source_sync_runs
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 

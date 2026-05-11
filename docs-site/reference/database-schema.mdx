@@ -37,6 +37,7 @@ HQ stores shared state in one Supabase project per workspace. The SQL source of 
 | `029_labels.sql` | Managed labels with color and description, `task_labels` junction table |
 | `030_task_templates.sql` | Reusable task group templates with dependency graphs (JSONB items) |
 | `031_overdue_escalation.sql` | pg_cron job to mark overdue tasks as `missed`, inbox notification for assigned agents |
+| `032_plugins.sql` | Plugin system: `hq_plugins`, `hq_plugin_events`, `hq_plugin_state`, `hq_plugin_event_queue` tables, `emit_plugin_event()` trigger function, 11 event triggers, pg_cron cleanup jobs |
 
 For a fresh Supabase project, run all files in filename order from the SQL Editor. The onboarding wizard handles this automatically — it concatenates all files and lets you copy/paste a single SQL blob.
 
@@ -183,6 +184,17 @@ Agents submit deliverables via `hq_submit_deliverable.py` (page, URL, or record 
 - `agent_inbox_items` — stores the resulting work items, lease state, retry counters, dedup keys, and failure state.
 
 Event routines are evaluated by trigger functions on contacts, tasks, knowledge items, and collection records. Schedule routines use `spawn_routine_schedule_items` via pg_cron to create inbox items at defined intervals.
+
+### Plugins
+
+- `hq_plugins` — plugin registry. One row per installed plugin. Source types: `builtin`, `local`, `webhook`, `marketplace`. Key columns: `hooks` (text array of subscribed events), `config` (operator settings JSONB), `config_schema` (JSON Schema for validation), `webhook_url`/`webhook_secret` (for remote plugins), `capabilities` (declared permissions), `is_enabled` (toggle). Subscribed to Supabase Realtime for live UI updates.
+- `hq_plugin_events` — execution log. Every hook dispatch is recorded with `plugin_id`, `hook`, `status` (success/error/timeout/skipped), `duration_ms`, and `error_message`. 30-day retention via pg_cron.
+- `hq_plugin_state` — scoped key-value store for plugins. Keyed by `(plugin_id, scope_kind, scope_id, state_key)`. Scope kinds: `global`, `agent`, `task`, `workspace`.
+- `hq_plugin_event_queue` — lightweight append-only queue bridging SQL triggers to the plugin runner daemon. Triggers on tasks, agents, knowledge_items, inbox, comments, and secrets write here. The plugin runner polls/subscribes and dispatches to matching plugins. Processed rows are cleaned up hourly via pg_cron.
+
+The `emit_plugin_event()` function is a generic trigger function that writes to the event queue and strips sensitive fields (e.g. `encrypted_value`). It's attached to 11 triggers across core tables.
+
+See [Plugins](/concepts/plugins) for the full architecture and [Plugin events](/reference/plugin-events) for the complete event reference.
 
 ### Configuration Tables
 

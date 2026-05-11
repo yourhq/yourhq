@@ -36,6 +36,7 @@
 - [Automations](https://docs.yourhq.ai/guides/automations): Turn CRM and task events into agent inbox work.
 - [Secrets management](https://docs.yourhq.ai/guides/secrets-management): Store API keys, channel tokens, and OAuth credentials securely. Encrypted at rest, synced to gateways, injected as environment variables.
 - [Usage budgets](https://docs.yourhq.ai/guides/usage-budgets): Track model usage and enforce monthly agent budgets. Model selection cost optimization strategies.
+- [Plugins](https://docs.yourhq.ai/guides/plugins): Create, manage, and contribute plugins that extend HQ with custom integrations and automations.
 
 ## Concepts
 
@@ -45,6 +46,7 @@
 - [Gateways](https://docs.yourhq.ai/concepts/gateways): Docker hosts that run agents, desktops, files API, and daemons.
 - [Knowledge system](https://docs.yourhq.ai/concepts/knowledge): Unified knowledge store (pages, skills, files, sources), source connector plugin architecture, embedding pipeline, and agent boot context.
 - [Tasks, inbox, and commands](https://docs.yourhq.ai/concepts/tasks-inbox-and-commands): The queues that coordinate UI, gateways, and agents.
+- [Plugins](https://docs.yourhq.ai/concepts/plugins): Event-driven plugin system — local Python handlers and remote webhooks for extending HQ with custom integrations.
 - [Security model](https://docs.yourhq.ai/concepts/security-model): Trust boundaries behind HQ's self-hosted architecture.
 
 ## Design
@@ -71,6 +73,7 @@
 - [Command lifecycle](https://docs.yourhq.ai/reference/command-lifecycle): How gateway commands move from UI action to runner execution.
 - [Command actions](https://docs.yourhq.ai/reference/command-actions): All shell, auth, and source actions the runner can execute, with payload schemas. Includes `source_write` for write-back to external sources.
 - [Inbox dispatch](https://docs.yourhq.ai/reference/inbox-dispatch): How the dispatcher wakes agents from inbox items, wake gating conditions, and reconciliation.
+- [Plugin events](https://docs.yourhq.ai/reference/plugin-events): Complete reference of all 16 events available to HQ plugins, with payload schemas and emission sources.
 - [Heartbeat](https://docs.yourhq.ai/reference/heartbeat): Gateway liveness signals — Supabase heartbeat, local file, freshness thresholds.
 
 ## Development and contribution

@@ -51,11 +51,13 @@ CREATE TRIGGER entity_links_updated_at
 
 ALTER TABLE entity_links ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Tenant isolation" ON entity_links;
 CREATE POLICY "Tenant isolation" ON entity_links
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
 
+DROP POLICY IF EXISTS "Service role full access" ON entity_links;
 CREATE POLICY "Service role full access" ON entity_links
   FOR ALL TO service_role
   USING (true) WITH CHECK (true);

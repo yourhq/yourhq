@@ -77,6 +77,7 @@ Where HQ is now, what ships in v0.1, and what comes after.
 - Task templates — reusable task group templates with dependency graphs, spawned from toolbar with preserved `blocked_by` relations
 - Overdue escalation — pg_cron auto-miss for overdue tasks with inbox notification for assigned agents and missed-task banner in UI
 - Agent delegation skill — `hq_delegate_task.py` for subtask creation with org-chart validation and `child_of` relation
+- HQ plugin system — event-driven hooks for tasks, agents, knowledge, inbox, routines, comments, secrets, usage, and budgets. Local Python plugins with SDK (state, secrets, Supabase queries) and webhook plugins (remote HTTP with HMAC signatures). Plugin runner daemon, Settings UI for management, built-in usage-alerts plugin, contributor template and guide
 
 ### Observability and operations
 

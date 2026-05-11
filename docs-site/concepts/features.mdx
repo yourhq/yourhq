@@ -31,6 +31,9 @@ This page is the product tour. For system internals, read [Architecture](/concep
   <Card title="Usage budgets" icon="gauge-high" href="#usage-tracking-and-budgets">
     Track model spend and stop agents when they exceed limits.
   </Card>
+  <Card title="Plugins" icon="puzzle-piece" href="#plugins">
+    Extend HQ with event-driven integrations — local Python handlers or remote webhooks.
+  </Card>
   <Card title="Open source" icon="code-branch" href="/development/local-development">
     Inspect, fork, customize, and extend the whole system.
   </Card>
@@ -383,6 +386,23 @@ HQ records important workspace events in `notifications`, `audit_log`, command h
 
 This gives the operator a single place to understand what happened and why.
 
+## Plugins
+
+HQ has a built-in plugin system for reacting to workspace events. Plugins can send Slack notifications when tasks complete, sync data to Linear, trigger webhooks for Zapier, log budget alerts, or run any custom logic.
+
+<CardGroup cols={2}>
+  <Card title="Local plugins" icon="code">
+    Python modules on the gateway with full SDK access — state persistence, secret resolution, and Supabase queries. Best for logic that needs to read HQ data.
+  </Card>
+  <Card title="Webhook plugins" icon="globe">
+    Remote HTTP endpoints. Zero gateway code — HQ POSTs events with HMAC signatures. Best for connecting to external services and no-code tools.
+  </Card>
+</CardGroup>
+
+16 built-in events cover tasks, agents, knowledge, inbox, routines, comments, secrets, usage, and budgets. The plugin runner daemon dispatches events to all matching plugins in real time.
+
+Manage plugins from **Settings → Plugins** — enable/disable, configure, view event logs, and add new webhook plugins from the UI. See [Plugins](/concepts/plugins) for the full architecture and [Plugin events](/reference/plugin-events) for the event reference.
+
 ## Extensibility
 
 Most customization does not require changing code:
@@ -392,6 +412,7 @@ Most customization does not require changing code:
 - Configure fields, pipeline stages, streams, and routines in the UI.
 - Add model providers through connections.
 - Add gateways through Settings.
+- Add webhook plugins from Settings → Plugins (no code needed).
 
 Code extension points include:
 
@@ -401,3 +422,4 @@ Code extension points include:
 - New agent skills under template `skills/`.
 - New OpenClaw plugins in `gateway/scripts/plugins/`.
 - New source connectors under `gateway/connectors/<provider>/` — copy the `_template/` directory and implement the connector interface. See `CONTRIBUTING-SOURCES.md`.
+- New HQ plugins under `gateway/plugins/<id>/` — copy `_template/`, implement `on_event()`, and subscribe to events. See [`gateway/plugins/CONTRIBUTING.md`](https://github.com/yourhq/yourhq/blob/main/gateway/plugins/CONTRIBUTING.md).

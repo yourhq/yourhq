@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Sparkles, Check, Loader2, AlertCircle, CreditCard } from "lucide-react";
+import { Sparkles, Check, Loader2, AlertCircle, CreditCard, RotateCw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { pollProvisionStatus } from "./hosted-actions";
+import { pollProvisionStatus, retryProvisionAction } from "./hosted-actions";
 
 interface Stage {
   key: string;
@@ -57,9 +57,11 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
   const [currentStage, setCurrentStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
   const [showSlowPayment, setShowSlowPayment] = useState(false);
   const pendingSinceRef = useRef<number | null>(null);
   const completedRef = useRef(false);
+  const pollStartRef = useRef<number>(Date.now());
 
   const poll = useCallback(async () => {
     if (completedRef.current) return;
@@ -90,11 +92,24 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
     }
   }, [workspaceId, onComplete]);
 
+  const handleRetry = useCallback(async () => {
+    if (retrying) return;
+    setRetrying(true);
+    const result = await retryProvisionAction(workspaceId);
+    if (result.ok) {
+      setError(null);
+      setCurrentStage(null);
+      completedRef.current = false;
+      pollStartRef.current = Date.now();
+    }
+    setRetrying(false);
+  }, [workspaceId, retrying]);
+
   useEffect(() => {
-    const startedAt = Date.now();
+    if (error) return;
     poll();
     const interval = setInterval(() => {
-      if (Date.now() - startedAt > MAX_POLL_MS) {
+      if (Date.now() - pollStartRef.current > MAX_POLL_MS) {
         clearInterval(interval);
         setError("Provisioning is taking longer than expected. Please refresh the page.");
         return;
@@ -102,7 +117,7 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
       poll();
     }, 2000);
     return () => clearInterval(interval);
-  }, [poll]);
+  }, [poll, error]);
 
   const isPending = subscriptionStatus === "pending" || subscriptionStatus === null;
   const current = stageIndex(currentStage);
@@ -172,7 +187,7 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
 
         <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden">
           {error ? (
-            <div className="p-6">
+            <div className="p-6 space-y-4">
               <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
                 <div className="min-w-0 space-y-1">
@@ -185,6 +200,14 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
                   </p>
                 </div>
               </div>
+              <button
+                onClick={handleRetry}
+                disabled={retrying}
+                className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-border bg-background text-[13px] font-medium text-foreground transition-all hover:bg-accent active:scale-[0.98] disabled:opacity-50"
+              >
+                <RotateCw className={cn("h-3.5 w-3.5", retrying && "animate-spin")} />
+                {retrying ? "Retrying…" : "Try again"}
+              </button>
             </div>
           ) : isPending ? (
             <div className="p-6 space-y-4">
