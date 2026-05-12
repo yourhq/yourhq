@@ -1,7 +1,7 @@
 # Dev image — node:24-slim + Docker CLI pre-installed.
 # Used by docker-compose.dev.yml so we don't install Docker at runtime
 # (which competes with Turbopack for memory and causes OOM on small VMs).
-FROM node:24-slim
+FROM node:26-slim
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \

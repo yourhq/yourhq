@@ -3,7 +3,7 @@
 #
 # Build context is the monorepo root so we can COPY apps/ui cleanly.
 # =============================================================================
-FROM node:24-slim AS deps
+FROM node:26-slim AS deps
 WORKDIR /app
 # Copy lockfile explicitly — the wildcard glob silently skips if missing,
 # which can produce non-reproducible builds across architectures.
@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends libc6 \
     && rm -rf /var/lib/apt/lists/*
 RUN npm ci --legacy-peer-deps --no-audit --no-fund
 
-FROM node:24-slim AS builder
+FROM node:26-slim AS builder
 WORKDIR /app
 # Supabase URL + anon key are injected at RUNTIME via window.__HQ_CONFIG__
 # (see apps/ui/src/lib/projects/inject-config.tsx). Nothing project-specific
@@ -24,7 +24,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY apps/ui/. .
 RUN npm run build
 
-FROM node:24-slim AS runner
+FROM node:26-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
