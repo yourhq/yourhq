@@ -11,6 +11,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Archive, RotateCcw, Trash2, Database } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
 
 interface CollectionIndexProps {
   collections: CollectionDefinition[];
@@ -30,7 +32,10 @@ export function CollectionIndex({
       {collections.map((col) => (
         <div
           key={col.id}
-          className="group relative rounded-lg border border-border/60 bg-background p-3 transition-colors hover:border-border"
+          className={cn(
+            "group relative rounded-lg border border-border/60 bg-background p-3 transition-colors hover:border-border",
+            col.archived_at && "opacity-60",
+          )}
         >
           <Link
             href={`/dashboard/collections/${col.slug}`}
@@ -44,20 +49,34 @@ export function CollectionIndex({
               {col.icon ?? <Database className="h-4 w-4" />}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-heading truncate">{col.name}</div>
-              <div className="text-body text-muted-foreground mt-0.5">
+              <div className="flex items-center gap-1.5">
+                <span className="text-heading truncate">{col.name}</span>
+                {col.archived_at && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
+                    Archived
+                  </span>
+                )}
+              </div>
+              <div className="text-body text-muted-foreground mt-0.5 flex items-center gap-1 flex-wrap">
                 {col.record_count != null && (
                   <span className="text-[11px]">
                     {col.record_count} record{col.record_count !== 1 ? "s" : ""}
                   </span>
                 )}
-                {col.description && col.record_count != null && (
-                  <span className="text-muted-foreground/40 mx-1">·</span>
+                {col.updated_at && col.record_count != null && (
+                  <span className="text-muted-foreground/40">·</span>
                 )}
-                {col.description && (
-                  <span className="text-[11px] line-clamp-1">{col.description}</span>
+                {col.updated_at && (
+                  <span className="text-[11px] text-muted-foreground/60">
+                    {formatDistanceToNow(new Date(col.updated_at), { addSuffix: true })}
+                  </span>
                 )}
               </div>
+              {col.description && (
+                <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">
+                  {col.description}
+                </p>
+              )}
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

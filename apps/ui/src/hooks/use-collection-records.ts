@@ -233,6 +233,29 @@ export function useCollectionRecords(collectionId: string) {
     [supabase, fetchRecords],
   );
 
+  const restoreRecord = useCallback(
+    async (recordId: string) => {
+      const { error } = await supabase
+        .from("collection_records")
+        .update({ archived_at: null })
+        .eq("id", recordId);
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      await logAudit(supabase, {
+        module: "collections",
+        entity_type: "collection_record",
+        entity_id: recordId,
+        action: "restored",
+        summary: "Restored record",
+      });
+      toast.success("Record restored");
+      fetchRecords();
+    },
+    [supabase, fetchRecords],
+  );
+
   const deleteRecord = useCallback(
     async (recordId: string) => {
       const { error } = await supabase
@@ -493,6 +516,7 @@ export function useCollectionRecords(collectionId: string) {
       updateRecord,
       updateCell,
       archiveRecord,
+      restoreRecord,
       deleteRecord,
       addField,
       updateField,

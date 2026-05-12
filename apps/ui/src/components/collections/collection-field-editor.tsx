@@ -1,8 +1,23 @@
 "use client";
 
 import { useState } from "react";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { CollectionField, CollectionFieldType, FieldOptions, SelectOption } from "@/lib/collections/types";
-import { FIELD_TYPE_LABELS } from "@/lib/collections/types";
+import { FIELD_TYPE_LABELS, CREATABLE_FIELD_TYPES } from "@/lib/collections/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +44,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
+import { cn } from "@/lib/utils";
 import { Plus, MoreHorizontal, GripVertical, Trash2, Pencil } from "lucide-react";
 
 interface CollectionFieldEditorProps {
@@ -43,6 +59,7 @@ interface CollectionFieldEditorProps {
   }) => void;
   onUpdateField: (fieldId: string, updates: Partial<Pick<CollectionField, "label" | "required" | "options" | "is_title_field" | "is_active">>) => void;
   onDeleteField: (fieldId: string) => void;
+  onReorderFields: (orderedIds: string[]) => void;
 }
 
 function slugifyKey(label: string): string {
@@ -58,7 +75,24 @@ export function CollectionFieldEditor({
   onAddField,
   onUpdateField,
   onDeleteField,
+  onReorderFields,
 }: CollectionFieldEditorProps) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = fields.findIndex((f) => f.id === active.id);
+    const newIndex = fields.findIndex((f) => f.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = [...fields];
+    const [moved] = reordered.splice(oldIndex, 1);
+    reordered.splice(newIndex, 0, moved);
+    onReorderFields(reordered.map((f) => f.id));
+  };
   const [showAdd, setShowAdd] = useState(false);
   const [editField, setEditField] = useState<CollectionField | null>(null);
   const [deleteFieldId, setDeleteFieldId] = useState<string | null>(null);
@@ -138,52 +172,21 @@ export function CollectionFieldEditor({
         </Button>
       </div>
 
-      <div className="space-y-0.5">
-        {fields.map((f) => (
-          <div
-            key={f.id}
-            className="group flex items-center gap-1.5 rounded px-1.5 py-1 hover:bg-accent/50"
-          >
-            <GripVertical className="h-3 w-3 text-muted-foreground/40 shrink-0" />
-            <span className="flex-1 text-body truncate">{f.label}</span>
-            <span className="text-[10px] text-muted-foreground uppercase">
-              {FIELD_TYPE_LABELS[f.field_type]}
-            </span>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-5 w-5 opacity-0 group-hover:opacity-100"
-                >
-                  <MoreHorizontal className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setEditField(f)}>
-                  <Pencil className="mr-2 h-3.5 w-3.5" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() =>
-                    onUpdateField(f.id, { is_title_field: !f.is_title_field })
-                  }
-                >
-                  {f.is_title_field ? "Unset as title" : "Set as title"}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => setDeleteFieldId(f.id)}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="mr-2 h-3.5 w-3.5" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-0.5">
+            {fields.map((f) => (
+              <SortableFieldRow
+                key={f.id}
+                field={f}
+                onEdit={() => setEditField(f)}
+                onToggleTitle={() => onUpdateField(f.id, { is_title_field: !f.is_title_field })}
+                onDelete={() => setDeleteFieldId(f.id)}
+              />
+            ))}
           </div>
-        ))}
-      </div>
+        </SortableContext>
+      </DndContext>
 
       {/* Add field dialog */}
       <ResponsiveDialog open={showAdd} onOpenChange={setShowAdd}>
@@ -211,7 +214,7 @@ export function CollectionFieldEditor({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(FIELD_TYPE_LABELS) as CollectionFieldType[]).map((t) => (
+                  {CREATABLE_FIELD_TYPES.map((t) => (
                     <SelectItem key={t} value={t}>{FIELD_TYPE_LABELS[t]}</SelectItem>
                   ))}
                 </SelectContent>
@@ -294,6 +297,84 @@ export function CollectionFieldEditor({
         }}
         onCancel={() => setDeleteFieldId(null)}
       />
+    </div>
+  );
+}
+
+function SortableFieldRow({
+  field,
+  onEdit,
+  onToggleTitle,
+  onDelete,
+}: {
+  field: CollectionField;
+  onEdit: () => void;
+  onToggleTitle: () => void;
+  onDelete: () => void;
+}) {
+  const {
+    setNodeRef,
+    attributes,
+    listeners,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: field.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "group flex items-center gap-1.5 rounded px-1.5 py-1 hover:bg-accent/50",
+        isDragging && "opacity-50 bg-accent/30",
+      )}
+    >
+      <button
+        type="button"
+        className="cursor-grab touch-none text-muted-foreground/40 hover:text-muted-foreground shrink-0"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="h-3 w-3" />
+      </button>
+      <span className="flex-1 text-body truncate">{field.label}</span>
+      <span className="text-[10px] text-muted-foreground uppercase">
+        {FIELD_TYPE_LABELS[field.field_type]}
+      </span>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 opacity-0 group-hover:opacity-100"
+          >
+            <MoreHorizontal className="h-3 w-3" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={onEdit}>
+            <Pencil className="mr-2 h-3.5 w-3.5" />
+            Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onToggleTitle}>
+            {field.is_title_field ? "Unset as title" : "Set as title"}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={onDelete}
+            className="text-destructive focus:text-destructive"
+          >
+            <Trash2 className="mr-2 h-3.5 w-3.5" />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

@@ -34,7 +34,8 @@ import { FileText } from "lucide-react";
 interface InteractionFormProps {
   open: boolean;
   onClose: () => void;
-  contactId: string;
+  contactId?: string;
+  orgId?: string;
   contactName: string;
   interaction?: Interaction | null;
   onSaved: () => void;
@@ -44,6 +45,7 @@ export function InteractionForm({
   open,
   onClose,
   contactId,
+  orgId,
   contactName,
   interaction,
   onSaved,
@@ -113,8 +115,7 @@ export function InteractionForm({
     if (!type) return;
     setSaving(true);
 
-    const payload = {
-      contact_id: contactId,
+    const payload: Record<string, unknown> = {
       type,
       direction: direction || null,
       channel: channel.trim() || null,
@@ -125,6 +126,8 @@ export function InteractionForm({
       next_action: nextAction.trim() || null,
       next_action_date: nextActionDate,
     };
+    if (contactId) payload.contact_id = contactId;
+    if (orgId) payload.org_id = orgId;
 
     if (interaction) {
       const { error } = await supabase
@@ -152,11 +155,12 @@ export function InteractionForm({
       if (error) {
         toast.error("Failed to log interaction");
       } else {
-        // Update contact's last_contact_date
-        await supabase
-          .from("contacts")
-          .update({ last_contact_date: occurredAt })
-          .eq("id", contactId);
+        if (contactId) {
+          await supabase
+            .from("contacts")
+            .update({ last_contact_date: occurredAt })
+            .eq("id", contactId);
+        }
         logAudit(supabase, {
           module: "crm",
           entity_type: "interaction",

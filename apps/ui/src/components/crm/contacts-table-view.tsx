@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ColumnDef,
   getCoreRowModel,
+  getFilteredRowModel,
   getSortedRowModel,
+  RowSelectionState,
   SortingState,
   useReactTable,
 } from "@tanstack/react-table";
@@ -13,6 +15,7 @@ import { usePipelineStages } from "@/hooks/use-pipeline-stages";
 import { useFieldDefinitions } from "@/hooks/use-field-definitions";
 import { DataTable } from "@/components/shared/data-table";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +39,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ContactsEmpty } from "./contacts-empty";
+import { BulkActionBar } from "./bulk-action-bar";
 import { getContactColumnConfigs } from "@/lib/columns/contact-columns";
 import { buildExtendedColumnConfigs } from "@/lib/columns/extended-columns";
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
@@ -52,6 +56,9 @@ interface ContactsTableViewProps {
   onArchive: (id: string) => void;
   onRestore: (id: string) => void;
   onDelete: (id: string) => void;
+  onBulkArchive: (ids: string[]) => void;
+  onBulkDelete: (ids: string[]) => void;
+  onBulkStatusChange: (ids: string[], status: string) => void;
   showArchived: boolean;
   onClearFilters: () => void;
   onAddContact: () => void;
@@ -176,6 +183,9 @@ export function ContactsTableView({
   onArchive,
   onRestore,
   onDelete,
+  onBulkArchive,
+  onBulkDelete,
+  onBulkStatusChange,
   showArchived,
   onClearFilters,
   onAddContact,
@@ -183,6 +193,7 @@ export function ContactsTableView({
 }: ContactsTableViewProps) {
   const { stages, stagesByKey } = usePipelineStages("contact");
   const { fields } = useFieldDefinitions("contact");
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
   const columnConfigs = useMemo(() => {
     const standard = getContactColumnConfigs({ stagesByKey });
@@ -203,58 +214,96 @@ export function ContactsTableView({
   }, [toggleItems, toggleColumn, resetToDefaults, onColumnToggleChange]);
 
   // Build final columns with sortable headers and actions cell
-  const columns: ColumnDef<Contact>[] = useMemo(
-    () =>
-      columnConfigs.map((config) => {
-        const def = { ...config.columnDef };
+  const columns: ColumnDef<Contact>[] = useMemo(() => {
+    const selectCol: ColumnDef<Contact> = {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          checked={
+            table.getIsAllPageRowsSelected() ||
+            (table.getIsSomePageRowsSelected() && "indeterminate")
+          }
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+          className="translate-y-[1px]"
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Select row"
+          className="translate-y-[1px]"
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+      meta: { className: "w-10" },
+    };
 
-        // Add sortable headers for sortable standard columns
-        if (config.id === "name") {
-          def.header = ({ column }) => (
-            <SortableHeader
-              label="Contact"
-              sorted={column.getIsSorted()}
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            />
-          );
-        } else if (config.id === "company") {
-          def.header = ({ column }) => (
-            <SortableHeader
-              label="Company"
-              sorted={column.getIsSorted()}
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            />
-          );
-        } else if (config.id === "last_contact_date") {
-          def.header = ({ column }) => (
-            <SortableHeader
-              label="Last contact"
-              sorted={column.getIsSorted()}
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            />
-          );
-        }
+    const dataCols = columnConfigs.map((config) => {
+      const def = { ...config.columnDef };
 
-        // Wire up actions cell with callbacks
-        if (config.id === "actions") {
-          def.cell = ({ row }) => (
-            <RowActions
-              contact={row.original}
-              onSelect={onSelect}
-              onStatusChange={onStatusChange}
-              onArchive={onArchive}
-              onRestore={onRestore}
-              onDelete={onDelete}
-              showArchived={showArchived}
-              stages={stages}
-            />
-          );
-        }
+      if (config.id === "name") {
+        def.header = ({ column }) => (
+          <SortableHeader
+            label="Contact"
+            sorted={column.getIsSorted()}
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          />
+        );
+      } else if (config.id === "company") {
+        def.header = ({ column }) => (
+          <SortableHeader
+            label="Company"
+            sorted={column.getIsSorted()}
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          />
+        );
+      } else if (config.id === "last_contact_date") {
+        def.header = ({ column }) => (
+          <SortableHeader
+            label="Last contact"
+            sorted={column.getIsSorted()}
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          />
+        );
+      }
 
-        return def;
-      }),
-    [columnConfigs, onSelect, onStatusChange, onArchive, onRestore, onDelete, showArchived, stages]
-  );
+      if (config.id === "actions") {
+        def.cell = ({ row }) => (
+          <RowActions
+            contact={row.original}
+            onSelect={onSelect}
+            onStatusChange={onStatusChange}
+            onArchive={onArchive}
+            onRestore={onRestore}
+            onDelete={onDelete}
+            showArchived={showArchived}
+            stages={stages}
+          />
+        );
+      }
+
+      return def;
+    });
+
+    return [selectCol, ...dataCols];
+  }, [columnConfigs, onSelect, onStatusChange, onArchive, onRestore, onDelete, showArchived, stages]);
+
+  // Clear selection when contacts change (filter, archive, etc.)
+  useEffect(() => {
+    setRowSelection({});
+  }, [contacts]);
+
+  const selectedIds = useMemo(() => {
+    return Object.keys(rowSelection)
+      .filter((key) => rowSelection[key])
+      .map((key) => contacts[parseInt(key)]?.id)
+      .filter(Boolean) as string[];
+  }, [rowSelection, contacts]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
@@ -262,8 +311,11 @@ export function ContactsTableView({
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
     onSortingChange,
-    state: { sorting, columnVisibility },
+    onRowSelectionChange: setRowSelection,
+    enableRowSelection: true,
+    state: { sorting, columnVisibility, rowSelection },
   });
 
   if (!loading && contacts.length === 0) {
@@ -277,10 +329,30 @@ export function ContactsTableView({
   }
 
   return (
-    <DataTable
-      table={table}
-      isLoading={loading}
-      onRowClick={(row) => onSelect(row.original)}
-    />
+    <div className="flex flex-col gap-2">
+      <BulkActionBar
+        count={selectedIds.length}
+        stages={stages}
+        showArchived={showArchived}
+        onStatusChange={(status) => {
+          onBulkStatusChange(selectedIds, status);
+          setRowSelection({});
+        }}
+        onArchive={() => {
+          onBulkArchive(selectedIds);
+          setRowSelection({});
+        }}
+        onDelete={() => {
+          onBulkDelete(selectedIds);
+          setRowSelection({});
+        }}
+        onClear={() => setRowSelection({})}
+      />
+      <DataTable
+        table={table}
+        isLoading={loading}
+        onRowClick={(row) => onSelect(row.original)}
+      />
+    </div>
   );
 }

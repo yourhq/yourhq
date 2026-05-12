@@ -83,7 +83,7 @@ export function CollectionKanbanView({
       return val === undefined || val === null || val === "";
     });
     if (uncategorized.length > 0) {
-      cols.push({ value: UNCATEGORIZED, label: "No Status", records: uncategorized });
+      cols.push({ value: UNCATEGORIZED, label: "Not set", records: uncategorized });
     }
 
     return cols;
@@ -92,6 +92,22 @@ export function CollectionKanbanView({
   const validColumnValues = useMemo(
     () => new Set(columns.map((c) => c.value)),
     [columns],
+  );
+
+  const previewFields = useMemo(
+    () =>
+      fields
+        .filter(
+          (f) =>
+            f.is_active &&
+            f.field_key !== groupByFieldKey &&
+            !f.is_title_field &&
+            f.field_type !== "boolean" &&
+            f.field_type !== "rich_text",
+        )
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .slice(0, 2),
+    [fields, groupByFieldKey],
   );
 
   const getTitle = (record: CollectionRecord) => {
@@ -232,6 +248,7 @@ export function CollectionKanbanView({
                 key={record.id}
                 record={record}
                 title={getTitle(record)}
+                previewFields={previewFields}
                 onClick={onRecordClick}
                 onArchive={onArchiveRecord}
                 onDelete={onDeleteRecord}
@@ -316,6 +333,7 @@ function KanbanColumn({
 interface DraggableRecordCardProps {
   record: CollectionRecord;
   title: string;
+  previewFields: CollectionField[];
   onClick?: (recordId: string) => void;
   onArchive: (recordId: string) => void;
   onDelete: (recordId: string) => void;
@@ -324,6 +342,7 @@ interface DraggableRecordCardProps {
 function DraggableRecordCard({
   record,
   title,
+  previewFields,
   onClick,
   onArchive,
   onDelete,
@@ -374,6 +393,20 @@ function DraggableRecordCard({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      {previewFields.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-x-2.5 gap-y-0.5 text-[11px] text-muted-foreground">
+          {previewFields.map((f) => {
+            const val = record.values[f.field_key];
+            if (val == null || val === "") return null;
+            return (
+              <span key={f.field_key} className="truncate max-w-[180px]">
+                <span className="text-muted-foreground/60">{f.label}:</span>{" "}
+                {Array.isArray(val) ? val.join(", ") : String(val)}
+              </span>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

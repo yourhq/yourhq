@@ -318,7 +318,7 @@ function SelectCell({
   readOnly,
 }: {
   value: string | null | undefined;
-  onChange: (v: string) => void;
+  onChange: (v: string | null) => void;
   options: SelectOption[];
   readOnly?: boolean;
 }) {
@@ -337,11 +337,17 @@ function SelectCell({
   }
 
   return (
-    <Select value={value ?? ""} onValueChange={onChange}>
+    <Select
+      value={value ?? "__none__"}
+      onValueChange={(v) => onChange(v === "__none__" ? null : v)}
+    >
       <SelectTrigger className="h-7 text-body border-0 bg-transparent hover:bg-accent/50">
         <SelectValue placeholder="—" />
       </SelectTrigger>
       <SelectContent>
+        <SelectItem value="__none__">
+          <span className="text-muted-foreground">None</span>
+        </SelectItem>
         {options.map((opt) => (
           <SelectItem key={opt.value} value={opt.value}>
             <span className="flex items-center gap-1.5">

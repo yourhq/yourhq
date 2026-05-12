@@ -17,7 +17,7 @@ export type InteractionDirection = "inbound" | "outbound";
 export interface Interaction {
   id: string;
   created_at: string;
-  contact_id: string;
+  contact_id: string | null;
   org_id: string | null;
   type: string;
   direction: string | null;

@@ -1611,6 +1611,292 @@ def handle_source_write(cmd_id, payload):
         )
 
 
+def _api_post(table, body):
+    url = f"{SUPABASE_URL.rstrip('/')}/rest/v1/{table}"
+    data = json.dumps(body).encode()
+    req = urllib.request.Request(
+        url,
+        data=data,
+        method="POST",
+        headers={
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=15) as r:
+        return json.loads(r.read().decode())
+
+
+def handle_collection_list(cmd_id, payload):
+    """List collections with their fields.
+
+    payload: {} (no params required)
+    Returns: array of collection definitions with fields.
+    """
+    try:
+        api_rpc("start_command", {"p_command_id": cmd_id})
+    except Exception:
+        pass
+
+    try:
+        rows = api_get(
+            "collection_definitions",
+            {
+                "select": "id,name,slug,description,icon,color",
+                "archived_at": "is.null",
+                "order": "sort_order.asc,created_at.desc",
+            },
+        )
+        for col in rows:
+            fields = api_get(
+                "collection_fields",
+                {
+                    "select": "field_key,field_type,label,required,is_title_field,options",
+                    "collection_id": f"eq.{col['id']}",
+                    "order": "sort_order.asc",
+                },
+            )
+            col["fields"] = fields
+
+        api_rpc(
+            "complete_command",
+            {
+                "p_command_id": cmd_id,
+                "p_exit_code": 0,
+                "p_stdout": json.dumps(rows, indent=2),
+                "p_stderr": None,
+            },
+        )
+    except Exception as e:
+        log(f"collection_list failed: {e}")
+        api_rpc(
+            "fail_command",
+            {
+                "p_command_id": cmd_id,
+                "p_exit_code": None,
+                "p_stdout": None,
+                "p_stderr": None,
+                "p_error": str(e),
+            },
+        )
+
+
+def handle_collection_query(cmd_id, payload):
+    """Query records from a collection.
+
+    payload: { collection_slug: str, limit?: int, filters?: dict }
+    filters is a dict of {field_key: value} for exact-match filtering.
+    """
+    slug = payload.get("collection_slug")
+    if not slug:
+        api_rpc(
+            "fail_command",
+            {
+                "p_command_id": cmd_id,
+                "p_exit_code": None,
+                "p_stdout": None,
+                "p_stderr": None,
+                "p_error": "Missing collection_slug",
+            },
+        )
+        return
+
+    try:
+        api_rpc("start_command", {"p_command_id": cmd_id})
+    except Exception:
+        pass
+
+    try:
+        cols = api_get(
+            "collection_definitions",
+            {"slug": f"eq.{slug}", "select": "id,name", "limit": "1"},
+        )
+        if not cols:
+            raise ValueError(f"Collection '{slug}' not found")
+
+        col_id = cols[0]["id"]
+        limit = min(int(payload.get("limit", 100)), 500)
+
+        params = {
+            "select": "*",
+            "collection_id": f"eq.{col_id}",
+            "archived_at": "is.null",
+            "order": "created_at.desc",
+            "limit": str(limit),
+        }
+
+        records = api_get("collection_records", params)
+
+        fields = api_get(
+            "collection_fields",
+            {
+                "select": "field_key,field_type,label,is_title_field",
+                "collection_id": f"eq.{col_id}",
+                "order": "sort_order.asc",
+            },
+        )
+
+        result = {
+            "collection": cols[0]["name"],
+            "fields": fields,
+            "records": [
+                {"id": r["id"], "values": r.get("values", {}), "created_at": r["created_at"]}
+                for r in records
+            ],
+            "total": len(records),
+        }
+
+        api_rpc(
+            "complete_command",
+            {
+                "p_command_id": cmd_id,
+                "p_exit_code": 0,
+                "p_stdout": json.dumps(result, indent=2),
+                "p_stderr": None,
+            },
+        )
+    except Exception as e:
+        log(f"collection_query failed: {e}")
+        api_rpc(
+            "fail_command",
+            {
+                "p_command_id": cmd_id,
+                "p_exit_code": None,
+                "p_stdout": None,
+                "p_stderr": None,
+                "p_error": str(e),
+            },
+        )
+
+
+def handle_collection_record_create(cmd_id, payload):
+    """Create a record in a collection.
+
+    payload: { collection_slug: str, values: dict }
+    """
+    slug = payload.get("collection_slug")
+    values = payload.get("values") or {}
+
+    if not slug:
+        api_rpc(
+            "fail_command",
+            {
+                "p_command_id": cmd_id,
+                "p_exit_code": None,
+                "p_stdout": None,
+                "p_stderr": None,
+                "p_error": "Missing collection_slug",
+            },
+        )
+        return
+
+    try:
+        api_rpc("start_command", {"p_command_id": cmd_id})
+    except Exception:
+        pass
+
+    try:
+        cols = api_get(
+            "collection_definitions",
+            {"slug": f"eq.{slug}", "select": "id,name", "limit": "1"},
+        )
+        if not cols:
+            raise ValueError(f"Collection '{slug}' not found")
+
+        col_id = cols[0]["id"]
+        created = _api_post(
+            "collection_records",
+            {"collection_id": col_id, "values": values},
+        )
+
+        record_id = created[0]["id"] if isinstance(created, list) else created["id"]
+
+        api_rpc(
+            "complete_command",
+            {
+                "p_command_id": cmd_id,
+                "p_exit_code": 0,
+                "p_stdout": json.dumps({"id": record_id, "values": values}),
+                "p_stderr": None,
+            },
+        )
+    except Exception as e:
+        log(f"collection_record_create failed: {e}")
+        api_rpc(
+            "fail_command",
+            {
+                "p_command_id": cmd_id,
+                "p_exit_code": None,
+                "p_stdout": None,
+                "p_stderr": None,
+                "p_error": str(e),
+            },
+        )
+
+
+def handle_collection_record_update(cmd_id, payload):
+    """Update a record in a collection.
+
+    payload: { record_id: str, values: dict }
+    values is merged with existing values (patch semantics).
+    """
+    record_id = payload.get("record_id")
+    values = payload.get("values") or {}
+
+    if not record_id:
+        api_rpc(
+            "fail_command",
+            {
+                "p_command_id": cmd_id,
+                "p_exit_code": None,
+                "p_stdout": None,
+                "p_stderr": None,
+                "p_error": "Missing record_id",
+            },
+        )
+        return
+
+    try:
+        api_rpc("start_command", {"p_command_id": cmd_id})
+    except Exception:
+        pass
+
+    try:
+        existing = api_get(
+            "collection_records",
+            {"id": f"eq.{record_id}", "select": "id,values", "limit": "1"},
+        )
+        if not existing:
+            raise ValueError(f"Record '{record_id}' not found")
+
+        merged = {**(existing[0].get("values") or {}), **values}
+        api_patch("collection_records", record_id, {"values": merged})
+
+        api_rpc(
+            "complete_command",
+            {
+                "p_command_id": cmd_id,
+                "p_exit_code": 0,
+                "p_stdout": json.dumps({"id": record_id, "values": merged}),
+                "p_stderr": None,
+            },
+        )
+    except Exception as e:
+        log(f"collection_record_update failed: {e}")
+        api_rpc(
+            "fail_command",
+            {
+                "p_command_id": cmd_id,
+                "p_exit_code": None,
+                "p_stdout": None,
+                "p_stderr": None,
+                "p_error": str(e),
+            },
+        )
+
+
 CONNECTION_HANDLERS = {
     "auth_set_api_key": handle_auth_set_api_key,
     "auth_start": handle_auth_start,
@@ -1622,6 +1908,10 @@ CONNECTION_HANDLERS = {
     "set_agent_model": handle_set_agent_model,
     "list_models": handle_list_models,
     "source_write": handle_source_write,
+    "collection_list": handle_collection_list,
+    "collection_query": handle_collection_query,
+    "collection_record_create": handle_collection_record_create,
+    "collection_record_update": handle_collection_record_update,
 }
 
 # auth_start blocks for up to 5 minutes waiting for the user to paste back.

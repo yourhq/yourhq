@@ -11,12 +11,15 @@ import { CollectionCalendarView } from "@/components/collections/collection-cale
 import { CollectionViewTabs } from "@/components/collections/collection-view-tabs";
 import { CollectionFieldEditor } from "@/components/collections/collection-field-editor";
 import { CollectionImportDialog } from "@/components/collections/collection-import-dialog";
+import { CollectionSettingsDialog } from "@/components/collections/collection-settings-dialog";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { logAudit } from "@/lib/audit/log";
+import { toast } from "sonner";
 import {
   Search,
   Database,
@@ -25,6 +28,7 @@ import {
   Upload,
   Settings2,
   ArrowLeft,
+  Pencil,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -63,12 +67,41 @@ function CollectionDetailContent() {
   return <CollectionDetailInner collection={collection} />;
 }
 
-function CollectionDetailInner({ collection }: { collection: CollectionDefinition }) {
+function CollectionDetailInner({ collection: initialCollection }: { collection: CollectionDefinition }) {
   const router = useRouter();
+  const [collection, setCollection] = useState(initialCollection);
   const cr = useCollectionRecords(collection.id);
   const [showImport, setShowImport] = useState(false);
   const [showFields, setShowFields] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [deleteRecordId, setDeleteRecordId] = useState<string | null>(null);
+
+  const handleUpdateCollection = useCallback(
+    async (
+      id: string,
+      updates: Partial<Pick<CollectionDefinition, "name" | "description" | "icon" | "color">>,
+    ) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("collection_definitions")
+        .update(updates)
+        .eq("id", id);
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      await logAudit(supabase, {
+        module: "collections",
+        entity_type: "collection",
+        entity_id: id,
+        action: "updated",
+        summary: "Updated collection settings",
+      });
+      toast.success("Collection updated");
+      setCollection((prev) => ({ ...prev, ...updates }));
+    },
+    [],
+  );
 
   const handleAddRecord = useCallback(
     async (defaults?: Record<string, unknown>) => {
@@ -113,6 +146,14 @@ function CollectionDetailInner({ collection }: { collection: CollectionDefinitio
         description={collection.description}
         primaryAction={
           <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1.5 text-xs"
+              onClick={() => setShowSettings(true)}
+            >
+              <Pencil className="h-3 w-3" />
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -244,6 +285,7 @@ function CollectionDetailInner({ collection }: { collection: CollectionDefinitio
               onAddField={cr.actions.addField}
               onUpdateField={cr.actions.updateField}
               onDeleteField={cr.actions.deleteField}
+              onReorderFields={cr.actions.reorderFields}
             />
           </div>
         )}
@@ -254,6 +296,13 @@ function CollectionDetailInner({ collection }: { collection: CollectionDefinitio
         onClose={() => setShowImport(false)}
         fields={cr.fields}
         onImport={cr.actions.importRecords}
+      />
+
+      <CollectionSettingsDialog
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
+        collection={collection}
+        onSave={handleUpdateCollection}
       />
 
       <ConfirmDeleteDialog

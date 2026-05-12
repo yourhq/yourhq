@@ -150,3 +150,16 @@ export const VIEW_TYPE_ICONS: Record<CollectionViewType, string> = {
 };
 
 export const DEFAULT_COLLECTION_COLOR = "#6b7280";
+
+export const CREATABLE_FIELD_TYPES: CollectionFieldType[] = [
+  "text",
+  "number",
+  "date",
+  "datetime",
+  "boolean",
+  "select",
+  "multi_select",
+  "url",
+  "email",
+  "phone",
+];

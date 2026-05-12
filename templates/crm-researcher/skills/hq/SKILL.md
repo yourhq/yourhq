@@ -78,6 +78,17 @@ python3 skills/hq/scripts/hq_list_organizations.py --industry fintech --tag ente
 ```
 Filters: `--type`, `--industry`, `--search`, `--tag`, `--include-archived`, `--limit`
 
+### Create a contact
+```bash
+python3 skills/hq/scripts/hq_create_contact.py --name "Jane Doe" --email "jane@acme.com" \
+  --company "Acme Corp" --title "VP Engineering" --status lead --priority high
+```
+Optional: `--phone`, `--location`, `--linkedin-url`, `--twitter-url`, `--website-url`, `--how-we-met`, `--notes`, `--source`, `--relationship` (stranger/acquaintance/warm/strong), `--tags tag1,tag2`, `--extended '{"key": "val"}'`
+
+Link to an organization at creation: `--org-id ORG_UUID --org-role "VP Engineering"`
+
+The script validates `--status` against `pipeline_stages` and `--extended` keys against `field_definitions`. Use `--no-validate` to skip extended field validation.
+
 ### Update extended fields on a contact
 ```bash
 python3 skills/hq/scripts/hq_update_extended.py contacts CONTACT_ID \

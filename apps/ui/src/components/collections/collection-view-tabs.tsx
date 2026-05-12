@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { Plus, MoreHorizontal, Table, Columns, Calendar, Star, Trash2 } from "lucide-react";
+import { Plus, MoreHorizontal, Table, Columns, Calendar, Star, Trash2, Pencil } from "lucide-react";
 
 const VIEW_ICONS: Record<CollectionViewType, typeof Table> = {
   table: Table,
@@ -56,6 +56,8 @@ export function CollectionViewTabs({
   onDeleteView,
 }: CollectionViewTabsProps) {
   const [showCreate, setShowCreate] = useState(false);
+  const [renameViewId, setRenameViewId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState<CollectionViewType>("table");
   const [groupByField, setGroupByField] = useState("");
@@ -113,6 +115,15 @@ export function CollectionViewTabs({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setRenameViewId(v.id);
+                      setRenameDraft(v.name);
+                    }}
+                  >
+                    <Pencil className="mr-2 h-3.5 w-3.5" />
+                    Rename
+                  </DropdownMenuItem>
                   {!v.is_default && (
                     <DropdownMenuItem onClick={() => onUpdateView(v.id, { is_default: true })}>
                       <Star className="mr-2 h-3.5 w-3.5" />
@@ -147,6 +158,49 @@ export function CollectionViewTabs({
         </Button>
       </div>
 
+      {/* Rename view dialog */}
+      <ResponsiveDialog
+        open={!!renameViewId}
+        onOpenChange={(o) => !o && setRenameViewId(null)}
+      >
+        <ResponsiveDialogContent className="sm:max-w-xs">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Rename View</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
+          <div className="space-y-1.5">
+            <Label>Name</Label>
+            <Input
+              value={renameDraft}
+              onChange={(e) => setRenameDraft(e.target.value)}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && renameDraft.trim() && renameViewId) {
+                  onUpdateView(renameViewId, { name: renameDraft.trim() });
+                  setRenameViewId(null);
+                }
+              }}
+            />
+          </div>
+          <ResponsiveDialogFooter>
+            <Button variant="outline" onClick={() => setRenameViewId(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (renameDraft.trim() && renameViewId) {
+                  onUpdateView(renameViewId, { name: renameDraft.trim() });
+                  setRenameViewId(null);
+                }
+              }}
+              disabled={!renameDraft.trim()}
+            >
+              Save
+            </Button>
+          </ResponsiveDialogFooter>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
+
+      {/* New view dialog */}
       <ResponsiveDialog open={showCreate} onOpenChange={setShowCreate}>
         <ResponsiveDialogContent className="sm:max-w-sm">
           <ResponsiveDialogHeader>

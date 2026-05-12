@@ -48,11 +48,12 @@ function typeLabel(type: string): string {
 }
 
 interface InteractionsTimelineProps {
-  contactId: string;
+  contactId?: string;
+  orgId?: string;
   contactName: string;
 }
 
-export function InteractionsTimeline({ contactId, contactName }: InteractionsTimelineProps) {
+export function InteractionsTimeline({ contactId, orgId, contactName }: InteractionsTimelineProps) {
   const supabase = useMemo(() => createClient(), []);
   const [interactions, setInteractions] = useState<Interaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,14 +63,16 @@ export function InteractionsTimeline({ contactId, contactName }: InteractionsTim
 
   const fetchInteractions = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    let query = supabase
       .from("interactions")
       .select("*")
-      .eq("contact_id", contactId)
       .order("occurred_at", { ascending: false });
+    if (contactId) query = query.eq("contact_id", contactId);
+    if (orgId) query = query.eq("org_id", orgId);
+    const { data } = await query;
     if (data) setInteractions(data as Interaction[]);
     setLoading(false);
-  }, [supabase, contactId]);
+  }, [supabase, contactId, orgId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -202,6 +205,7 @@ export function InteractionsTimeline({ contactId, contactName }: InteractionsTim
         open={formOpen}
         onClose={handleClose}
         contactId={contactId}
+        orgId={orgId}
         contactName={contactName}
         interaction={editing}
         onSaved={fetchInteractions}

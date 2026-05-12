@@ -99,7 +99,11 @@ export type CommandAction =
   | "update_gateway"
   | "set_agent_model"
   | "list_models"
-  | "source_write";
+  | "source_write"
+  | "collection_list"
+  | "collection_query"
+  | "collection_record_create"
+  | "collection_record_update";
 
 export type CommandStatus = "pending" | "leased" | "running" | "done" | "failed";
 
@@ -137,6 +141,8 @@ export const CONNECTION_COMMAND_ACTIONS: CommandAction[] = [
   "auth_set_api_key", "auth_start", "auth_paste",
   "auth_list", "auth_remove", "auth_refresh", "auth_set_default",
   "source_write",
+  "collection_list", "collection_query",
+  "collection_record_create", "collection_record_update",
 ];
 
 export const COMMAND_ACTION_LABELS: Record<CommandAction, string> = {
@@ -158,6 +164,10 @@ export const COMMAND_ACTION_LABELS: Record<CommandAction, string> = {
   set_agent_model: "Set agent model",
   list_models: "List models",
   source_write: "Source write",
+  collection_list: "List collections",
+  collection_query: "Query collection",
+  collection_record_create: "Create record",
+  collection_record_update: "Update record",
 };
 
 export const COMMAND_STATUS_COLORS: Record<CommandStatus, string> = {

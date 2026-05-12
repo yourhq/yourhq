@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useRef, useEffect } from "react";
 import type { CollectionField, CollectionRecord } from "@/lib/collections/types";
-import { FIELD_TYPE_LABELS } from "@/lib/collections/types";
 import { CollectionCell } from "./collection-cell";
 import { formatDistanceToNow } from "date-fns";
 
@@ -59,21 +58,38 @@ export function CollectionRecordDetail({
           placeholder="Untitled"
           className="w-full bg-transparent text-lg font-semibold text-foreground placeholder:text-muted-foreground/50 outline-none border-none focus:ring-0"
         />
-        <p className="text-body text-muted-foreground">
-          Created {formatDistanceToNow(new Date(record.created_at), { addSuffix: true })}
-        </p>
+        <div className="flex items-center gap-3 text-body text-muted-foreground">
+          <span>
+            Created {formatDistanceToNow(new Date(record.created_at), { addSuffix: true })}
+          </span>
+          {record.updated_at !== record.created_at && (
+            <>
+              <span className="text-muted-foreground/40">·</span>
+              <span>
+                Updated {formatDistanceToNow(new Date(record.updated_at), { addSuffix: true })}
+              </span>
+            </>
+          )}
+          {record.archived_at && (
+            <>
+              <span className="text-muted-foreground/40">·</span>
+              <span className="text-amber-500">Archived</span>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Fields */}
-      <div className="space-y-3">
+      <div className="space-y-1">
         {activeFields.filter((f) => !f.is_title_field).map((field) => (
-          <div key={field.id} className="grid grid-cols-[120px_1fr] items-start gap-2">
-            <div className="flex flex-col py-1">
-              <span className="text-body text-muted-foreground truncate">{field.label}</span>
-              <span className="text-[10px] text-muted-foreground/60 uppercase">
-                {FIELD_TYPE_LABELS[field.field_type]}
-              </span>
-            </div>
+          <div
+            key={field.id}
+            className="grid grid-cols-1 sm:grid-cols-[160px_1fr] items-start gap-1 sm:gap-3 rounded-md px-1 py-1.5 hover:bg-accent/30 transition-colors"
+          >
+            <span className="text-body text-muted-foreground truncate py-1">
+              {field.label}
+              {field.required && <span className="text-destructive ml-0.5">*</span>}
+            </span>
             <div className="min-w-0">
               <CollectionCell
                 field={field}

@@ -90,6 +90,9 @@ export function ContactsTab() {
           onArchive={actions.handleArchiveContact}
           onRestore={actions.handleRestoreContact}
           onDelete={setDeleteId}
+          onBulkArchive={actions.handleBulkArchive}
+          onBulkDelete={actions.handleBulkDelete}
+          onBulkStatusChange={actions.handleBulkStatusChange}
           showArchived={filters.showArchived}
           onClearFilters={filters.clearFilters}
           onAddContact={form.openCreateForm}

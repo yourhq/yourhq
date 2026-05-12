@@ -38,6 +38,7 @@ import { formatDistanceToNow } from "date-fns";
 import { logAudit } from "@/lib/audit/log";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { InteractionsTimeline } from "@/components/crm/interactions-timeline";
 import { OrgForm } from "./org-form";
 
 interface OrgDetailProps {
@@ -199,6 +200,9 @@ export function OrgDetail({ organization: initial }: OrgDetailProps) {
               <TabsTrigger value="people" className="text-xs">
                 People {people.length > 0 && `(${people.length})`}
               </TabsTrigger>
+              <TabsTrigger value="interactions" className="text-xs">
+                Interactions
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="pt-6 space-y-6">
@@ -336,6 +340,13 @@ export function OrgDetail({ organization: initial }: OrgDetailProps) {
                   ))}
                 </div>
               )}
+            </TabsContent>
+
+            <TabsContent value="interactions" className="pt-6">
+              <InteractionsTimeline
+                orgId={organization.id}
+                contactName={organization.name}
+              />
             </TabsContent>
           </Tabs>
         </div>

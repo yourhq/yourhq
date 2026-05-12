@@ -262,6 +262,62 @@ export function useContacts() {
     }
   }
 
+  async function handleBulkArchive(ids: string[]) {
+    if (ids.length === 0) return;
+    await supabase
+      .from("contacts")
+      .update({ archived_at: new Date().toISOString() })
+      .in("id", ids);
+    for (const id of ids) {
+      logAudit(supabase, {
+        module: "crm",
+        entity_type: "contact",
+        entity_id: id,
+        action: "archived",
+        summary: `Bulk archived contact`,
+      });
+    }
+    setSelectedContact(null);
+    fetchContacts();
+    toast(`Archived ${ids.length} contact${ids.length === 1 ? "" : "s"}`);
+  }
+
+  async function handleBulkDelete(ids: string[]) {
+    if (ids.length === 0) return;
+    await supabase.from("contacts").delete().in("id", ids);
+    for (const id of ids) {
+      logAudit(supabase, {
+        module: "crm",
+        entity_type: "contact",
+        entity_id: id,
+        action: "deleted",
+        summary: `Bulk deleted contact`,
+      });
+    }
+    setSelectedContact(null);
+    fetchContacts();
+    toast(`Deleted ${ids.length} contact${ids.length === 1 ? "" : "s"}`);
+  }
+
+  async function handleBulkStatusChange(ids: string[], status: string) {
+    if (ids.length === 0) return;
+    await supabase
+      .from("contacts")
+      .update({ status, status_changed_at: new Date().toISOString() })
+      .in("id", ids);
+    for (const id of ids) {
+      logAudit(supabase, {
+        module: "crm",
+        entity_type: "contact",
+        entity_id: id,
+        action: "status_changed",
+        summary: `Bulk changed contact status to ${status}`,
+      });
+    }
+    fetchContacts();
+    toast(`Updated ${ids.length} contact${ids.length === 1 ? "" : "s"}`);
+  }
+
   function openCreateForm() {
     setEditingContact(null);
     setShowForm(true);
@@ -329,6 +385,9 @@ export function useContacts() {
       handleRestoreContact,
       handleDeleteContact,
       handleStatusChange,
+      handleBulkArchive,
+      handleBulkDelete,
+      handleBulkStatusChange,
     },
     selection: {
       selectedContact,

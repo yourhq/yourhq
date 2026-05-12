@@ -126,9 +126,12 @@ export function CollectionCalendarView({
         </div>
 
         {daysWithRecords.length === 0 ? (
-          <p className="py-8 text-center text-[11px] text-muted-foreground/60">
-            No records this month
-          </p>
+          <div className="py-8 text-center">
+            <p className="text-body text-muted-foreground">No records this month</p>
+            <p className="text-[11px] text-muted-foreground/60 mt-1">
+              Try a different month or add a record with a date in {format(currentMonth, "MMMM")}.
+            </p>
+          </div>
         ) : (
           <div className="space-y-4">
             {daysWithRecords.map((day) => {

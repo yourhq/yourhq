@@ -11,7 +11,9 @@ import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
-import { Archive, ArrowLeft, Database, Trash2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { EntityLinkList } from "@/components/shared/entity-link-list";
+import { Archive, ArrowLeft, Database, RotateCcw, Trash2 } from "lucide-react";
 import Link from "next/link";
 
 function RecordDetailContent() {
@@ -58,6 +60,7 @@ function RecordDetailInner({
   const router = useRouter();
   const cr = useCollectionRecords(collection.id);
   const [showDelete, setShowDelete] = useState(false);
+  const [showArchive, setShowArchive] = useState(false);
 
   const record = useMemo(
     () => cr.allRecords.find((r) => r.id === recordId),
@@ -103,15 +106,27 @@ function RecordDetailInner({
         }
         primaryAction={
           <div className="flex items-center gap-1.5">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 gap-1.5 text-xs"
-              onClick={() => cr.actions.archiveRecord(recordId)}
-            >
-              <Archive className="h-3 w-3" />
-              Archive
-            </Button>
+            {record.archived_at ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1.5 text-xs"
+                onClick={() => cr.actions.restoreRecord(recordId)}
+              >
+                <RotateCcw className="h-3 w-3" />
+                Restore
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1.5 text-xs"
+                onClick={() => setShowArchive(true)}
+              >
+                <Archive className="h-3 w-3" />
+                Archive
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -125,13 +140,30 @@ function RecordDetailInner({
         }
       />
 
-      <div className="p-4 max-w-2xl">
+      <div className="p-4 max-w-2xl space-y-6">
         <CollectionRecordDetail
           record={record}
           fields={cr.fields}
           onCellChange={(fieldKey, value) => cr.actions.updateCell(recordId, fieldKey, value)}
         />
+
+        <div className="border-t border-border/50 pt-4">
+          <EntityLinkList ownerType="collection_record" ownerId={recordId} />
+        </div>
       </div>
+
+      <ConfirmDialog
+        open={showArchive}
+        title="Archive record?"
+        description="This record will be hidden from default views. You can restore it later."
+        confirmLabel="Archive"
+        tone="warning"
+        onConfirm={async () => {
+          await cr.actions.archiveRecord(recordId);
+          setShowArchive(false);
+        }}
+        onCancel={() => setShowArchive(false)}
+      />
 
       <ConfirmDeleteDialog
         open={showDelete}

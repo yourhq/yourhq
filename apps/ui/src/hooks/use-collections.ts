@@ -115,6 +115,26 @@ export function useCollections() {
         return null;
       }
 
+      // Seed with a default title field and table view
+      await supabase.from("collection_fields").insert({
+        collection_id: data.id,
+        field_key: "name",
+        field_type: "text",
+        label: "Name",
+        sort_order: 0,
+        required: false,
+        is_title_field: true,
+      });
+
+      await supabase.from("collection_views").insert({
+        collection_id: data.id,
+        name: "All Records",
+        view_type: "table",
+        config: {},
+        is_default: true,
+        sort_order: 0,
+      });
+
       await logAudit(supabase, {
         module: "collections",
         entity_type: "collection",
@@ -263,6 +283,32 @@ export function useCollections() {
     [supabase, fetchCollections],
   );
 
+  const updateCollection = useCallback(
+    async (
+      id: string,
+      updates: Partial<Pick<CollectionDefinition, "name" | "slug" | "description" | "icon" | "color">>,
+    ) => {
+      const { error } = await supabase
+        .from("collection_definitions")
+        .update(updates)
+        .eq("id", id);
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      await logAudit(supabase, {
+        module: "collections",
+        entity_type: "collection",
+        entity_id: id,
+        action: "updated",
+        summary: "Updated collection settings",
+      });
+      toast.success("Collection updated");
+      fetchCollections();
+    },
+    [supabase, fetchCollections],
+  );
+
   const deleteCollection = useCallback(
     async (id: string) => {
       const { error } = await supabase
@@ -310,6 +356,7 @@ export function useCollections() {
     },
     actions: {
       createCollection,
+      updateCollection,
       installTemplate,
       archiveCollection,
       restoreCollection,
