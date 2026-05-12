@@ -245,6 +245,12 @@ jobs:
       packages: read
       id-token: write
     steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ECR_ROLE_ARN }}
