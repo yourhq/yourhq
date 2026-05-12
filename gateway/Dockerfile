@@ -16,7 +16,7 @@
 # Multi-arch: amd64 + arm64. Chrome on arm64 uses the "-linux64" build so we
 # rely on Chromium (not google-chrome-stable) when ARCH=arm64.
 # =============================================================================
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8 \
