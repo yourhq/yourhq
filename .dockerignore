@@ -8,7 +8,8 @@
 *.key
 *-credentials.*
 ec2-key.*
-**/secrets/**
+# Top-level secrets dirs (not src/components/secrets/ or src/lib/secrets/)
+/secrets/
 openclaw_deploy_key*
 
 # VCS and editor state

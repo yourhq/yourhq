@@ -22,7 +22,7 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
     NODE_OPTIONS="--max-old-space-size=4096"
 COPY --from=deps /app/node_modules ./node_modules
 COPY apps/ui/. .
-RUN npm run build:templates && npx next build --webpack
+RUN npm run build
 
 FROM node:24-slim AS runner
 WORKDIR /app
