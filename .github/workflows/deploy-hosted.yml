@@ -19,15 +19,26 @@ jobs:
       github.event.workflow_run.conclusion == 'success'
     permissions:
       id-token: write
+      contents: read
     steps:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ECR_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
 
-      - name: Trigger App Runner deployment
-        env:
-          SERVICE_ARN: ${{ secrets.APPRUNNER_SERVICE_ARN }}
-        run: |
-          aws apprunner start-deployment --service-arn "${SERVICE_ARN}"
-          echo "App Runner deployment triggered. It will pull the latest image from ECR."
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr-login
+
+      - name: Deploy to ECS Express
+        uses: aws-actions/amazon-ecs-deploy-express-service@v1
+        with:
+          service-name: yourhq-worker
+          image: ${{ steps.ecr-login.outputs.registry }}/${{ vars.ECR_WORKER_REPOSITORY || 'yourhq-worker' }}:latest
+          execution-role-arn: ${{ secrets.ECS_EXECUTION_ROLE_ARN }}
+          infrastructure-role-arn: ${{ secrets.ECS_INFRASTRUCTURE_ROLE_ARN }}
+          container-port: 3001
+          cpu: "256"
+          memory: "512"
+          health-check-path: /health
+          min-task-count: 1
+          max-task-count: 1

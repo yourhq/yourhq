@@ -232,7 +232,7 @@ jobs:
             "${IMAGE}@${AMD64_DIGEST}" \
             "${IMAGE}@${ARM64_DIGEST}"
 
-  # ─── Phase 4: Push Worker image to ECR for App Runner ──────────
+  # ─── Phase 4: Push Worker image to ECR for ECS Express ──────────
   ecr-push:
     needs: [changes, manifest]
     if: >-
