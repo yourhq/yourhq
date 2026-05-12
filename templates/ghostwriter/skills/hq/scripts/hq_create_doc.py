@@ -12,6 +12,7 @@ from hq_base import (
     audit,
     build_embedding_input,
     check_env,
+    content_for_storage,
     generate_embedding,
     output,
 )
@@ -29,10 +30,12 @@ args = ap.parse_args()
 
 tags = [t.strip() for t in args.tags.split(",") if t.strip()] if args.tags else []
 
+tiptap_json, plain_text = content_for_storage(args.content or "")
+
 payload = {
     "title": args.title,
-    "content": args.content or None,
-    "plain_text": args.content or None,
+    "content": tiptap_json,
+    "plain_text": plain_text,
     "kind": args.kind,
     "scope": args.scope,
     "tags": tags,

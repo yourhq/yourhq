@@ -76,11 +76,13 @@ def fetch_boot_knowledge() -> list:
     if agents:
         agent_id = agents[0]["id"]
 
+    item_select = "id,title,kind,content,plain_text,tags,scope,folder_id,updated_at,meta,source_connection_id"
+
     workspace_items = (
         api_get(
             "knowledge_items",
             {
-                "select": "id,title,kind,content,plain_text,tags,scope,folder_id,updated_at",
+                "select": item_select,
                 "scope": "eq.workspace",
                 "pinned": "eq.true",
                 "archived_at": "is.null",
@@ -107,7 +109,7 @@ def fetch_boot_knowledge() -> list:
                 api_get(
                     "knowledge_items",
                     {
-                        "select": "id,title,kind,content,plain_text,tags,scope,folder_id,updated_at",
+                        "select": item_select,
                         "id": f"in.({','.join(item_ids)})",
                         "archived_at": "is.null",
                     },
@@ -121,19 +123,58 @@ def fetch_boot_knowledge() -> list:
         if item["id"] in seen:
             continue
         seen.add(item["id"])
-        items.append(
+        entry = {
+            "id": item.get("id"),
+            "title": item.get("title") or "Untitled",
+            "kind": item.get("kind") or "page",
+            "tags": item.get("tags") or [],
+            "scope": item.get("scope") or "workspace",
+            "updatedAt": item.get("updated_at"),
+            "content": item.get("plain_text") or item.get("content") or "",
+            "folderId": item.get("folder_id"),
+        }
+        meta = item.get("meta") or {}
+        if isinstance(meta, dict) and meta.get("provider"):
+            entry["provider"] = meta["provider"]
+        items.append(entry)
+    return items
+
+
+def fetch_connected_sources() -> list:
+    """Fetch active source connections for the workspace summary."""
+    connections = (
+        api_get(
+            "source_connections",
             {
-                "id": item.get("id"),
-                "title": item.get("title") or "Untitled",
-                "kind": item.get("kind") or "page",
-                "tags": item.get("tags") or [],
-                "scope": item.get("scope") or "workspace",
-                "updatedAt": item.get("updated_at"),
-                "content": item.get("plain_text") or item.get("content") or "",
-                "folderId": item.get("folder_id"),
+                "select": "id,provider,account_label,writable,status",
+                "status": "eq.active",
+                "order": "provider.asc",
+            },
+        )
+        or []
+    )
+    results = []
+    for conn in connections:
+        item_count = len(
+            api_get(
+                "knowledge_items",
+                {
+                    "select": "id",
+                    "source_connection_id": f"eq.{conn['id']}",
+                    "archived_at": "is.null",
+                },
+            )
+            or []
+        )
+        results.append(
+            {
+                "provider": conn["provider"],
+                "accountLabel": conn["account_label"],
+                "writable": conn.get("writable", False),
+                "itemCount": item_count,
             }
         )
-    return items
+    return results
 
 
 def main() -> int:
@@ -163,6 +204,7 @@ def main() -> int:
         check_env()
         registered = register_agent()
         knowledge = fetch_boot_knowledge()
+        sources = fetch_connected_sources()
         payload = {
             "status": "done",
             "sessionId": args.session_id,
@@ -174,6 +216,7 @@ def main() -> int:
             "fetchedAt": now_iso(),
             "knowledge": knowledge,
             "knowledgeCount": len(knowledge),
+            "connectedSources": sources,
             "retries": retries,
         }
         out.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")

@@ -21,9 +21,26 @@ SOURCE_URL_PATTERNS = {
 }
 
 
+_connection_cache = {}
+
+
+def _resolve_connection(conn_id):
+    if conn_id in _connection_cache:
+        return _connection_cache[conn_id]
+    rows = api_get(
+        "source_connections",
+        {"select": "provider,account_label,writable", "id": f"eq.{conn_id}", "limit": "1"},
+    )
+    val = rows[0] if rows else None
+    _connection_cache[conn_id] = val
+    return val
+
+
 def enrich_source_urls(results):
     for r in results:
         meta = r.get("meta") or {}
+        if meta.get("provider"):
+            r["provider"] = meta["provider"]
         if meta.get("source_url"):
             r["source_url"] = meta["source_url"]
         elif r.get("source_external_id") and r.get("kind") == "source":
@@ -31,6 +48,14 @@ def enrich_source_urls(results):
             if provider and provider in SOURCE_URL_PATTERNS:
                 ext_id = r["source_external_id"].replace("-", "")
                 r["source_url"] = SOURCE_URL_PATTERNS[provider].format(id=ext_id)
+        conn_id = r.get("source_connection_id")
+        if conn_id and r.get("kind") == "source":
+            conn = _resolve_connection(conn_id)
+            if conn:
+                r["source_connection_label"] = conn.get("account_label")
+                r["source_writable"] = conn.get("writable", False)
+                if not r.get("provider"):
+                    r["provider"] = conn.get("provider")
     return results
 
 

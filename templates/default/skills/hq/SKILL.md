@@ -128,6 +128,26 @@ python3 skills/hq/scripts/hq_get_doc.py ITEM_ID
 python3 skills/hq/scripts/hq_get_docs_by_tag.py TAG_NAME
 ```
 
+### List connected sources
+```bash
+python3 skills/hq/scripts/hq_list_sources.py
+```
+Shows what external systems (Notion, Google Drive, etc.) are connected to the workspace, whether they support writes, and how many items are synced from each.
+
+### Write to a connected source
+```bash
+python3 skills/hq/scripts/hq_write_source.py \
+  --connection-id UUID \
+  --action create_item \
+  --params '{"title": "Meeting Notes", "content": "# Summary\n...", "parent_id": "PARENT_UUID"}'
+```
+Creates content in the connected external system. Only works if the connection is writable. Check `hq_list_sources.py` first. The command is routed through the gateway command queue.
+
+### Knowledge vs source decision
+- **Search results include sources.** When you search knowledge, source items appear with their provider and source URL. Read them like any knowledge item.
+- **Don't duplicate.** If content already exists as a synced source (e.g., a Notion page), don't create a duplicate knowledge page. Reference the source item instead.
+- **Write to the right place.** If the user's workflow lives in Notion and the connection is writable, prefer writing there over creating a knowledge page. If the connection is read-only, create a knowledge page and mention that the user may want to move it to Notion.
+
 ## Tasks
 
 ### List tasks

@@ -13,6 +13,7 @@ from hq_base import (
     audit,
     build_embedding_input,
     check_env,
+    content_for_storage,
     generate_embedding,
     get_agent_id,
     output,
@@ -35,18 +36,20 @@ if not agent_id:
 
 tags = [t.strip() for t in args.tags.split(",") if t.strip()] if args.tags else []
 
+tiptap_json, plain_text = content_for_storage(args.content)
+
 if args.item_id:
     # Update existing skill
     changes = {
         "title": args.title,
-        "content": args.content,
-        "plain_text": args.content,
+        "content": tiptap_json,
+        "plain_text": plain_text,
     }
     if tags:
         changes["tags"] = tags
 
     try:
-        embedding_input = build_embedding_input(args.title, args.content, tags)
+        embedding_input = build_embedding_input(args.title, plain_text, tags)
         emb = generate_embedding(embedding_input)
         if emb:
             changes["embedding"] = emb
@@ -65,8 +68,8 @@ else:
     # Create new skill scoped to this agent
     payload = {
         "title": args.title,
-        "content": args.content,
-        "plain_text": args.content,
+        "content": tiptap_json,
+        "plain_text": plain_text,
         "kind": "skill",
         "scope": "agent",
         "tags": tags,
@@ -75,7 +78,7 @@ else:
     }
 
     try:
-        embedding_input = build_embedding_input(args.title, args.content, tags)
+        embedding_input = build_embedding_input(args.title, plain_text, tags)
         emb = generate_embedding(embedding_input)
         if emb:
             payload["embedding"] = emb
