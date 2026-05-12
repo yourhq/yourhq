@@ -6,7 +6,7 @@
 # Carries Docker CLI so it can `docker compose restart` sibling containers
 # (restart_gateway / restart_dispatcher / update_self actions).
 # =============================================================================
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
