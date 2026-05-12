@@ -38,6 +38,8 @@ openclaw agent --agent <workspace>/<agent-slug> [--model <model-id>] [--thinking
 
 The `--model` and `--thinking` flags are included when the inbox item's `context` contains per-task overrides. This lets individual tasks run with different reasoning depth without changing the agent's default configuration.
 
+For `task_assignment` events, the dispatcher enriches the message with unresolved blocker information from `task_relations`. If the assigned task has active `blocked_by` dependencies (blocking tasks not yet `done` or `cancelled`), a note is appended to the summary so the agent knows what dependencies exist before starting work.
+
 This is fire-and-forget — the dispatcher doesn't wait for the agent to respond. Before waking, the dispatcher checks:
 
 - The agent is not paused or hibernating

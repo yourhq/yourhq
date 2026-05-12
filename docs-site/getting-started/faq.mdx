@@ -166,7 +166,7 @@ description: "Common questions about HQ — what it is, how it works, and how to
   <Accordion title="Can I run multiple gateways?">
     Yes. Each gateway registers itself with a unique `GATEWAY_ID`. Agents are bound to a specific gateway via a foreign key; the UI talks to each gateway via its stored reachable URL.
 
-    Example: UI on your laptop, one gateway on a Mac mini at home, one gateway on a VPS — all pointing at the same Supabase project.
+    Example: UI on your laptop, one gateway on a Mac mini at home, one gateway on a VPS — all pointing at the same Supabase database.
 
     To add a gateway: **Settings → Gateways → Add Gateway**. HQ generates a one-time registration token and gives you the installer command for the new host.
 
@@ -174,7 +174,7 @@ description: "Common questions about HQ — what it is, how it works, and how to
   </Accordion>
 
   <Accordion title="Can I run multiple workspaces?">
-    Yes. One HQ UI instance can manage multiple independent Supabase projects via the project registry. Use the project picker in the top nav to switch between workspaces. Each workspace is completely isolated — separate agents, data, gateways, and auth users.
+    Yes. One HQ UI instance can manage multiple independent Supabase projects via the workspace registry. Use the workspace switcher in the top nav to switch between workspaces. Each workspace is completely isolated — separate agents, data, gateways, and auth users.
 
     You can also run multiple Compose stacks on the same host by setting a different `COMPOSE_PROJECT` in each `.env` — they get separate volumes and container names.
   </Accordion>
@@ -261,7 +261,7 @@ description: "Common questions about HQ — what it is, how it works, and how to
   </Accordion>
 
   <Accordion title="How is multi-tenancy handled?">
-    HQ uses tenant-scoped row-level security on every table — each row has a `tenant_id`, and RLS policies restrict access to rows matching the authenticated user's tenant. Self-hosted installs use a single default tenant. On top of that, the multi-project registry gives each workspace its own Supabase project for full database-level isolation. The UI's project switcher lets one HQ instance manage multiple isolated projects.
+    HQ uses tenant-scoped row-level security on every table — each row has a `tenant_id`, and RLS policies restrict access to rows matching the authenticated user's tenant. Self-hosted installs use a single default tenant. On top of that, the multi-workspace registry gives each workspace its own Supabase project for full database-level isolation. The UI's workspace switcher lets one HQ instance manage multiple isolated workspaces.
 
     See [Security model →](/concepts/security-model)
   </Accordion>

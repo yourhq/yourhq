@@ -10,6 +10,7 @@ import type {
   KnowledgeChunkSearchResult,
 } from "@/lib/knowledge/types";
 import { collectDescendantIds, isDescendant } from "@/lib/knowledge/tree";
+import { markdownToTiptap } from "@/lib/knowledge/markdown-to-tiptap";
 import { logAudit } from "@/lib/audit/log";
 import { completeItem } from "@/lib/onboarding/progress";
 import { useRealtimeSync } from "./use-realtime-sync";
@@ -271,7 +272,7 @@ export function useKnowledge() {
         title: input.title,
         folder_id: input.folderId || null,
         scope: input.scope ?? "workspace",
-        content: input.kind === "page" || input.kind === "playbook" ? "" : null,
+        content: input.kind === "page" || input.kind === "skill" ? "" : null,
         embedding_status: "pending",
         chunk_status: "pending",
       })
@@ -309,12 +310,13 @@ export function useKnowledge() {
       if (ext === "md" || ext === "markdown" || ext === "txt") {
         const text = await file.text();
         const title = file.name.replace(/\.(md|markdown|txt)$/i, "").replace(/[-_]+/g, " ").trim() || "Untitled";
+        const tiptapContent = markdownToTiptap(text);
         const { data, error } = await supabase
           .from("knowledge_items")
           .insert({
             kind: "page",
             title,
-            content: text,
+            content: JSON.stringify(tiptapContent),
             folder_id: targetFolderId,
             embedding_status: "pending",
             chunk_status: "pending",
@@ -380,7 +382,7 @@ export function useKnowledge() {
     const rows = mdItems.map((item) => ({
       kind: "page" as const,
       title: item.title,
-      content: item.content,
+      content: JSON.stringify(markdownToTiptap(item.content)),
       folder_id: targetFolderId || null,
       embedding_status: "pending" as const,
       chunk_status: "pending" as const,
@@ -445,6 +447,9 @@ export function useKnowledge() {
 
   async function deleteItem(id: string) {
     const item = items.find((i) => i.id === id);
+    if (item?.file_url) {
+      await supabase.storage.from("assets").remove([item.file_url]);
+    }
     await supabase.from("knowledge_items").delete().eq("id", id);
     logAudit(supabase, {
       module: "knowledge",

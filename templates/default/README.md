@@ -21,7 +21,7 @@ Default starting point for every OpenClaw agent branch. Fork this into a new bra
 
 ## Shared Knowledge
 
-Shared context (product overview, conventions, playbooks) lives in **Supabase knowledge items**, not git. Knowledge items are scoped to workspace (all agents) or agent (specific agents):
+Shared context (product overview, conventions, skills) lives in **Supabase knowledge items**, not git. Knowledge items are scoped to workspace (all agents) or agent (specific agents):
 
 - scope='workspace', pinned=true — loaded by every agent at startup
 - scope='agent' with agent junction — loaded by a specific agent only

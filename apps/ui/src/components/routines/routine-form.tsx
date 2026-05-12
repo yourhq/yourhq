@@ -11,11 +11,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogTitle,
+  ResponsiveDialogDescription,
+} from "@/components/ui/responsive-dialog";
 import {
   Select,
   SelectContent,
@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Clock, Zap } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface RoutineFormProps {
@@ -98,6 +99,9 @@ export function RoutineForm({
 
   const [collections, setCollections] = useState<{ id: string; name: string; slug: string }[]>([]);
   const [collectionFields, setCollectionFields] = useState<{ field_key: string; label: string; field_type: string; options: unknown }[]>([]);
+  const [recentRuns, setRecentRuns] = useState<
+    { id: string; created_at: string; status: string; context: Record<string, unknown> | null }[]
+  >([]);
 
   const instructionRef = useRef<HTMLTextAreaElement>(null);
 
@@ -150,17 +154,56 @@ export function RoutineForm({
     return () => { cancelled = true; };
   }, [supabase, entityType, collectionId]);
 
+  useEffect(() => {
+    if (!editingRoutine) return;
+    let cancelled = false;
+    supabase
+      .from("agent_inbox_items")
+      .select("id, created_at, status, context")
+      .contains("context", { routine_id: editingRoutine.id })
+      .order("created_at", { ascending: false })
+      .limit(5)
+      .then(({ data }) => {
+        if (!cancelled && data) setRecentRuns(data);
+      });
+    return () => { cancelled = true; };
+  }, [supabase, editingRoutine]);
+
+  const [nextRunPreview, setNextRunPreview] = useState<string | null>(null);
+
   const selectedAgent = agents.find((a) => a.id === agentId) ?? null;
 
   const cadenceOption = CADENCE_OPTIONS.find((c) => c.value === cadenceType);
   const showValue = condition === "changed_to" || condition === "changed_from";
+  const isValidTimezone = !timezone || timezones.includes(timezone);
 
   const canSubmit =
     !!agentId &&
     name.trim().length > 0 &&
     (triggerType === "schedule"
-      ? !!cadenceType && !!timezone
+      ? !!cadenceType && !!timezone && isValidTimezone
       : !!entityType && !!condition && (!showValue || value.trim().length > 0));
+
+  useEffect(() => {
+    if (triggerType !== "schedule" || !cadenceType || !timezone || !isValidTimezone) {
+      setNextRunPreview(null);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      const cadOpt = CADENCE_OPTIONS.find((c) => c.value === cadenceType);
+      const { data } = await supabase.rpc("routine_next_occurrence", {
+        p_cadence_type: cadenceType,
+        p_interval_n: cadOpt?.hasInterval ? intervalN : null,
+        p_days_of_week: cadenceType === "weekly" ? daysOfWeek : [],
+        p_day_of_month: cadenceType === "monthly" ? dayOfMonth : null,
+        p_time_of_day: cadOpt?.hasTime ? timeOfDay : null,
+        p_timezone: timezone,
+        p_from: new Date().toISOString(),
+      });
+      setNextRunPreview(data);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [supabase, triggerType, cadenceType, intervalN, daysOfWeek, dayOfMonth, timeOfDay, timezone, isValidTimezone]);
 
   function insertToken(token: string) {
     const el = instructionRef.current;
@@ -230,6 +273,19 @@ export function RoutineForm({
       payload.timezone = null;
     }
 
+    if (triggerType === "schedule" && payload.cadence_type && payload.timezone) {
+      const { data: nextRun } = await supabase.rpc("routine_next_occurrence", {
+        p_cadence_type: payload.cadence_type as string,
+        p_interval_n: (payload.interval_n as number) ?? null,
+        p_days_of_week: (payload.days_of_week as number[]) ?? [],
+        p_day_of_month: (payload.day_of_month as number) ?? null,
+        p_time_of_day: (payload.time_of_day as string) ?? null,
+        p_timezone: payload.timezone as string,
+        p_from: new Date().toISOString(),
+      });
+      payload.next_run_at = nextRun;
+    }
+
     if (editingRoutine) {
       const { error } = await supabase
         .from("routines")
@@ -272,14 +328,14 @@ export function RoutineForm({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden max-h-[90dvh] flex flex-col">
-        <DialogTitle className="sr-only">
+    <ResponsiveDialog open onOpenChange={(open) => !open && onCancel()}>
+      <ResponsiveDialogContent variant="fullscreen" className="sm:max-w-lg p-0 gap-0 overflow-hidden max-h-[90dvh] flex flex-col">
+        <ResponsiveDialogTitle className="sr-only">
           {editingRoutine ? "Edit routine" : "New routine"}
-        </DialogTitle>
-        <DialogDescription className="sr-only">
+        </ResponsiveDialogTitle>
+        <ResponsiveDialogDescription className="sr-only">
           Create or edit a routine for an agent
-        </DialogDescription>
+        </ResponsiveDialogDescription>
 
         <form
           onSubmit={(e) => {
@@ -497,7 +553,26 @@ export function RoutineForm({
                           <option key={tz} value={tz} />
                         ))}
                       </datalist>
+                      {timezone && !isValidTimezone && (
+                        <p className="text-[10px] text-destructive mt-0.5">
+                          Invalid timezone. Pick from the list.
+                        </p>
+                      )}
                     </div>
+                  </div>
+                )}
+
+                {nextRunPreview && (
+                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-muted/20 rounded px-2 py-1.5">
+                    <Clock className="h-3 w-3 shrink-0" />
+                    <span>
+                      Next run: {new Date(nextRunPreview).toLocaleString(undefined, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}
+                      {" · "}
+                      {formatDistanceToNow(new Date(nextRunPreview), { addSuffix: true })}
+                    </span>
                   </div>
                 )}
               </div>
@@ -588,7 +663,7 @@ export function RoutineForm({
                         <SelectContent>
                           <SelectItem value="status">Status</SelectItem>
                           <SelectItem value="priority">Priority</SelectItem>
-                          <SelectItem value="assigned_agent_id">Assigned Agent</SelectItem>
+                          <SelectItem value="assignee_agent_id">Assigned Agent</SelectItem>
                         </SelectContent>
                       </Select>
                     ) : (
@@ -675,6 +750,43 @@ export function RoutineForm({
                 className="mt-1 w-full rounded-md border border-border/50 bg-transparent px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring resize-none"
               />
             </div>
+
+            {editingRoutine && recentRuns.length > 0 && (
+              <div>
+                <label className="text-[11px] uppercase tracking-wide text-muted-foreground/70">
+                  Recent runs
+                </label>
+                <div className="mt-1 space-y-0.5">
+                  {recentRuns.map((run) => (
+                    <div
+                      key={run.id}
+                      className="flex items-center gap-2 rounded px-2.5 py-1.5 text-[11px] bg-muted/20"
+                    >
+                      <span
+                        className={cn(
+                          "inline-flex h-4 items-center rounded px-1 text-[10px] font-medium",
+                          run.status === "done"
+                            ? "bg-emerald-500/15 text-emerald-400"
+                            : run.status === "pending" || run.status === "leased"
+                              ? "bg-blue-500/15 text-blue-400"
+                              : run.status === "failed"
+                                ? "bg-red-500/15 text-red-400"
+                                : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {run.status}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {formatDistanceToNow(new Date(run.created_at), { addSuffix: true })}
+                      </span>
+                      {Boolean(run.context?.manual_trigger) && (
+                        <span className="text-muted-foreground/50">manual</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -705,7 +817,7 @@ export function RoutineForm({
           </div>
         </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Sparkles,
@@ -8,9 +8,10 @@ import {
   Loader2,
   AlertCircle,
   ArrowRight,
+  RotateCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { pollProvisionAction } from "./actions";
+import { pollProvisionAction, retryProvisionAction } from "./actions";
 
 interface Stage {
   key: string;
@@ -42,11 +43,24 @@ function stageIndex(stage: string | null): number {
   return STAGE_MAP[stage] ?? -1;
 }
 
+function friendlyError(raw: string): string {
+  if (raw.includes("project creation failed")) return "We couldn't create your database right now. Our team has been notified — please try again in a few minutes.";
+  if (raw.includes("did not become ready")) return "Your database is taking longer than expected to initialize. We're looking into it — please check back shortly.";
+  if (raw.includes("Failed to fetch")) return "We ran into a temporary issue connecting to our infrastructure. Please try again in a moment.";
+  if (raw.includes("Auth user creation failed")) return "We had trouble setting up your account. Please contact support@yourhq.ai if this persists.";
+  if (raw.includes("Gateway did not register")) return "Your agent runtime started but took too long to connect. This is usually temporary — please refresh the page.";
+  if (raw.includes("setup failed")) return "Workspace initialization didn't complete. Please contact support@yourhq.ai for help.";
+  return "Something unexpected happened during setup. Our team has been notified. Please try again or contact support@yourhq.ai.";
+}
+
+const MAX_POLL_MS = 5 * 60 * 1000;
+
 export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
   const [currentStage, setCurrentStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [autoLoginUrl, setAutoLoginUrl] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
   const router = useRouter();
+  const pollStartRef = useRef<number>(0);
 
   const poll = useCallback(async () => {
     const status = await pollProvisionAction(workspaceId);
@@ -56,16 +70,35 @@ export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
       return;
     }
     setCurrentStage(status.provision_stage);
-    if (status.auto_login_url) setAutoLoginUrl(status.auto_login_url);
   }, [workspaceId]);
 
-  /* eslint-disable react-hooks/set-state-in-effect */
+  const handleRetry = useCallback(async () => {
+    if (retrying) return;
+    setRetrying(true);
+    const result = await retryProvisionAction(workspaceId);
+    if (result.ok) {
+      setError(null);
+      setCurrentStage(null);
+      pollStartRef.current = Date.now();
+    }
+    setRetrying(false);
+  }, [workspaceId, retrying]);
+
   useEffect(() => {
+    if (error) return;
+    if (pollStartRef.current === 0) pollStartRef.current = Date.now();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     poll();
-    const interval = setInterval(poll, 2000);
+    const interval = setInterval(() => {
+      if (Date.now() - pollStartRef.current > MAX_POLL_MS) {
+        clearInterval(interval);
+        setError("Provisioning is taking longer than expected. Please refresh the page or contact support@yourhq.ai.");
+        return;
+      }
+      poll();
+    }, 2000);
     return () => clearInterval(interval);
-  }, [poll]);
-  /* eslint-enable react-hooks/set-state-in-effect */
+  }, [poll, error]);
 
   const current = stageIndex(currentStage);
   const isComplete = currentStage === "complete";
@@ -73,14 +106,10 @@ export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
   useEffect(() => {
     if (!isComplete) return;
     const timer = setTimeout(() => {
-      if (autoLoginUrl) {
-        window.location.href = autoLoginUrl;
-      } else {
-        router.push("/login");
-      }
+      router.push("/login");
     }, 2000);
     return () => clearTimeout(timer);
-  }, [isComplete, autoLoginUrl, router]);
+  }, [isComplete, router]);
 
   const progressPercent = isComplete
     ? 100
@@ -113,9 +142,7 @@ export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
             </h1>
             <p className="text-[13px] text-muted-foreground">
               {isComplete
-                ? autoLoginUrl
-                  ? "Signing you in…"
-                  : "Redirecting you to sign in…"
+                ? "Redirecting you to sign in…"
                 : "This usually takes about a minute."}
             </p>
           </div>
@@ -135,16 +162,24 @@ export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
         {/* Stages card */}
         <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden">
           {error ? (
-            <div className="p-6">
+            <div className="p-6 space-y-4">
               <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
                 <div className="min-w-0 space-y-1">
                   <p className="text-[13px] font-medium text-destructive">
                     Something went wrong
                   </p>
-                  <p className="text-[12px] text-destructive/80">{error}</p>
+                  <p className="text-[12px] text-destructive/80">{friendlyError(error)}</p>
                 </div>
               </div>
+              <button
+                onClick={handleRetry}
+                disabled={retrying}
+                className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-border bg-background text-[13px] font-medium text-foreground transition-all hover:bg-accent active:scale-[0.98] disabled:opacity-50"
+              >
+                <RotateCw className={cn("h-3.5 w-3.5", retrying && "animate-spin")} />
+                {retrying ? "Retrying…" : "Try again"}
+              </button>
             </div>
           ) : (
             <div className="divide-y divide-border/40">
@@ -192,16 +227,10 @@ export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
         {/* CTA when complete */}
         {isComplete && (
           <button
-            onClick={() => {
-              if (autoLoginUrl) {
-                window.location.href = autoLoginUrl;
-              } else {
-                router.push("/login");
-              }
-            }}
+            onClick={() => router.push("/login")}
             className="mt-5 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-foreground text-[13px] font-medium text-background transition-all hover:bg-foreground/90 active:scale-[0.98]"
           >
-            {autoLoginUrl ? "Enter your workspace" : "Sign in to your workspace"}
+            Sign in to your workspace
             <ArrowRight className="h-3.5 w-3.5" />
           </button>
         )}

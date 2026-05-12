@@ -1,0 +1,57 @@
+{
+  "id": "notion",
+  "name": "Notion",
+  "description": "Sync pages and databases from your Notion workspace.",
+  "icon": "N",
+  "item_label": "Pages and databases",
+  "auth": {
+    "type": "api_key",
+    "fields": [
+      {
+        "key": "api_key",
+        "label": "Integration Token",
+        "placeholder": "ntn_...",
+        "input_type": "password",
+        "required": true
+      }
+    ],
+    "oauth": {
+      "authorize_url": "https://api.notion.com/v1/oauth/authorize",
+      "token_url": "https://api.notion.com/v1/oauth/token",
+      "token_field": "access_token",
+      "scopes": [],
+      "env_client_id": "NOTION_CLIENT_ID",
+      "env_client_secret": "NOTION_CLIENT_SECRET",
+      "auth_method": "basic",
+      "extra_params": { "owner": "user" },
+      "response_mapping": {
+        "account_label": "workspace_name",
+        "meta.workspace_icon": "workspace_icon",
+        "meta.owner_type": "owner.type",
+        "meta.owner_name": "owner.user.name",
+        "credentials.bot_id": "bot_id",
+        "credentials.workspace_id": "workspace_id"
+      }
+    },
+    "setup_steps": [
+      {
+        "title": "Create an integration",
+        "description": "Go to Notion Integrations and click \"+ New integration\". Give it a name like \"HQ Sync\" and select your workspace.",
+        "link": {
+          "label": "Open Notion Integrations",
+          "url": "https://www.notion.so/my-integrations"
+        }
+      },
+      {
+        "title": "Copy the token",
+        "description": "Under \"Internal Integration Secret\", click \"Show\" then \"Copy\". Paste it below."
+      },
+      {
+        "title": "Share pages with the integration",
+        "description": "In Notion, open any page or database you want to sync. Click ··· → Connections → find your integration and add it."
+      }
+    ]
+  },
+  "source_url_template": "https://notion.so/{external_id_no_dashes}",
+  "supports_write": false
+}

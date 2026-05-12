@@ -1,7 +1,8 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { WORKER_URL, workerHeaders } from "@/lib/worker-client";
+import { getWorkspaceSession } from "@/lib/workspaces/hosted-registry";
+import { workerFetch } from "@/lib/worker-client";
 
 interface WorkspaceInfo {
   id: string;
@@ -16,41 +17,53 @@ export async function listWorkspacesAction(): Promise<{
   workspaces?: WorkspaceInfo[];
   error?: string;
 }> {
-  const jar = await cookies();
-  const raw = jar.get("hq_workspace_session")?.value;
-  if (!raw) return { ok: false, error: "Not logged in." };
+  const session = await getWorkspaceSession();
+  if (!session) return { ok: false, error: "Not logged in." };
 
-  let session: { workspaceId: string };
   try {
-    session = JSON.parse(Buffer.from(raw, "base64url").toString());
+    const res = await workerFetch(
+      `/workspaces/${session.workspaceId}/siblings`,
+    );
+    if (!res.ok) {
+      return { ok: false, error: "Failed to fetch workspaces." };
+    }
+    const data = (await res.json()) as { workspaces: WorkspaceInfo[] };
+    return { ok: true, workspaces: data.workspaces };
   } catch {
-    return { ok: false, error: "Invalid session." };
+    return { ok: false, error: "Unable to reach the workspace service. Please try again." };
   }
-
-  const res = await fetch(
-    `${WORKER_URL}/workspaces/${session.workspaceId}/siblings`,
-    { headers: workerHeaders() },
-  );
-  if (!res.ok) {
-    return { ok: false, error: "Failed to fetch workspaces." };
-  }
-  const data = (await res.json()) as { workspaces: WorkspaceInfo[] };
-  return { ok: true, workspaces: data.workspaces };
 }
 
 export async function cancelWorkspaceAction(workspaceId: string): Promise<{
   ok: boolean;
   error?: string;
 }> {
-  const res = await fetch(
-    `${WORKER_URL}/workspaces/${workspaceId}/cancel`,
-    { method: "POST", headers: workerHeaders() },
-  );
-  if (!res.ok) {
-    const body = await res.text();
-    return { ok: false, error: body };
+  const session = await getWorkspaceSession();
+  if (!session) return { ok: false, error: "Not logged in." };
+
+  try {
+    const siblings = await workerFetch(
+      `/workspaces/${session.workspaceId}/siblings`,
+    );
+    if (!siblings.ok) {
+      return { ok: false, error: "Failed to verify workspace ownership." };
+    }
+    const data = (await siblings.json()) as { workspaces: WorkspaceInfo[] };
+    if (!data.workspaces.some((w) => w.id === workspaceId)) {
+      return { ok: false, error: "Workspace not found." };
+    }
+
+    const res = await workerFetch(
+      `/workspaces/${workspaceId}/cancel`,
+      { method: "POST" },
+    );
+    if (!res.ok) {
+      return { ok: false, error: "Cancellation failed. Please try again or contact support." };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Unable to reach the workspace service. Please try again." };
   }
-  return { ok: true };
 }
 
 export async function getBillingPortalAction(): Promise<{
@@ -58,29 +71,29 @@ export async function getBillingPortalAction(): Promise<{
   url?: string;
   error?: string;
 }> {
-  const jar = await cookies();
-  const raw = jar.get("hq_workspace_session")?.value;
-  if (!raw) return { ok: false, error: "Not logged in." };
+  const session = await getWorkspaceSession();
+  if (!session) return { ok: false, error: "Not logged in." };
 
-  let session: { workspaceId: string };
   try {
-    session = JSON.parse(Buffer.from(raw, "base64url").toString());
+    const res = await workerFetch(
+      `/workspaces/${session.workspaceId}/billing-portal`,
+      { method: "POST" },
+    );
+    if (!res.ok) {
+      return { ok: false, error: "Failed to open billing portal. Please try again." };
+    }
+    const data = (await res.json()) as { url?: string };
+    if (!data.url) {
+      return { ok: false, error: "Billing portal is not available." };
+    }
+    return { ok: true, url: data.url };
   } catch {
-    return { ok: false, error: "Invalid session." };
+    return { ok: false, error: "Unable to reach the billing service. Please try again." };
   }
-
-  const res = await fetch(
-    `${WORKER_URL}/workspaces/${session.workspaceId}/billing-portal`,
-    { method: "POST", headers: workerHeaders() },
-  );
-  if (!res.ok) {
-    return { ok: false, error: "Failed to create billing portal session." };
-  }
-  const data = (await res.json()) as { url: string };
-  return { ok: true, url: data.url };
 }
 
 export async function logoutAction(): Promise<void> {
   const jar = await cookies();
   jar.delete("hq_workspace_session");
+  jar.delete("hq_hosted_email");
 }

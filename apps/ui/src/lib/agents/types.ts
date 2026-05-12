@@ -98,7 +98,8 @@ export type CommandAction =
   | "auth_set_default"
   | "update_gateway"
   | "set_agent_model"
-  | "list_models";
+  | "list_models"
+  | "source_write";
 
 export type CommandStatus = "pending" | "leased" | "running" | "done" | "failed";
 
@@ -135,6 +136,7 @@ export const SYSTEM_COMMAND_ACTIONS: CommandAction[] = [
 export const CONNECTION_COMMAND_ACTIONS: CommandAction[] = [
   "auth_set_api_key", "auth_start", "auth_paste",
   "auth_list", "auth_remove", "auth_refresh", "auth_set_default",
+  "source_write",
 ];
 
 export const COMMAND_ACTION_LABELS: Record<CommandAction, string> = {
@@ -155,6 +157,7 @@ export const COMMAND_ACTION_LABELS: Record<CommandAction, string> = {
   update_gateway: "Update Gateway",
   set_agent_model: "Set agent model",
   list_models: "List models",
+  source_write: "Source write",
 };
 
 export const COMMAND_STATUS_COLORS: Record<CommandStatus, string> = {

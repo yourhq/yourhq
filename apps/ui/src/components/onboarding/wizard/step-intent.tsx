@@ -39,7 +39,11 @@ export function StepIntent({
 
       <IntentCards selected={selected} onSelect={setSelected} />
 
-      <div className="flex items-center gap-3 pt-2">
+      <p className="text-[12px] text-muted-foreground">
+        You can change this anytime.
+      </p>
+
+      <div className="pt-2">
         <button
           type="button"
           onClick={() => selected && onSubmit(selected)}
@@ -48,7 +52,7 @@ export function StepIntent({
             "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all",
             !selected || pending
               ? "cursor-not-allowed bg-muted text-muted-foreground/50"
-              : "bg-foreground text-background hover:bg-foreground/90",
+              : "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]",
           )}
         >
           {pending ? "Setting up…" : "Continue"}
@@ -56,9 +60,6 @@ export function StepIntent({
             <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
           )}
         </button>
-        <span className="text-[11px] text-muted-foreground/60">
-          You can change this anytime
-        </span>
       </div>
     </div>
   );

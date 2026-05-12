@@ -18,7 +18,7 @@
 // On successful sign-in, the caller calls close() which also triggers
 // router.refresh() so server components re-render against the fresh cookie.
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -31,12 +31,16 @@ export interface AuthWatcherState {
   close: () => void;
   /** Call to proactively trigger the modal (e.g., after a 401). */
   requireSignIn: () => void;
+  /** Intentional sign-out — suppresses the re-auth modal. */
+  signOut: () => void;
 }
 
-export function useAuthWatcher(): AuthWatcherState {
+export function useAuthWatcher(opts?: { signOutPath?: string }): AuthWatcherState {
   const router = useRouter();
   const [needsSignIn, setNeedsSignIn] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
+  const signingOutRef = useRef(false);
+  const signOutPath = opts?.signOutPath ?? "/login";
 
   // Check initial session on mount + subscribe to auth events.
   useEffect(() => {
@@ -61,7 +65,9 @@ export function useAuthWatcher(): AuthWatcherState {
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (cancelled) return;
       if (event === "SIGNED_OUT" || !session) {
-        setNeedsSignIn(true);
+        if (!signingOutRef.current) {
+          setNeedsSignIn(true);
+        }
         setEmail(null);
         return;
       }
@@ -88,5 +94,13 @@ export function useAuthWatcher(): AuthWatcherState {
     setNeedsSignIn(true);
   }, []);
 
-  return { needsSignIn, email, close, requireSignIn };
+  const signOut = useCallback(async () => {
+    signingOutRef.current = true;
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push(signOutPath);
+    router.refresh();
+  }, [router, signOutPath]);
+
+  return { needsSignIn, email, close, requireSignIn, signOut };
 }

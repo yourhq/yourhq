@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface PageHeaderProps {
   title: React.ReactNode;
@@ -26,6 +27,8 @@ export function PageHeader({
   className,
   bordered = true,
 }: PageHeaderProps) {
+  const mobile = useIsMobile();
+
   return (
     <div
       className={cn(
@@ -44,16 +47,26 @@ export function PageHeader({
           )}
           <div className="min-w-0 space-y-1">
             <h1 className="text-display truncate">{title}</h1>
-            {description && (
+            {!mobile && description && (
               <p className="text-body text-muted-foreground">{description}</p>
             )}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {secondaryActions}
+          {!mobile && secondaryActions}
           {primaryAction}
         </div>
       </div>
+
+      {mobile && description && (
+        <p className="text-body text-muted-foreground -mt-1">{description}</p>
+      )}
+
+      {mobile && secondaryActions && (
+        <div className="flex flex-wrap items-center gap-2 -mt-1">
+          {secondaryActions}
+        </div>
+      )}
 
       {meta && <div className="flex items-center gap-2">{meta}</div>}
 

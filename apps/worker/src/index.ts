@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { logger } from "hono/logger";
 import { bearerAuth } from "hono/bearer-auth";
 import healthRoutes from "./routes/health.js";
 import stripeWebhookRoutes from "./routes/stripe-webhook.js";
@@ -7,19 +6,19 @@ import workspaceRoutes from "./routes/workspaces.js";
 import { E2BSandboxProvider } from "./providers/e2b.js";
 import { startTimeoutRenewer } from "./loops/timeout-renewer.js";
 import { startCleanupLoop } from "./loops/cleanup.js";
+import { startProvisioningRetryLoop } from "./loops/provisioning-retry.js";
+import { validateWorkerEnv } from "./lib/env.js";
 
+validateWorkerEnv();
 const app = new Hono();
-app.use("*", logger());
 
 app.route("/", healthRoutes);
 app.route("/", stripeWebhookRoutes);
 
-const internalToken = process.env.WORKER_INTERNAL_TOKEN;
-if (internalToken) {
-  app.use("/users/*", bearerAuth({ token: internalToken }));
-  app.use("/workspaces/*", bearerAuth({ token: internalToken }));
-  app.use("/checkout", bearerAuth({ token: internalToken }));
-}
+const internalToken = process.env.WORKER_INTERNAL_TOKEN!;
+app.use("/users/*", bearerAuth({ token: internalToken }));
+app.use("/workspaces/*", bearerAuth({ token: internalToken }));
+app.use("/checkout", bearerAuth({ token: internalToken }));
 
 app.route("/", workspaceRoutes);
 
@@ -27,11 +26,13 @@ app.route("/", workspaceRoutes);
 const sandboxProvider = new E2BSandboxProvider();
 startTimeoutRenewer(sandboxProvider);
 startCleanupLoop(sandboxProvider);
+startProvisioningRetryLoop(sandboxProvider);
 
 const port = Number(process.env.PORT ?? 3001);
 console.log(`[worker] Starting on port ${port}`);
 
-export default {
-  port,
-  fetch: app.fetch,
-};
+import { serve } from "@hono/node-server";
+
+serve({ fetch: app.fetch, port }, () => {
+  console.log(`[worker] Listening on http://localhost:${port}`);
+});

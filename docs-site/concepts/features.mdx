@@ -25,8 +25,14 @@ This page is the product tour. For system internals, read [Architecture](/concep
   <Card title="Routines" icon="bolt" href="#routines-and-inbox">
     Convert CRM, task, and comment events into agent work via schedule and event triggers.
   </Card>
+  <Card title="Secrets" icon="lock" href="#secrets-management">
+    Encrypted credential storage with per-agent scoping and automatic gateway sync.
+  </Card>
   <Card title="Usage budgets" icon="gauge-high" href="#usage-tracking-and-budgets">
     Track model spend and stop agents when they exceed limits.
+  </Card>
+  <Card title="Plugins" icon="puzzle-piece" href="#plugins">
+    Extend HQ with event-driven integrations — local Python handlers or remote webhooks.
   </Card>
   <Card title="Open source" icon="code-branch" href="/development/local-development">
     Inspect, fork, customize, and extend the whole system.
@@ -35,7 +41,7 @@ This page is the product tour. For system internals, read [Architecture](/concep
 
 ## Workspace
 
-Every HQ install connects to one or more Supabase projects. A project contains the workspace data: agents, tasks, CRM records, knowledge, routines, collections, settings, gateway registrations, command history, and usage data.
+Every HQ install connects to one or more Supabase projects. A workspace contains all the data: agents, tasks, CRM records, knowledge, routines, collections, settings, gateway registrations, command history, and usage data.
 
 The first boot flow is intentionally config-light:
 
@@ -43,7 +49,7 @@ The first boot flow is intentionally config-light:
 2. Open the UI and sign in.
 3. Complete the onboarding wizard.
 
-After setup, the project can be managed from Settings. The UI stores project metadata in `/config/projects.json` and project secrets in `/config/secrets.json` on the `ui-config` volume. The active project is selected at runtime, so the published UI image does not need a rebuild for each user's Supabase project.
+After setup, the workspace can be managed from Settings. The UI stores workspace metadata in `/config/workspaces.json` and workspace secrets in `/config/secrets.json` on the `ui-config` volume. The active workspace is selected at runtime, so the published UI image does not need a rebuild for each user's Supabase project.
 
 ## Onboarding
 
@@ -99,16 +105,12 @@ Agents are created from templates under `templates/`. The creation wizard lets y
 
 The agent detail page includes:
 
-- Overview, status, capabilities, and activity.
+- **Overview** — status, capabilities, knowledge items, skills, direct reports, and routines.
+- **Secrets** — credentials and keys this agent can use, with inherited gateway secrets and per-agent overrides.
+- **Files** — file browser/editor for the agent's git branch.
+- **Browser** — remote desktop access through the assigned gateway.
+- **Activity** — usage summary, inbox history, and command/operation history.
 - **Model and thinking level** — pick any connected model and reasoning depth from the right rail. Changes take effect on the next wake, no restart needed.
-- Knowledge items (workspace pinned + agent-scoped boot context).
-- Agent playbooks — playbooks the agent created or updated autonomously, with recency indicators and edit reasons.
-- Direct reports and manager assignment.
-- Trigger and inbox history.
-- File browser/editor for the agent branch.
-- Operations and command history.
-- Usage and budget controls.
-- Remote desktop access through the assigned gateway.
 
 ## Agent Templates
 
@@ -175,6 +177,34 @@ The budget system tracks:
 
 Budgets can be configured per agent. When a hard cutoff is enabled and an agent exceeds its monthly limit, the runtime blocks further replies and the inbox dispatcher stops waking that agent for background work. Budget transitions also create notifications.
 
+## Secrets Management
+
+Agents need credentials — API keys, OAuth tokens, webhook secrets — to interact with external services. HQ provides a unified encrypted secrets system that stores, syncs, and injects these values securely.
+
+<CardGroup cols={3}>
+  <Card title="Encrypted at rest" icon="lock">
+    AES-256-GCM encryption. Values are never visible after saving — not in the UI, API responses, logs, or LLM context.
+  </Card>
+  <Card title="Gateway sync" icon="rotate">
+    Secrets propagate to the gateway within seconds via Supabase Realtime. The sync status is visible in the UI.
+  </Card>
+  <Card title="Scoped access" icon="shield-halved">
+    Gateway-wide or per-agent. Agent-scoped secrets override gateway defaults automatically.
+  </Card>
+</CardGroup>
+
+**Settings → Secrets** manages workspace-level credentials available to all agents. The **agent detail → Secrets tab** shows per-agent overrides and inherited gateway secrets.
+
+Three categories:
+
+- **User** — manually added API keys and credentials (e.g. `SALESFORCE_API_KEY`).
+- **Channel** — auto-created when an agent is provisioned with a messaging channel (e.g. `TELEGRAM_BOT_TOKEN`).
+- **Integration** — auto-created by OAuth flows (e.g. Notion access tokens for source sync).
+
+Secrets are delivered to agents as environment variables via per-agent `.env` files on the gateway filesystem. Agent tools read them with `os.environ.get("SECRET_KEY")`. The AI model never sees secret values — only the tools it runs can access them.
+
+For details on encryption, key derivation, and the sync protocol, see [Secrets management](/guides/secrets-management).
+
 ## CRM
 
 The CRM stores people, organizations, interactions, campaigns, message templates, and draft sets.
@@ -204,22 +234,30 @@ Tasks support:
 - Priorities and due dates.
 - Recurrence rules.
 - **Per-task model and thinking overrides** — when assigned to an agent, override the model or reasoning depth for this specific execution without changing the agent's default.
+- **Relations and dependencies** — link tasks with `blocked_by`, `blocks`, `relates_to`, `parent_of`, and `child_of` relationships. Blockers are highlighted in the task list and task form. When a blocking task completes, a `notify_blocker_resolved` trigger creates an inbox item for the unblocked task's assignee.
+- **Labels** — managed workspace labels with configurable colors. Labels can be created from Settings → Labels or inline from the task form. Tasks display label pills in list and board views, and a label filter is available in the toolbar.
+- **Deliverables** — agents submit work products (pages, URLs, or collection records) to tasks for human review. The review workflow supports approve, request revision (with note), and reject actions. Deliverables appear in the task form's Deliverables tab.
+- **Task templates** — reusable task group templates with dependency graphs. Create templates from Settings → Templates, then spawn them from the task toolbar. Dependencies between template items are preserved as `blocked_by` relations on the created tasks.
+- **Overdue escalation** — a pg_cron job marks tasks past their due date as `missed` and creates inbox items to notify assigned agents. The task form shows a missed-task banner with a reopen action.
 - Comments and mentions.
 - Entity links to knowledge items, contacts, organizations, collection records, and URLs.
 - Agent inbox wakeups on assignment and reassignment.
+- **Agent delegation** — agents can delegate subtasks to direct reports via `hq_delegate_task.py`, which validates the org-chart relationship, creates a subtask with `child_of` relation, and inherits the parent task's stream.
 
-Mentioning an agent in a comment creates an inbox item for that agent. Assigning a task to an agent does the same. Per-task model overrides are carried through the inbox item's context and passed to the agent session at wake time.
+Mentioning an agent in a comment creates an inbox item for that agent. Assigning a task to an agent does the same. Per-task model overrides are carried through the inbox item's context and passed to the agent session at wake time. The inbox dispatcher enriches task assignment items with unresolved blocker information so agents know what dependencies exist before starting work.
 
 ## Knowledge
 
 The knowledge system is the unified store for all workspace knowledge. It replaces the earlier separate documents and assets models with a single `knowledge_items` table supporting four kinds:
 
 - **Pages** — rich-text documents (company briefs, style guides, meeting notes).
-- **Playbooks** — structured procedures and SOPs.
+- **Skills** — structured procedures and SOPs.
 - **Files** — uploaded files (PDFs, images, spreadsheets, audio, video).
-- **Sources** — externally synced content from connected integrations.
+- **Sources** — externally synced content from connected integrations via the plugin-based source connector system.
 
 Knowledge items support folders, tags, pinned state, rich editing, and semantic + full-text search.
+
+Source connectors are self-contained plugins — each provider is a folder under `gateway/connectors/<provider>/` with a `manifest.json` that declares auth, UI metadata, and capabilities. The platform handles credential encryption, OAuth flows, UI forms, sync scheduling, and embedding automatically. Providers that support it can enable two-way sync with a `writable` toggle per connection. See [Knowledge system — Source connectors](/concepts/knowledge#source-connectors) for the architecture.
 
 Agent boot context is controlled by **scope** and **pinning**:
 
@@ -348,6 +386,23 @@ HQ records important workspace events in `notifications`, `audit_log`, command h
 
 This gives the operator a single place to understand what happened and why.
 
+## Plugins
+
+HQ has a built-in plugin system for reacting to workspace events. Plugins can send Slack notifications when tasks complete, sync data to Linear, trigger webhooks for Zapier, log budget alerts, or run any custom logic.
+
+<CardGroup cols={2}>
+  <Card title="Local plugins" icon="code">
+    Python modules on the gateway with full SDK access — state persistence, secret resolution, and Supabase queries. Best for logic that needs to read HQ data.
+  </Card>
+  <Card title="Webhook plugins" icon="globe">
+    Remote HTTP endpoints. Zero gateway code — HQ POSTs events with HMAC signatures. Best for connecting to external services and no-code tools.
+  </Card>
+</CardGroup>
+
+16 built-in events cover tasks, agents, knowledge, inbox, routines, comments, secrets, usage, and budgets. The plugin runner daemon dispatches events to all matching plugins in real time.
+
+Manage plugins from **Settings → Plugins** — enable/disable, configure, view event logs, and add new webhook plugins from the UI. See [Plugins](/concepts/plugins) for the full architecture and [Plugin events](/reference/plugin-events) for the event reference.
+
 ## Extensibility
 
 Most customization does not require changing code:
@@ -357,6 +412,7 @@ Most customization does not require changing code:
 - Configure fields, pipeline stages, streams, and routines in the UI.
 - Add model providers through connections.
 - Add gateways through Settings.
+- Add webhook plugins from Settings → Plugins (no code needed).
 
 Code extension points include:
 
@@ -365,3 +421,5 @@ Code extension points include:
 - New routine behavior in database functions/triggers.
 - New agent skills under template `skills/`.
 - New OpenClaw plugins in `gateway/scripts/plugins/`.
+- New source connectors under `gateway/connectors/<provider>/` — copy the `_template/` directory and implement the connector interface. See `CONTRIBUTING-SOURCES.md`.
+- New HQ plugins under `gateway/plugins/<id>/` — copy `_template/`, implement `on_event()`, and subscribe to events. See [`gateway/plugins/CONTRIBUTING.md`](https://github.com/yourhq/yourhq/blob/main/gateway/plugins/CONTRIBUTING.md).

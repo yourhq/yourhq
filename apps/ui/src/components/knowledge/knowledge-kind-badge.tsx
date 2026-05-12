@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 const KIND_ICONS: Record<KnowledgeKind, React.ElementType> = {
   page: FileText,
-  playbook: BookOpen,
+  skill: BookOpen,
   file: File,
   source: Globe,
 };

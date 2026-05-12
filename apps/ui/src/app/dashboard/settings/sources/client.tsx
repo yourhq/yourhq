@@ -15,18 +15,17 @@ import {
   CONNECTION_STATUS_COLORS,
   CONNECTION_STATUS_LABELS,
 } from "@/lib/sources/types";
+import { PROVIDER_MANIFESTS } from "@/lib/sources/generated-manifests";
 import { Globe, Plus, AlertTriangle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface SourcesPageClientProps {
   isHosted: boolean;
-  notionOAuthConfigured: boolean;
 }
 
 function SourcesContent({
   isHosted,
-  notionOAuthConfigured,
 }: SourcesPageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -154,7 +153,6 @@ function SourcesContent({
         }}
         createConnection={sc.actions.createConnection}
         isHosted={isHosted}
-        notionOAuthConfigured={notionOAuthConfigured}
       />
     </>
   );
@@ -163,7 +161,7 @@ function SourcesContent({
 function ProviderMark({ provider }: { provider: string }) {
   return (
     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-card text-[13px] font-semibold text-muted-foreground">
-      {provider === "notion" ? "N" : provider === "google_drive" ? "G" : "?"}
+      {PROVIDER_MANIFESTS[provider]?.icon ?? "?"}
     </div>
   );
 }

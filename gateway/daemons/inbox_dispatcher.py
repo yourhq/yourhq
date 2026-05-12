@@ -527,8 +527,33 @@ class InboxDispatcher:
         except Exception:
             pass
 
+        # Enrich task assignments with blocker context
+        enriched_summary = summary
+        task_id = record.get("task_id")
+        if event_type == "task_assignment" and task_id:
+            try:
+                blockers = api_get(
+                    "task_relations",
+                    {
+                        "select": "target_task_id,tasks!task_relations_target_task_id_fkey(title,status)",
+                        "source_task_id": f"eq.{task_id}",
+                        "relation_type": "eq.blocked_by",
+                    },
+                )
+                unresolved = [b for b in blockers if b.get("tasks", {}).get("status") not in ("done", "cancelled")]
+                if unresolved:
+                    blocker_names = [b.get("tasks", {}).get("title", "Unknown") for b in unresolved]
+                    enriched_summary = (
+                        f"{summary}\n\n"
+                        f"Note: This task has {len(unresolved)} unresolved blocker(s): "
+                        f"{', '.join(blocker_names)}. "
+                        f"Consider working on unblocked tasks first or doing preparatory work."
+                    )
+            except Exception as e:
+                log(f"Blocker enrichment failed for task {task_id}: {e}", level="warn")
+
         context = record.get("context")
-        success = wake_agent(agent_slug, agent_id, f"New: {summary}", self.tracker, context=context)
+        success = wake_agent(agent_slug, agent_id, f"New: {enriched_summary}", self.tracker, context=context)
 
         if success:
             try:

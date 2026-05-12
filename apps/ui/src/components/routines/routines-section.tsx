@@ -10,6 +10,7 @@ import {
   MessageSquare,
   MoreHorizontal,
   Pencil,
+  Play,
   Plus,
   Send,
   Trash2,
@@ -109,6 +110,7 @@ export function RoutinesSection({ agent }: RoutinesSectionProps) {
                   onEdit={() => setEditingRoutineId(r.id)}
                   onToggle={() => actions.toggleActive(r.id, r.is_active)}
                   onDelete={() => setConfirmDeleteRoutine(r)}
+                  onRunNow={() => actions.runNow(r.id)}
                 />
               ))}
             </div>
@@ -159,6 +161,7 @@ export function RoutinesSection({ agent }: RoutinesSectionProps) {
                   onEdit={() => setEditingRoutineId(r.id)}
                   onToggle={() => actions.toggleActive(r.id, r.is_active)}
                   onDelete={() => setConfirmDeleteRoutine(r)}
+                  onRunNow={() => actions.runNow(r.id)}
                 />
               ))}
             </div>
@@ -284,12 +287,14 @@ function RoutineRow({
   onEdit,
   onToggle,
   onDelete,
+  onRunNow,
 }: {
   routine: Routine;
   isFirst: boolean;
   onEdit: () => void;
   onToggle: () => void;
   onDelete: () => void;
+  onRunNow: () => void;
 }) {
   const nextLabel =
     routine.trigger_type === "schedule" && routine.is_active && routine.next_run_at
@@ -353,6 +358,10 @@ function RoutineRow({
             <DropdownMenuItem className="gap-2" onSelect={(e) => { e.preventDefault(); onEdit(); }}>
               <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
               Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem className="gap-2" onSelect={(e) => { e.preventDefault(); onRunNow(); }}>
+              <Play className="h-3.5 w-3.5 text-muted-foreground" />
+              Run now
             </DropdownMenuItem>
             <DropdownMenuItem className="gap-2" asChild>
               <Link href="/dashboard/routines">

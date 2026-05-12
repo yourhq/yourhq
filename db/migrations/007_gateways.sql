@@ -23,10 +23,12 @@ CREATE TRIGGER gateways_updated_at
 
 -- RLS
 ALTER TABLE gateways ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON gateways;
 CREATE POLICY "Tenant isolation" ON gateways
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON gateways;
 CREATE POLICY "Service role full access" ON gateways
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
@@ -64,10 +66,12 @@ CREATE INDEX IF NOT EXISTS idx_gateway_tokens_expires
 
 -- RLS
 ALTER TABLE gateway_registration_tokens ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON gateway_registration_tokens;
 CREATE POLICY "Tenant isolation" ON gateway_registration_tokens
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON gateway_registration_tokens;
 CREATE POLICY "Service role full access" ON gateway_registration_tokens
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 

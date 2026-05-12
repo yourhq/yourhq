@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Notification } from "@/lib/notifications/types";
 import { useRealtimeSync } from "./use-realtime-sync";
+import { useRealtime } from "./use-realtime";
+import { toast } from "sonner";
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -18,7 +20,9 @@ export function useNotifications() {
       .is("dismissed_at", null)
       .order("created_at", { ascending: false })
       .limit(100);
-    if (!error && data) {
+    if (error) {
+      toast.error("Failed to load notifications");
+    } else if (data) {
       setNotifications(data as Notification[]);
     }
     setLoading(false);
@@ -43,32 +47,61 @@ export function useNotifications() {
 
   const markAsRead = useCallback(
     async (id: string) => {
-      await supabase
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n.id === id ? { ...n, is_read: true, read_at: new Date().toISOString() } : n
+        )
+      );
+      const { error } = await supabase
         .from("notifications")
         .update({ is_read: true, read_at: new Date().toISOString() })
         .eq("id", id);
-      // Realtime will sync
+      if (error) {
+        setNotifications((prev) =>
+          prev.map((n) =>
+            n.id === id ? { ...n, is_read: false, read_at: null } : n
+          )
+        );
+        toast.error("Failed to mark notification as read");
+      }
     },
     [supabase]
   );
 
   const markAllRead = useCallback(async () => {
+    const previousState = notifications;
     const now = new Date().toISOString();
-    await supabase
+    setNotifications((prev) =>
+      prev.map((n) => (n.is_read ? n : { ...n, is_read: true, read_at: now }))
+    );
+    const { error } = await supabase
       .from("notifications")
       .update({ is_read: true, read_at: now })
       .eq("is_read", false);
-  }, [supabase]);
+    if (error) {
+      setNotifications(previousState);
+      toast.error("Failed to mark all as read");
+    }
+  }, [supabase, notifications]);
 
   const dismiss = useCallback(
     async (id: string) => {
-      await supabase
+      const dismissed = notifications.find((n) => n.id === id);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      const { error } = await supabase
         .from("notifications")
         .update({ dismissed_at: new Date().toISOString() })
         .eq("id", id);
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      if (error) {
+        if (dismissed) {
+          setNotifications((prev) => [dismissed, ...prev].sort(
+            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          ));
+        }
+        toast.error("Failed to dismiss notification");
+      }
     },
-    [supabase]
+    [supabase, notifications]
   );
 
   return {
@@ -84,7 +117,7 @@ export function useNotifications() {
 
 /**
  * Lightweight hook that only returns the unread count — for the sidebar badge.
- * Avoids fetching the full list in the shell.
+ * Uses realtime subscription for instant updates instead of polling.
  */
 export function useUnreadNotificationCount() {
   const [count, setCount] = useState(0);
@@ -102,10 +135,12 @@ export function useUnreadNotificationCount() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchCount();
-    // Poll every 60s as a simple refresh strategy
-    const interval = setInterval(fetchCount, 60_000);
-    return () => clearInterval(interval);
   }, [fetchCount]);
+
+  useRealtime({
+    table: "notifications",
+    onPayload: fetchCount,
+  });
 
   return { count, refresh: fetchCount };
 }

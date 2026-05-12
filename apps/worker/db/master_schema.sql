@@ -4,6 +4,14 @@
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+-- Tracks the shared hosted control-plane schema itself. Tenant workspace
+-- migrations are applied separately to each dedicated Supabase project.
+CREATE TABLE IF NOT EXISTS hosted_schema_versions (
+  version integer PRIMARY KEY,
+  description text NOT NULL,
+  applied_at timestamptz NOT NULL DEFAULT now()
+);
+
 -- One row per human. Handles login routing + Stripe customer mapping.
 CREATE TABLE IF NOT EXISTS hosted_users (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -25,7 +33,8 @@ CREATE TABLE IF NOT EXISTS hosted_workspaces (
   -- Stripe
   stripe_subscription_id text,
   subscription_status text NOT NULL DEFAULT 'pending'
-    CHECK (subscription_status IN ('pending', 'provisioning', 'active', 'canceling', 'canceled')),
+    CHECK (subscription_status IN ('pending', 'provisioning', 'active', 'suspended', 'canceling', 'canceled')),
+  payment_failure_count integer NOT NULL DEFAULT 0,
 
   -- Tenant Supabase project
   supabase_project_ref text,
@@ -50,9 +59,16 @@ CREATE TABLE IF NOT EXISTS hosted_workspaces (
   -- Provisioning progress
   provision_stage text,
   provision_error text,
+  provision_attempts integer NOT NULL DEFAULT 0,
+  last_provision_attempt_at timestamptz,
+  auto_login_url text,
 
-  -- Cancellation
+  -- Cancellation & cleanup
   cancel_at timestamptz,
+  cleanup_sandbox_done boolean NOT NULL DEFAULT false,
+  cleanup_supabase_done boolean NOT NULL DEFAULT false,
+
+  last_active_at timestamptz,
 
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
@@ -60,6 +76,30 @@ CREATE TABLE IF NOT EXISTS hosted_workspaces (
 
 CREATE INDEX IF NOT EXISTS idx_hosted_workspaces_user ON hosted_workspaces(user_id);
 CREATE INDEX IF NOT EXISTS idx_hosted_workspaces_status ON hosted_workspaces(subscription_status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_hosted_workspaces_stripe_subscription
+  ON hosted_workspaces(stripe_subscription_id)
+  WHERE stripe_subscription_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_hosted_workspaces_cancel_at
+  ON hosted_workspaces(cancel_at)
+  WHERE cancel_at IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_hosted_users_stripe_customer
+  ON hosted_users(stripe_customer_id)
+  WHERE stripe_customer_id IS NOT NULL;
+
+ALTER TABLE hosted_workspaces
+  ADD COLUMN IF NOT EXISTS auto_login_url text;
+ALTER TABLE hosted_workspaces
+  ADD COLUMN IF NOT EXISTS provision_attempts integer NOT NULL DEFAULT 0;
+ALTER TABLE hosted_workspaces
+  ADD COLUMN IF NOT EXISTS last_provision_attempt_at timestamptz;
+ALTER TABLE hosted_workspaces
+  ADD COLUMN IF NOT EXISTS payment_failure_count integer NOT NULL DEFAULT 0;
+ALTER TABLE hosted_workspaces
+  ADD COLUMN IF NOT EXISTS cleanup_sandbox_done boolean NOT NULL DEFAULT false;
+ALTER TABLE hosted_workspaces
+  ADD COLUMN IF NOT EXISTS cleanup_supabase_done boolean NOT NULL DEFAULT false;
+ALTER TABLE hosted_workspaces
+  ADD COLUMN IF NOT EXISTS last_active_at timestamptz;
 
 -- Idempotency keys for webhook/provisioning dedup.
 CREATE TABLE IF NOT EXISTS idempotency_keys (
@@ -68,6 +108,8 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
   created_at timestamptz NOT NULL DEFAULT now(),
   expires_at timestamptz NOT NULL
 );
+
+CREATE INDEX IF NOT EXISTS idx_idempotency_keys_expires_at ON idempotency_keys(expires_at);
 
 -- Audit log for sandbox lifecycle events.
 CREATE TABLE IF NOT EXISTS sandbox_events (
@@ -89,7 +131,14 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS hosted_users_updated_at ON hosted_users;
 CREATE TRIGGER hosted_users_updated_at
   BEFORE UPDATE ON hosted_users FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS hosted_workspaces_updated_at ON hosted_workspaces;
 CREATE TRIGGER hosted_workspaces_updated_at
   BEFORE UPDATE ON hosted_workspaces FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+INSERT INTO hosted_schema_versions (version, description)
+VALUES (1, 'Initial hosted control-plane schema')
+ON CONFLICT (version) DO NOTHING;

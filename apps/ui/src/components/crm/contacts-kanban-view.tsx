@@ -4,8 +4,15 @@ import { useMemo, useState, useCallback } from "react";
 import { Contact } from "@/lib/crm/types";
 import { usePipelineStages } from "@/hooks/use-pipeline-stages";
 import { DEFAULT_STAGE_COLOR } from "@/lib/fields/types";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { ChevronRight } from "lucide-react";
 import { KanbanSkeleton } from "./contacts-loading";
 import { ContactsEmpty } from "./contacts-empty";
 
@@ -36,6 +43,7 @@ export function ContactsKanbanView({
   onClearFilters,
   onAddContact,
 }: ContactsKanbanViewProps) {
+  const mobile = useIsMobile();
   const { nonTerminalStages } = usePipelineStages("contact");
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
 
@@ -99,6 +107,48 @@ export function ContactsKanbanView({
       <p className="p-6 text-center text-body text-muted-foreground">
         No pipeline stages configured. Configure stages in Settings → Pipeline.
       </p>
+    );
+  }
+
+  if (mobile) {
+    return (
+      <div className="space-y-3">
+        {nonTerminalStages.map((stage) => {
+          const items = grouped[stage.stage_key] || [];
+          const color = stage.color ?? DEFAULT_STAGE_COLOR;
+
+          return (
+            <Collapsible key={stage.stage_key} defaultOpen>
+              <CollapsibleTrigger className="flex w-full items-center gap-2 py-1.5 text-left">
+                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90" />
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: color }}
+                />
+                <span className="text-sm font-medium">{stage.label}</span>
+                <span className="text-[11px] tabular-nums text-muted-foreground">
+                  {items.length}
+                </span>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-1.5 pt-1">
+                {items.map((contact) => (
+                  <KanbanCard
+                    key={contact.id}
+                    contact={contact}
+                    onSelect={onSelect}
+                    onDragStart={() => {}}
+                  />
+                ))}
+                {items.length === 0 && (
+                  <div className="py-3 text-center text-[11px] text-muted-foreground/60">
+                    Empty
+                  </div>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
+          );
+        })}
+      </div>
     );
   }
 

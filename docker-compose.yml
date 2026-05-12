@@ -47,10 +47,10 @@ services:
     container_name: ${COMPOSE_PROJECT:-yourhq}-ui
     restart: unless-stopped
     environment:
-      # Supabase creds are runtime, per-project, from the registry volume
-      # (/config/projects.json + /config/secrets.json). No build-time or
+      # Supabase creds are runtime, per-workspace, from the registry volume
+      # (/config/workspaces.json + /config/secrets.json). No build-time or
       # compose-time Supabase env vars needed — the same image works for
-      # any user after they connect a project via the onboarding screen.
+      # any user after they connect a workspace via the onboarding screen.
       # Gateway file-browser: UI talks directly to the gateway's files-API
       # over the Docker internal network (default) or Tailscale.
       GATEWAY_URL: ${GATEWAY_URL:-http://gateway:18790}
@@ -270,9 +270,11 @@ services:
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       STRIPE_PRICE_ID: ${STRIPE_PRICE_ID:-}
       WORKER_INTERNAL_TOKEN: ${WORKER_INTERNAL_TOKEN:-}
+      HOSTED_SECRETS_KEY: ${HOSTED_SECRETS_KEY:-}
       PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-http://localhost:3000}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       E2B_API_KEY: ${E2B_API_KEY:-}
+      E2B_TEMPLATE_NAME: ${E2B_TEMPLATE_NAME:-yourhq-gateway}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 1"]
       interval: 30s

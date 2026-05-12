@@ -226,9 +226,8 @@ def process_item(item: dict) -> None:
     item_id = item["id"]
     file_url = item.get("file_url", "")
     mime_type = item.get("mime_type")
-    title = item.get("title", item_id)
 
-    log(f"Processing '{title}' (mime={mime_type}, url={file_url[:80]}...)")
+    log(f"Processing file item (mime={mime_type or 'unknown'})")
 
     try:
         data = download_file(file_url)
@@ -280,7 +279,7 @@ def process_item(item: dict) -> None:
             "p_plain_text": plain_text,
         },
     )
-    log(f"  Done — {len(plain_text)} chars extracted")
+    log(f"  Done, extracted {len(plain_text)} chars")
 
 
 def poll_cycle() -> int:
@@ -302,7 +301,7 @@ def poll_cycle() -> int:
             process_item(item)
             count += 1
         except Exception:
-            log(f"  Unexpected error processing {item.get('id')}: {traceback.format_exc()}")
+            log(f"  Unexpected processing error: {traceback.format_exc()}")
     return count
 
 
@@ -328,7 +327,7 @@ def main() -> None:
         log("No Supabase credentials yet, retrying in 10s...")
         time.sleep(10)
 
-    log(f"Connected to {SUPABASE_URL}")
+    log("Connected to Supabase")
 
     while True:
         try:

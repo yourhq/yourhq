@@ -12,11 +12,11 @@ import { Button } from "@/components/ui/button";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogTitle,
+  ResponsiveDialogDescription,
+} from "@/components/ui/responsive-dialog";
 import {
   Select,
   SelectContent,
@@ -166,13 +166,13 @@ export function SeriesForm({ seriesId, onClose }: SeriesFormProps) {
 
   if (loading || !series) {
     return (
-      <Dialog open onOpenChange={(o) => !o && onClose()}>
-        <DialogContent className="sm:max-w-xl p-6">
-          <DialogTitle className="sr-only">Loading recurring task</DialogTitle>
-          <DialogDescription className="sr-only">Loading</DialogDescription>
+      <ResponsiveDialog open onOpenChange={(o) => !o && onClose()}>
+        <ResponsiveDialogContent variant="fullscreen" className="sm:max-w-xl p-6">
+          <ResponsiveDialogTitle className="sr-only">Loading recurring task</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription className="sr-only">Loading</ResponsiveDialogDescription>
           <p className="text-xs text-muted-foreground">Loading…</p>
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     );
   }
 
@@ -282,12 +282,12 @@ export function SeriesForm({ seriesId, onClose }: SeriesFormProps) {
   const selectedPriority = TASK_PRIORITIES.find((p) => p.value === series.priority);
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-xl p-0 gap-0 overflow-hidden max-h-[85dvh] flex flex-col">
-        <DialogTitle className="sr-only">Recurring task: {series.title}</DialogTitle>
-        <DialogDescription className="sr-only">
+    <ResponsiveDialog open onOpenChange={(open) => !open && onClose()}>
+      <ResponsiveDialogContent variant="fullscreen" className="sm:max-w-xl p-0 gap-0 overflow-hidden max-h-[85dvh] flex flex-col">
+        <ResponsiveDialogTitle className="sr-only">Recurring task: {series.title}</ResponsiveDialogTitle>
+        <ResponsiveDialogDescription className="sr-only">
           Edit the recurring task cadence, assignee, and other properties.
-        </DialogDescription>
+        </ResponsiveDialogDescription>
 
         {/* Title + description */}
         <div className="px-4 pt-4 pb-2">
@@ -542,7 +542,7 @@ export function SeriesForm({ seriesId, onClose }: SeriesFormProps) {
             Done
           </Button>
         </div>
-      </DialogContent>
+      </ResponsiveDialogContent>
 
       <ConfirmDialog
         open={confirmDelete}
@@ -570,6 +570,6 @@ export function SeriesForm({ seriesId, onClose }: SeriesFormProps) {
         }}
         onCancel={() => setPendingRecurrenceOff(null)}
       />
-    </Dialog>
+    </ResponsiveDialog>
   );
 }

@@ -24,15 +24,15 @@ Where HQ is now, what ships in v0.1, and what comes after.
 - RLS policies scoped by `tenant_id` extracted from JWT `app_metadata`
 - All RPCs and triggers updated for tenant-aware leasing and filtering
 - Status enum unification: `ready`, `error`, `paused`, `provisioning`, `hibernating` for both agents and gateways
-- `_schema_version` tracking table (currently at v25)
+- `_schema_version` tracking table (currently at v31)
 - `last_heartbeat_at` on `gateways` table
 
 ### Workspace and onboarding
 
 - First-boot onboarding in the browser
-- Project registry in `/config/projects.json` and `/config/secrets.json`
+- Workspace registry in `/config/workspaces.json` and `/config/secrets.json`
 - Runtime Supabase config injection with no `NEXT_PUBLIC_*` rebuild requirement
-- Project switcher and project settings
+- Workspace switcher and database settings
 - Supabase validation during onboarding
 - Account creation and sign-in flow
 - Unified onboarding wizard (welcome → intent → infrastructure → provider → first agent) with session persistence, progressive disclosure, and post-wizard mission panel
@@ -61,7 +61,8 @@ Where HQ is now, what ships in v0.1, and what comes after.
 - Collections for custom structured data
 - Entity links for universal cross-entity references
 - File processing pipeline for knowledge items
-- Source connections for external knowledge sync
+- Source connections for external knowledge sync with plugin-based connector architecture
+- Source connector plugin system — manifest-driven providers, auto-discovery registry, generic OAuth, gateway-proxied browse/validate, optional write-back support, contributor template (`_template/`) and guide (`CONTRIBUTING-SOURCES.md`)
 - Agent triggers and inbox history
 - Schedule routines with cron presets (15 min to daily) via pg_cron
 - Inline model and provider default selection
@@ -69,7 +70,14 @@ Where HQ is now, what ships in v0.1, and what comes after.
 - Runtime delegation context for managers and direct reports
 - Per-agent LLM usage tracking and monthly budgets
 - Budget warning, exceeded notifications, and hard cutoff enforcement
-- Agent-initiated skill learning — agents autonomously create and update playbooks during work, with human visibility on the agent detail page and version history attribution in the knowledge editor
+- Agent-initiated skill learning — agents autonomously create and update skills during work, with human visibility on the agent detail page and version history attribution in the knowledge editor
+- Task relations and dependencies — `blocked_by`, `blocks`, `relates_to`, `parent_of`, `child_of` with blocker highlighting, `notify_blocker_resolved` trigger, and dispatcher blocker enrichment
+- Labels — managed workspace labels with colors, inline creation, task form picker, list/board display, and toolbar filter
+- Deliverables — agent-submitted work products (page/URL/record) with human review workflow (approve, request revision, reject) in a dedicated task form tab
+- Task templates — reusable task group templates with dependency graphs, spawned from toolbar with preserved `blocked_by` relations
+- Overdue escalation — pg_cron auto-miss for overdue tasks with inbox notification for assigned agents and missed-task banner in UI
+- Agent delegation skill — `hq_delegate_task.py` for subtask creation with org-chart validation and `child_of` relation
+- HQ plugin system — event-driven hooks for tasks, agents, knowledge, inbox, routines, comments, secrets, usage, and budgets. Local Python plugins with SDK (state, secrets, Supabase queries) and webhook plugins (remote HTTP with HMAC signatures). Plugin runner daemon, Settings UI for management, built-in usage-alerts plugin, contributor template and guide
 
 ### Observability and operations
 
@@ -97,7 +105,7 @@ Small items to address before tagging. None are blockers, but they'd be good to 
 ## Next (post-v0.1)
 
 - **Sentry (env-gated)** — `sentry-sdk` in daemons, `@sentry/nextjs` in UI. Only active when `SENTRY_DSN` is set. Ships alongside other hosted integrations.
-- **Templates source UI** — switch between bundled templates and a custom git URL per project.
+- **Templates source UI** — switch between bundled templates and a custom git URL per workspace.
 - **Pretty tailnet URLs** — optional Tailscale Serve automation in the installer for `http://hq` instead of ported URLs.
 
 ## Hosted Offering

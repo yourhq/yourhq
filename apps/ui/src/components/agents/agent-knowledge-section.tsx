@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
-interface PlaybookItem {
+interface SkillItem {
   id: string;
   title: string;
   kind: string;
@@ -34,16 +34,16 @@ interface Props {
 const MAX_ITEMS = 8;
 const RECENCY_DAYS = 7;
 
-export function AgentKnowledgeSection({ agentId, agentSlug }: Props) {
+export function AgentKnowledgeSection({ agentId, agentSlug: _agentSlug }: Props) {
   const supabase = useMemo(() => createClient(), []);
-  const [items, setItems] = useState<PlaybookItem[]>([]);
+  const [items, setItems] = useState<SkillItem[]>([]);
   const [recentEdits, setRecentEdits] = useState<Map<string, AuditEntry>>(new Map());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function fetchPlaybooks() {
+    async function fetchSkills() {
       const { data: junctions } = await supabase
         .from("knowledge_item_agents")
         .select("knowledge_item_id")
@@ -62,12 +62,12 @@ export function AgentKnowledgeSection({ agentId, agentSlug }: Props) {
         .from("knowledge_items")
         .select("id, title, kind, scope, updated_at, created_at")
         .in("id", itemIds)
-        .eq("kind", "playbook")
+        .eq("kind", "skill")
         .is("archived_at", null)
         .order("updated_at", { ascending: false });
 
       if (cancelled) return;
-      setItems((data ?? []) as PlaybookItem[]);
+      setItems((data ?? []) as SkillItem[]);
 
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - RECENCY_DAYS);
@@ -93,7 +93,7 @@ export function AgentKnowledgeSection({ agentId, agentSlug }: Props) {
       setLoading(false);
     }
 
-    fetchPlaybooks();
+    fetchSkills();
     return () => { cancelled = true; };
   }, [supabase, agentId]);
 
@@ -108,7 +108,7 @@ export function AgentKnowledgeSection({ agentId, agentSlug }: Props) {
       <div>
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           <BookOpen className="mr-1.5 inline h-3 w-3" />
-          Playbooks
+          Skills
         </h2>
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
@@ -124,10 +124,10 @@ export function AgentKnowledgeSection({ agentId, agentSlug }: Props) {
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           <BookOpen className="mr-1.5 inline h-3 w-3" />
-          Playbooks {items.length > 0 && `(${items.length})`}
+          Skills {items.length > 0 && `(${items.length})`}
         </h2>
-        <Link href={`/dashboard/knowledge?scope=${agentSlug}`}>
-          <Button variant="ghost" size="icon-sm" className="h-5 w-5" title="Link playbook">
+        <Link href={`/dashboard/knowledge?scope=${agentId}`}>
+          <Button variant="ghost" size="icon-sm" className="h-5 w-5" title="Add skill">
             <Plus className="h-3 w-3" />
           </Button>
         </Link>
@@ -135,7 +135,7 @@ export function AgentKnowledgeSection({ agentId, agentSlug }: Props) {
 
       {items.length === 0 ? (
         <p className="text-xs text-muted-foreground">
-          No playbooks yet. Link existing playbooks or the agent will create its own as it works.
+          No skills yet. This agent will develop skills as it works, or you can assign some from the knowledge hub.
         </p>
       ) : (
         <div className="space-y-0.5">
@@ -184,7 +184,7 @@ export function AgentKnowledgeSection({ agentId, agentSlug }: Props) {
           })}
           {items.length > MAX_ITEMS && (
             <Link
-              href={`/dashboard/knowledge?scope=${agentSlug}`}
+              href={`/dashboard/knowledge?scope=${agentId}`}
               className="block px-2 pt-1.5 text-[11px] text-muted-foreground hover:text-foreground"
             >
               Show all ({items.length})

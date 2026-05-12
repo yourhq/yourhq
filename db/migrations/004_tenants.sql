@@ -26,10 +26,12 @@ ON CONFLICT (id) DO NOTHING;
 
 -- RLS
 ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON tenants;
 CREATE POLICY "Tenant isolation" ON tenants
   FOR ALL TO authenticated
   USING (id = current_tenant_id())
   WITH CHECK (id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON tenants;
 CREATE POLICY "Service role full access" ON tenants
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 

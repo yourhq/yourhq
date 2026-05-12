@@ -19,13 +19,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,8 +61,8 @@ export function AddGatewayDialog({
   onAdded,
 }: AddGatewayDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md p-0 gap-0">
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveDialogContent className="sm:max-w-md p-0 gap-0">
         {/* Mount the inner only while open so closing yields a clean tree
             on next open — no effect-driven reset needed. */}
         {open && (
@@ -71,8 +71,8 @@ export function AddGatewayDialog({
             onAdded={onAdded}
           />
         )}
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }
 
@@ -90,14 +90,14 @@ function AddGatewayDialogInner({
 
   return (
     <>
-      <DialogHeader className="px-5 pt-5 pb-3 border-b border-border/50">
-        <DialogTitle className="text-heading">Add a gateway</DialogTitle>
-        <DialogDescription className="text-caption text-muted-foreground">
+      <ResponsiveDialogHeader className="px-5 pt-5 pb-3 border-b border-border/50">
+        <ResponsiveDialogTitle className="text-heading">Add a gateway</ResponsiveDialogTitle>
+        <ResponsiveDialogDescription className="text-caption text-muted-foreground">
           A gateway is a computer where agents run. Add another one to split
           work between machines (e.g. one at home, one in the cloud) or to
           keep an agent running 24/7 even when your laptop is asleep.
-        </DialogDescription>
-      </DialogHeader>
+        </ResponsiveDialogDescription>
+      </ResponsiveDialogHeader>
 
       {phase.kind === "form" && (
         <FormPhase
@@ -266,7 +266,7 @@ function FormPhase({
         )}
       </div>
 
-      <DialogFooter className="px-5 py-3 border-t border-border/50 gap-2">
+      <ResponsiveDialogFooter className="px-5 py-3 border-t border-border/50 gap-2">
         <Button
           type="button"
           variant="ghost"
@@ -286,7 +286,7 @@ function FormPhase({
             "Generate install command"
           )}
         </Button>
-      </DialogFooter>
+      </ResponsiveDialogFooter>
     </form>
   );
 }
@@ -379,11 +379,11 @@ function WaitingPhase({
         </p>
       </div>
 
-      <DialogFooter className="px-5 py-3 border-t border-border/50">
+      <ResponsiveDialogFooter className="px-5 py-3 border-t border-border/50">
         <Button type="button" variant="ghost" size="sm" onClick={onClose}>
           Close
         </Button>
-      </DialogFooter>
+      </ResponsiveDialogFooter>
     </>
   );
 }
@@ -408,14 +408,14 @@ function ExpiredPhase({
           </span>
         </div>
       </div>
-      <DialogFooter className="px-5 py-3 border-t border-border/50 gap-2">
+      <ResponsiveDialogFooter className="px-5 py-3 border-t border-border/50 gap-2">
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
           Cancel
         </Button>
         <Button type="button" size="sm" onClick={onRegenerate}>
           Generate new token
         </Button>
-      </DialogFooter>
+      </ResponsiveDialogFooter>
     </>
   );
 }
@@ -439,11 +439,11 @@ function ConnectedPhase({ onClose }: { onClose: () => void }) {
           </div>
         </div>
       </div>
-      <DialogFooter className="px-5 py-3 border-t border-border/50">
+      <ResponsiveDialogFooter className="px-5 py-3 border-t border-border/50">
         <Button type="button" size="sm" onClick={onClose}>
           Done
         </Button>
-      </DialogFooter>
+      </ResponsiveDialogFooter>
     </>
   );
 }

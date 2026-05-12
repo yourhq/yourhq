@@ -8,11 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogTitle,
+  ResponsiveDialogDescription,
+} from "@/components/ui/responsive-dialog";
 import { TagInput } from "@/components/ui/tag-input";
 
 interface AgentFormProps {
@@ -94,14 +94,14 @@ export function AgentForm({ editingAgent, onSave, onCancel }: AgentFormProps) {
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent className="sm:max-w-xl p-0 gap-0 overflow-hidden max-h-[85dvh] flex flex-col">
-        <DialogTitle className="sr-only">
+    <ResponsiveDialog open onOpenChange={(open) => !open && onCancel()}>
+      <ResponsiveDialogContent variant="fullscreen" className="sm:max-w-xl p-0 gap-0 overflow-hidden max-h-[85dvh] flex flex-col">
+        <ResponsiveDialogTitle className="sr-only">
           {editingAgent ? "Edit agent" : "Register agent"}
-        </DialogTitle>
-        <DialogDescription className="sr-only">
+        </ResponsiveDialogTitle>
+        <ResponsiveDialogDescription className="sr-only">
           Register or edit an agent with its name, slug, description, domains, and capabilities.
-        </DialogDescription>
+        </ResponsiveDialogDescription>
         <div className="flex-1 overflow-y-auto min-h-0">
         {/* Name - hero input */}
         <div className="px-4 pt-4 pb-2">
@@ -187,7 +187,7 @@ export function AgentForm({ editingAgent, onSave, onCancel }: AgentFormProps) {
             </Button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

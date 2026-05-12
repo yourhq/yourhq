@@ -8,6 +8,8 @@ import { resolvePreset } from "./setup-templates.js";
 import { applyMigrations } from "./schema-runner.js";
 import { sendProvisioningComplete } from "./email.js";
 import { SUPABASE_MGMT_URL, mgmtHeaders } from "./supabase-mgmt.js";
+import { decryptSecret, encryptSecret } from "./secret-crypto.js";
+import { getPublicSiteUrl } from "./env.js";
 import type { SandboxProvider } from "../providers/types.js";
 import { randomBytes } from "node:crypto";
 
@@ -18,8 +20,8 @@ async function setStage(workspaceId: string, stage: string) {
 async function setError(workspaceId: string, error: string) {
   await updateWorkspace(workspaceId, {
     provision_stage: "error",
-    provision_error: error,
-    subscription_status: "pending",
+    provision_error: error.slice(0, 500),
+    subscription_status: "provisioning",
   } as any);
 }
 
@@ -32,60 +34,83 @@ export async function provisionWorkspace(
   if (!workspace) throw new Error(`Workspace ${workspaceId} not found`);
 
   try {
+    await updateWorkspace(workspaceId, {
+      provision_attempts: (workspace.provision_attempts ?? 0) + 1,
+      last_provision_attempt_at: new Date().toISOString(),
+      provision_error: null,
+      subscription_status: "provisioning",
+    } as any);
+
     // ── 1. Create Supabase project ──
     await setStage(workspaceId, "creating_project");
-    await updateWorkspace(workspaceId, { subscription_status: "provisioning" } as any);
 
     const orgId = process.env.SUPABASE_ORG_ID;
     if (!orgId) throw new Error("SUPABASE_ORG_ID required");
 
-    const dbPassword = randomBytes(24).toString("base64url");
+    let projectRef = workspace.supabase_project_ref;
+    let dbPassword = decryptSecret(workspace.supabase_db_password_enc);
+    if (!projectRef) {
+      dbPassword = randomBytes(24).toString("base64url");
 
-    const createRes = await fetch(`${SUPABASE_MGMT_URL}/v1/projects`, {
-      method: "POST",
-      headers: mgmtHeaders(),
-      body: JSON.stringify({
-        organization_id: orgId,
-        name: `hq-${workspace.label.toLowerCase().replace(/[^a-z0-9]/g, "-").slice(0, 30)}-${workspaceId.slice(0, 8)}`,
-        db_pass: dbPassword,
-        region: process.env.SUPABASE_REGION ?? "us-east-1",
-        plan: "free",
-      }),
-    });
+      const createRes = await fetch(`${SUPABASE_MGMT_URL}/v1/projects`, {
+        method: "POST",
+        headers: mgmtHeaders(),
+        body: JSON.stringify({
+          organization_id: orgId,
+          name: `hq-${workspace.label.toLowerCase().replace(/[^a-z0-9]/g, "-").slice(0, 30)}-${workspaceId.slice(0, 8)}`,
+          db_pass: dbPassword,
+          region: process.env.SUPABASE_REGION ?? "us-east-1",
+          plan: "free",
+        }),
+      });
 
-    if (!createRes.ok) {
-      const body = await createRes.text();
-      throw new Error(`Supabase project creation failed: ${createRes.status} ${body}`);
+      if (!createRes.ok) {
+        throw new Error(`Supabase project creation failed (${createRes.status})`);
+      }
+
+      const project = (await createRes.json()) as { id: string; name: string };
+      projectRef = project.id;
+      await updateWorkspace(workspaceId, {
+        supabase_project_ref: projectRef,
+        supabase_url: `https://${projectRef}.supabase.co`,
+        supabase_db_password_enc: encryptSecret(dbPassword),
+      } as any);
     }
-
-    const project = (await createRes.json()) as { id: string; name: string };
-    const projectRef = project.id;
 
     // ── 2. Poll until project is ready ──
     await setStage(workspaceId, "waiting_for_project");
     const startPoll = Date.now();
+    let projectReady = false;
     while (Date.now() - startPoll < 120_000) {
       const statusRes = await fetch(`${SUPABASE_MGMT_URL}/v1/projects/${projectRef}`, {
         headers: mgmtHeaders(),
       });
       if (statusRes.ok) {
         const status = (await statusRes.json()) as { status: string };
-        if (status.status === "ACTIVE_HEALTHY") break;
+        if (status.status === "ACTIVE_HEALTHY") {
+          projectReady = true;
+          break;
+        }
       }
       await new Promise((r) => setTimeout(r, 3000));
     }
+    if (!projectReady) throw new Error("Supabase project did not become ready in time");
 
     // ── 3. Fetch API keys ──
     await setStage(workspaceId, "fetching_keys");
-    const keysRes = await fetch(`${SUPABASE_MGMT_URL}/v1/projects/${projectRef}/api-keys`, {
-      headers: mgmtHeaders(),
-    });
-    if (!keysRes.ok) throw new Error("Failed to fetch project API keys");
+    let anonKey = workspace.supabase_anon_key;
+    let serviceRoleKey = decryptSecret(workspace.supabase_service_role_key_enc);
+    if (!anonKey || !serviceRoleKey) {
+      const keysRes = await fetch(`${SUPABASE_MGMT_URL}/v1/projects/${projectRef}/api-keys`, {
+        headers: mgmtHeaders(),
+      });
+      if (!keysRes.ok) throw new Error("Failed to fetch project API keys");
 
-    const keys = (await keysRes.json()) as { name: string; api_key: string }[];
-    const anonKey = keys.find((k) => k.name === "anon")?.api_key;
-    const serviceRoleKey = keys.find((k) => k.name === "service_role")?.api_key;
-    if (!anonKey || !serviceRoleKey) throw new Error("Missing API keys from project");
+      const keys = (await keysRes.json()) as { name: string; api_key: string }[];
+      anonKey = keys.find((k) => k.name === "publishable" || k.name === "anon")?.api_key ?? null;
+      serviceRoleKey = keys.find((k) => k.name === "secret" || k.name === "service_role")?.api_key ?? null;
+      if (!anonKey || !serviceRoleKey) throw new Error("Missing API keys from project");
+    }
 
     const supabaseUrl = `https://${projectRef}.supabase.co`;
 
@@ -93,13 +118,15 @@ export async function provisionWorkspace(
       supabase_project_ref: projectRef,
       supabase_url: supabaseUrl,
       supabase_anon_key: anonKey,
-      supabase_service_role_key_enc: serviceRoleKey, // TODO: encrypt with pgsodium
-      supabase_db_password_enc: dbPassword, // TODO: encrypt with pgsodium
+      supabase_service_role_key_enc: encryptSecret(serviceRoleKey),
+      supabase_db_password_enc: dbPassword
+        ? encryptSecret(dbPassword)
+        : workspace.supabase_db_password_enc,
     } as any);
 
     // ── 3b. Configure auth settings (site URL + redirect allowlist) ──
-    const publicSiteUrl = process.env.PUBLIC_SITE_URL ?? "http://localhost:3000";
-    await fetch(`${SUPABASE_MGMT_URL}/v1/projects/${projectRef}/config/auth`, {
+    const publicSiteUrl = getPublicSiteUrl();
+    const authConfigRes = await fetch(`${SUPABASE_MGMT_URL}/v1/projects/${projectRef}/config/auth`, {
       method: "PATCH",
       headers: mgmtHeaders(),
       body: JSON.stringify({
@@ -107,6 +134,7 @@ export async function provisionWorkspace(
         URI_ALLOW_LIST: `${publicSiteUrl}/auth/callback`,
       }),
     });
+    if (!authConfigRes.ok) throw new Error("Failed to configure tenant auth settings");
 
     // ── 4. Apply schema migrations ──
     await setStage(workspaceId, "applying_schema");
@@ -125,16 +153,17 @@ export async function provisionWorkspace(
         tenant_id: "00000000-0000-0000-0000-000000000000",
       },
     });
-    if (authError) throw new Error(`Auth user creation failed: ${authError.message}`);
+    if (authError && !authError.message.toLowerCase().includes("already")) {
+      throw new Error(`Auth user creation failed: ${authError.message}`);
+    }
 
     // ── 5a. Generate auto-login URL (skips email round-trip for first login) ──
-    const siteUrl = process.env.PUBLIC_SITE_URL ?? "http://localhost:3000";
     let autoLoginUrl: string | null = null;
     try {
       const { data: linkData } = await tenantClient.auth.admin.generateLink({
         type: "magiclink",
         email,
-        options: { redirectTo: `${siteUrl}/auth/callback` },
+        options: { redirectTo: `${publicSiteUrl}/auth/callback?next=/onboarding` },
       });
       if (linkData?.properties?.action_link) {
         autoLoginUrl = linkData.properties.action_link;
@@ -182,39 +211,47 @@ export async function provisionWorkspace(
     // ── 6. Spawn E2B sandbox ──
     await setStage(workspaceId, "starting_sandbox");
 
-    const vncPassword = randomBytes(12).toString("base64url").slice(0, 12);
+    if (!workspace.e2b_sandbox_id) {
+      const vncPassword = randomBytes(12).toString("base64url").slice(0, 12);
 
-    const sandbox = await sandboxProvider.spawn({
-      workspaceId,
-      envs: {
-        SUPABASE_URL: supabaseUrl,
-        SUPABASE_SERVICE_ROLE_KEY: serviceRoleKey,
-        VNC_PASSWORD: vncPassword,
-        GATEWAY_ID: "default",
-        GATEWAY_LABEL: workspace.label,
-        TENANT_ID: "00000000-0000-0000-0000-000000000000",
-      },
-    });
+      const sandbox = await sandboxProvider.spawn({
+        workspaceId,
+        envs: {
+          SUPABASE_URL: supabaseUrl,
+          SUPABASE_SERVICE_ROLE_KEY: serviceRoleKey,
+          VNC_PASSWORD: vncPassword,
+          GATEWAY_ID: "default",
+          GATEWAY_LABEL: workspace.label,
+          TENANT_ID: "00000000-0000-0000-0000-000000000000",
+          NETWORKING_MODE: "e2b",
+        },
+      });
 
-    await updateWorkspace(workspaceId, {
-      e2b_sandbox_id: sandbox.sandboxId,
-      e2b_sandbox_status: "running",
-      e2b_access_token: sandbox.accessToken,
-      novnc_url: sandbox.novncUrl,
-      vnc_password_enc: vncPassword, // TODO: encrypt
-    } as any);
+      await updateWorkspace(workspaceId, {
+        e2b_sandbox_id: sandbox.sandboxId,
+        e2b_sandbox_status: "running",
+        e2b_access_token: sandbox.accessToken,
+        novnc_url: sandbox.novncUrl,
+        vnc_password_enc: encryptSecret(vncPassword),
+      } as any);
+    }
 
     // ── 7. Wait for gateway to register ──
     await setStage(workspaceId, "waiting_for_gateway");
     const gwStart = Date.now();
+    let gatewayReady = false;
     while (Date.now() - gwStart < 120_000) {
       const { data } = await tenantClient
         .from("gateways")
         .select("id")
         .limit(1);
-      if (data && data.length > 0) break;
+      if (data && data.length > 0) {
+        gatewayReady = true;
+        break;
+      }
       await new Promise((r) => setTimeout(r, 3000));
     }
+    if (!gatewayReady) throw new Error("Gateway did not register in time");
 
     // ── 8. Done ──
     await updateWorkspace(workspaceId, {
@@ -224,18 +261,17 @@ export async function provisionWorkspace(
     } as any);
 
     await logSandboxEvent(workspaceId, "provisioned", {
-      supabase_ref: projectRef,
-      sandbox_id: sandbox.sandboxId,
+      provision_stage: "complete",
     });
 
-    sendProvisioningComplete(email, workspace.label, `${siteUrl}/login`).catch(
-      (err) => console.error("[provisioner] Failed to send provisioning email:", err),
+    sendProvisioningComplete(email, workspace.label, `${publicSiteUrl}/login`).catch(
+      () => console.error("[provisioner] Failed to send provisioning email"),
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`[provisioner] Failed for workspace ${workspaceId}:`, message);
+    console.error("[provisioner] Workspace provisioning failed");
     await setError(workspaceId, message);
-    await logSandboxEvent(workspaceId, "error", { error: message });
+    await logSandboxEvent(workspaceId, "error", { provision_stage: "error" });
     throw err;
   }
 }

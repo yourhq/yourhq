@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mintGatewayToken, checkTokenConsumed } from "@/lib/gateways/mint-token";
 import { buildGatewayOneLiner } from "@/lib/gateways/one-liner";
-import { getActiveProjectWithSecrets } from "@/lib/projects";
+import { getActiveWorkspaceWithSecrets } from "@/lib/workspaces";
 import type { Gateway } from "@/lib/gateways/types";
 
 export interface GatewayMintInput {
@@ -130,9 +130,9 @@ export async function getGatewayDesktopUrlAction(
 export async function mintGatewayTokenForSettings(
   input: GatewayMintInput,
 ): Promise<GatewayActionResult<MintedGatewayBootstrap>> {
-  const project = await getActiveProjectWithSecrets();
-  if (!project) {
-    return { ok: false, error: "No project configured." };
+  const workspace = await getActiveWorkspaceWithSecrets();
+  if (!workspace) {
+    return { ok: false, error: "No workspace configured." };
   }
 
   const label = (input.label ?? "Gateway").trim() || "Gateway";
@@ -141,7 +141,7 @@ export async function mintGatewayTokenForSettings(
   const oneLiner = buildGatewayOneLiner({
     token: minted.token,
     label,
-    project,
+    project: workspace,
     tailscaleAuthKey: input.tailscaleAuthKey,
   });
 

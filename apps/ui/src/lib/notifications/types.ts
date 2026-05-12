@@ -9,6 +9,8 @@ export type NotificationType =
   | "task_assigned"
   | "task_completed"
   | "task_blocked"
+  | "task_overdue"
+  | "deliverable_submitted"
   | "system"
   | "budget.warned"
   | "budget.exceeded";
@@ -38,6 +40,8 @@ export const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
   task_assigned: "Task assigned",
   task_completed: "Task completed",
   task_blocked: "Task blocked",
+  task_overdue: "Task overdue",
+  deliverable_submitted: "Deliverable",
   system: "System",
   "budget.warned": "Budget warning",
   "budget.exceeded": "Budget exceeded",

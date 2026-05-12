@@ -37,10 +37,12 @@ CREATE TRIGGER agent_commands_updated_at
 
 -- RLS
 ALTER TABLE agent_commands ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON agent_commands;
 CREATE POLICY "Tenant isolation" ON agent_commands
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON agent_commands;
 CREATE POLICY "Service role full access" ON agent_commands
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 

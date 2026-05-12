@@ -61,7 +61,7 @@ export default function RootError({
           {looksLikeProjectIssue && (
             <>
               <Button variant="outline" asChild>
-                <a href="/dashboard/settings/projects">Switch project</a>
+                <a href="/dashboard/settings/database">Switch workspace</a>
               </Button>
               <Button variant="outline" asChild>
                 <a href="/onboarding">Onboarding</a>

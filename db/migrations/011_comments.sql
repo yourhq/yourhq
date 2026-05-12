@@ -78,11 +78,13 @@ CREATE TRIGGER comments_enqueue_mentions
 
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Tenant isolation" ON comments;
 CREATE POLICY "Tenant isolation" ON comments
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
 
+DROP POLICY IF EXISTS "Service role full access" ON comments;
 CREATE POLICY "Service role full access" ON comments
   FOR ALL TO service_role
   USING (true) WITH CHECK (true);

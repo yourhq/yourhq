@@ -7,7 +7,7 @@
 - [HQ documentation](https://docs.yourhq.ai): Human-readable documentation home.
 - [Why HQ](https://docs.yourhq.ai/concepts/why-hq): Design philosophy and honest comparison against CrewAI, AutoGen, and n8n. Read this if you're deciding whether HQ is the right fit.
 - [Choose your path](https://docs.yourhq.ai/getting-started/choose-your-path): Audience-based starting points — hosted, self-host, agent builders, developers, and security reviewers.
-- [What HQ includes](https://docs.yourhq.ai/concepts/features): Product tour of agents, per-agent model selection, CRM, tasks, documents, automations, gateways, usage, and budgets.
+- [What HQ includes](https://docs.yourhq.ai/concepts/features): Product tour of agents, per-agent model selection, secrets management, source connectors, CRM, tasks, documents, automations, gateways, usage, and budgets.
 - [Roadmap](https://docs.yourhq.ai/getting-started/roadmap): Shipped areas and planned work.
 
 ## Hosted
@@ -24,7 +24,7 @@
 - [Installation](https://docs.yourhq.ai/self-host/installation): One-line install, manual install, and development mode.
 - [Networking](https://docs.yourhq.ai/self-host/networking): Local, Tailscale, public, and multi-machine deployment topologies.
 - [Add a gateway](https://docs.yourhq.ai/self-host/add-gateway): Register another Docker host so it can run agents.
-- [Gateway boot sequence](https://docs.yourhq.ai/self-host/gateway-boot): The 12-step entrypoint: credential resolution, git seeding, VNC, Supabase registration.
+- [Gateway boot sequence](https://docs.yourhq.ai/self-host/gateway-boot): The 13-step entrypoint: credential resolution, git seeding, VNC, secrets sourcing, Supabase registration.
 - [Operations](https://docs.yourhq.ai/self-host/operations): Updates, backups, image pinning, and uninstalling.
 
 ## Using HQ
@@ -34,15 +34,19 @@
 - [Connect a model provider](https://docs.yourhq.ai/guides/connect-model-provider): Add API-key and interactive provider auth. Per-agent model selection, thinking levels, per-task overrides, and multi-route provider handling.
 - [Agent boot documents](https://docs.yourhq.ai/guides/agent-boot-docs): Use document tags to inject shared context into agent sessions.
 - [Automations](https://docs.yourhq.ai/guides/automations): Turn CRM and task events into agent inbox work.
+- [Secrets management](https://docs.yourhq.ai/guides/secrets-management): Store API keys, channel tokens, and OAuth credentials securely. Encrypted at rest, synced to gateways, injected as environment variables.
 - [Usage budgets](https://docs.yourhq.ai/guides/usage-budgets): Track model usage and enforce monthly agent budgets. Model selection cost optimization strategies.
+- [Plugins](https://docs.yourhq.ai/guides/plugins): Create, manage, and contribute plugins that extend HQ with custom integrations and automations.
 
 ## Concepts
 
 - [Architecture](https://docs.yourhq.ai/concepts/architecture): How the UI, Supabase, gateways, queues, files API, and agents fit together.
 - [Agents](https://docs.yourhq.ai/concepts/agents): Agent workspaces, templates, memory, model/thinking configuration, Telegram, tools, org chart, and budgets.
-- [Projects and workspaces](https://docs.yourhq.ai/concepts/projects-and-workspaces): How one UI manages multiple Supabase-backed workspaces.
+- [Workspaces](https://docs.yourhq.ai/concepts/workspaces): How one UI manages multiple Supabase-backed workspaces.
 - [Gateways](https://docs.yourhq.ai/concepts/gateways): Docker hosts that run agents, desktops, files API, and daemons.
+- [Knowledge system](https://docs.yourhq.ai/concepts/knowledge): Unified knowledge store (pages, skills, files, sources), source connector plugin architecture, embedding pipeline, and agent boot context.
 - [Tasks, inbox, and commands](https://docs.yourhq.ai/concepts/tasks-inbox-and-commands): The queues that coordinate UI, gateways, and agents.
+- [Plugins](https://docs.yourhq.ai/concepts/plugins): Event-driven plugin system — local Python handlers and remote webhooks for extending HQ with custom integrations.
 - [Security model](https://docs.yourhq.ai/concepts/security-model): Trust boundaries behind HQ's self-hosted architecture.
 
 ## Design
@@ -65,10 +69,11 @@
 - [Migrations](https://docs.yourhq.ai/reference/migrations): Ordered Supabase migration files and how to apply them.
 - [Agent templates](https://docs.yourhq.ai/reference/templates): Template files, structure, and provisioning behavior.
 - [Docker services](https://docs.yourhq.ai/reference/docker-services): Containers in the HQ Compose stack.
-- [Files API](https://docs.yourhq.ai/reference/files-api): How the UI reads and edits files in agent worktrees.
+- [Files API](https://docs.yourhq.ai/reference/files-api): How the UI reads and edits files in agent worktrees. Also serves source connector endpoints (`/sources/validate`, `/sources/browse`).
 - [Command lifecycle](https://docs.yourhq.ai/reference/command-lifecycle): How gateway commands move from UI action to runner execution.
-- [Command actions](https://docs.yourhq.ai/reference/command-actions): All shell and auth actions the runner can execute, with payload schemas.
+- [Command actions](https://docs.yourhq.ai/reference/command-actions): All shell, auth, and source actions the runner can execute, with payload schemas. Includes `source_write` for write-back to external sources.
 - [Inbox dispatch](https://docs.yourhq.ai/reference/inbox-dispatch): How the dispatcher wakes agents from inbox items, wake gating conditions, and reconciliation.
+- [Plugin events](https://docs.yourhq.ai/reference/plugin-events): Complete reference of all 16 events available to HQ plugins, with payload schemas and emission sources.
 - [Heartbeat](https://docs.yourhq.ai/reference/heartbeat): Gateway liveness signals — Supabase heartbeat, local file, freshness thresholds.
 
 ## Development and contribution
@@ -96,6 +101,9 @@
 - Supabase is the main state backbone. Hosted users get a dedicated Supabase project managed by the platform; self-hosted users bring their own.
 - Gateway hosts run agents in Docker and store local agent worktrees, browser profiles, and OpenClaw state.
 - Each agent can run a different model and thinking level. Per-task overrides allow one-off reasoning depth changes without modifying agent defaults. Resolution order: task override → agent default → workspace default.
+- Tasks support relations/dependencies (blocked_by, blocks, relates_to, parent_of, child_of), labels with configurable colors, deliverables (agent-submitted work products with human review workflow), reusable templates with dependency graphs, and overdue escalation (auto-miss + inbox notification). Agents can delegate subtasks to direct reports via the org chart.
+- Secrets (API keys, channel tokens, OAuth tokens) are encrypted with AES-256-GCM in the database and synced to gateways as per-agent .env files. Values are never in API responses, logs, or LLM context.
 - Multiple providers can serve the same models (e.g. OpenAI API key vs subscription). HQ unifies them transparently and lets users choose which billing path to use per agent.
+- Source connectors use a plugin architecture — each provider is a folder under `gateway/connectors/<provider>/` with a `manifest.json` and Python code. The manifest declares auth, UI metadata, and capabilities. Adding a new source requires only the provider folder; the platform auto-discovers it and handles secrets, OAuth, UI forms, sync scheduling, and embedding. See `CONTRIBUTING-SOURCES.md` for the contributor guide.
 - The docs are the best source for install, architecture, security, and operational behavior.
 - Use `https://docs.yourhq.ai/llms-full.txt` when a complete Markdown snapshot of the docs is needed.

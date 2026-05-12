@@ -150,7 +150,7 @@ export function useSourceConnections() {
   const updateConnection = useCallback(
     async (
       id: string,
-      updates: Partial<Pick<SourceConnection, "account_label" | "sync_interval_hours" | "status" | "credentials">>,
+      updates: Partial<Pick<SourceConnection, "account_label" | "sync_interval_hours" | "status" | "credentials" | "writable">>,
     ) => {
       const { error } = await supabase
         .from("source_connections")

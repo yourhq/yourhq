@@ -22,10 +22,12 @@ CREATE TRIGGER knowledge_folders_updated_at
   BEFORE UPDATE ON knowledge_folders FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 ALTER TABLE knowledge_folders ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON knowledge_folders;
 CREATE POLICY "Tenant isolation" ON knowledge_folders
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON knowledge_folders;
 CREATE POLICY "Service role full access" ON knowledge_folders
   FOR ALL TO service_role
   USING (true) WITH CHECK (true);
@@ -40,7 +42,7 @@ CREATE TABLE IF NOT EXISTS knowledge_items (
   updated_at            timestamptz NOT NULL DEFAULT now(),
   tenant_id             uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES tenants(id) ON DELETE CASCADE,
   folder_id             uuid REFERENCES knowledge_folders(id) ON DELETE SET NULL,
-  kind                  text NOT NULL CHECK (kind IN ('page', 'playbook', 'file', 'source')),
+  kind                  text NOT NULL CHECK (kind IN ('page', 'skill', 'file', 'source')),
   title                 text NOT NULL,
   content               jsonb,
   plain_text            text,
@@ -118,10 +120,12 @@ CREATE TRIGGER knowledge_items_search_vector
   FOR EACH ROW EXECUTE FUNCTION knowledge_items_search_vector();
 
 ALTER TABLE knowledge_items ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON knowledge_items;
 CREATE POLICY "Tenant isolation" ON knowledge_items
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON knowledge_items;
 CREATE POLICY "Service role full access" ON knowledge_items
   FOR ALL TO service_role
   USING (true) WITH CHECK (true);
@@ -144,10 +148,12 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_item_agents_item ON knowledge_item_agen
 CREATE INDEX IF NOT EXISTS idx_knowledge_item_agents_agent ON knowledge_item_agents(agent_id);
 
 ALTER TABLE knowledge_item_agents ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON knowledge_item_agents;
 CREATE POLICY "Tenant isolation" ON knowledge_item_agents
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON knowledge_item_agents;
 CREATE POLICY "Service role full access" ON knowledge_item_agents
   FOR ALL TO service_role
   USING (true) WITH CHECK (true);
@@ -252,10 +258,12 @@ CREATE TRIGGER knowledge_chunks_search_vector
   FOR EACH ROW EXECUTE FUNCTION knowledge_chunks_search_vector();
 
 ALTER TABLE knowledge_chunks ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON knowledge_chunks;
 CREATE POLICY "Tenant isolation" ON knowledge_chunks
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON knowledge_chunks;
 CREATE POLICY "Service role full access" ON knowledge_chunks
   FOR ALL TO service_role
   USING (true) WITH CHECK (true);
@@ -381,7 +389,7 @@ BEGIN
     SELECT c.id
     FROM public.knowledge_items c
     WHERE c.archived_at IS NULL
-      AND (c.kind IN ('page', 'playbook') OR (c.kind = 'file' AND c.processing_status = 'done'))
+      AND (c.kind IN ('page', 'skill') OR (c.kind = 'file' AND c.processing_status = 'done'))
       AND (
         c.embedding IS NULL
         OR c.embedding_status IN ('pending', 'failed')

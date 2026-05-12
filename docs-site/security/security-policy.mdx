@@ -48,7 +48,7 @@ A tighter future alternative is [docker-socket-proxy](https://github.com/Tecnati
 
 ### RLS and tenant isolation
 
-Every table uses tenant-scoped RLS policies — authenticated users can only access rows where `tenant_id` matches the JWT's `app_metadata.tenant_id`. Self-hosted installs use a single default tenant, so in practice all authenticated users see all data. **Make sure Supabase email signup is disabled or invite-only**, otherwise anyone who signs up for your Supabase project gets full HQ access within the default tenant. The multi-project registry adds database-level isolation on top; fine-grained per-role permissions are not implemented.
+Every table uses tenant-scoped RLS policies — authenticated users can only access rows where `tenant_id` matches the JWT's `app_metadata.tenant_id`. Self-hosted installs use a single default tenant, so in practice all authenticated users see all data. **Make sure Supabase email signup is disabled or invite-only**, otherwise anyone who signs up for your Supabase project gets full HQ access within the default tenant. The multi-workspace registry adds database-level isolation on top; fine-grained per-role permissions are not implemented.
 
 ### Default port bindings are loopback-only
 
@@ -73,6 +73,26 @@ The one-line installer (`curl install.yourhq.ai | bash`) pipes untrusted input t
 3. Clone the repo and run `./installer/install.sh` directly.
 
 The installer itself invokes `curl | sh` from `get.docker.com` and `tailscale.com/install.sh` — we're not signing or pinning those scripts. They're canonical upstream install scripts. If you don't trust them, install Docker and Tailscale manually and skip the installer.
+
+### Secrets are encrypted at rest
+
+All credentials stored in the `secrets` table (channel tokens, OAuth tokens, user API keys) are encrypted with AES-256-GCM before writing to the database. The plaintext value is never stored in Supabase and never returned in API responses.
+
+**Key derivation (self-hosted):** The encryption key is derived from your `SUPABASE_SERVICE_ROLE_KEY` via HKDF-SHA256 (salt: `yourhq-secrets-v1`, info: `aes-256-gcm`, 32 bytes). Anyone with your service role key can derive the encryption key and decrypt secrets — this is the same trust boundary as the service role key itself.
+
+**Key derivation (hosted):** Uses a dedicated `HOSTED_SECRETS_KEY` held in the worker environment, separate from the service role key.
+
+**Gateway-side decryption:** The `secrets_sync` daemon (running in the runner container) fetches encrypted values, decrypts them in memory, and writes plaintext to `.env` files on the `gateway-state` volume (`chmod 0600`). These files are the same trust boundary as the service role key and the Docker socket. Agent tools read secrets from the environment — the LLM never sees the values.
+
+**What this protects against:**
+- Database dumps or backups leaking plaintext credentials.
+- SQL injection or RLS bypass exposing raw values.
+- Supabase dashboard viewers accidentally seeing token values.
+
+**What this does NOT protect against:**
+- Compromise of the gateway container (secrets are in plaintext `.env` files on the volume).
+- Compromise of the service role key (derives the encryption key).
+- An agent's tools intentionally logging or exfiltrating secrets (treat agent tool code as trusted).
 
 ### Agent capabilities
 
@@ -124,6 +144,62 @@ In rough order of importance:
 6. **Review the installer before running.** `curl -o install.sh ...; less install.sh; bash install.sh`.
 7. **Generate strong secrets.** `openssl rand -hex 32` for `GATEWAY_AUTH_TOKEN`. Use a password manager for your Supabase credentials.
 8. **Update regularly.** Until gateway update actions are available in the UI, run `docker compose pull && docker compose up -d` manually.
+
+## Hosted trust model
+
+If you use the hosted offering at yourhq.ai, the trust boundaries are different from self-hosted. Here's what you should know.
+
+### Your data lives in a dedicated database
+
+Each hosted workspace gets its own Supabase project. Your data is not shared with other tenants — there is no multi-tenant database. Row-level security policies enforce `tenant_id` isolation within each project, but in practice each project has exactly one tenant.
+
+### Credentials are encrypted at rest
+
+Your Supabase service-role key, database password, and VNC password are encrypted with ChaCha20-Poly1305 before being stored in the control-plane database. The encryption key (`HOSTED_SECRETS_KEY`) is held in the worker's environment, not in the database.
+
+User-managed secrets (API keys, channel tokens, OAuth tokens) in your workspace's `secrets` table are separately encrypted with AES-256-GCM using the same `HOSTED_SECRETS_KEY`. This is a different encryption scheme from the control-plane credentials above, but uses the same key material.
+
+### What the control plane stores
+
+The master database (`hosted_workspaces`) stores:
+
+- Your email address and display name
+- Stripe customer and subscription IDs
+- Your workspace's Supabase project reference, URL, and anon key (not secret — same data the browser uses)
+- Encrypted service-role key and database password
+- E2B sandbox ID, status, and access URLs
+- Provisioning progress and setup metadata (workspace name, chosen template)
+
+### What we can access
+
+- **Supabase Management API**: we use this to create, configure, and delete your Supabase project. We can read project status and API keys. We cannot read your data through the management API.
+- **Service-role key**: decrypted at provisioning time and passed to your gateway sandbox. After provisioning, the worker only decrypts it when the UI requests your workspace config (to connect your browser to your Supabase). We do not read your Supabase data.
+- **E2B sandbox**: we can pause, resume, and destroy your sandbox. We do not connect to it, run commands in it, or read files from it during normal operation.
+- **Worker internal token**: authenticates requests between the UI and the worker service. It is not a user credential.
+
+### What we cannot access
+
+- **Your Supabase data**: we don't query your contacts, tasks, knowledge items, or agent data. The UI connects directly from your browser to your Supabase project.
+- **Your agent sessions**: agents run inside the E2B sandbox. We don't intercept, log, or monitor agent activity.
+- **Your VNC sessions**: noVNC traffic flows directly between your browser and the sandbox. We don't proxy or record it.
+
+### Sandbox isolation
+
+Each workspace runs in a dedicated E2B sandbox — an isolated Linux VM with its own kernel, filesystem, and network namespace. Sandboxes cannot communicate with each other. The gateway, daemons, and agents all run inside this single sandbox.
+
+### Logging policy
+
+The worker logs provisioning stages, sandbox lifecycle events (created, paused, resumed, destroyed), Stripe webhook processing, and errors. Logs include workspace IDs and event types. They do not include your Supabase data, agent outputs, message content, or VNC session data.
+
+### Cancellation and data deletion
+
+When you cancel a workspace, the sandbox is paused immediately (no compute charges during the grace period). After the 30-day grace period:
+
+1. The E2B sandbox is permanently destroyed
+2. The Supabase project is permanently deleted via the management API
+3. All encrypted credentials are cleared from the control-plane database
+
+Both deletions must succeed before the workspace is marked as fully canceled. If either fails, the cleanup loop retries every 6 hours until confirmed.
 
 ## Secrets and data we collect
 

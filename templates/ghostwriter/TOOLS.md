@@ -16,8 +16,8 @@ Skills define _how_ tools work. This file is for _your_ specifics.
 - **Tables you use:** agents, tasks, streams, comments, audit_log, contacts, interactions, organizations, contact_organizations, templates, campaigns, knowledge_items, knowledge_folders, knowledge_chunks, collection_definitions, collection_fields, collection_records, entity_links, routines, notifications, field_definitions, pipeline_stages, draft_sets, workspace
 - **Auth:** Service role key (bypasses RLS)
 - **Skill:** `skills/hq/` — all hq_* scripts for Supabase operations
-- **Knowledge search:** `skills/hq/scripts/hq_search_docs.py` searches knowledge items by semantic similarity or full-text. Filter by `--kind` (page, playbook, file, source) and `--tags`.
-- **Playbook learning:** `skills/hq/scripts/hq_playbook_upsert.py` creates/updates your personal playbooks. Use when you've proven a method works (3x success or breakthrough discovery). Always include `--reason`.
+- **Knowledge search:** `skills/hq/scripts/hq_search_docs.py` searches knowledge items by semantic similarity or full-text. Filter by `--kind` (page, skill, file, source) and `--tags`.
+- **Skill learning:** `skills/hq/scripts/hq_skill_upsert.py` creates/updates your personal skills. Use when you've proven a method works (3x success or breakthrough discovery). Always include `--reason`.
 - **Embedding model:** BAAI/bge-small-en-v1.5 (384 dimensions), served locally by HQ embedder
 
 ## Browser

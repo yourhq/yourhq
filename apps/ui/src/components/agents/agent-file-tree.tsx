@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { FileTreeNode } from "@/lib/agent-repo/types";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import {
   ChevronRight,
@@ -143,6 +144,7 @@ function TreeNode({
   onSelectFile: (path: string) => void;
 }) {
   const [expanded, setExpanded] = useState(depth < 2);
+  const mobile = useIsMobile();
   const isSelected = node.path === selectedPath;
 
   if (node.type === "folder") {
@@ -150,7 +152,10 @@ function TreeNode({
       <div>
         <button
           onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-1 w-full text-left py-1 px-2 text-xs text-muted-foreground hover:bg-accent/30 hover:text-foreground transition-colors"
+          className={cn(
+            "flex items-center gap-1 w-full text-left px-2 text-muted-foreground hover:bg-accent/30 hover:text-foreground transition-colors",
+            mobile ? "py-2.5 text-sm" : "py-1 text-xs",
+          )}
           style={{ paddingLeft: `${8 + depth * 12}px` }}
         >
           <ChevronRight
@@ -187,7 +192,8 @@ function TreeNode({
     <button
       onClick={() => onSelectFile(node.path)}
       className={cn(
-        "flex items-center gap-1.5 w-full text-left py-1 px-2 text-xs transition-colors",
+        "flex items-center gap-1.5 w-full text-left px-2 transition-colors",
+        mobile ? "py-2.5 text-sm" : "py-1 text-xs",
         isSelected
           ? "bg-accent/40 text-foreground border-l-2 border-primary"
           : "text-muted-foreground hover:bg-accent/30 hover:text-foreground border-l-2 border-transparent"

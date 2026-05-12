@@ -226,31 +226,39 @@ ALTER TABLE collection_fields ENABLE ROW LEVEL SECURITY;
 ALTER TABLE collection_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE collection_views ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Tenant isolation" ON collection_definitions;
 CREATE POLICY "Tenant isolation" ON collection_definitions
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON collection_definitions;
 CREATE POLICY "Service role full access" ON collection_definitions
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Tenant isolation" ON collection_fields;
 CREATE POLICY "Tenant isolation" ON collection_fields
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON collection_fields;
 CREATE POLICY "Service role full access" ON collection_fields
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Tenant isolation" ON collection_records;
 CREATE POLICY "Tenant isolation" ON collection_records
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON collection_records;
 CREATE POLICY "Service role full access" ON collection_records
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Tenant isolation" ON collection_views;
 CREATE POLICY "Tenant isolation" ON collection_views
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON collection_views;
 CREATE POLICY "Service role full access" ON collection_views
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 

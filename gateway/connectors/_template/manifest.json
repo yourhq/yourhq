@@ -1,0 +1,33 @@
+{
+  "id": "example",
+  "name": "Example Service",
+  "description": "Short description shown in the provider picker.",
+  "icon": "E",
+  "item_label": "Documents",
+
+  "auth": {
+    "type": "api_key",
+    "fields": [
+      {
+        "key": "api_key",
+        "label": "API Key",
+        "placeholder": "sk-...",
+        "input_type": "password",
+        "required": true
+      }
+    ],
+    "setup_steps": [
+      {
+        "title": "Get your API key",
+        "description": "Log in to Example Service, go to Settings > API, and copy your key.",
+        "link": {
+          "label": "Open Example Settings",
+          "url": "https://example.com/settings/api"
+        }
+      }
+    ]
+  },
+
+  "source_url_template": "https://example.com/doc/{external_id}",
+  "supports_write": false
+}

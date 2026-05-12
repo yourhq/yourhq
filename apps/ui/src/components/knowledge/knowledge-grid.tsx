@@ -1,9 +1,11 @@
 "use client";
 
-import type { KnowledgeItem } from "@/lib/knowledge/types";
+import type { KnowledgeItem, KnowledgeChunkSearchResult } from "@/lib/knowledge/types";
 import { KnowledgeKindBadge } from "./knowledge-kind-badge";
+import { KnowledgeScopeBadge } from "./knowledge-scope-badge";
 import { EmbeddingStatus } from "./embedding-status";
 import { MoreHorizontal, Archive, RotateCcw, Trash2, Pin, Loader2, AlertCircle } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +16,7 @@ import Link from "next/link";
 
 interface KnowledgeGridProps {
   items: KnowledgeItem[];
+  searchSnippets?: Record<string, KnowledgeChunkSearchResult[]>;
   onArchive: (id: string) => void;
   onRestore: (id: string) => void;
   onDelete: (id: string) => void;
@@ -22,6 +25,7 @@ interface KnowledgeGridProps {
 
 export function KnowledgeGrid({
   items,
+  searchSnippets,
   onArchive,
   onRestore,
   onDelete,
@@ -85,15 +89,22 @@ export function KnowledgeGrid({
               </DropdownMenu>
             </div>
 
+            {searchSnippets?.[item.id]?.[0] && (
+              <p className="text-[11px] text-muted-foreground/60 truncate">
+                {searchSnippets[item.id][0].content}
+              </p>
+            )}
+
             <div className="flex items-center gap-2">
               <KnowledgeKindBadge kind={item.kind} />
+              <KnowledgeScopeBadge scope={item.scope} />
               {item.kind === "file" && item.processing_status === "processing" && (
                 <Loader2 className="h-3 w-3 text-blue-400 animate-spin" />
               )}
               {item.kind === "file" && item.processing_status === "failed" && (
                 <AlertCircle className="h-3 w-3 text-red-400" />
               )}
-              {(item.kind === "page" || item.kind === "playbook" || (item.kind === "file" && item.processing_status === "done")) && (
+              {(item.kind === "page" || item.kind === "skill" || item.kind === "source" || (item.kind === "file" && item.processing_status === "done")) && (
                 <EmbeddingStatus
                   embeddingStatus={item.embedding_status}
                   chunkStatus={item.chunk_status}
@@ -102,7 +113,7 @@ export function KnowledgeGrid({
             </div>
 
             <div className="flex items-center justify-between text-[10px] text-muted-foreground/50">
-              <span>{new Date(item.updated_at).toLocaleDateString()}</span>
+              <span>{formatDistanceToNow(new Date(item.updated_at), { addSuffix: true })}</span>
               {item.folder && <span className="truncate">{item.folder.name}</span>}
             </div>
           </Link>

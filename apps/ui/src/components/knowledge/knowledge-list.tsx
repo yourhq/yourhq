@@ -1,6 +1,6 @@
 "use client";
 
-import type { KnowledgeItem } from "@/lib/knowledge/types";
+import type { KnowledgeItem, KnowledgeChunkSearchResult } from "@/lib/knowledge/types";
 import { KnowledgeKindBadge } from "./knowledge-kind-badge";
 import { KnowledgeScopeBadge } from "./knowledge-scope-badge";
 import { EmbeddingStatus } from "./embedding-status";
@@ -17,6 +17,7 @@ import Link from "next/link";
 
 interface KnowledgeListProps {
   items: KnowledgeItem[];
+  searchSnippets?: Record<string, KnowledgeChunkSearchResult[]>;
   onArchive: (id: string) => void;
   onRestore: (id: string) => void;
   onDelete: (id: string) => void;
@@ -25,6 +26,7 @@ interface KnowledgeListProps {
 
 export function KnowledgeList({
   items,
+  searchSnippets,
   onArchive,
   onRestore,
   onDelete,
@@ -53,6 +55,11 @@ export function KnowledgeList({
                 {item.title}
               </span>
             </Link>
+            {searchSnippets?.[item.id]?.[0] && (
+              <p className="text-[11px] text-muted-foreground/60 truncate ml-6 mt-0.5">
+                {searchSnippets[item.id][0].content}
+              </p>
+            )}
           </div>
 
           {item.kind === "source" && item.source_connection_id ? (
@@ -72,7 +79,7 @@ export function KnowledgeList({
           {item.kind === "file" && item.processing_status === "failed" && (
             <AlertCircle className="h-3 w-3 text-red-400 shrink-0" />
           )}
-          {(item.kind === "page" || item.kind === "playbook" || item.kind === "source" || (item.kind === "file" && item.processing_status === "done")) && (
+          {(item.kind === "page" || item.kind === "skill" || item.kind === "source" || (item.kind === "file" && item.processing_status === "done")) && (
             <EmbeddingStatus
               embeddingStatus={item.embedding_status}
               chunkStatus={item.chunk_status}
@@ -86,7 +93,7 @@ export function KnowledgeList({
           )}
 
           <span className="text-[10px] text-muted-foreground/40 shrink-0">
-            {new Date(item.updated_at).toLocaleDateString()}
+            {formatDistanceToNow(new Date(item.updated_at), { addSuffix: true })}
           </span>
 
           <DropdownMenu>

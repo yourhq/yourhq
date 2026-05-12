@@ -58,7 +58,7 @@ The thin preset [`ConfirmDeleteDialog`](https://github.com/yourhq/yourhq/blob/ma
 
 For unrecoverable failures.
 
-Root fallback: [`apps/ui/src/app/error.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/error.tsx) — catches errors that escape segment-level `error.tsx` files. Detects project-related errors via regex against the message (Supabase, project, registry, database, fetch, DNS) and offers context-aware recovery: "Switch project" and "Onboarding" links for project issues, "Try again" plus collapsible technical details otherwise.
+Root fallback: [`apps/ui/src/app/error.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/error.tsx) — catches errors that escape segment-level `error.tsx` files. Detects workspace-related errors via regex against the message (Supabase, workspace, registry, database, fetch, DNS) and offers context-aware recovery: "Switch workspace" and "Onboarding" links for workspace issues, "Try again" plus collapsible technical details otherwise.
 
 Segment-level `error.tsx` files in `app/dashboard/<module>/` cover module-specific failure modes. They should:
 
@@ -117,11 +117,11 @@ Pass the count and any optional sizing. The preset is `animate-pulse` with `bg-a
 
 For persistent, page-level conditions.
 
-The [`Alert`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/alert.tsx) primitive carries a banner-style message inside the page, distinct from a toast. The only standardized one in the product today is [`SchemaVersionBanner`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/schema-version-banner.tsx) — shown when the active project's schema lags expected migrations.
+The [`Alert`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/alert.tsx) primitive carries a banner-style message inside the page, distinct from a toast. The only standardized one in the product today is [`SchemaVersionBanner`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/schema-version-banner.tsx) — shown when the active workspace's schema lags expected migrations.
 
 ### Rules
 
-- **Reserve `Alert` for page-level state that affects all interactions on the page.** "Your project is in read-only mode", "Schema migration required". Not for "Saved successfully" — that's a toast.
+- **Reserve `Alert` for page-level state that affects all interactions on the page.** "Your workspace is in read-only mode", "Schema migration required". Not for "Saved successfully" — that's a toast.
 - **Provide an action where possible.** A banner with no link out is just nagging.
 
 ## Empty interaction feedback

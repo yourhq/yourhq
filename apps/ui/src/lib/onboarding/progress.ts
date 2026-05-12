@@ -2,6 +2,7 @@ export interface OnboardingProgress {
   wizardCompleted: boolean;
   tier1: {
     agentCreated: boolean;
+    channelConnected: boolean;
     taskAssigned: boolean;
     agentWorked: boolean;
     knowledgeCreated: boolean;
@@ -24,6 +25,7 @@ const DEFAULT_PROGRESS: OnboardingProgress = {
   wizardCompleted: false,
   tier1: {
     agentCreated: false,
+    channelConnected: false,
     taskAssigned: false,
     agentWorked: false,
     knowledgeCreated: false,

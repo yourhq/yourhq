@@ -42,10 +42,12 @@ CREATE TRIGGER inbox_items_updated_at
 
 -- RLS
 ALTER TABLE agent_inbox_items ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON agent_inbox_items;
 CREATE POLICY "Tenant isolation" ON agent_inbox_items
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON agent_inbox_items;
 CREATE POLICY "Service role full access" ON agent_inbox_items
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 

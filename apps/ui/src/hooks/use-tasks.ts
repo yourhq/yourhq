@@ -25,6 +25,7 @@ export function useTasks() {
   const [statusFilter, setStatusFilterState] = useState(searchParams.get("status") || "all");
   const [priorityFilter, setPriorityFilterState] = useState(searchParams.get("priority") || "all");
   const [assigneeFilter, setAssigneeFilterState] = useState(searchParams.get("assignee") || "all");
+  const [labelFilter, setLabelFilterState] = useState(searchParams.get("label") || "all");
   const [showArchived, setShowArchivedState] = useState(searchParams.get("archived") === "1");
   const [sorting, setSortingState] = useState<SortingState>(() => {
     const sortParam = searchParams.get("sort");
@@ -71,6 +72,11 @@ export function useTasks() {
   function setAssigneeFilter(value: string) {
     setAssigneeFilterState(value);
     updateUrl({ assignee: value === "all" ? null : value });
+  }
+
+  function setLabelFilter(value: string) {
+    setLabelFilterState(value);
+    updateUrl({ label: value === "all" ? null : value });
   }
 
   function setShowArchived(value: boolean) {
@@ -123,30 +129,91 @@ export function useTasks() {
     if (!error && data) {
       const taskList = data as unknown as Task[];
 
-      // Batch-fetch link counts
+      // Batch-fetch link counts, labels, and blocker counts
       if (taskList.length > 0) {
         const taskIds = taskList.map((t) => t.id);
-        const { data: linkRows } = await supabase
-          .from("entity_links")
-          .select("owner_id")
-          .eq("owner_type", "task")
-          .in("owner_id", taskIds);
 
-        if (linkRows) {
-          const countMap = new Map<string, number>();
-          for (const row of linkRows) {
-            countMap.set(row.owner_id, (countMap.get(row.owner_id) ?? 0) + 1);
+        const [linkResult, labelResult, blockerResult, commentResult] = await Promise.all([
+          supabase
+            .from("entity_links")
+            .select("owner_id, is_deliverable")
+            .eq("owner_type", "task")
+            .in("owner_id", taskIds),
+          supabase
+            .from("task_labels")
+            .select("task_id, labels(*)")
+            .in("task_id", taskIds),
+          supabase
+            .from("task_relations")
+            .select("source_task_id")
+            .eq("relation_type", "blocked_by")
+            .in("source_task_id", taskIds),
+          supabase
+            .from("comments")
+            .select("entity_id")
+            .eq("entity_type", "task")
+            .in("entity_id", taskIds),
+        ]);
+
+        if (linkResult.data) {
+          const attachMap = new Map<string, number>();
+          const delivMap = new Map<string, number>();
+          for (const row of linkResult.data) {
+            if (row.is_deliverable) {
+              delivMap.set(row.owner_id, (delivMap.get(row.owner_id) ?? 0) + 1);
+            } else {
+              attachMap.set(row.owner_id, (attachMap.get(row.owner_id) ?? 0) + 1);
+            }
           }
           for (const task of taskList) {
-            task.attachment_count = countMap.get(task.id) ?? 0;
+            task.attachment_count = attachMap.get(task.id) ?? 0;
+            task.deliverable_count = delivMap.get(task.id) ?? 0;
+          }
+        }
+
+        if (labelResult.data) {
+          type LabelRow = { id: string; name: string; color: string; description: string | null; created_at: string };
+          const labelMap = new Map<string, LabelRow[]>();
+          for (const row of labelResult.data as unknown as { task_id: string; labels: LabelRow | null }[]) {
+            if (!row.labels) continue;
+            const existing = labelMap.get(row.task_id) ?? [];
+            existing.push(row.labels);
+            labelMap.set(row.task_id, existing);
+          }
+          for (const task of taskList) {
+            task.labels = labelMap.get(task.id) ?? [];
+          }
+        }
+
+        if (blockerResult.data) {
+          const blockerMap = new Map<string, number>();
+          for (const row of blockerResult.data) {
+            blockerMap.set(row.source_task_id, (blockerMap.get(row.source_task_id) ?? 0) + 1);
+          }
+          for (const task of taskList) {
+            task.blocker_count = blockerMap.get(task.id) ?? 0;
+          }
+        }
+
+        if (commentResult.data) {
+          const commentMap = new Map<string, number>();
+          for (const row of commentResult.data) {
+            commentMap.set(row.entity_id, (commentMap.get(row.entity_id) ?? 0) + 1);
+          }
+          for (const task of taskList) {
+            task.comment_count = commentMap.get(task.id) ?? 0;
           }
         }
       }
 
-      setTasks(taskList);
+      const filtered = labelFilter !== "all"
+        ? taskList.filter((t) => t.labels?.some((l) => l.id === labelFilter))
+        : taskList;
+
+      setTasks(filtered);
     }
     setLoading(false);
-  }, [supabase, streamFilter, statusFilter, priorityFilter, assigneeFilter, showArchived]);
+  }, [supabase, streamFilter, statusFilter, priorityFilter, assigneeFilter, labelFilter, showArchived]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -156,12 +223,42 @@ export function useTasks() {
   // Real-time: sync tasks via single-row refetch (has stream + agent JOINs)
   const taskPostProcess = useCallback(
     async (task: Task): Promise<Task> => {
-      const { data: linkRows } = await supabase
-        .from("entity_links")
-        .select("owner_id")
-        .eq("owner_type", "task")
-        .eq("owner_id", task.id);
-      task.attachment_count = linkRows?.length ?? 0;
+      const [linkResult, labelResult, blockerResult, commentResult] = await Promise.all([
+        supabase
+          .from("entity_links")
+          .select("owner_id, is_deliverable")
+          .eq("owner_type", "task")
+          .eq("owner_id", task.id),
+        supabase
+          .from("task_labels")
+          .select("labels(*)")
+          .eq("task_id", task.id),
+        supabase
+          .from("task_relations")
+          .select("id")
+          .eq("source_task_id", task.id)
+          .eq("relation_type", "blocked_by"),
+        supabase
+          .from("comments")
+          .select("id")
+          .eq("entity_type", "task")
+          .eq("entity_id", task.id),
+      ]);
+
+      const nonDeliverableLinks = (linkResult.data ?? []).filter(
+        (r: { is_deliverable: boolean }) => !r.is_deliverable
+      );
+      task.attachment_count = nonDeliverableLinks.length;
+      task.deliverable_count = (linkResult.data ?? []).length - nonDeliverableLinks.length;
+      task.blocker_count = blockerResult.data?.length ?? 0;
+      task.comment_count = commentResult.data?.length ?? 0;
+
+      if (labelResult.data) {
+        task.labels = (labelResult.data as unknown as { labels: { id: string; name: string; color: string; description: string | null; created_at: string } | null }[])
+          .map((r) => r.labels)
+          .filter((l): l is NonNullable<typeof l> => l !== null);
+      }
+
       return task;
     },
     [supabase]
@@ -204,7 +301,11 @@ export function useTasks() {
   async function handleStatusChange(id: string, status: TaskStatus) {
     const task = tasks.find((t) => t.id === id);
     const oldStatus = task?.status;
-    await supabase.from("tasks").update({ status }).eq("id", id);
+    const { error } = await supabase.from("tasks").update({ status }).eq("id", id);
+    if (error) {
+      toast.error("Failed to update task status", { description: error.message });
+      return;
+    }
     logAudit(supabase, {
       module: "tasks",
       entity_type: "task",
@@ -218,7 +319,11 @@ export function useTasks() {
 
   async function handleArchiveTask(id: string) {
     const task = tasks.find((t) => t.id === id);
-    await supabase.from("tasks").update({ archived_at: new Date().toISOString() }).eq("id", id);
+    const { error } = await supabase.from("tasks").update({ archived_at: new Date().toISOString() }).eq("id", id);
+    if (error) {
+      toast.error("Failed to archive task", { description: error.message });
+      return;
+    }
     logAudit(supabase, {
       module: "tasks",
       entity_type: "task",
@@ -235,7 +340,11 @@ export function useTasks() {
 
   async function handleRestoreTask(id: string) {
     const task = tasks.find((t) => t.id === id);
-    await supabase.from("tasks").update({ archived_at: null }).eq("id", id);
+    const { error } = await supabase.from("tasks").update({ archived_at: null }).eq("id", id);
+    if (error) {
+      toast.error("Failed to restore task", { description: error.message });
+      return;
+    }
     logAudit(supabase, {
       module: "tasks",
       entity_type: "task",
@@ -280,7 +389,11 @@ export function useTasks() {
 
   async function handleDeleteTask(id: string) {
     const task = tasks.find((t) => t.id === id);
-    await supabase.from("tasks").delete().eq("id", id);
+    const { error } = await supabase.from("tasks").delete().eq("id", id);
+    if (error) {
+      toast.error("Failed to delete task", { description: error.message });
+      return;
+    }
     logAudit(supabase, {
       module: "tasks",
       entity_type: "task",
@@ -348,6 +461,7 @@ export function useTasks() {
     statusFilter !== "all" ||
     priorityFilter !== "all" ||
     assigneeFilter !== "all" ||
+    labelFilter !== "all" ||
     showArchived;
 
   function clearFilters() {
@@ -355,6 +469,7 @@ export function useTasks() {
     setStatusFilterState("all");
     setPriorityFilterState("all");
     setAssigneeFilterState("all");
+    setLabelFilterState("all");
     setShowArchivedState(false);
     setSortingState([]);
     router.replace(pathname, { scroll: false });
@@ -374,6 +489,8 @@ export function useTasks() {
       setPriorityFilter,
       assigneeFilter,
       setAssigneeFilter,
+      labelFilter,
+      setLabelFilter,
       showArchived,
       setShowArchived,
       hasActiveFilters,

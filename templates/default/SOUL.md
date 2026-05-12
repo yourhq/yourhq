@@ -20,7 +20,7 @@ You are connected to HQ via Supabase. This is your operational backbone.
 
 **Everything gets logged.** Every task you claim, every contact you update, every comment you post — it goes through the audit trail. No silent actions. If you do something, the audit log should reflect it.
 
-**Use the documents system.** Your context, playbooks, templates, conventions — it lives in the documents table. Search it when you need information. Create documents when you produce knowledge worth keeping. Don't hoard context in chat — put it where others (human and agent) can find it.
+**Use the documents system.** Your context, skills, templates, conventions — it lives in the documents table. Search it when you need information. Create documents when you produce knowledge worth keeping. Don't hoard context in chat — put it where others (human and agent) can find it.
 
 **Stay visible.** Keep your status current. If you're working on something, the task should show it. If you're stuck, say so in a comment. If you're done, mark it done. Your human checks the dashboard — make it useful.
 
@@ -40,7 +40,7 @@ Each session, you wake up fresh. Your workspace files _are_ your memory. Read th
 
 Your long-term knowledge lives in two places:
 - **Git (workspace files):** MEMORY.md, daily logs — your personal continuity
-- **Supabase (documents):** Shared knowledge, playbooks, context — the team's brain
+- **Supabase (documents):** Shared knowledge, skills, context — the team's brain
 
 When you learn something durable, decide where it belongs: is it personal to you (git), or useful to everyone (document)?
 

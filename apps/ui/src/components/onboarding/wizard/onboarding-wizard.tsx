@@ -1,16 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, X } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, LogOut, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useWizardState, clearWizardSession, type WizardData } from "./use-wizard-state";
+import { useWizardState, clearWizardSession, type WizardData, type WizardStep } from "./use-wizard-state";
+import { HqLogo } from "@/components/shared/hq-logo";
+import { WizardProgress } from "./wizard-progress";
 import { StepWelcome } from "./step-welcome";
 import { StepIntent } from "./step-intent";
 import { StepInfrastructure, type InfraStatus, type SchemaInstallState } from "./step-infrastructure";
 import { StepProvider } from "./step-provider";
 import { StepAgent, type AgentRecommendation } from "./step-agent";
 import { StepAccount } from "./step-account";
+import { StepPayment } from "./step-payment";
+import { StepProvisioning } from "./step-provisioning";
+import { StepCelebration } from "./step-celebration";
 import { FIRST_TASK_SUGGESTIONS } from "@/lib/onboarding/first-task-suggestions";
 import { completeItem } from "@/lib/onboarding/progress";
 import {
@@ -19,8 +24,6 @@ import {
   connectProvider,
   createFirstAgent,
   pollAgentProvisionStatus,
-  connectChannelAction,
-  submitPairingAction,
   createAccountAndFinalize,
   validateAndConnectDb,
   setupGateway,
@@ -28,8 +31,11 @@ import {
   prepareSchemaInstallAction,
   runOneClickMigrationAction,
   confirmSchemaInstalledAction,
-  saveProjectToRegistry,
+  saveWorkspaceToRegistry,
+  signOutFromOnboarding,
+  markOnboardingComplete,
 } from "./actions";
+import { createHostedCheckout, getHostedEmail, verifyAutoLogin } from "./hosted-actions";
 
 const INTENT_TO_TEMPLATE: Record<string, { branch: string; name: string; emoji: string; role: string; description: string }> = {
   reach: { branch: "template/crm-researcher", name: "Scout", emoji: "🦅", role: "Research & Outreach", description: "Researches people, verifies info, and helps you craft personalized outreach." },
@@ -40,25 +46,62 @@ const INTENT_TO_TEMPLATE: Record<string, { branch: string; name: string; emoji: 
   explore: { branch: "template/assistant", name: "Assistant", emoji: "🐕", role: "General Assistant", description: "Routes work, tracks moving parts, and helps you stay organized." },
 };
 
+const STEP_LAYOUT: Record<string, "narrow" | "wide"> = {
+  welcome: "narrow",
+  intent: "narrow",
+  infrastructure: "wide",
+  provider: "wide",
+  agent: "wide",
+  account: "narrow",
+  payment: "wide",
+  provisioning: "narrow",
+};
+
+const OSS_PROGRESS_STEPS = [
+  { key: "welcome", label: "Welcome" },
+  { key: "intent", label: "Your work" },
+  { key: "infrastructure", label: "Infrastructure" },
+  { key: "provider", label: "AI Provider" },
+  { key: "agent", label: "Agent" },
+  { key: "account", label: "Account" },
+];
+
+const HOSTED_PROGRESS_STEPS = [
+  { key: "welcome", label: "Welcome" },
+  { key: "intent", label: "Your work" },
+  { key: "payment", label: "Setup" },
+  { key: "provider", label: "AI Provider" },
+  { key: "agent", label: "Agent" },
+];
+
 export interface OnboardingWizardProps {
   isHosted: boolean;
+  initialStep?: WizardStep;
   initialData?: WizardData;
 }
 
-export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProps) {
+export function OnboardingWizard({ isHosted, initialStep, initialData }: OnboardingWizardProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const {
     step,
     data,
     patch,
     advance,
+    goTo,
     goBack,
+    direction,
     pending,
     startTransition,
     error,
     setError,
     isFirst,
-  } = useWizardState({ isHosted, initialData });
+  } = useWizardState({ isHosted, initialStep, initialData });
+
+  const layout = STEP_LAYOUT[step] ?? "narrow";
+  const progressSteps = isHosted ? HOSTED_PROGRESS_STEPS : OSS_PROGRESS_STEPS;
+  // Map provisioning to payment for progress bar display (both show as "Setup")
+  const progressStep = step === "provisioning" ? "payment" : step;
 
   // Infrastructure state (OSS only)
   const [infraStatus, setInfraStatus] = useState<InfraStatus>({
@@ -88,12 +131,42 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
   const [provisionError, setProvisionError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Pairing state
-  const [pairingStatus, setPairingStatus] = useState<"idle" | "submitting" | "done" | "error">("idle");
-  const [pairingError, setPairingError] = useState<string | null>(null);
-
   // Account step error
   const [accountError, setAccountError] = useState<string | null>(null);
+
+  // Celebration screen
+  const [showCelebration, setShowCelebration] = useState(false);
+
+  // Hosted payment + provisioning state
+  const [hostedEmail, setHostedEmail] = useState<string>("");
+  const [hostedWorkspaceId, setHostedWorkspaceId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isHosted) return;
+    getHostedEmail().then((email) => {
+      if (email) setHostedEmail(email);
+    });
+  }, [isHosted]);
+
+  // Handle Stripe return: ?stripe_success=1 means payment went through,
+  // jump straight to provisioning step
+  useEffect(() => {
+    if (!isHosted) return;
+    if (searchParams.get("stripe_success") === "1") {
+      goTo("provisioning");
+      // Clean up the URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete("stripe_success");
+      window.history.replaceState({}, "", url.toString());
+    }
+    if (searchParams.get("stripe_canceled") === "1") {
+      goTo("payment");
+      const url = new URL(window.location.href);
+      url.searchParams.delete("stripe_canceled");
+      window.history.replaceState({}, "", url.toString());
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -171,7 +244,7 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
       startTransition(async () => {
         const r = await runOneClickMigrationAction({ projectRef, region, dbPassword });
         if (r.ok) {
-          await saveProjectToRegistry(creds);
+          await saveWorkspaceToRegistry(creds);
           setSchemaInstall({ phase: "idle" });
           setInfraStatus((s) => ({ ...s, db: "connected" }));
         } else {
@@ -189,7 +262,7 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
     startTransition(async () => {
       const r = await confirmSchemaInstalledAction(creds);
       if (r.ok) {
-        await saveProjectToRegistry(creds);
+        await saveWorkspaceToRegistry(creds);
         setSchemaInstall({ phase: "idle" });
         setInfraStatus((s) => ({ ...s, db: "connected" }));
       } else {
@@ -292,6 +365,7 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
       setProvisionStatus("provisioning");
 
       if (provisionCommandId) {
+        const startedAt = Date.now();
         const interval = setInterval(async () => {
           const status = await pollAgentProvisionStatus(provisionCommandId);
           if (status === "completed") {
@@ -301,6 +375,9 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
             clearInterval(interval);
             setProvisionStatus("error");
             setProvisionError("Agent provisioning failed");
+          } else if (Date.now() - startedAt > 120_000) {
+            clearInterval(interval);
+            setProvisionStatus("ready");
           }
         }, 3000);
         pollRef.current = interval;
@@ -311,68 +388,20 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
     [patch, setError],
   );
 
-  const handleConnectChannel = useCallback(
-    async (channelData: {
-      agentId: string;
-      agentSlug: string;
-      channel: "telegram" | "discord" | "slack";
-      token: string;
-      extras?: Record<string, string>;
-    }) => {
-      const r = await connectChannelAction(channelData);
-      if (!r.ok || !r.data) {
-        setError(r.error ?? "Failed to connect channel");
-        return null;
-      }
-
-      patch({ channelType: channelData.channel });
-      setProvisionStatus("provisioning");
-
-      // Poll the new provision command
-      const { provisionCommandId } = r.data;
-      if (pollRef.current) clearInterval(pollRef.current);
-      const interval = setInterval(async () => {
-        const status = await pollAgentProvisionStatus(provisionCommandId);
-        if (status === "completed") {
-          clearInterval(interval);
-          setProvisionStatus("ready");
-        } else if (status === "error") {
-          clearInterval(interval);
-          setProvisionStatus("error");
-          setProvisionError("Channel setup failed");
-        }
-      }, 3000);
-      pollRef.current = interval;
-
-      return { provisionCommandId };
-    },
-    [patch, setError],
-  );
-
-  const handleSubmitPairing = useCallback(
-    async (pairingData: {
-      agentId: string;
-      agentSlug: string;
-      channel: "telegram" | "discord" | "slack";
-      pairingCode: string;
-    }) => {
-      setPairingStatus("submitting");
-      setPairingError(null);
-      const r = await submitPairingAction(pairingData);
-      if (r.ok) {
-        setPairingStatus("done");
-        return true;
-      } else {
-        setPairingStatus("error");
-        setPairingError(r.error ?? "Pairing failed");
-        return false;
-      }
-    },
-    [],
-  );
+  const handleSignOut = useCallback(async () => {
+    await signOutFromOnboarding();
+    if (isHosted) {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    }
+    router.push(isHosted ? "/auth" : "/login");
+    router.refresh();
+  }, [isHosted, router]);
 
   const navigateToTasks = useCallback(() => {
     clearWizardSession();
+    markOnboardingComplete().catch(() => {});
 
     const progress = localStorage.getItem("hq_onboarding_progress");
     const parsed = progress ? JSON.parse(progress) : {};
@@ -390,13 +419,57 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
     router.push(`/dashboard/tasks?${params.toString()}`);
   }, [data.intentKey, data.agentId, router]);
 
-  const handleSkipChannel = useCallback(() => {
+  const handleAgentDone = useCallback(() => {
     if (isHosted) {
-      navigateToTasks();
+      markOnboardingComplete().catch(() => {});
+      setShowCelebration(true);
     } else {
       advance();
     }
-  }, [isHosted, advance, navigateToTasks]);
+  }, [isHosted, advance]);
+
+  // Auto-advance once agent provisioning finishes (ready or error)
+  const agentDoneFired = useRef(false);
+  useEffect(() => {
+    if (step !== "agent") return;
+    if (agentDoneFired.current) return;
+    if (provisionStatus === "ready" || provisionStatus === "error") {
+      agentDoneFired.current = true;
+      const timer = setTimeout(handleAgentDone, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [step, provisionStatus, handleAgentDone]);
+
+  // ─── Payment (Hosted) ───
+  const handlePaymentCheckout = useCallback(
+    async (email: string) => {
+      const result = await createHostedCheckout({
+        email,
+        ownerName: (data.ownerName as string) || "",
+        workspaceLabel: (data.workspaceName as string) || "My Workspace",
+        workspaceEmoji: "🏠",
+        contextPreset: (data.intentKey as string) || "other",
+      });
+      setHostedWorkspaceId(result.workspaceId);
+      patch({ hostedWorkspaceId: result.workspaceId });
+      window.location.href = result.url;
+    },
+    [data.ownerName, data.workspaceName, data.intentKey, patch],
+  );
+
+  // ─── Provisioning complete (Hosted) ───
+  const handleProvisionComplete = useCallback(
+    async (tokenHash: string | null, tokenType: string) => {
+      if (tokenHash) {
+        const result = await verifyAutoLogin(tokenHash, tokenType as "magiclink" | "email");
+        if (!result.ok) {
+          console.warn("[onboarding] Auto-login failed, user can log in via email later:", result.error);
+        }
+      }
+      advance();
+    },
+    [advance],
+  );
 
   // ─── Account (OSS only) ───
   const handleAccount = useCallback(
@@ -421,149 +494,191 @@ export function OnboardingWizard({ isHosted, initialData }: OnboardingWizardProp
           // If sign-in fails the user can sign in manually from /login
         }
 
-        navigateToTasks();
+        setShowCelebration(true);
       });
     },
-    [startTransition, navigateToTasks],
+    [startTransition],
   );
 
   // ─── Render ───
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-background to-background/95">
-      {/* Top bar */}
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border/40 px-5 lg:px-8">
-        <div className="flex items-center gap-3">
-          {!isFirst && (
-            <button
-              type="button"
-              onClick={goBack}
-              aria-label="Go back"
-              className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
-            >
-              <ArrowLeft className="h-3 w-3" />
-              <span className="hidden sm:inline">Back</span>
-            </button>
-          )}
+      {/* Header */}
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border/40 px-5 lg:h-16 lg:px-8">
+        <HqLogo size={24} className="text-foreground" />
+        <div className="hidden md:flex flex-1 justify-center px-8">
+          <WizardProgress steps={progressSteps} currentStep={progressStep} />
         </div>
-        <div className="text-[11px] font-semibold tracking-tight text-foreground">
-          HQ
+        <div className="flex items-center gap-3">
+          <kbd className="hidden lg:inline-block rounded-md border border-border/60 bg-muted/50 px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
+            Enter ↵
+          </kbd>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+          >
+            <LogOut className="h-3 w-3" />
+            <span className="hidden sm:inline">Sign out</span>
+          </button>
+        </div>
+        <div className="md:hidden">
+          <WizardProgress steps={progressSteps} currentStep={progressStep} />
         </div>
       </header>
 
       {/* Content */}
-      <main className="flex flex-1 items-start justify-center overflow-y-auto px-5 pb-24 lg:px-8">
-        <div className="w-full max-w-xl pt-8">
-          {error && (
-            <div className="mb-5 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-[12px] text-destructive animate-in fade-in duration-200">
-              <span className="flex-1">{error}</span>
+      <main
+        className={cn(
+          "flex flex-1 justify-center overflow-y-auto px-5 pb-24 lg:px-8",
+          showCelebration
+            ? "items-center"
+            : layout === "narrow"
+              ? "items-center"
+              : "items-start",
+        )}
+      >
+        {showCelebration ? (
+          <div className="w-full max-w-lg">
+            <StepCelebration
+              workspaceName={data.workspaceName as string | undefined}
+              agentName={data.agentName as string | undefined}
+              agentEmoji={data.agentEmoji as string | undefined}
+              onContinue={navigateToTasks}
+            />
+          </div>
+        ) : (
+          <div
+            className={cn(
+              layout === "narrow"
+                ? "w-full max-w-lg"
+                : "w-full max-w-3xl",
+              layout === "wide" && "pt-8",
+            )}
+          >
+            {/* Back button — hidden during provisioning and at gates the user can't reverse */}
+            {!isFirst && step !== "provisioning" && !(isHosted && step === "provider") && (
               <button
                 type="button"
-                onClick={() => setError(null)}
-                className="shrink-0 p-0.5 rounded text-destructive/60 hover:text-destructive transition-colors"
-                aria-label="Dismiss error"
+                onClick={goBack}
+                aria-label="Go back"
+                className="mb-4 flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
               >
-                <X className="h-3 w-3" />
+                <ArrowLeft className="h-3 w-3" />
+                <span className="hidden sm:inline">Back</span>
               </button>
+            )}
+
+            {error && (
+              <div className="mb-5 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-[12px] text-destructive animate-in fade-in duration-200">
+                <span className="flex-1">{error}</span>
+                <button
+                  type="button"
+                  onClick={() => setError(null)}
+                  className="shrink-0 p-0.5 rounded text-destructive/60 hover:text-destructive transition-colors"
+                  aria-label="Dismiss error"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+
+            <div
+              key={step}
+              className={cn(
+                "animate-in fade-in duration-300",
+                direction === "forward"
+                  ? "slide-in-from-right-4"
+                  : "slide-in-from-left-4",
+              )}
+            >
+              {step === "welcome" && (
+                <StepWelcome
+                  initialName={data.ownerName}
+                  subtitle={
+                    isHosted
+                      ? "Set up your workspace in a few quick steps."
+                      : "Set up your workspace in a few steps. Takes about 10 minutes."
+                  }
+                  onSubmit={handleWelcome}
+                  pending={pending}
+                />
+              )}
+
+              {step === "intent" && (
+                <StepIntent
+                  ownerName={data.ownerName ?? ""}
+                  initialKey={data.intentKey}
+                  onSubmit={handleIntent}
+                  pending={pending}
+                />
+              )}
+
+              {step === "infrastructure" && (
+                <StepInfrastructure
+                  status={infraStatus}
+                  schemaInstall={schemaInstall}
+                  onValidateDb={handleValidateDb}
+                  onRunOneClick={handleRunOneClick}
+                  onConfirmSchema={handleConfirmSchema}
+                  onChooseGateway={handleChooseGateway}
+                  onContinue={handleInfraContinue}
+                  pending={pending}
+                />
+              )}
+
+              {step === "provider" && (
+                <StepProvider
+                  onSubmit={handleProvider}
+                  pending={pending}
+                  validating={validating}
+                  validated={validated}
+                  validationError={validationError}
+                  isHosted={isHosted}
+                />
+              )}
+
+              {step === "agent" && (
+                <StepAgent
+                  recommendation={getRecommendation()}
+                  onCreateAgent={handleCreateAgent}
+                  provisionStatus={provisionStatus}
+                  provisionError={provisionError}
+                  pending={pending}
+                />
+              )}
+
+              {step === "account" && (
+                <StepAccount
+                  ownerName={data.preferredName ?? data.ownerName}
+                  onSubmit={handleAccount}
+                  pending={pending}
+                  error={accountError}
+                />
+              )}
+
+              {step === "payment" && (
+                <StepPayment
+                  ownerName={(data.ownerName as string) ?? ""}
+                  workspaceLabel={(data.workspaceName as string) ?? "My Workspace"}
+                  intentKey={(data.intentKey as string) ?? "other"}
+                  email={hostedEmail}
+                  onCheckout={handlePaymentCheckout}
+                  pending={pending}
+                />
+              )}
+
+              {step === "provisioning" && (
+                <StepProvisioning
+                  workspaceId={hostedWorkspaceId || (data.hostedWorkspaceId as string) || ""}
+                  onComplete={handleProvisionComplete}
+                />
+              )}
             </div>
-          )}
-
-          <div
-            key={step}
-            className="animate-in fade-in slide-in-from-bottom-2 duration-300"
-          >
-            {step === "welcome" && (
-              <StepWelcome
-                initialName={data.ownerName}
-                onSubmit={handleWelcome}
-                pending={pending}
-              />
-            )}
-
-            {step === "intent" && (
-              <StepIntent
-                ownerName={data.ownerName ?? ""}
-                initialKey={data.intentKey}
-                onSubmit={handleIntent}
-                pending={pending}
-              />
-            )}
-
-            {step === "infrastructure" && (
-              <StepInfrastructure
-                status={infraStatus}
-                schemaInstall={schemaInstall}
-                onValidateDb={handleValidateDb}
-                onRunOneClick={handleRunOneClick}
-                onConfirmSchema={handleConfirmSchema}
-                onChooseGateway={handleChooseGateway}
-                onContinue={handleInfraContinue}
-                pending={pending}
-              />
-            )}
-
-            {step === "provider" && (
-              <StepProvider
-                onSubmit={handleProvider}
-                pending={pending}
-                validating={validating}
-                validated={validated}
-                validationError={validationError}
-              />
-            )}
-
-            {step === "agent" && (
-              <StepAgent
-                recommendation={getRecommendation()}
-                onCreateAgent={handleCreateAgent}
-                onConnectChannel={handleConnectChannel}
-                onSubmitPairing={handleSubmitPairing}
-                onSkipChannel={handleSkipChannel}
-                provisionStatus={provisionStatus}
-                provisionError={provisionError}
-                pairingStatus={pairingStatus}
-                pairingError={pairingError}
-                pending={pending}
-              />
-            )}
-
-            {step === "account" && (
-              <StepAccount
-                ownerName={data.preferredName ?? data.ownerName}
-                onSubmit={handleAccount}
-                pending={pending}
-                error={accountError}
-              />
-            )}
           </div>
-        </div>
+        )}
       </main>
-
-      {/* Progress dots */}
-      <ProgressDots steps={isHosted
-        ? ["welcome", "intent", "provider", "agent"]
-        : ["welcome", "intent", "infrastructure", "provider", "agent", "account"]
-      } current={step} />
     </div>
   );
 }
 
-function ProgressDots({ steps, current }: { steps: string[]; current: string }) {
-  const currentIdx = steps.indexOf(current);
-  return (
-    <footer className="flex h-10 items-center justify-center gap-1.5 border-t border-border/20">
-      {steps.map((s, i) => (
-        <div
-          key={s}
-          className={cn(
-            "h-1.5 w-1.5 rounded-full transition-all",
-            s === current
-              ? "w-4 bg-foreground"
-              : i < currentIdx
-                ? "bg-foreground/40"
-                : "bg-muted-foreground/20",
-          )}
-        />
-      ))}
-    </footer>
-  );
-}

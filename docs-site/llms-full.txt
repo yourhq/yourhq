@@ -433,7 +433,7 @@ HQ is an open-source platform for running AI agents on your own infrastructure. 
   
     Yes. Each gateway registers itself with a unique `GATEWAY_ID`. Agents are bound to a specific gateway via a foreign key; the UI talks to each gateway via its stored reachable URL.
 
-    Example: UI on your laptop, one gateway on a Mac mini at home, one gateway on a VPS — all pointing at the same Supabase project.
+    Example: UI on your laptop, one gateway on a Mac mini at home, one gateway on a VPS — all pointing at the same Supabase database.
 
     To add a gateway: **Settings → Gateways → Add Gateway**. HQ generates a one-time registration token and gives you the installer command for the new host.
 
@@ -441,7 +441,7 @@ HQ is an open-source platform for running AI agents on your own infrastructure. 
   
 
   
-    Yes. One HQ UI instance can manage multiple independent Supabase projects via the project registry. Use the project picker in the top nav to switch between workspaces. Each workspace is completely isolated — separate agents, data, gateways, and auth users.
+    Yes. One HQ UI instance can manage multiple independent Supabase projects via the workspace registry. Use the workspace switcher in the top nav to switch between workspaces. Each workspace is completely isolated — separate agents, data, gateways, and auth users.
 
     You can also run multiple Compose stacks on the same host by setting a different `COMPOSE_PROJECT` in each `.env` — they get separate volumes and container names.
   
@@ -528,7 +528,7 @@ HQ is an open-source platform for running AI agents on your own infrastructure. 
   
 
   
-    HQ uses tenant-scoped row-level security on every table — each row has a `tenant_id`, and RLS policies restrict access to rows matching the authenticated user's tenant. Self-hosted installs use a single default tenant. On top of that, the multi-project registry gives each workspace its own Supabase project for full database-level isolation. The UI's project switcher lets one HQ instance manage multiple isolated projects.
+    HQ uses tenant-scoped row-level security on every table — each row has a `tenant_id`, and RLS policies restrict access to rows matching the authenticated user's tenant. Self-hosted installs use a single default tenant. On top of that, the multi-workspace registry gives each workspace its own Supabase project for full database-level isolation. The UI's workspace switcher lets one HQ instance manage multiple isolated workspaces.
 
     See [Security model →](/concepts/security-model)
   
@@ -615,15 +615,15 @@ Where HQ is now, what ships in v0.1, and what comes after.
 - RLS policies scoped by `tenant_id` extracted from JWT `app_metadata`
 - All RPCs and triggers updated for tenant-aware leasing and filtering
 - Status enum unification: `ready`, `error`, `paused`, `provisioning`, `hibernating` for both agents and gateways
-- `_schema_version` tracking table (currently at v25)
+- `_schema_version` tracking table (currently at v31)
 - `last_heartbeat_at` on `gateways` table
 
 ### Workspace and onboarding
 
 - First-boot onboarding in the browser
-- Project registry in `/config/projects.json` and `/config/secrets.json`
+- Workspace registry in `/config/workspaces.json` and `/config/secrets.json`
 - Runtime Supabase config injection with no `NEXT_PUBLIC_*` rebuild requirement
-- Project switcher and project settings
+- Workspace switcher and database settings
 - Supabase validation during onboarding
 - Account creation and sign-in flow
 - Unified onboarding wizard (welcome → intent → infrastructure → provider → first agent) with session persistence, progressive disclosure, and post-wizard mission panel
@@ -652,7 +652,8 @@ Where HQ is now, what ships in v0.1, and what comes after.
 - Collections for custom structured data
 - Entity links for universal cross-entity references
 - File processing pipeline for knowledge items
-- Source connections for external knowledge sync
+- Source connections for external knowledge sync with plugin-based connector architecture
+- Source connector plugin system — manifest-driven providers, auto-discovery registry, generic OAuth, gateway-proxied browse/validate, optional write-back support, contributor template (`_template/`) and guide (`CONTRIBUTING-SOURCES.md`)
 - Agent triggers and inbox history
 - Schedule routines with cron presets (15 min to daily) via pg_cron
 - Inline model and provider default selection
@@ -660,7 +661,14 @@ Where HQ is now, what ships in v0.1, and what comes after.
 - Runtime delegation context for managers and direct reports
 - Per-agent LLM usage tracking and monthly budgets
 - Budget warning, exceeded notifications, and hard cutoff enforcement
-- Agent-initiated skill learning — agents autonomously create and update playbooks during work, with human visibility on the agent detail page and version history attribution in the knowledge editor
+- Agent-initiated skill learning — agents autonomously create and update skills during work, with human visibility on the agent detail page and version history attribution in the knowledge editor
+- Task relations and dependencies — `blocked_by`, `blocks`, `relates_to`, `parent_of`, `child_of` with blocker highlighting, `notify_blocker_resolved` trigger, and dispatcher blocker enrichment
+- Labels — managed workspace labels with colors, inline creation, task form picker, list/board display, and toolbar filter
+- Deliverables — agent-submitted work products (page/URL/record) with human review workflow (approve, request revision, reject) in a dedicated task form tab
+- Task templates — reusable task group templates with dependency graphs, spawned from toolbar with preserved `blocked_by` relations
+- Overdue escalation — pg_cron auto-miss for overdue tasks with inbox notification for assigned agents and missed-task banner in UI
+- Agent delegation skill — `hq_delegate_task.py` for subtask creation with org-chart validation and `child_of` relation
+- HQ plugin system — event-driven hooks for tasks, agents, knowledge, inbox, routines, comments, secrets, usage, and budgets. Local Python plugins with SDK (state, secrets, Supabase queries) and webhook plugins (remote HTTP with HMAC signatures). Plugin runner daemon, Settings UI for management, built-in usage-alerts plugin, contributor template and guide
 
 ### Observability and operations
 
@@ -688,7 +696,7 @@ Small items to address before tagging. None are blockers, but they'd be good to 
 ## Next (post-v0.1)
 
 - **Sentry (env-gated)** — `sentry-sdk` in daemons, `@sentry/nextjs` in UI. Only active when `SENTRY_DSN` is set. Ships alongside other hosted integrations.
-- **Templates source UI** — switch between bundled templates and a custom git URL per project.
+- **Templates source UI** — switch between bundled templates and a custom git URL per workspace.
 - **Pretty tailnet URLs** — optional Tailscale Serve automation in the installer for `http://hq` instead of ported URLs.
 
 ## Hosted Offering
@@ -854,7 +862,8 @@ Click **Add workspace** on the account page. You'll go through the same flow as 
 |---|---|
 | **Active** | Workspace is running. Agents, CRM, and all features work normally. |
 | **Setting up** | Provisioning is in progress. Usually takes about a minute. |
-| **Canceling** | You've requested cancellation. Workspace stays active for 30 days. |
+| **Suspended** | Payment failed after multiple retries. Agents are paused and the runtime is offline. Update your payment method in Stripe to restore access automatically. |
+| **Canceling** | You've requested cancellation. Data is accessible for 30 days, but the agent runtime is paused. |
 | **Canceled** | Grace period expired. Workspace and all its data have been deleted. |
 | **Pending** | Payment hasn't been confirmed yet. |
 
@@ -887,8 +896,8 @@ To cancel a workspace, click **Cancel** next to it on the account page. You'll b
 
 ### What happens when you cancel
 
-1. **Immediately:** status changes to "Canceling." Your workspace keeps working normally.
-2. **30-day grace period:** you have 30 days to change your mind. During this time, everything stays active — agents run, data is accessible, billing stops at the end of the current cycle.
+1. **Immediately:** status changes to "Canceling" and the agent runtime is paused (agents stop running, no compute charges). Your data remains fully accessible in the dashboard.
+2. **30-day grace period:** you have 30 days to change your mind. During this time, your data is accessible and billing stops at the end of the current cycle. The agent runtime stays paused.
 3. **After 30 days:** the workspace is permanently deleted. This includes your database, agent runtime, all agent data, CRM contacts, knowledge items, and files. This cannot be undone.
 
 > 
@@ -976,7 +985,7 @@ HQ hosted is the managed version of HQ at [yourhq.ai](https://yourhq.ai). You ge
 ## Data and security
 
   
-    Each workspace gets a **dedicated Supabase project** — your database is not shared with other customers. By default, projects are provisioned in US East (us-east-1).
+    Each workspace gets a **dedicated Supabase project** — your database is not shared with other customers. By default, Supabase projects are provisioned in US East (us-east-1).
 
     Your agent runtime runs in a dedicated sandbox. Agent memory, files, Chrome profiles, and conversation history live in that sandbox.
   
@@ -1439,13 +1448,13 @@ HQ uses your own Supabase project as its database, auth system, real-time event 
 
 ---
 
-## Multiple projects
+## Multiple workspaces
 
-One HQ UI can manage multiple Supabase projects. This is useful for keeping client workspaces, personal projects, or staging environments completely separate.
+One HQ UI can manage multiple Supabase projects. This is useful for keeping client workspaces, personal workspaces, or staging environments completely separate.
 
-Switch projects from the **project picker** in the top navigation. Each project is fully isolated — separate agents, data, gateways, and auth users.
+Switch workspaces from the **workspace switcher** in the top navigation. Each workspace is fully isolated — separate agents, data, gateways, and auth users.
 
-To add a second project: **Settings → Projects → Add project** and paste the creds for the new Supabase project.
+To add a second workspace: **Settings → Database → Add workspace** and paste the creds for the new Supabase project.
 
 ---
 
@@ -1624,7 +1633,7 @@ docker compose pull
 docker compose up -d
 ```
 
-UI Supabase config lives in the project registry (no rebuild needed after updates). Only pull and restart.
+UI Supabase config lives in the workspace registry (no rebuild needed after updates). Only pull and restart.
 
 ## Uninstalling
 
@@ -2182,8 +2191,8 @@ Set `NOVNC_BIND=local` in `.env` and restart `docker compose up -d gateway`.
 
 Almost always a Supabase URL / key mismatch. Check:
 
-UI Supabase config lives in the project registry, not `.env`. Open the UI,
-go to Settings → Projects, and verify the active project's URL and keys
+UI Supabase config lives in the workspace registry, not `.env`. Open the UI,
+go to Settings → Database, and verify the active workspace's URL and keys
 are correct. To rotate or fix, use the Edit / Rotate buttons there —
 no rebuild needed.
 
@@ -2398,7 +2407,7 @@ Three credential paths are tried in order:
 - One-shot — the marker file prevents re-exchange on subsequent boots
 - If it fails, the container exits (restart with a fresh token)
 
-**Path C: project registry** — For co-located installs where the UI writes creds to the shared `ui-config` volume. The entrypoint polls `/config/projects.json` + `/config/secrets.json` every 5 seconds until creds appear. This lets the gateway start before the user has completed browser onboarding — it will wait indefinitely, logging a status line every 30 seconds.
+**Path C: workspace registry** — For co-located installs where the UI writes creds to the shared `ui-config` volume. The entrypoint polls `/config/workspaces.json` + `/config/secrets.json` every 5 seconds until creds appear. This lets the gateway start before the user has completed browser onboarding — it will wait indefinitely, logging a status line every 30 seconds.
 
 On every subsequent boot, the pinned slug from `.gateway-slug` (if present) is restored into `GATEWAY_ID` so the gateway always registers as the same row in Supabase.
 
@@ -2538,7 +2547,20 @@ Sweeps `$HOME/.openclaw/browser/` for `Singleton*` files left behind by a crashe
 
 ---
 
-### Step 12 — Exec OpenClaw gateway
+### Step 12 — Source gateway secrets
+
+```bash
+SECRETS_ENV="$OPENCLAW_HOME/secrets/gateway.env"
+[ -f "$SECRETS_ENV" ] && set -a && . "$SECRETS_ENV" && set +a
+```
+
+If the `secrets_sync` daemon (running in the runner container) has written gateway-level secrets to disk, the entrypoint sources them into the environment before starting OpenClaw. This makes gateway-scoped credentials (e.g. shared API keys) available to the main process and all agents.
+
+The secrets `.env` files are generated by `secrets_sync.py`, which runs inside the runner container on the shared `gateway-state` volume. The file at `~/.openclaw/secrets/gateway.env` contains gateway-scoped keys; per-agent files at `~/.openclaw/secrets/agents/.env` contain merged (gateway + agent-specific) keys. All files are `chmod 0600`.
+
+---
+
+### Step 13 — Exec OpenClaw gateway
 
 ```bash
 exec openclaw gateway run
@@ -2557,6 +2579,8 @@ Replaces the entrypoint shell process with the OpenClaw gateway as the container
 | `openclaw.json` | First boot (onboard) | OpenClaw runtime config |
 | `repo.git` | First boot | Bare git repo for agent branches |
 | `plugins/hq-bootstrap/` | Every boot | HQ plugin files |
+| `secrets/gateway.env` | By secrets_sync daemon | Decrypted gateway-scoped secrets (chmod 0600) |
+| `secrets/agents/.env` | By secrets_sync daemon | Decrypted per-agent secrets — gateway defaults merged with agent overrides (chmod 0600) |
 | `shared-auth/auth-profiles.json` | On first auth success | Shared auth profiles synced across agents |
 | `.vnc-password` | First boot | Plaintext VNC password |
 | `.token-consumed` | First boot (token exchange) | Prevents re-exchange of `GATEWAY_TOKEN` |
@@ -2583,7 +2607,7 @@ docker compose pull   # download latest images
 docker compose up -d  # restart with new images
 ```
 
-The UI's Supabase config lives in the project registry (runtime, not baked into the image), so updates never require a UI rebuild. Just pull and restart.
+The UI's Supabase config lives in the workspace registry (runtime, not baked into the image), so updates never require a UI rebuild. Just pull and restart.
 
 **Update from the UI:** Settings → Gateways → hover a gateway row → **Update gateway**. This runs `docker compose pull && up -d` on the gateway host via the runner daemon.
 
@@ -3214,7 +3238,7 @@ Every knowledge item has a **kind** (what it is) and a **scope** (who can see it
 
   - **Kind**: 
     **Page** — rich-text documents (company briefs, style guides, priorities).
-    **Playbook** — structured procedures and SOPs.
+    **Skill** — structured procedures and SOPs.
     **File** — uploaded files (images, PDFs, spreadsheets, audio, video).
     **Source** — externally synced content from connected integrations.
   
@@ -3238,7 +3262,7 @@ Boot context is what an agent reads before doing any work. Two mechanisms contro
   
 ### Create a knowledge item
 
-    Go to **Knowledge** in the left sidebar and create a new page, playbook, or upload a file.
+    Go to **Knowledge** in the left sidebar and create a new page, skill, or upload a file.
   
 
   
@@ -3305,11 +3329,11 @@ To update: edit the item directly — changes take effect on the next session.
 
 ---
 
-## Agent-created playbooks
+## Agent-created skills
 
-Agents don't just consume knowledge — they create it. When an agent discovers a reusable method during work, it can autonomously create a **playbook** scoped to itself. This happens via the `hq_playbook_upsert.py` skill.
+Agents don't just consume knowledge — they create it. When an agent discovers a reusable method during work, it can autonomously create a **skill** scoped to itself. This happens via the `hq_skill_upsert.py` skill.
 
-**When agents create playbooks:**
+**When agents create skills:**
 
 - After performing the same sequence 3+ times successfully
 - After a breakthrough discovery (figuring out a non-obvious method through trial and error)
@@ -3317,12 +3341,12 @@ Agents don't just consume knowledge — they create it. When an agent discovers 
 
 **What you see:**
 
-- The agent detail page shows a **Playbooks** section with the agent's self-created procedures
+- The agent detail page shows a **Skills** section with the agent's self-created procedures
 - A blue dot indicates recent edits (within 7 days), with the one-line reason displayed below
 - The knowledge editor's **History** panel shows who made each edit (agent name + emoji vs "You")
-- The dashboard fleet card shows how many playbooks were updated this week
+- The dashboard fleet card shows how many skills were updated this week
 
-**No approval gate.** Agents write directly. You observe via the audit trail and can edit, refine, or delete playbooks at any time through the standard knowledge editor. If you correct a playbook, the agent will respect your edits on subsequent sessions.
+**No approval gate.** Agents write directly. You observe via the audit trail and can edit, refine, or delete skills at any time through the standard knowledge editor. If you correct a skill, the agent will respect your edits on subsequent sessions.
 
 ---
 
@@ -3547,6 +3571,242 @@ Edit the routine summary to be more specific. The summary is the agent's instruc
 
 ---
 
+# Secrets management
+
+Source: https://docs.yourhq.ai/guides/secrets-management
+
+> Store API keys, channel tokens, and OAuth credentials securely. Encrypted at rest, synced to gateways, and injected into agent tools as environment variables.
+
+Agents need credentials to interact with external services — Telegram bot tokens, Notion API keys, Salesforce credentials, webhook secrets. HQ's secrets system stores these encrypted in the database and delivers them to gateways as environment variables, without the values ever appearing in logs, API responses, or LLM context.
+
+---
+
+## How it works
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  User types value in UI (Settings → Secrets or Agent → Secrets) │
+└─────────────────────────┬───────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Server action encrypts with AES-256-GCM                        │
+│  Stores ciphertext in `secrets` table (value never in plaintext)│
+└─────────────────────────┬───────────────────────────────────────┘
+                          │  Supabase Realtime
+                          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  secrets_sync daemon (on gateway)                                │
+│  • Decrypts in memory                                           │
+│  • Writes ~/.openclaw/secrets/gateway.env (gateway-scoped)       │
+│  • Writes ~/.openclaw/secrets/agents/.env (per-agent)      │
+│  • Marks secret as sync_status = 'active'                       │
+└─────────────────────────┬───────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Agent tool reads os.environ.get("SECRET_KEY")                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+The value is **never** in: API responses, command payloads, audit logs, LLM context, git history, or stdout/stderr.
+
+---
+
+## Categories
+
+| Category | Created by | Example |
+|---|---|---|
+| `user` | Operator, via the Secrets UI | `SALESFORCE_API_KEY`, `STRIPE_WEBHOOK_SECRET` |
+| `channel` | Automatically at agent creation | `TELEGRAM_BOT_TOKEN`, `DISCORD_BOT_TOKEN`, `SLACK_APP_TOKEN` |
+| `integration` | Automatically by OAuth flows | `NOTION_SOURCE_A1B2C3D4` (Notion access token) |
+
+All three categories use the same encryption and sync mechanisms. The distinction is for display and management — channel and integration secrets are auto-created and show their origin in the UI.
+
+---
+
+## Scoping
+
+Secrets are scoped at two levels:
+
+- **Gateway-scoped** (`agent_id = NULL`): available to every agent on the gateway. Shown under "Available to all agents" in the UI.
+- **Agent-scoped** (`agent_id` set): available only to that specific agent. Shown under "Only for this agent."
+
+When both exist with the same key, the **agent-scoped value wins**. The per-agent `.env` file is generated by merging gateway defaults with agent overrides.
+
+---
+
+## Managing secrets in the UI
+
+### Settings → Secrets
+
+The workspace-level secrets page. Here you manage credentials that all agents on a gateway can use.
+
+1. Click **Add secret**.
+2. Enter a human-readable name (e.g. "Notion API Key") — the variable name is auto-derived (`NOTION_API_KEY`).
+3. Paste the value. It's encrypted immediately on save.
+4. Optionally add a note for your future self.
+
+The list shows sync status for each secret: **Active** (on the gateway), **Updating...** (pending sync), or **Sync error**.
+
+### Agent → Secrets tab
+
+Each agent's detail page has a Secrets tab showing:
+
+- **Agent-specific secrets** — credentials only this agent uses.
+- **Shared from Settings** — gateway-level secrets this agent inherits, with the option to override with an agent-specific value.
+
+From here you can add agent-scoped secrets, edit values, or remove overrides (the agent falls back to the shared value).
+
+---
+
+## Using secrets in agent tools
+
+Agent skills and scripts read secrets from the environment. The `hq_base.py` module (loaded by every HQ skill) automatically sources the agent's `.env` file at import time:
+
+```python
+import os
+
+api_key = os.environ.get("SALESFORCE_API_KEY")
+if not api_key:
+    print("Error: SALESFORCE_API_KEY not configured")
+```
+
+No special imports or decryption code is needed in agent tools — secrets arrive as standard environment variables.
+
+---
+
+## Encryption details
+
+### Algorithm
+
+AES-256-GCM (authenticated encryption with associated data). Ciphertext format:
+
+```
+enc:v1:..
+```
+
+- **IV**: 12 bytes, randomly generated per encryption
+- **Tag**: 16 bytes (GCM authentication tag)
+- **Ciphertext**: variable length
+
+### Key derivation
+
+**Self-hosted:** The 32-byte encryption key is derived from `SUPABASE_SERVICE_ROLE_KEY` using HKDF-SHA256:
+
+- Salt: `yourhq-secrets-v1` (fixed)
+- Info: `aes-256-gcm` (fixed)
+- Output: 32 bytes
+
+This means anyone with your service role key can derive the encryption key. The secrets system protects against database-layer exposure (dumps, SQL injection, unauthorized Supabase dashboard access) but not against service-role-key compromise.
+
+**Hosted:** Uses `HOSTED_SECRETS_KEY` directly (32 bytes, base64url-encoded in the worker environment). Independent from the service role key.
+
+### Cross-language interoperability
+
+The same encryption format is used by:
+- **Node.js** (UI server actions): `apps/ui/src/lib/secrets/crypto.ts`
+- **Python** (gateway decryption): `gateway/daemons/secrets_sync.py`
+
+Both implementations produce and consume the same `enc:v1:` format, ensuring secrets encrypted by the UI can be decrypted by the gateway.
+
+---
+
+## Gateway sync protocol
+
+The `secrets_sync` daemon runs as a background thread inside the runner container:
+
+1. **On boot**: performs one synchronous sync before the runner processes any commands.
+2. **On Realtime event**: any INSERT, UPDATE, or DELETE on the `secrets` table (filtered by `gateway_id`) triggers an immediate re-sync.
+3. **Every 5 minutes**: safety re-sync catches anything Realtime may have missed.
+
+Each sync:
+1. Fetches all secrets for this gateway (encrypted values included — uses service role).
+2. Resolves agent UUIDs to slugs.
+3. Decrypts each value in memory.
+4. Writes `~/.openclaw/secrets/gateway.env` with gateway-scoped keys.
+5. Writes `~/.openclaw/secrets/agents/.env` for each agent (merged: gateway defaults + agent overrides).
+6. Removes stale `.env` files for agents that no longer have secrets.
+7. PATCHes `sync_status = 'active'` and `last_synced_at` on successfully synced rows.
+
+All files are written with `chmod 0600`; directories with `chmod 0700`.
+
+A `threading.Lock` prevents concurrent syncs (Realtime event + periodic timer) from corrupting files.
+
+---
+
+## Channel tokens
+
+When you create an agent with a messaging channel, the wizard writes the channel token to the `secrets` table:
+
+| Channel | Secret key | Category |
+|---|---|---|
+| Telegram | `TELEGRAM_BOT_TOKEN` | `channel` |
+| Discord | `DISCORD_BOT_TOKEN` | `channel` |
+| Slack | `SLACK_APP_TOKEN`, `SLACK_BOT_TOKEN` | `channel` |
+
+The provision command payload **does not** carry tokens. Instead, `add-agent.sh` reads them from the per-agent `.env` file after `secrets_sync` has written it.
+
+You can rotate a channel token from the agent's Secrets tab — update the value, and the gateway picks up the new token on the next sync cycle (within seconds).
+
+---
+
+## Source connection tokens
+
+OAuth integrations (e.g. Notion) store their access tokens as encrypted secrets:
+
+- Key pattern: `{PROVIDER}_SOURCE_{connection_id[:8].upper()}` (e.g. `NOTION_SOURCE_A1B2C3D4`)
+- Category: `integration`
+- Created automatically by the OAuth callback
+
+The `source_sync` daemon reads the token from the gateway secrets `.env` file on each sync cycle. If the secret isn't available (e.g. no gateway configured), it falls back to `source_connections.credentials.api_key`.
+
+---
+
+## Troubleshooting
+
+### Secret shows "Updating..." but never becomes Active
+
+The gateway's `secrets_sync` daemon hasn't picked up the change. Check:
+
+1. Is the runner container running? (`docker compose logs runner`)
+2. Does the runner have Supabase Realtime connectivity? Look for WebSocket errors in logs.
+3. Is the gateway registered with the correct `gateway_id`?
+
+The 5-minute safety re-sync will eventually catch it, but if Realtime is broken, investigate the connection.
+
+### Agent doesn't see the secret
+
+1. Verify the secret's scope — is it gateway-wide or scoped to a different agent?
+2. Check the `.env` file exists: `docker compose exec gateway cat ~/.openclaw/secrets/agents/.env`
+3. If using a custom skill, ensure it imports `hq_base` (which sources the `.env` file) or reads from `os.environ` after the file has been sourced.
+
+### Decryption errors in runner logs
+
+```
+[secrets_sync] Decryption failed: ...
+```
+
+This usually means the encryption key doesn't match. Causes:
+
+- Service role key was rotated without re-encrypting secrets.
+- `HOSTED_SECRETS_KEY` was changed in the worker but old ciphertexts remain in the database.
+- Database was restored from a backup taken with a different key.
+
+Fix: re-save each affected secret from the UI (the server action will re-encrypt with the current key).
+
+### Rotating the service role key
+
+If you rotate `SUPABASE_SERVICE_ROLE_KEY`:
+
+1. All existing secrets become undecryptable (they were encrypted with the old derived key).
+2. The UI will still work (it encrypts with the new key on write).
+3. Old secrets will show decryption errors on the gateway.
+
+To fix: open each secret in the UI, enter a new value, and save. There is no bulk re-encryption tool yet.
+
+---
+
 # Usage budgets
 
 Source: https://docs.yourhq.ai/guides/usage-budgets
@@ -3640,6 +3900,387 @@ This view is useful for identifying which agents are consuming the most model bu
 
 ---
 
+# Plugins
+
+Source: https://docs.yourhq.ai/guides/plugins
+
+> Create, manage, and contribute plugins that extend HQ with custom integrations and automations.
+
+Plugins let you react to HQ events and take action — send notifications, sync data to external tools, enforce policies, or run custom logic. This guide walks through creating both types of plugins and managing them from the UI.
+
+**Where to go:** Settings → Plugins
+
+---
+
+## Managing plugins
+
+### View installed plugins
+
+Go to **Settings → Plugins**. You'll see all installed plugins grouped by type:
+
+- **Built-in** — ship with HQ and cannot be removed (e.g. Usage Alerts)
+- **Installed** — local or webhook plugins you've added
+
+Each plugin shows its name, source type, version, and an enable/disable toggle. Click any plugin to see its details: source, version, plugin ID, webhook URL (if applicable), subscribed events, and recent activity.
+
+### Enable or disable a plugin
+
+Toggle the switch next to any plugin. Disabled plugins stop receiving events immediately. Re-enabling resumes event delivery. No events are queued while disabled — they're simply skipped.
+
+### Remove a plugin
+
+Click the `⋯` menu on any non-builtin plugin and select **Remove**. This deletes the plugin and all its configuration. Event history is retained for 30 days.
+
+---
+
+## Creating a webhook plugin
+
+Webhook plugins are the fastest way to integrate HQ with external services. No gateway code needed.
+
+  
+### Prepare your endpoint
+
+    Deploy an HTTP endpoint that accepts POST requests with a JSON body. This can be:
+
+    - A Zapier/Make/n8n catch hook
+    - A Slack incoming webhook
+    - A custom service (Cloudflare Worker, AWS Lambda, Vercel Edge Function)
+    - Any URL that returns a 2xx status
+  
+
+  
+### Add the plugin
+
+    Go to **Settings → Plugins → Add plugin**. Fill in:
+
+    - **Name** — a display name (e.g. "Slack Notifications")
+    - **Description** — optional, shown in the plugin list
+    - **Webhook URL** — your endpoint URL
+    - **Signing secret** — optional, used for HMAC-SHA256 signature verification
+    - **Events** — check the events you want to receive
+  
+
+  
+### Test it
+
+    Trigger one of the events you subscribed to (e.g. create a task if you selected "Task Created"). Check your endpoint for the incoming POST request.
+  
+
+  
+### Verify signatures (recommended)
+
+    If you set a signing secret, verify the `X-HQ-Signature` header on incoming requests. See the [verification examples](/concepts/plugins#signature-verification) in the concepts page.
+  
+
+### Webhook payload format
+
+Every webhook POST contains the full event envelope as JSON:
+
+```json
+{
+  "event_id": "550e8400-e29b-41d4-a716-446655440000",
+  "event_type": "task.completed",
+  "occurred_at": "2025-01-15T10:30:00+00:00",
+  "tenant_id": "00000000-0000-0000-0000-000000000000",
+  "entity_type": "tasks",
+  "entity_id": "d4f5e6a7-...",
+  "payload": { ... }
+}
+```
+
+Headers included with every request:
+
+| Header | Value |
+|--------|-------|
+| `Content-Type` | `application/json` |
+| `X-HQ-Event` | Event type (e.g. `task.completed`) |
+| `X-HQ-Plugin-Id` | Plugin identifier |
+| `X-HQ-Delivery` | Unique delivery ID |
+| `X-HQ-Signature` | `sha256=` (only if signing secret set) |
+
+---
+
+## Creating a local plugin
+
+Local plugins run on the gateway as Python modules. They have full access to the plugin SDK — state persistence, secret resolution, and Supabase queries.
+
+  
+### Scaffold the plugin
+
+    Copy the template directory:
+
+    ```bash
+    cp -r gateway/plugins/_template gateway/plugins/my-plugin
+    ```
+  
+
+  
+### Edit manifest.json
+
+    Set the plugin identity and subscriptions:
+
+    ```json
+    {
+      "id": "my-plugin",
+      "name": "My Plugin",
+      "description": "What it does in one sentence.",
+      "version": "0.1.0",
+      "source": "local",
+      "hooks": ["task.completed", "agent.status_changed"],
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "notify_channel": {
+            "type": "string",
+            "title": "Notification channel",
+            "default": "#general"
+          }
+        },
+        "required": []
+      },
+      "capabilities": ["state.read", "state.write"]
+    }
+    ```
+
+    Key fields:
+    - `id` — unique slug, must match the directory name
+    - `hooks` — array of event types to subscribe to (see [event reference](/reference/plugin-events))
+    - `config_schema` — JSON Schema for operator-configurable settings
+    - `capabilities` — what SDK features the plugin uses
+  
+
+  
+### Implement handler.py
+
+    Subclass `BasePlugin` and implement `on_event()`:
+
+    ```python
+    from gateway.plugins.sdk import BasePlugin, PluginEvent, PluginResponse
+
+    class Handler(BasePlugin):
+
+        def on_event(self, event: PluginEvent) -> PluginResponse | None:
+            if event.event_type == "task.completed":
+                title = event.payload.get("title", "Unknown")
+                self.ctx.logger.info(f"Task done: {title}")
+
+                # Use state to track what we've processed
+                key = f"notified_{event.entity_id}"
+                if self.ctx.state.get(key):
+                    return None
+
+                self.ctx.state.set(key, True)
+                return PluginResponse(
+                    log_message=f"Processed task completion: {title}"
+                )
+
+            return None
+    ```
+  
+
+  
+### Register and restart
+
+    Two options:
+
+    **Option A — Auto-discovery:** Restart the gateway. The plugin runner discovers new modules on startup.
+
+    ```bash
+    docker compose restart runner
+    ```
+
+    **Option B — Manual registration:** Insert a row into `hq_plugins` from the Supabase SQL Editor or via Settings → Plugins (for webhook plugins).
+  
+
+---
+
+## Plugin SDK reference
+
+### PluginEvent
+
+The event object passed to `on_event()`:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `event_id` | `str` | Unique event UUID |
+| `event_type` | `str` | Event name (e.g. `task.completed`) |
+| `occurred_at` | `str` | ISO 8601 timestamp |
+| `tenant_id` | `str` | Tenant UUID |
+| `entity_type` | `str \| None` | Source table name |
+| `entity_id` | `str \| None` | Entity UUID |
+| `payload` | `dict` | Event-specific data |
+
+### PluginResponse
+
+Optional return value from `on_event()`:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `data` | `dict \| None` | Arbitrary response data (logged) |
+| `log_message` | `str \| None` | Human-readable message for the event log |
+
+### StateClient
+
+Scoped key-value store backed by `hq_plugin_state`:
+
+```python
+# Read
+value = self.ctx.state.get("key")
+value = self.ctx.state.get("key", scope_kind="agent", scope_id="agent-uuid")
+
+# Write
+self.ctx.state.set("key", {"cursor": "2025-01-15"})
+self.ctx.state.set("key", True, scope_kind="task", scope_id="task-uuid")
+
+# Delete
+self.ctx.state.delete("key")
+```
+
+### SecretsClient
+
+Read-only access to gateway secrets (decrypted `.env` files written by `secrets_sync`):
+
+```python
+api_key = self.ctx.secrets.resolve("SLACK_API_KEY")
+```
+
+### SupabaseClient
+
+Read-only queries against HQ tables:
+
+```python
+budgets = self.ctx.supabase.query("agent_budgets", {
+    "agent_id": f"eq.{agent_id}",
+    "select": "spent_usd,monthly_limit_usd",
+    "limit": "1",
+})
+```
+
+---
+
+## Example plugins
+
+  
+    **Type:** Webhook — no gateway code needed
+
+    Register a Slack incoming webhook URL as a webhook plugin. Subscribe to `task.completed`, `agent.status_changed`, and `budget.exceeded`. Slack renders the raw JSON payload as a message.
+
+    For richer formatting, deploy a small relay service that transforms HQ events into [Slack Block Kit](https://api.slack.com/block-kit) messages.
+  
+
+  
+    **Type:** Local plugin
+
+    Create issues in Linear when HQ tasks are created, and close them when tasks complete. Uses the state client to track issue mappings:
+
+    ```python
+    class Handler(BasePlugin):
+        def on_event(self, event: PluginEvent) -> PluginResponse | None:
+            if event.event_type == "task.created":
+                api_key = self.ctx.secrets.resolve("LINEAR_API_KEY")
+                team_id = self.ctx.config.get("linear_team_id")
+                # Create Linear issue via API
+                # Store mapping: HQ task ID → Linear issue ID
+                self.ctx.state.set(
+                    f"linear_{event.entity_id}",
+                    {"linear_id": issue_id},
+                    scope_kind="task",
+                    scope_id=event.entity_id,
+                )
+            elif event.event_type == "task.completed":
+                mapping = self.ctx.state.get(
+                    f"linear_{event.entity_id}",
+                    scope_kind="task",
+                    scope_id=event.entity_id,
+                )
+                if mapping:
+                    # Update Linear issue to "Done"
+                    pass
+            return None
+    ```
+  
+
+  
+    **Type:** Webhook
+
+    Point a webhook plugin at PagerDuty's Events API v2 endpoint. Subscribe to `budget.exceeded` and `agent.status_changed`. When an agent goes over budget or enters an error state, PagerDuty creates an incident.
+  
+
+  
+    **Type:** Local plugin
+
+    Subscribe to all events. On each event, append a JSON line to a local file. Periodically upload the file to S3 using a state-tracked cursor. Useful for compliance or long-term retention beyond the 30-day event log.
+  
+
+---
+
+## Contributing a plugin
+
+We welcome plugin contributions. The goal is a rich ecosystem of community-built integrations.
+
+  
+### Copy the template
+
+    ```bash
+    cp -r gateway/plugins/_template gateway/plugins/your-plugin
+    ```
+  
+
+  
+### Implement and test
+
+    Follow the local plugin steps above. Test by triggering events and checking your handler's behavior.
+  
+
+  
+### Document
+
+    Add a clear description in `manifest.json`. If your plugin has non-obvious configuration, add comments in the config schema.
+  
+
+  
+### Open a PR
+
+    Submit your plugin directory (`gateway/plugins/your-plugin/`) as a PR against `main`. Include:
+
+    - What the plugin does and why it's useful
+    - Any external service dependencies
+    - Example config values
+
+    See [Contributing](/development/contributing) for the full PR checklist.
+  
+
+For the full contributor reference, see [`gateway/plugins/CONTRIBUTING.md`](https://github.com/yourhq/yourhq/blob/main/gateway/plugins/CONTRIBUTING.md) in the repository.
+
+---
+
+## Troubleshooting
+
+**Plugin isn't receiving events:**
+1. Check that the plugin is enabled (toggle should be on in Settings → Plugins)
+2. Verify the plugin subscribes to the correct hooks in its manifest or configuration
+3. Check the plugin runner logs: `docker compose logs -f runner`
+4. For webhook plugins: confirm the URL is reachable from the gateway host
+
+**Webhook returns errors:**
+1. Click the plugin in Settings → Plugins and check Recent activity for error messages
+2. Verify the webhook URL returns a 2xx status code
+3. Check that your endpoint handles the JSON payload format correctly
+4. If using signatures: ensure the signing secret matches on both sides
+
+**Local plugin handler not loading:**
+1. Confirm `handler.py` exists in the plugin directory and exports a `Handler` class
+2. Check that `Handler` subclasses `BasePlugin` from `gateway.plugins.sdk`
+3. Look for import errors in the plugin runner logs
+4. Verify the `entry_module` in `hq_plugins` matches the directory name
+
+**State not persisting:**
+1. Check that your plugin declares `state.write` in capabilities
+2. Verify the scope parameters match between `set()` and `get()` calls
+3. Check the `hq_plugin_state` table directly for your plugin's entries
+
+---
+
 # What HQ includes
 
 Source: https://docs.yourhq.ai/concepts/features
@@ -3672,8 +4313,16 @@ This page is the product tour. For system internals, read [Architecture](/concep
     Convert CRM, task, and comment events into agent work via schedule and event triggers.
   
 
+  - **Secrets**: 
+    Encrypted credential storage with per-agent scoping and automatic gateway sync.
+  
+
   - **Usage budgets**: 
     Track model spend and stop agents when they exceed limits.
+  
+
+  - **Plugins**: 
+    Extend HQ with event-driven integrations — local Python handlers or remote webhooks.
   
 
   - **Open source**: 
@@ -3682,7 +4331,7 @@ This page is the product tour. For system internals, read [Architecture](/concep
 
 ## Workspace
 
-Every HQ install connects to one or more Supabase projects. A project contains the workspace data: agents, tasks, CRM records, knowledge, routines, collections, settings, gateway registrations, command history, and usage data.
+Every HQ install connects to one or more Supabase projects. A workspace contains all the data: agents, tasks, CRM records, knowledge, routines, collections, settings, gateway registrations, command history, and usage data.
 
 The first boot flow is intentionally config-light:
 
@@ -3690,7 +4339,7 @@ The first boot flow is intentionally config-light:
 2. Open the UI and sign in.
 3. Complete the onboarding wizard.
 
-After setup, the project can be managed from Settings. The UI stores project metadata in `/config/projects.json` and project secrets in `/config/secrets.json` on the `ui-config` volume. The active project is selected at runtime, so the published UI image does not need a rebuild for each user's Supabase project.
+After setup, the workspace can be managed from Settings. The UI stores workspace metadata in `/config/workspaces.json` and workspace secrets in `/config/secrets.json` on the `ui-config` volume. The active workspace is selected at runtime, so the published UI image does not need a rebuild for each user's Supabase project.
 
 ## Onboarding
 
@@ -3749,16 +4398,12 @@ Agents are created from templates under `templates/`. The creation wizard lets y
 
 The agent detail page includes:
 
-- Overview, status, capabilities, and activity.
+- **Overview** — status, capabilities, knowledge items, skills, direct reports, and routines.
+- **Secrets** — credentials and keys this agent can use, with inherited gateway secrets and per-agent overrides.
+- **Files** — file browser/editor for the agent's git branch.
+- **Browser** — remote desktop access through the assigned gateway.
+- **Activity** — usage summary, inbox history, and command/operation history.
 - **Model and thinking level** — pick any connected model and reasoning depth from the right rail. Changes take effect on the next wake, no restart needed.
-- Knowledge items (workspace pinned + agent-scoped boot context).
-- Agent playbooks — playbooks the agent created or updated autonomously, with recency indicators and edit reasons.
-- Direct reports and manager assignment.
-- Trigger and inbox history.
-- File browser/editor for the agent branch.
-- Operations and command history.
-- Usage and budget controls.
-- Remote desktop access through the assigned gateway.
 
 ## Agent Templates
 
@@ -3825,6 +4470,34 @@ The budget system tracks:
 
 Budgets can be configured per agent. When a hard cutoff is enabled and an agent exceeds its monthly limit, the runtime blocks further replies and the inbox dispatcher stops waking that agent for background work. Budget transitions also create notifications.
 
+## Secrets Management
+
+Agents need credentials — API keys, OAuth tokens, webhook secrets — to interact with external services. HQ provides a unified encrypted secrets system that stores, syncs, and injects these values securely.
+
+  - **Encrypted at rest**: 
+    AES-256-GCM encryption. Values are never visible after saving — not in the UI, API responses, logs, or LLM context.
+  
+
+  - **Gateway sync**: 
+    Secrets propagate to the gateway within seconds via Supabase Realtime. The sync status is visible in the UI.
+  
+
+  - **Scoped access**: 
+    Gateway-wide or per-agent. Agent-scoped secrets override gateway defaults automatically.
+  
+
+**Settings → Secrets** manages workspace-level credentials available to all agents. The **agent detail → Secrets tab** shows per-agent overrides and inherited gateway secrets.
+
+Three categories:
+
+- **User** — manually added API keys and credentials (e.g. `SALESFORCE_API_KEY`).
+- **Channel** — auto-created when an agent is provisioned with a messaging channel (e.g. `TELEGRAM_BOT_TOKEN`).
+- **Integration** — auto-created by OAuth flows (e.g. Notion access tokens for source sync).
+
+Secrets are delivered to agents as environment variables via per-agent `.env` files on the gateway filesystem. Agent tools read them with `os.environ.get("SECRET_KEY")`. The AI model never sees secret values — only the tools it runs can access them.
+
+For details on encryption, key derivation, and the sync protocol, see [Secrets management](/guides/secrets-management).
+
 ## CRM
 
 The CRM stores people, organizations, interactions, campaigns, message templates, and draft sets.
@@ -3854,22 +4527,30 @@ Tasks support:
 - Priorities and due dates.
 - Recurrence rules.
 - **Per-task model and thinking overrides** — when assigned to an agent, override the model or reasoning depth for this specific execution without changing the agent's default.
+- **Relations and dependencies** — link tasks with `blocked_by`, `blocks`, `relates_to`, `parent_of`, and `child_of` relationships. Blockers are highlighted in the task list and task form. When a blocking task completes, a `notify_blocker_resolved` trigger creates an inbox item for the unblocked task's assignee.
+- **Labels** — managed workspace labels with configurable colors. Labels can be created from Settings → Labels or inline from the task form. Tasks display label pills in list and board views, and a label filter is available in the toolbar.
+- **Deliverables** — agents submit work products (pages, URLs, or collection records) to tasks for human review. The review workflow supports approve, request revision (with note), and reject actions. Deliverables appear in the task form's Deliverables tab.
+- **Task templates** — reusable task group templates with dependency graphs. Create templates from Settings → Templates, then spawn them from the task toolbar. Dependencies between template items are preserved as `blocked_by` relations on the created tasks.
+- **Overdue escalation** — a pg_cron job marks tasks past their due date as `missed` and creates inbox items to notify assigned agents. The task form shows a missed-task banner with a reopen action.
 - Comments and mentions.
 - Entity links to knowledge items, contacts, organizations, collection records, and URLs.
 - Agent inbox wakeups on assignment and reassignment.
+- **Agent delegation** — agents can delegate subtasks to direct reports via `hq_delegate_task.py`, which validates the org-chart relationship, creates a subtask with `child_of` relation, and inherits the parent task's stream.
 
-Mentioning an agent in a comment creates an inbox item for that agent. Assigning a task to an agent does the same. Per-task model overrides are carried through the inbox item's context and passed to the agent session at wake time.
+Mentioning an agent in a comment creates an inbox item for that agent. Assigning a task to an agent does the same. Per-task model overrides are carried through the inbox item's context and passed to the agent session at wake time. The inbox dispatcher enriches task assignment items with unresolved blocker information so agents know what dependencies exist before starting work.
 
 ## Knowledge
 
 The knowledge system is the unified store for all workspace knowledge. It replaces the earlier separate documents and assets models with a single `knowledge_items` table supporting four kinds:
 
 - **Pages** — rich-text documents (company briefs, style guides, meeting notes).
-- **Playbooks** — structured procedures and SOPs.
+- **Skills** — structured procedures and SOPs.
 - **Files** — uploaded files (PDFs, images, spreadsheets, audio, video).
-- **Sources** — externally synced content from connected integrations.
+- **Sources** — externally synced content from connected integrations via the plugin-based source connector system.
 
 Knowledge items support folders, tags, pinned state, rich editing, and semantic + full-text search.
+
+Source connectors are self-contained plugins — each provider is a folder under `gateway/connectors//` with a `manifest.json` that declares auth, UI metadata, and capabilities. The platform handles credential encryption, OAuth flows, UI forms, sync scheduling, and embedding automatically. Providers that support it can enable two-way sync with a `writable` toggle per connection. See [Knowledge system — Source connectors](/concepts/knowledge#source-connectors) for the architecture.
 
 Agent boot context is controlled by **scope** and **pinning**:
 
@@ -3997,6 +4678,22 @@ HQ records important workspace events in `notifications`, `audit_log`, command h
 
 This gives the operator a single place to understand what happened and why.
 
+## Plugins
+
+HQ has a built-in plugin system for reacting to workspace events. Plugins can send Slack notifications when tasks complete, sync data to Linear, trigger webhooks for Zapier, log budget alerts, or run any custom logic.
+
+  - **Local plugins**: 
+    Python modules on the gateway with full SDK access — state persistence, secret resolution, and Supabase queries. Best for logic that needs to read HQ data.
+  
+
+  - **Webhook plugins**: 
+    Remote HTTP endpoints. Zero gateway code — HQ POSTs events with HMAC signatures. Best for connecting to external services and no-code tools.
+  
+
+16 built-in events cover tasks, agents, knowledge, inbox, routines, comments, secrets, usage, and budgets. The plugin runner daemon dispatches events to all matching plugins in real time.
+
+Manage plugins from **Settings → Plugins** — enable/disable, configure, view event logs, and add new webhook plugins from the UI. See [Plugins](/concepts/plugins) for the full architecture and [Plugin events](/reference/plugin-events) for the event reference.
+
 ## Extensibility
 
 Most customization does not require changing code:
@@ -4006,6 +4703,7 @@ Most customization does not require changing code:
 - Configure fields, pipeline stages, streams, and routines in the UI.
 - Add model providers through connections.
 - Add gateways through Settings.
+- Add webhook plugins from Settings → Plugins (no code needed).
 
 Code extension points include:
 
@@ -4014,6 +4712,8 @@ Code extension points include:
 - New routine behavior in database functions/triggers.
 - New agent skills under template `skills/`.
 - New OpenClaw plugins in `gateway/scripts/plugins/`.
+- New source connectors under `gateway/connectors//` — copy the `_template/` directory and implement the connector interface. See `CONTRIBUTING-SOURCES.md`.
+- New HQ plugins under `gateway/plugins//` — copy `_template/`, implement `on_event()`, and subscribe to events. See [`gateway/plugins/CONTRIBUTING.md`](https://github.com/yourhq/yourhq/blob/main/gateway/plugins/CONTRIBUTING.md).
 
 ---
 
@@ -4090,11 +4790,11 @@ All six services live in the same monorepo ([`docker-compose.yml`](https://githu
 | `ui` | The Next.js admin dashboard. Renders the CRM, tasks, agents, knowledge, settings, routines. Issues server actions that enqueue commands and proxy file edits. | [`apps/ui/`](https://github.com/yourhq/yourhq/tree/main/apps/ui/) — App Router under `src/app/`; server actions in `src/app/dashboard/*/actions.ts`; gateway proxy in [`src/lib/agent-repo/gateway-backend.ts`](https://github.com/yourhq/yourhq/tree/main/apps/ui/src/lib/agent-repo/gateway-backend.ts); auth middleware in [`src/middleware.ts`](https://github.com/yourhq/yourhq/tree/main/apps/ui/src/middleware.ts) | `3000` (host) | everything (uses authenticated user's session + service role for privileged inserts) | contacts, tasks, agents, `agent_commands`, `agent_inbox_items`, `audit_log`, `routines`, everything |
 | `gateway` | The container that hosts the agents. Runs Xtigervnc + XFCE + Chrome + OpenClaw gateway + the files-API. noVNC runs inside the container and is proxied through the UI (no host port). | [`gateway/entrypoint.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/entrypoint.sh), [`gateway/files_api.py`](https://github.com/yourhq/yourhq/tree/main/gateway/files_api.py), [`gateway/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/Dockerfile) | `18790` (files-API) | `workspace.slug` at boot to prefix branches | `gateways` row upsert at boot with reachable URLs |
 | `dispatcher` | Python daemon. Subscribes to `agent_inbox_items` INSERT events and wakes the owning agent via `openclaw agent --agent …`. Only wakes agents bound to this gateway. | [`gateway/daemons/inbox_dispatcher.py`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/inbox_dispatcher.py), [`gateway/dispatcher/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/dispatcher/Dockerfile) | none | `agent_inbox_items`, `agents`, `gateways`, `workspace` | `agent_inbox_items.last_wake_*` |
-| `runner` | Python daemon. Subscribes to `agent_commands` INSERT events, leases via `lease_command(gateway_slug=…)`, executes `add-agent.sh` / `update-agent.sh` / `docker compose restart …`, reports back stdout/stderr/exit code. | [`gateway/daemons/command_runner.py`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/command_runner.py), [`gateway/runner/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/runner/Dockerfile), [`gateway/scripts/add-agent.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/scripts/add-agent.sh) | none | `agent_commands`, `workspace`, `gateways` | `agent_commands.status/stdout/stderr`, `gateways.last_seen_at` (30 s heartbeat) |
-| `embedder` | Python daemon. Eagerly downloads/loads the local BGE model, serves embeddings over an internal HTTP endpoint, and indexes pending knowledge items into searchable chunks. Supports pages, playbooks, files, and external sources. | [`gateway/embedder/`](https://github.com/yourhq/yourhq/tree/main/gateway/embedder) | none | `knowledge_items` via `lease_knowledge_items_for_indexing` RPC | `knowledge_chunks`, `knowledge_items.embedding`, indexing status metadata |
+| `runner` | Python daemon. Subscribes to `agent_commands` INSERT events, leases via `lease_command(gateway_slug=…)`, executes `add-agent.sh` / `update-agent.sh` / `docker compose restart …`, reports back stdout/stderr/exit code. Also runs `secrets_sync` — subscribes to the `secrets` table via Realtime, decrypts secrets (AES-256-GCM), and writes per-agent `.env` files to disk. | [`gateway/daemons/command_runner.py`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/command_runner.py), [`gateway/daemons/secrets_sync.py`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/secrets_sync.py), [`gateway/runner/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/runner/Dockerfile), [`gateway/scripts/add-agent.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/scripts/add-agent.sh) | none | `agent_commands`, `secrets`, `workspace`, `gateways`, `agents` | `agent_commands.status/stdout/stderr`, `secrets.sync_status/last_synced_at`, `gateways.last_seen_at` (30 s heartbeat) |
+| `embedder` | Python daemon. Eagerly downloads/loads the local BGE model, serves embeddings over an internal HTTP endpoint, and indexes pending knowledge items into searchable chunks. Supports pages, skills, files, and external sources. | [`gateway/embedder/`](https://github.com/yourhq/yourhq/tree/main/gateway/embedder) | none | `knowledge_items` via `lease_knowledge_items_for_indexing` RPC | `knowledge_chunks`, `knowledge_items.embedding`, indexing status metadata |
 | `file-processor` | Python daemon. Leases uploaded knowledge files (PDF, DOCX, XLSX, CSV, PPTX, TXT), extracts plain text, and triggers embedding. Runs independently so file processing doesn't block other gateway operations. | [`gateway/file-processor/`](https://github.com/yourhq/yourhq/tree/main/gateway/file-processor) | none | `knowledge_items` via `lease_knowledge_items_for_processing` RPC | `knowledge_items.plain_text`, processing status |
 
-The `gateway`, `dispatcher`, and `runner` containers all share the Docker volume `gateway-state` (mounted at `/home/openclaw/.openclaw`). That volume is where OpenClaw's config, the bare git repo, per-agent worktrees, browser profiles, and the VNC state live. The `embedder` uses `gateway-embedding-cache` for downloaded local embedding models. The runner additionally mounts `/var/run/docker.sock` so it can restart sibling containers.
+The `gateway`, `dispatcher`, and `runner` containers all share the Docker volume `gateway-state` (mounted at `/home/openclaw/.openclaw`). That volume is where OpenClaw's config, the bare git repo, per-agent worktrees, browser profiles, VNC state, and decrypted secrets (`.openclaw/secrets/`) live. The `embedder` uses `gateway-embedding-cache` for downloaded local embedding models. The runner additionally mounts `/var/run/docker.sock` so it can restart sibling containers.
 
 ## 4. Data flow: creating an agent end-to-end
 
@@ -4112,11 +4812,11 @@ This is the most "I see how it all fits" path through the system. Everything els
    - Inserts an `agents` row with `meta.team`, `meta.template_branch`, `meta.emoji`, and `meta.channel` all derived from the wizard inputs.
    - Writes an `audit_log` entry.
 
-4. **The UI enqueues a `provision` command** via `enqueueAgentCommand` (same file). That's an `INSERT` into `agent_commands` with `action='provision'`, `agent_slug=`, and `payload` containing the channel type, channel-specific credentials (e.g. `telegram_token`, `discord_token`, or `slack_app_token`/`slack_bot_token`), `source_template`, `name`, `description`, `emoji`, and the owner profile fields.
+4. **The UI stores channel credentials and enqueues a `provision` command.** Channel tokens (Telegram bot token, Discord bot token, Slack app/bot tokens) are written to the `secrets` table as AES-256-GCM encrypted values scoped to the new agent. Then `enqueueAgentCommand` (same file) inserts into `agent_commands` with `action='provision'`, `agent_slug=`, and `payload` containing the channel type, `source_template`, `name`, `description`, `emoji`, and the owner profile fields. Tokens are never in the payload — they travel through the encrypted secrets path instead.
 
 5. **The runner wakes up.** In [`command_runner.py`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/command_runner.py), the Realtime listener on `agent_commands` sees the new row and calls `process_pending()`, which calls the `lease_command(p_gateway_slug=GATEWAY_ID)` RPC to atomically claim it. `lease_command` ([`015_agent_commands.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/015_agent_commands.sql)) does `FOR UPDATE SKIP LOCKED` so parallel runners on different gateways never steal each other's work.
 
-6. **The runner builds the shell command** via `build_command('provision', …)`: it resolves the branch name from `workspace.slug` + `agent_slug`, then invokes [`gateway/scripts/add-agent.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/scripts/add-agent.sh) with `--channel`, channel-specific credential flags (e.g. `--telegram-token`, `--discord-token`, `--slack-app-token`/`--slack-bot-token`), `--source-branch`, `--slug`, and the owner-profile flags.
+6. **The runner builds the shell command** via `build_command('provision', …)`: it first forces a `sync_secrets()` call so the agent's `.env` file is ready, then resolves the branch name from `workspace.slug` + `agent_slug` and invokes [`gateway/scripts/add-agent.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/scripts/add-agent.sh) with `--channel`, `--source-branch`, `--slug`, and the owner-profile flags. Channel tokens are not passed as CLI args — `add-agent.sh` reads them from the per-agent secrets `.env` file at `~/.openclaw/secrets/agents/.env`.
 
 7. **`add-agent.sh` does the real work** in the gateway container's state volume:
    - Creates the agent's branch off the template (or `default`) inside the bare repo at `$HOME/.openclaw/repo.git`.
@@ -4133,7 +4833,7 @@ This is the most "I see how it all fits" path through the system. Everything els
    - Links the shared Codex auth profile.
    - Runs `openclaw gateway restart` so the new agent is picked up.
 
-8. **The runner reports back.** `complete_command` writes `status='done'`, `exit_code=0`, `stdout`, and `stderr` to the `agent_commands` row; the UI's subscription on that row renders the command as green in the command history view at `/dashboard/settings/system`. On success the runner also PATCHes the `payload` to scrub all channel credential tokens (any key ending in `_token`).
+8. **The runner reports back.** `complete_command` writes `status='done'`, `exit_code=0`, `stdout`, and `stderr` to the `agent_commands` row; the UI's subscription on that row renders the command as green in the command history view at `/dashboard/settings/system`.
 
 9. **The agent is online.** `openclaw gateway run` now has the agent in its session list; the agent's messaging channel is bound; its Chrome profile is ready; its git worktree is writable both from inside the container (by openclaw itself) and from outside via the files-API.
 
@@ -4182,7 +4882,7 @@ The `gateway` container is deliberately fat in Phase 1 — it's one image that r
 
 **Volumes.** Four named volumes per Compose project:
 
-- `ui-config` (mounted at `/config` in the UI container): project registry (`projects.json`, `secrets.json`). Also mounted read-only in gateway services so they can read Supabase creds without `.env` edits.
+- `ui-config` (mounted at `/config` in the UI container): workspace registry (`workspaces.json`, `secrets.json`). Also mounted read-only in gateway services so they can read Supabase creds without `.env` edits.
 - `gateway-state` (mounted at `/home/openclaw/.openclaw` in gateway, dispatcher read-only, runner read-write): holds `openclaw.json`, `repo.git` (bare), `workspace-/` (worktrees), `browser//user-data/`, `Desktop/`, `plugins/`, `shared-auth/`, `.vnc-password`.
 - `gateway-chrome-profile` (mounted at `/home/openclaw/.config/google-chrome`): Chrome's own profile dir. Kept separate so you can blow it away without destroying agent workspaces.
 - `gateway-embedding-cache` (mounted at `/models` in the embedder): cached BGE model files so restarts don't re-download.
@@ -4256,18 +4956,18 @@ What HQ **does not** provide: per-agent privilege separation, user-facing audit 
 
 Supabase is the backbone. Every piece of coordination — commands, inbox items, heartbeats, audit trails, realtime subscriptions, cross-agent observability — is a row in a Postgres table.
 
-**Why not a custom backend?** Three reasons. First, Realtime + Postgres triggers + RPCs cover the entire messaging surface HQ needs (enqueue, lease, complete, fail, subscribe). Second, hosting Postgres + auth + storage + realtime in one managed service that the operator already owns removes a huge ops burden versus running Redis, Postgres, a WebSocket gateway, and an auth service ourselves. Third, the schema already enforces tenant-scoped RLS via `tenant_id` on every table — the multi-project UI adds a second isolation layer on top by giving each workspace its own Supabase project entirely.
+**Why not a custom backend?** Three reasons. First, Realtime + Postgres triggers + RPCs cover the entire messaging surface HQ needs (enqueue, lease, complete, fail, subscribe). Second, hosting Postgres + auth + storage + realtime in one managed service that the operator already owns removes a huge ops burden versus running Redis, Postgres, a WebSocket gateway, and an auth service ourselves. Third, the schema already enforces tenant-scoped RLS via `tenant_id` on every table — the multi-workspace UI adds a second isolation layer on top by giving each workspace its own Supabase project entirely.
 
 The structures to know:
 
-- **`agent_commands`** — command queue consumed by the runner. Schema in [`015_agent_commands.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/015_agent_commands.sql). Action enum covers `provision`, `update`, `remove`, `approve_pairing`, `restart_gateway`, `restart_dispatcher`, `update_all`, `update_gateway`, `set_agent_model`, `list_models`, and the `auth_*` connection actions. `lease_command(p_lease_seconds, p_gateway_slug)` is the atomic claim; `start_command`, `complete_command`, `fail_command` report back. Rows persist forever (with `stdout`/`stderr`) for the command-history UI.
+- **`agent_commands`** — command queue consumed by the runner. Schema in [`015_agent_commands.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/015_agent_commands.sql). Action enum covers `provision`, `update`, `remove`, `approve_pairing`, `restart_gateway`, `restart_dispatcher`, `update_all`, `update_gateway`, `set_agent_model`, `list_models`, `source_write`, and the `auth_*` connection actions. `lease_command(p_lease_seconds, p_gateway_slug)` is the atomic claim; `start_command`, `complete_command`, `fail_command` report back. Rows persist forever (with `stdout`/`stderr`) for the command-history UI.
 - **`agent_inbox_items`** — background-work queue consumed by agents, not the runner. Inserted by Postgres triggers on `tasks` (task assignment / reassignment), `comments` (@-mentions), and `contacts` (via routines). The dispatcher wakes agents; the agent's own session claims work via `lease_inbox_item(p_agent_id, p_lease_seconds)` (see [`014_agent_inbox.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/014_agent_inbox.sql)) and reports via `complete_inbox_item` / `fail_inbox_item`. `dedup_key` + unique constraint prevents duplicates. `attempt_count < max_attempts` bounds retries before dead-lettering.
 - **`gateways`** — registry of known gateway hosts. Each row has `slug`, `label`, `status`, `last_seen_at`, and `meta.reachable_urls`. Seeded with a `default` row so single-gateway installs work without setup.
 - **`gateway_registration_tokens`** — single-use token records minted by the UI when adding a gateway. The plaintext token is shown once in the installer command; the database stores only the hash and expiry metadata.
 - **`agent_usage` / `agent_budgets`** — usage source-of-truth and per-agent current-period rollup from [`016_usage_budgets.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/016_usage_budgets.sql). Runtime usage is logged by the HQ bootstrap OpenClaw plugin; hard budget cutoffs are enforced both before replies and before dispatcher wakes.
 - **`agents.reports_to_id`** — lightweight org chart from [`008_agents.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/008_agents.sql). The `agent_reports_chain` RPC lets the UI prevent cycles before saving manager changes.
 - **Realtime**. Both daemons open a WebSocket to `/realtime/v1/websocket` and subscribe to `postgres_changes` on `agent_commands` / `agent_inbox_items` INSERT. Fallback poll every `POLL_INTERVAL` (30 s runner) / `RECONCILE_INTERVAL` (120 s dispatcher) catches anything Realtime missed during a reconnect.
-- **Triggers worth knowing**: `enqueue_task_assignment` enqueues inbox items when a task is assigned (defined in [`014_agent_inbox.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/014_agent_inbox.sql)); `enqueue_comment_mentions` does the same for @-mentions (in [`011_comments.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/011_comments.sql)); `process_routine_event` runs routines on contact inserts/updates (in [`020_routines.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/020_routines.sql)).
+- **Triggers worth knowing**: `enqueue_task_assignment` enqueues inbox items when a task is assigned (defined in [`014_agent_inbox.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/014_agent_inbox.sql)); `enqueue_comment_mentions` does the same for @-mentions (in [`011_comments.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/011_comments.sql)); `process_routine_event` runs routines on contact inserts/updates (in [`020_routines.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/020_routines.sql)); `notify_blocker_resolved` creates inbox items when a blocking task completes (in [`028_task_relations.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/028_task_relations.sql)); `escalate_overdue_tasks` pg_cron job marks overdue tasks as `missed` (in [`031_overdue_escalation.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/031_overdue_escalation.sql)).
 
 ## 13. Extensibility
 
@@ -4282,10 +4982,12 @@ The UI is designed to be configured, not coded, for most everyday changes:
 - **Agent hierarchy.** Manager/direct-report structure is a regular column on `agents`. Runtime prompt context is assembled by the HQ bootstrap plugin, not hard-coded into templates.
 - **Usage budgets.** Budget config is stored in `agent_budgets`; raw usage is append-only in `agent_usage`. New provider pricing support belongs in the bootstrap plugin's pricing map and should degrade to unmetered calls when unknown.
 - **New command actions.** Add a case in [`command_runner.py`'s `build_command()`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/command_runner.py), extend the `command_action` enum in the schema migration, and expose it as a server action call in [`apps/ui/src/app/dashboard/agents/actions.ts`](https://github.com/yourhq/yourhq/tree/main/apps/ui/src/app/dashboard/agents/actions.ts). This is the extension point for anything a runner needs to do on the gateway host.
+- **Source connectors.** Add a folder under [`gateway/connectors//`](https://github.com/yourhq/yourhq/tree/main/gateway/connectors) with a `manifest.json` and a `BaseConnector` subclass. The auto-discovery registry picks it up, the build script generates UI types from the manifest, and the platform handles secrets, OAuth, sync scheduling, and embedding. Copy `_template/` to start. See `CONTRIBUTING-SOURCES.md`.
+- **Plugins.** HQ has a full event-driven plugin system. Local plugins are Python modules in `gateway/plugins//` that subclass `BasePlugin` and implement `on_event()`. Webhook plugins are remote HTTP endpoints registered from Settings → Plugins — zero gateway code. Both receive the same events (task.created, agent.status_changed, budget.exceeded, etc.) from SQL triggers and daemon emission points. The plugin runner daemon (`gateway/daemons/plugin_runner.py`) subscribes to the `hq_plugin_event_queue` via Realtime and dispatches to all matching plugins. Full details in [Plugins](/concepts/plugins).
 
 ## 14. Where things are going
 
-- **Self-hosted hardening.** Better migration tooling, stronger validation around project setup, and clearer gateway health diagnostics.
+- **Self-hosted hardening.** Better migration tooling, stronger validation around workspace setup, and clearer gateway health diagnostics.
 - **Hosted offering.** Account management, automated Supabase/gateway provisioning, billing, and managed operations in front of the same core runtime.
 - **Integrations.** More MCP-first integrations, richer provider auth UX, optional email/calendar/Slack/Notion flows, and deeper routine primitives.
 - **Docs site.** The docs site at [docs.yourhq.ai](https://docs.yourhq.ai) is live and rendered from the `docs-site/` directory in this repo.
@@ -4555,15 +5257,15 @@ For shared knowledge across agents, use the [knowledge system](/concepts/knowled
 
 ## Skill learning
 
-Agents improve over time by maintaining their own **playbooks** — reusable procedures they create when they discover a reliable method. This happens autonomously during work via `hq_playbook_upsert.py`:
+Agents improve over time by maintaining their own **skills** — reusable procedures they create when they discover a reliable method. This happens autonomously during work via `hq_skill_upsert.py`:
 
 - **When to learn:** after performing the same sequence 3+ times successfully, or after a breakthrough discovery (trial-and-error that yielded a non-obvious method).
-- **What gets stored:** a playbook (`kind: 'playbook'`, `scope: 'agent'`) linked to the agent via the `knowledge_item_agents` junction table.
-- **Visibility:** the agent detail page shows a "Playbooks" section with recency indicators (blue dot for recent agent edits) and the one-line reason the agent provided. The knowledge editor has a History panel showing who made each edit (agent vs. human).
+- **What gets stored:** a skill (`kind: 'skill'`, `scope: 'agent'`) linked to the agent via the `knowledge_item_agents` junction table.
+- **Visibility:** the agent detail page shows a "Skills" section with recency indicators (blue dot for recent agent edits) and the one-line reason the agent provided. The knowledge editor has a History panel showing who made each edit (agent vs. human).
 
-There is no approval gate — agents write directly. Operators observe via the audit trail and can edit, refine, or delete playbooks at any time through the standard knowledge editor.
+There is no approval gate — agents write directly. Operators observe via the audit trail and can edit, refine, or delete skills at any time through the standard knowledge editor.
 
-The `--reason` parameter on every playbook write is surfaced in the UI. It should be a one-line explanation of what changed and why (e.g., "Added YouTube channel research method after 3 successful tasks").
+The `--reason` parameter on every skill write is surfaced in the UI. It should be a one-line explanation of what changed and why (e.g., "Added YouTube channel research method after 3 successful tasks").
 
 ## Agent-to-agent
 
@@ -4595,7 +5297,7 @@ Source: https://docs.yourhq.ai/concepts/knowledge
 
 > How HQ's unified knowledge system stores, scopes, searches, and delivers context to agents.
 
-HQ uses a single knowledge system — `knowledge_items` — to store all workspace knowledge: pages, playbooks, files, and external sources. This replaces the earlier split between separate documents and assets tables.
+HQ uses a single knowledge system — `knowledge_items` — to store all workspace knowledge: pages, skills, files, and external sources. This replaces the earlier split between separate documents and assets tables.
 
 ## Kinds
 
@@ -4604,13 +5306,36 @@ Every knowledge item has a `kind` that determines how it's stored and rendered:
 | Kind | What it is | Content model |
 |---|---|---|
 | `page` | Rich-text document (company briefs, style guides, meeting notes) | JSON content + plain_text |
-| `playbook` | Structured procedure or SOP | JSON content + plain_text |
+| `skill` | Structured procedure or SOP | JSON content + plain_text |
 | `file` | Uploaded file (PDF, image, spreadsheet, audio, video) | `file_url` + `mime_type` + `file_size` |
 | `source` | Externally synced content from a connected integration | `source_connection_id` + `source_external_id` + sync metadata |
 
-Pages and playbooks support rich editing in the UI. Files go through a processing pipeline (upload, extract text, embed). Sources sync from external integrations and track their sync status.
+Pages and skills support rich editing in the UI. Files go through a processing pipeline (upload, extract text, embed). Sources sync from external integrations and track their sync status.
 
-Playbooks can also be created autonomously by agents during work via `hq_playbook_upsert.py`. When an agent discovers a reusable method, it codifies the procedure as an agent-scoped playbook. These appear on the agent detail page with edit reasons and recency indicators.
+## Source connectors
+
+Source connections use a **plugin-based connector architecture**. Each provider is a self-contained folder under `gateway/connectors//` containing:
+
+- `manifest.json` — declarative config for auth, UI metadata, setup steps, and capabilities.
+- `read.py` — `BaseConnector` subclass implementing validate, browse, list, fetch, and change detection.
+- `api.py` — HTTP helpers for the provider's API.
+- `transforms.py` — response-to-markdown conversion logic.
+- `write.py` (optional) — `BaseActionProvider` subclass for write-back operations.
+- `__init__.py` — exports `CONNECTOR` (and optionally `ACTION_PROVIDER`).
+
+The manifest is the contract between the connector and the platform. A build script (`scripts/build-source-manifests.mjs`) generates a TypeScript module from all manifests so the UI renders provider setup forms, icons, and labels without hardcoded constants.
+
+**Auto-discovery**: `gateway/connectors/registry.py` scans subdirectories for exported `CONNECTOR` instances. Adding a new provider requires only the provider folder — no changes to existing platform code.
+
+**Credential handling**: The manifest declares what credentials are needed. The platform encrypts and stores them in the `secrets` table, `secrets_sync.py` decrypts them to the gateway filesystem, and `source_sync.py` assembles a `creds` dict for the connector. Single-key credentials use `{PROVIDER}_SOURCE_{ID_PREFIX}`, multi-key credentials use `{PROVIDER}_SOURCE_{ID_PREFIX}__{FIELD}`.
+
+**Write support**: Providers that support writes set `supports_write: true` in their manifest and implement a `BaseActionProvider`. The UI shows a "Write access" toggle on the connection detail page. Write operations flow through the `source_write` command action in the existing command queue.
+
+**Browse and validate**: The UI proxies browse and validate requests to the gateway's files API (`/sources/browse` and `/sources/validate`), so provider-specific API calls happen on the gateway side where credentials are local.
+
+See `CONTRIBUTING-SOURCES.md` in the repository root for the full contributor guide.
+
+Skills can also be created autonomously by agents during work via `hq_skill_upsert.py`. When an agent discovers a reusable method, it codifies the procedure as an agent-scoped skill. These appear on the agent detail page with edit reasons and recency indicators.
 
 ## Scope and agent access
 
@@ -4632,7 +5357,7 @@ When an agent starts a session, the bootstrap script:
 4. Deduplicates (an item can be both workspace-pinned and agent-assigned).
 5. Injects the combined set into the agent's startup context, grouped by scope.
 
-The gateway's HQ bootstrap plugin renders this context with kind labels (`[page]`, `[playbook]`, `[file]`) and scope grouping (`Workspace Knowledge` vs `Your Knowledge`).
+The gateway's HQ bootstrap plugin renders this context with kind labels (`[page]`, `[skill]`, `[file]`) and scope grouping (`Workspace Knowledge` vs `Your Knowledge`).
 
 ## Folders and organization
 
@@ -4684,9 +5409,11 @@ Entity links are stored in `entity_links` with polymorphic `owner_type`/`target_
 | Table | Purpose |
 |---|---|
 | `knowledge_folders` | Folder hierarchy for organizing items |
-| `knowledge_items` | All knowledge content — pages, playbooks, files, sources |
+| `knowledge_items` | All knowledge content — pages, skills, files, sources |
 | `knowledge_item_agents` | Junction table linking agent-scoped items to specific agents |
 | `knowledge_chunks` | Chunked content with per-chunk embeddings for granular retrieval |
+| `source_connections` | External source integrations with plugin-based providers, credentials, and sync schedules |
+| `source_sync_runs` | Sync execution history and status tracking |
 | `entity_links` | Universal polymorphic links between any entities |
 
 ## Agent scripts
@@ -4697,8 +5424,8 @@ Every agent template ships with HQ skills that interact with the knowledge syste
 |---|---|
 | `hq_session_bootstrap.py` | Fetches workspace-pinned + agent-specific items at session start |
 | `hq_boot_docs.py` | Loads boot context using scope + junction queries |
-| `hq_playbook_upsert.py` | Creates or updates agent-scoped playbooks with auto-embedding and junction linking |
-| `hq_create_doc.py` | Creates a new knowledge item (page or playbook) |
+| `hq_skill_upsert.py` | Creates or updates agent-scoped skills with auto-embedding and junction linking |
+| `hq_create_doc.py` | Creates a new knowledge item (page or skill) |
 | `hq_update_doc.py` | Updates an existing knowledge item |
 | `hq_search_docs.py` | Semantic + full-text search across all knowledge items |
 | `hq_get_knowledge_chunks.py` | Retrieves chunks for a specific knowledge item by ID |
@@ -4709,38 +5436,38 @@ All scripts use the Supabase PostgREST API via the service role key.
 
 ---
 
-# Projects and workspaces
+# Workspaces
 
-Source: https://docs.yourhq.ai/concepts/projects-and-workspaces
+Source: https://docs.yourhq.ai/concepts/workspaces
 
 > How one UI manages multiple Supabase-backed workspaces.
 
-An HQ project is a Supabase-backed workspace — your agents, tasks, CRM, knowledge, and settings all live in one Supabase project that you own.
+An HQ workspace is a Supabase-backed unit — your agents, tasks, CRM, knowledge, and settings all live in one Supabase project that you own.
 
 ## How it works
 
-  - **Project registry**: 
-    The UI stores project metadata in `/config/projects.json` and secrets in `/config/secrets.json` on the `ui-config` Docker volume.
+  - **Workspace registry**: 
+    The UI stores workspace metadata in `/config/workspaces.json` and secrets in `/config/secrets.json` on the `ui-config` Docker volume.
   
 
   - **Runtime injection**: 
-    The active project is selected at runtime and injected into the browser — no image rebuild needed when switching projects.
+    The active workspace is selected at runtime and injected into the browser — no image rebuild needed when switching workspaces.
   
 
-## Multi-project support
+## Multi-workspace support
 
-One UI install can manage multiple Supabase projects. Each project is a fully isolated workspace with its own database, auth, and realtime. Within each database, every table enforces tenant-scoped RLS via `tenant_id`. The multi-project registry adds a second isolation layer on top — each workspace gets its own Supabase project entirely.
+One UI install can manage multiple Supabase projects. Each workspace is fully isolated with its own database, auth, and realtime. Within each database, every table enforces tenant-scoped RLS via `tenant_id`. The multi-workspace registry adds a second isolation layer on top — each workspace gets its own Supabase project entirely.
 
 > 
-  Use the project switcher in Settings → Projects to move between workspaces. Each project has its own agents, gateways, tasks, and CRM data.
+  Use the workspace switcher in Settings → Database to move between workspaces. Each workspace has its own agents, gateways, tasks, and CRM data.
 
 ## Isolation model
 
 | Boundary | Scope |
 |---|---|
 | **Supabase project** | Full isolation — separate database, auth, and realtime |
-| **Gateway** | Bound to one project via Supabase credentials |
-| **UI** | Can switch between projects at runtime |
+| **Gateway** | Bound to one workspace via Supabase credentials |
+| **UI** | Can switch between workspaces at runtime |
 
 ---
 
@@ -4828,6 +5555,8 @@ openclaw agent --agent / [--model ] [--thinking ] --message "[inbox]  ..."
 
 The `--model` and `--thinking` flags are included when the inbox item's `context` contains per-task overrides. This lets individual tasks run with different reasoning depth without changing the agent's default configuration.
 
+For `task_assignment` events, the dispatcher enriches the message with unresolved blocker information from `task_relations`. If the assigned task has active `blocked_by` dependencies (blocking tasks not yet `done` or `cancelled`), a note is appended to the summary so the agent knows what dependencies exist before starting work.
+
 This is fire-and-forget — the dispatcher doesn't wait for the agent to respond. Before waking, the dispatcher checks:
 
 - The agent is not paused or hibernating
@@ -4841,6 +5570,294 @@ Inbox items are **not** leased by the dispatcher — the agent's background sess
 If the Realtime connection drops, the dispatcher's reconciliation sweep (every `RECONCILE_INTERVAL` seconds, default 120) acts as a safety net and wakes any agents with pending work that were missed.
 
 See [Command lifecycle](/reference/command-lifecycle) for the command state machine and [Inbox dispatch](/reference/inbox-dispatch) for full dispatcher details.
+
+---
+
+# Plugins
+
+Source: https://docs.yourhq.ai/concepts/plugins
+
+> Extend HQ with event-driven plugins that react to tasks, agents, knowledge, and more — locally or via webhooks.
+
+HQ has a built-in plugin system that lets you hook into workspace events and take action. When a task completes, an agent goes over budget, or a knowledge item is created, plugins receive the event and run your code — post to Slack, sync to Linear, trigger a Zapier workflow, log an alert, or anything else.
+
+Two plugin types, same event system:
+
+- **Local plugins** — Python modules on the gateway. Full access to the plugin SDK (state, secrets, Supabase queries). Best for logic that needs to read HQ data or maintain state.
+- **Webhook plugins** — Remote HTTP endpoints. Zero gateway code. HQ POSTs events with HMAC signatures. Best for connecting to external services, no-code tools, or teams without gateway access.
+
+Both types are managed from **Settings → Plugins** in the UI.
+
+---
+
+## How it works
+
+```
+Workspace event          Plugin runner daemon           Your plugin
+(task completed,    →    polls event queue,        →    local: Python handler
+ agent provisioned,      matches subscribed hooks,      webhook: HTTP POST
+ budget exceeded)        dispatches to plugins          with HMAC signature
+```
+
+Events originate from two sources:
+
+1. **SQL triggers** on core tables (tasks, agents, knowledge, inbox, comments, secrets). These write to an internal event queue (`hq_plugin_event_queue`) that the plugin runner daemon polls.
+2. **Python daemons** that emit events directly (command runner after provisioning, file processor after extraction, embedder after indexing, bootstrap plugin after usage recording).
+
+The plugin runner daemon subscribes to the event queue via Supabase Realtime (with a polling fallback every 5 seconds) and dispatches matching events to all enabled plugins.
+
+---
+
+## Event model
+
+Every event follows the same envelope:
+
+```json
+{
+  "event_id": "550e8400-e29b-41d4-a716-446655440000",
+  "event_type": "task.completed",
+  "occurred_at": "2025-01-15T10:30:00+00:00",
+  "tenant_id": "00000000-0000-0000-0000-000000000000",
+  "entity_type": "tasks",
+  "entity_id": "d4f5e6a7-...",
+  "payload": {
+    "title": "Draft Q1 report",
+    "assignee_agent_id": "...",
+    "completed_at": "2025-01-15T10:30:00+00:00"
+  }
+}
+```
+
+Events are named `.`. HQ ships with 16 built-in events covering tasks, agents, knowledge, inbox, routines, comments, secrets, usage, and budgets. See [Plugin events reference](/reference/plugin-events) for the full list.
+
+---
+
+## Plugin sources
+
+Plugins come from four sources, tracked by the `source` field:
+
+| Source | Description | Can uninstall? |
+|--------|-------------|----------------|
+| `builtin` | Ships with HQ (e.g. usage-alerts). Always available. | No |
+| `local` | Python module on the gateway filesystem. For self-hosters and power users. | Yes |
+| `webhook` | Remote HTTP endpoint. For SaaS integrations and no-code tools. | Yes |
+| `marketplace` | Installed from the HQ marketplace (future). | Yes |
+
+---
+
+## Local plugins
+
+A local plugin is a Python module in `gateway/plugins//` with two files:
+
+**`manifest.json`** — declares identity, hooks, config schema, and capabilities:
+
+```json
+{
+  "id": "slack-notify",
+  "name": "Slack Notifications",
+  "description": "Post to Slack when tasks complete or budgets exceed.",
+  "version": "1.0.0",
+  "source": "local",
+  "hooks": ["task.completed", "budget.exceeded"],
+  "config_schema": {
+    "type": "object",
+    "properties": {
+      "webhook_url": {
+        "type": "string",
+        "title": "Slack Webhook URL"
+      }
+    },
+    "required": ["webhook_url"]
+  },
+  "capabilities": ["secrets.read", "http.outbound"]
+}
+```
+
+**`handler.py`** — subclasses `BasePlugin` and implements `on_event()`:
+
+```python
+from gateway.plugins.sdk import BasePlugin, PluginEvent, PluginResponse
+
+class Handler(BasePlugin):
+
+    def on_event(self, event: PluginEvent) -> PluginResponse | None:
+        if event.event_type == "task.completed":
+            title = event.payload.get("title", "Unknown task")
+            self.ctx.logger.info(f"Task completed: {title}")
+            # Post to Slack, update Linear, etc.
+            return PluginResponse(log_message=f"Notified about: {title}")
+        return None
+```
+
+### Plugin context
+
+Every local plugin receives a `PluginContext` with:
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `config` | `dict` | Operator-supplied config from Settings → Plugins |
+| `state` | `StateClient` | Scoped key-value store (persists across events) |
+| `secrets` | `SecretsClient` | Read-only access to gateway secrets |
+| `supabase` | `SupabaseClient` | Read-only Supabase queries against HQ tables |
+| `logger` | `Logger` | Plugin-namespaced structured logger |
+
+### State management
+
+Plugins can persist state across events using the `StateClient`. State is scoped by kind and optional entity:
+
+```python
+# Global state
+self.ctx.state.set("last_sync", "2025-01-15T10:30:00Z")
+cursor = self.ctx.state.get("last_sync")
+
+# Scoped to a specific agent
+self.ctx.state.set("warned", True, scope_kind="agent", scope_id=agent_id)
+
+# Scoped to a specific task
+self.ctx.state.set("linear_issue_id", "LIN-42", scope_kind="task", scope_id=task_id)
+```
+
+State is stored in the `hq_plugin_state` table, keyed by `(plugin_id, scope_kind, scope_id, state_key)`.
+
+---
+
+## Webhook plugins
+
+Webhook plugins have no gateway-side code. You register them entirely from the UI:
+
+1. Go to **Settings → Plugins → Add plugin**
+2. Enter a name, your endpoint URL, and optionally a signing secret
+3. Select which events to receive
+4. Save
+
+HQ POSTs every matching event to your URL as JSON. The request includes:
+
+| Header | Description |
+|--------|-------------|
+| `Content-Type` | `application/json` |
+| `X-HQ-Event` | Event type (e.g. `task.completed`) |
+| `X-HQ-Plugin-Id` | Your plugin's identifier |
+| `X-HQ-Delivery` | Unique delivery ID for deduplication |
+| `X-HQ-Signature` | `sha256=` HMAC-SHA256 signature (if secret configured) |
+
+### Signature verification
+
+If you set a signing secret, verify the `X-HQ-Signature` header before processing:
+
+```javascript Node.js
+const crypto = require("crypto");
+
+function verify(secret, body, signature) {
+  const expected = "sha256=" + crypto
+    .createHmac("sha256", secret)
+    .update(body)
+    .digest("hex");
+  return crypto.timingSafeEqual(
+    Buffer.from(signature),
+    Buffer.from(expected),
+  );
+}
+```
+
+```python Python
+import hashlib
+import hmac
+
+def verify(secret: str, body: bytes, signature: str) -> bool:
+    expected = "sha256=" + hmac.new(
+        secret.encode(), body, hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature)
+```
+
+### Webhook plugin examples
+
+**Zapier integration** — register your Zapier catch hook URL as a webhook plugin subscribing to `task.completed`. Every completed task triggers your Zap.
+
+**Discord notifications** — point a webhook plugin at a Discord webhook URL. HQ sends the event payload; Discord renders it as a message.
+
+**Custom relay** — deploy a small service (Cloudflare Worker, AWS Lambda, Vercel Edge Function) that transforms HQ events into provider-specific formats (Slack Block Kit, Linear GraphQL mutations, PagerDuty alerts).
+
+---
+
+## Capabilities
+
+Plugins declare what they need in `manifest.json → capabilities[]`. This documents intent and will be enforced when sandboxing is added:
+
+| Capability | Grants |
+|-----------|--------|
+| `secrets.read` | Access to `ctx.secrets.resolve()` |
+| `http.outbound` | Permission to make external HTTP requests |
+| `supabase.read` | Access to `ctx.supabase.query()` for reading HQ tables |
+| `state.read` | Access to `ctx.state.get()` |
+| `state.write` | Access to `ctx.state.set()` and `ctx.state.delete()` |
+
+---
+
+## Execution and observability
+
+Every plugin dispatch is logged in the `hq_plugin_events` table with:
+
+- Plugin ID and hook name
+- Status (`success`, `error`, `timeout`, `skipped`)
+- Duration in milliseconds
+- Error message (if any)
+
+You can see recent activity for any plugin in **Settings → Plugins → click a plugin → Recent activity**. Events are retained for 30 days.
+
+---
+
+## Architecture
+
+### Database tables
+
+| Table | Purpose |
+|-------|---------|
+| `hq_plugins` | Plugin registry — one row per installed plugin. Realtime-enabled for live UI updates. |
+| `hq_plugin_events` | Execution log — every dispatch recorded for observability. 30-day retention via pg_cron. |
+| `hq_plugin_state` | Scoped key-value store — plugins persist state across events. |
+| `hq_plugin_event_queue` | Internal event queue — SQL triggers write here; plugin runner reads and dispatches. 1-hour retention. |
+
+### Gateway daemon
+
+The plugin runner (`gateway/daemons/plugin_runner.py`) follows the same patterns as the command runner and inbox dispatcher:
+
+1. Connects to Supabase on startup
+2. Loads enabled plugins from `hq_plugins`
+3. Subscribes to `hq_plugin_event_queue` via Realtime for new events
+4. Subscribes to `hq_plugins` for config changes (enable/disable/update → hot reload)
+5. Dispatches matching events to plugins (in-process for local, HTTP POST for webhook)
+6. Records results in `hq_plugin_events`
+7. Falls back to polling every 5 seconds if Realtime disconnects
+
+### Relationship to other systems
+
+**hq-bootstrap** (the OpenClaw plugin) hooks into the LLM call lifecycle — model routing, usage logging, budget enforcement. It's adapter-specific. The HQ plugin system hooks into the business logic lifecycle — tasks, agents, knowledge, inbox. They coexist: hq-bootstrap forwards `usage.recorded` and `budget.exceeded` events to the plugin event queue.
+
+**Source connectors** (`gateway/connectors/`) sync external data into HQ's knowledge system. They're purpose-built for data ingestion. Plugins react to HQ events and take actions. If you want to sync GitHub Wiki → HQ knowledge, use a connector. If you want to create Linear issues when HQ tasks are created, use a plugin.
+
+---
+
+## Built-in plugins
+
+### Usage Alerts
+
+Ships with HQ. Monitors `usage.recorded` events and logs warnings when agents approach their budget threshold (default: 80%). Uses the plugin state system to avoid duplicate warnings.
+
+Configuration:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `warn_at_percent` | number | 80 | Percentage of budget at which to log a warning |
+
+---
+
+## Next reads
+
+- [Plugin events reference](/reference/plugin-events) — full list of all 16 events with payloads
+- [Creating plugins guide](/guides/plugins) — step-by-step walkthrough for your first plugin
+- [Architecture](/concepts/architecture) — how plugins fit into the broader system
+- [Contributing](/development/contributing) — how to submit a plugin PR
 
 ---
 
@@ -5135,7 +6152,7 @@ When to use which:
 
 ### Editor typography
 
-The Novel/TipTap editor in knowledge pages and playbooks has its own scale, defined in `globals.css` lines 265-450. H1 is 30px, H2 is 22px, H3 is 18px — larger than the app scale because long-form reading benefits from more vertical rhythm. Body lines render at `line-height: 1.7` inside `.ProseMirror`.
+The Novel/TipTap editor in knowledge pages and skills has its own scale, defined in `globals.css` lines 265-450. H1 is 30px, H2 is 22px, H3 is 18px — larger than the app scale because long-form reading benefits from more vertical rhythm. Body lines render at `line-height: 1.7` inside `.ProseMirror`.
 
 ## Radius
 
@@ -5527,7 +6544,7 @@ Five presets: `table` (header + body rows with realistic column widths), `cards`
 
 [`shared/schema-version-banner.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/schema-version-banner.tsx)
 
-The top-of-page banner that appears when the active Supabase project's schema lags the UI's expected migration set. Links to the migration guide. The only "blocking" inline alert in the product — most feedback uses toasts.
+The top-of-page banner that appears when the active Supabase database's schema lags the UI's expected migration set. Links to the migration guide. The only "blocking" inline alert in the product — most feedback uses toasts.
 
 ## When to add a composite
 
@@ -5588,7 +6605,7 @@ The thin bar at the top of the content area. Owned by the shell, never re-mounte
 - **Breadcrumbs** — derived from the current pathname. UUID segments are resolved to entity names by a Supabase lookup; everything else uses the route segment label.
 - **Theme toggle** — Light / Dark / System dropdown.
 - **Notifications** — bell icon with unread badge.
-- **User menu** — avatar with sign-out and project switcher actions.
+- **User menu** — avatar with sign-out and workspace switcher actions.
 
 A route should never render its own header bar. Page-level titles belong inside the [`PageHeader`](/design/components/composites) below the header bar.
 
@@ -5843,7 +6860,7 @@ The Novel setup at HQ:
 
 Editor styles live in [`globals.css`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/globals.css) under `.ProseMirror` (lines ~265-450). The editor uses a slightly larger type scale than the app body — H1 is 30px, body line-height is 1.7 — because long-form reading benefits from more vertical rhythm.
 
-Knowledge pages and playbooks are the canonical Novel surfaces in HQ today.
+Knowledge pages and skills are the canonical Novel surfaces in HQ today.
 
 **Textarea** is for **short-form notes** — surfaces where the user is dumping a sentence or a paragraph and getting on with their day. Task descriptions, contact notes, comment bodies, agent prompts, slug fields. The user is not composing a document; they are jotting.
 
@@ -6116,7 +7133,7 @@ The thin preset [`ConfirmDeleteDialog`](https://github.com/yourhq/yourhq/blob/ma
 
 For unrecoverable failures.
 
-Root fallback: [`apps/ui/src/app/error.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/error.tsx) — catches errors that escape segment-level `error.tsx` files. Detects project-related errors via regex against the message (Supabase, project, registry, database, fetch, DNS) and offers context-aware recovery: "Switch project" and "Onboarding" links for project issues, "Try again" plus collapsible technical details otherwise.
+Root fallback: [`apps/ui/src/app/error.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/app/error.tsx) — catches errors that escape segment-level `error.tsx` files. Detects workspace-related errors via regex against the message (Supabase, workspace, registry, database, fetch, DNS) and offers context-aware recovery: "Switch workspace" and "Onboarding" links for workspace issues, "Try again" plus collapsible technical details otherwise.
 
 Segment-level `error.tsx` files in `app/dashboard//` cover module-specific failure modes. They should:
 
@@ -6175,11 +7192,11 @@ Pass the count and any optional sizing. The preset is `animate-pulse` with `bg-a
 
 For persistent, page-level conditions.
 
-The [`Alert`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/alert.tsx) primitive carries a banner-style message inside the page, distinct from a toast. The only standardized one in the product today is [`SchemaVersionBanner`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/schema-version-banner.tsx) — shown when the active project's schema lags expected migrations.
+The [`Alert`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/alert.tsx) primitive carries a banner-style message inside the page, distinct from a toast. The only standardized one in the product today is [`SchemaVersionBanner`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/shared/schema-version-banner.tsx) — shown when the active workspace's schema lags expected migrations.
 
 ### Rules
 
-- **Reserve `Alert` for page-level state that affects all interactions on the page.** "Your project is in read-only mode", "Schema migration required". Not for "Saved successfully" — that's a toast.
+- **Reserve `Alert` for page-level state that affects all interactions on the page.** "Your workspace is in read-only mode", "Schema migration required". Not for "Saved successfully" — that's a toast.
 - **Provide an action where possible.** A banner with no link out is just nagging.
 
 ## Empty interaction feedback
@@ -6399,7 +7416,7 @@ The installer (`installer/install.sh`) prompts for the minimum required values a
 There are two flavors of variable that behave very differently:
 
 - **Runtime variables** — read by the container process when it starts. Change the value in `.env`, run `docker compose up -d `, and the new value takes effect. Most variables are runtime.
-- **Build-time variables** — baked into the container image when `docker compose build` runs. Changing the value in `.env` does nothing until the image is rebuilt. HQ no longer uses `NEXT_PUBLIC_SUPABASE_*` for project config; Supabase browser config is injected at runtime from the project registry.
+- **Build-time variables** — baked into the container image when `docker compose build` runs. Changing the value in `.env` does nothing until the image is rebuilt. HQ no longer uses `NEXT_PUBLIC_SUPABASE_*` for project config; Supabase browser config is injected at runtime from the workspace registry.
 
 The installer always runs `docker compose pull` (and falls back to `build` if the image isn't in the registry), so on a fresh install the distinction is invisible. It only matters when you edit `.env` later.
 
@@ -6414,11 +7431,11 @@ Each variable below lists: **Name / Required / Default / What it does / When to 
 The gateway, dispatcher, and runner each read Supabase credentials from **two sources** in this order:
 
 1. **Environment variables** (`SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`) if set.
-2. **Project registry** at `/config/projects.json` + `/config/secrets.json` (written by the UI's onboarding screen and mounted read-only into the gateway services).
+2. **Workspace registry** at `/config/workspaces.json` + `/config/secrets.json` (written by the UI's onboarding screen and mounted read-only into the gateway services).
 
 The normal path is (2) — you never touch `.env` for Supabase. The onboarding screen writes the creds to the shared `ui-config` volume, the gateway polls `/config` on boot and picks them up automatically.
 
-Use (1) only as an override — e.g. a remote gateway that must always point at a specific project regardless of what the UI's active project is.
+Use (1) only as an override — e.g. a remote gateway that must always point at a specific database regardless of what the UI's active workspace is.
 
 - **`SUPABASE_URL`** — **Optional override**. No default. If set, takes precedence over the registry.
 
@@ -6430,15 +7447,15 @@ Use (1) only as an override — e.g. a remote gateway that must always point at 
 
 - **`EMBEDDER_CHUNK_CHARS`**, **`EMBEDDER_CHUNK_OVERLAP`**, **`EMBEDDER_MAX_CHUNKS`** — Optional. Defaults to `3500`, `500`, and `500`. These tune the source-agnostic knowledge chunker used for documents now and future file/external-source indexing.
 
-**Where the real creds live**: the project registry files (`/config/projects.json` for URL + anon key, `/config/secrets.json` for service role key). Don't edit these by hand — use the onboarding screen on first boot, or Settings → Projects afterward.
+**Where the real creds live**: the workspace registry files (`/config/workspaces.json` for URL + anon key, `/config/secrets.json` for service role key). Don't edit these by hand — use the onboarding screen on first boot, or Settings → Database afterward.
 
 `secrets.json` is mode `0644` inside the Docker-managed config volume so the UI, gateway, runner, and dispatcher containers can all read it despite running as different users. The host-level Docker volume directory is the real filesystem boundary. Treat the host and every container in the Compose stack as trusted.
 
 ### 2.2 Gateway identity
 
-These let one Supabase project host multiple independent gateway hosts (your laptop, a Mac mini, a VPS) without them stepping on each other.
+These let one Supabase database host multiple independent gateway hosts (your laptop, a Mac mini, a VPS) without them stepping on each other.
 
-- **`GATEWAY_ID`** — **Required**. Default `default`. Unique slug per gateway within a Supabase project. Becomes the `slug` column in the `gateways` table. Override when you bring up a second gateway against the same Supabase (e.g. `mac-mini`, `vps-eu`).
+- **`GATEWAY_ID`** — **Required**. Default `default`. Unique slug per gateway within a Supabase database. Becomes the `slug` column in the `gateways` table. Override when you bring up a second gateway against the same Supabase (e.g. `mac-mini`, `vps-eu`).
 
 - **`GATEWAY_LABEL`** — **Optional**. Default `Primary gateway`. Human-readable label shown in the UI's gateway picker. Override for anything you'd show a person.
 
@@ -6563,24 +7580,38 @@ Next.js enforces an origin allowlist on server actions and form submissions. Whe
 
 The UI used to bake `NEXT_PUBLIC_SUPABASE_*` into the client bundle at build time, which meant every user had to `docker compose build ui` locally to stamp in their own Supabase values. That's gone.
 
-Now the UI reads its Supabase config at **runtime** from the project registry (`/config/projects.json` + `/config/secrets.json`). The root layout renders a `window.__HQ_CONFIG__ = {...}` tag based on the active project's cookie, so the client bundle picks up whoever's connected without a rebuild.
+Now the UI reads its Supabase config at **runtime** from the workspace registry (`/config/workspaces.json` + `/config/secrets.json`). The root layout renders a `window.__HQ_CONFIG__ = {...}` tag based on the active workspace's cookie, so the client bundle picks up whoever's connected without a rebuild.
 
 **Practical consequences:**
 - The GHCR `yourhq-ui:latest` image works for every user. No `docker compose build ui` required — ever.
-- Changing Supabase creds is a UI action (Settings → Projects → Rotate), not a rebuild.
+- Changing Supabase creds is a UI action (Settings → Database → Rotate), not a rebuild.
 - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` env vars are no longer read by the UI. Leave them unset.
+
+---
+
+### 2.11 Secrets encryption
+
+These variables control how user-managed secrets (channel tokens, API keys, OAuth tokens) are encrypted in the `secrets` table and decrypted on the gateway.
+
+- **`HOSTED_SECRETS_KEY`** — **Optional (hosted only), secret**. Empty. A 32-byte encryption key (base64url, base64, or hex encoded) used for AES-256-GCM encryption of secrets. When set, takes precedence over the HKDF-derived key. Used by the hosted offering where the service role key is not a stable derivation source.
+
+- **`SOURCE_SYNC_POLL_INTERVAL`** — **Optional**. Default `60`. Seconds between source-sync poll cycles (checks `source_connections` for connections due for sync). Not secrets-specific but relevant because source sync now reads OAuth tokens from the secrets filesystem.
+
+Self-hosted deployments do not need `HOSTED_SECRETS_KEY` — the encryption key is automatically derived from `SUPABASE_SERVICE_ROLE_KEY` via HKDF-SHA256 (salt: `yourhq-secrets-v1`, info: `aes-256-gcm`, 32 bytes). This means rotating your service role key requires re-encrypting all secrets.
 
 ---
 
 ## 4. Secrets handling
 
-Every secret lives in plaintext in `.env` on disk. The installer `chmod 600` the file, which is the only layer of protection. Don't commit `.env`, don't paste it into issues, don't ship it in backups unencrypted.
+Stack-level secrets (Supabase keys, gateway auth tokens) live in plaintext in `.env` on disk. The installer `chmod 600` the file, which is the only layer of protection. Don't commit `.env`, don't paste it into issues, don't ship it in backups unencrypted.
+
+User-managed secrets (API keys, channel tokens, OAuth tokens) are stored **encrypted** in the `secrets` table using AES-256-GCM. They are never in `.env` on the UI host. On the gateway, they're decrypted and written to `~/.openclaw/secrets/` as per-agent `.env` files (`chmod 0600`). These derived files are regenerated on every change and do not need manual management. See [Secrets management](/guides/secrets-management) for the full architecture.
 
 If one of these leaks:
 
-- **`SUPABASE_SERVICE_ROLE_KEY`** — bypasses RLS and can read/write every row. **High severity.** Rotate in Supabase dashboard (Project Settings → API → "Generate new service_role key"). Update the affected project in Settings → Projects, or update `.env` if you use env overrides. Restart gateway services after changing env overrides. Audit `audit_log` for suspicious activity.
+- **`SUPABASE_SERVICE_ROLE_KEY`** — bypasses RLS and can read/write every row. **High severity.** Rotate in Supabase dashboard (Project Settings → API → "Generate new service_role key"). Update the affected workspace in Settings → Database, or update `.env` if you use env overrides. Restart gateway services after changing env overrides. Audit `audit_log` for suspicious activity.
 
-- **UI anon key** (stored in `/config/projects.json` per project) — subject to RLS, so damage is bounded by your policies. Rotate in the Supabase dashboard, then update it via Settings → Projects → the affected project in the UI.
+- **UI anon key** (stored in `/config/workspaces.json` per workspace) — subject to RLS, so damage is bounded by your policies. Rotate in the Supabase dashboard, then update it via Settings → Database → the affected workspace in the UI.
 
 - **`GATEWAY_AUTH_TOKEN`** — auth between UI and files-API. Rotate by picking a new value (`openssl rand -hex 32`), writing it to `.env`, and running `docker compose up -d ui gateway` (both services must restart together so they agree on the token).
 
@@ -6602,7 +7633,7 @@ If one of these leaks:
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 ```
 
-**No environment variables change between production and development** — the dev overlay only changes volume mounts, commands, and the UI image (`node:24-slim` instead of the prebuilt UI image). Your `.env` works as-is. Supabase creds for the UI come from the project registry in both modes, so there's no "did I rebuild" confusion.
+**No environment variables change between production and development** — the dev overlay only changes volume mounts, commands, and the UI image (`node:24-slim` instead of the prebuilt UI image). Your `.env` works as-is. Supabase creds for the UI come from the workspace registry in both modes, so there's no "did I rebuild" confusion.
 
 ---
 
@@ -6632,9 +7663,9 @@ Edit `.env`, then run the appropriate Compose command to pick up the change. The
 docker compose up -d ui
 ```
 
-### UI project config (no rebuild required)
+### UI workspace config (no rebuild required)
 
-Supabase URL, anon key, service role key per project live in the project registry on the `ui-config` volume, not in `.env`. Change them via the UI (Settings → Projects → Edit / Rotate) — takes effect immediately on the next request.
+Supabase URL, anon key, service role key per workspace live in the workspace registry on the `ui-config` volume, not in `.env`. Change them via the UI (Settings → Database → Edit / Rotate) — takes effect immediately on the next request.
 
 ### Gateway variables
 
@@ -6676,7 +7707,7 @@ docker compose pull && docker compose up -d
 
 ### Gateway Supabase keys
 
-Changing the gateway's Supabase connection (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) affects the gateway, dispatcher, and runner. UI Supabase creds live in the project registry and don't need any restart:
+Changing the gateway's Supabase connection (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) affects the gateway, dispatcher, and runner. UI Supabase creds live in the workspace registry and don't need any restart:
 
 ```bash
 docker compose up -d gateway dispatcher runner
@@ -6686,7 +7717,7 @@ docker compose up -d gateway dispatcher runner
 
 ## Troubleshooting checklist
 
-- **"The UI loads but login fails"** — the active project in the registry may have wrong creds. Open Settings → Projects → Edit or Rotate to fix, no restart needed.
+- **"The UI loads but login fails"** — the active workspace in the registry may have wrong creds. Open Settings → Database → Edit or Rotate to fix, no restart needed.
 - **"File browser says 401 / auth error"** — `GATEWAY_AUTH_TOKEN` differs between UI and gateway, or is empty. Set it identically in `.env` and run `docker compose up -d ui gateway`.
 - **"Changed the port but the old one still works"** — port bindings need `--force-recreate` (section 7).
 - **"Changed `TEMPLATES_SOURCE` but I still see old templates"** — it's only read on first boot. See section 2.5.
@@ -6731,6 +7762,13 @@ HQ stores shared state in one Supabase project per workspace. The SQL source of 
 | `023_source_connections.sql` | External source connections for knowledge sync |
 | `024_routines_extension.sql` | Event triggers for collections, knowledge items, and tasks |
 | `025_modular_workspace.sql` | Modular workspace onboarding |
+| `026_secrets.sql` | Encrypted secrets (AES-256-GCM), RLS, Realtime, `source_connections.secret_id` FK |
+| `027_source_plugin_support.sql` | Extensible source providers (drops hardcoded provider constraint), `writable` flag on `source_connections`, `source_write` command action |
+| `028_task_relations.sql` | Task dependencies and relations (`task_relations` table with `blocked_by`, `blocks`, `relates_to`, `parent_of`, `child_of`), `get_task_relations()` RPC, `notify_blocker_resolved` trigger |
+| `029_labels.sql` | Managed labels with color and description, `task_labels` junction table |
+| `030_task_templates.sql` | Reusable task group templates with dependency graphs (JSONB items) |
+| `031_overdue_escalation.sql` | pg_cron job to mark overdue tasks as `missed`, inbox notification for assigned agents |
+| `032_plugins.sql` | Plugin system: `hq_plugins`, `hq_plugin_events`, `hq_plugin_state`, `hq_plugin_event_queue` tables, `emit_plugin_event()` trigger function, 11 event triggers, pg_cron cleanup jobs |
 
 For a fresh Supabase project, run all files in filename order from the SQL Editor. The onboarding wizard handles this automatically — it concatenates all files and lets you copy/paste a single SQL blob.
 
@@ -6738,7 +7776,7 @@ For an existing project, review each migration before applying. All files are id
 
 ## Trust Model
 
-HQ uses a multi-project isolation model.
+HQ uses a multi-workspace isolation model.
 
 - Each Supabase project is a fully-isolated workspace. Within each database, every table enforces tenant-scoped RLS via `tenant_id`.
 - Every tenant-owned table has a `tenant_id` column referencing the `tenants` table. RLS policies enforce `tenant_id = current_tenant_id()` for the `authenticated` role, where `current_tenant_id()` extracts the tenant ID from the JWT's `app_metadata`.
@@ -6792,19 +7830,23 @@ Important RPCs:
 
 ### Tasks
 
-- `tasks` — operator and agent work items. Supports `model_override` and `thinking_override` columns for per-task model selection when assigned to an agent.
+- `tasks` — operator and agent work items. Supports `model_override` and `thinking_override` columns for per-task model selection when assigned to an agent. Status enum includes `missed` for overdue escalation.
 - `streams` — task grouping and workflow lanes.
 - `task_series` — recurring task definitions. Series-level `model_override` and `thinking_override` propagate to spawned instances.
+- `task_relations` — task-to-task dependency links. Relation types: `blocked_by`, `blocks`, `relates_to`, `parent_of`, `child_of`. The `get_task_relations(p_task_id)` RPC returns relations with joined task metadata. A `notify_blocker_resolved` trigger fires when a blocking task reaches `done` or `cancelled`, creating inbox items for the unblocked task's assignee.
+- `labels` — managed workspace labels with `name`, `color`, and optional `description`.
+- `task_labels` — junction table linking tasks to labels.
+- `task_templates` — reusable task group templates. Each template has a `name`, `description`, and `items` JSONB array containing task definitions with `ref`, `title`, `priority`, `assignee_role`, and `blocked_by` dependency references.
 - `comments` — polymorphic comments with mention support.
-- `entity_links` — universal polymorphic links from tasks (and other entities) to knowledge items, contacts, organizations, collection records, and URLs.
+- `entity_links` — universal polymorphic links from tasks (and other entities) to knowledge items, contacts, organizations, collection records, and URLs. Extended with deliverable support: `is_deliverable` flag, `review_status` (`draft`, `in_review`, `approved`, `revision_requested`, `rejected`), `review_note`, `reviewed_at`, and `submitted_by_agent_id`. Agents submit deliverables via the `hq_submit_deliverable.py` skill; humans review them in the task form's Deliverables tab.
 
-Task assignment and comment mention triggers enqueue `agent_inbox_items` for affected agents. When a task has model/thinking overrides, they are included in the inbox item's `context` JSONB and passed to the agent's session at wake time.
+Task assignment and comment mention triggers enqueue `agent_inbox_items` for affected agents. When a task has model/thinking overrides, they are included in the inbox item's `context` JSONB and passed to the agent's session at wake time. The `escalate_overdue_tasks` pg_cron job (every minute) marks tasks past their due date as `missed` and creates inbox items to notify assigned agents.
 
 ### Knowledge
 
-- `knowledge_items` — unified knowledge store for pages, playbooks, files, and sources. Supports scope (`workspace` or `agent`), pinning, folders, tags, embeddings, and full-text search.
+- `knowledge_items` — unified knowledge store for pages, skills, files, and sources. Supports scope (`workspace` or `agent`), pinning, folders, tags, embeddings, and full-text search.
 - `knowledge_folders` — folder hierarchy for organizing knowledge items.
-- `knowledge_item_agents` — junction table linking agent-scoped items to specific agents. Also used to track agent-created playbooks.
+- `knowledge_item_agents` — junction table linking agent-scoped items to specific agents. Also used to track agent-created skills.
 - `knowledge_chunks` — chunked content with per-chunk embeddings for granular retrieval. References `knowledge_item_id`.
 
 Boot context is controlled by scope and pinning:
@@ -6812,7 +7854,7 @@ Boot context is controlled by scope and pinning:
 - A **workspace-scoped, pinned** item is included in every agent's startup context.
 - An **agent-scoped** item assigned to specific agents via `knowledge_item_agents` is included only for those agents.
 
-Agents can autonomously create playbooks (`kind = 'playbook'`, `scope = 'agent'`) via `hq_playbook_upsert.py`. The script inserts into `knowledge_items`, links via `knowledge_item_agents`, and logs an audit entry with `actor_type = 'agent'`. The `audit_log.summary` field carries the agent's one-line reason, which is surfaced on the agent detail page.
+Agents can autonomously create skills (`kind = 'skill'`, `scope = 'agent'`) via `hq_skill_upsert.py`. The script inserts into `knowledge_items`, links via `knowledge_item_agents`, and logs an audit entry with `actor_type = 'agent'`. The `audit_log.summary` field carries the agent's one-line reason, which is surfaced on the agent detail page.
 
 Important RPCs:
 
@@ -6830,9 +7872,26 @@ Important RPCs:
 - `collection_records` — JSONB-backed rows belonging to a collection.
 - `collection_views` — saved views (table, kanban, calendar) with filters and sorting.
 
+### Secrets
+
+- `secrets` — encrypted credentials stored as AES-256-GCM ciphertext (`enc:v1:` prefix format). Scoped per gateway, optionally per agent. Used for channel tokens (Telegram/Discord/Slack), integration OAuth tokens (Notion, Google Drive), and user-managed API keys.
+
+Key columns:
+
+- `gateway_id` (required) — which gateway can decrypt and use this secret.
+- `agent_id` (nullable) — if set, the secret is scoped to one agent; if NULL, it's available to all agents on the gateway.
+- `key` — the environment variable name (e.g. `TELEGRAM_BOT_TOKEN`, `NOTION_SOURCE_A1B2C3D4`). Validated `/^[A-Z][A-Z0-9_]*$/`.
+- `encrypted_value` — the ciphertext. Never returned in API responses (excluded from SELECT columns in server actions).
+- `category` — `user` (operator-managed), `channel` (auto-created at agent provision), or `integration` (auto-created by OAuth flows).
+- `sync_status` — `pending` → `active` (synced to gateway filesystem), or `error`/`waiting`.
+
+Unique indexes enforce one value per key at each scope level (gateway-wide or per-agent). When both exist, agent-scoped secrets override gateway-level ones.
+
+The table is subscribed to Supabase Realtime (`REPLICA IDENTITY FULL`). The gateway's `secrets_sync` daemon picks up INSERT/UPDATE/DELETE events and regenerates `.env` files within seconds.
+
 ### Source Connections
 
-- `source_connections` — external source integrations (Notion, Google Drive) with credentials and sync schedules.
+- `source_connections` — external source integrations with credentials and sync schedules. Providers are plugin-based — each connector is a self-contained folder under `gateway/connectors//` with a `manifest.json` that defines auth, UI metadata, and capabilities. The `writable` flag controls whether agents can write back to the source. References `secrets` via `secret_id` FK for encrypted OAuth token storage.
 - `source_sync_runs` — sync execution history and status tracking.
 
 ### Entity Links
@@ -6841,6 +7900,15 @@ Important RPCs:
 
 Entity links replace the earlier task-specific attachments with a generalized model. When an agent claims a task, it receives all linked entities as context.
 
+Entity links also serve as the deliverable system for tasks. When `is_deliverable = true`, the link represents an agent-submitted work product with a review workflow:
+
+- `review_status`: `draft` → `in_review` → `approved` / `revision_requested` / `rejected`
+- `review_note`: human feedback on revision requests or rejections
+- `submitted_by_agent_id`: which agent submitted the deliverable
+- `reviewed_at`: timestamp of the last review action
+
+Agents submit deliverables via `hq_submit_deliverable.py` (page, URL, or record types). Humans review and approve/reject from the task form UI.
+
 ### Routines
 
 - `routines` — event-driven and schedule-driven rules that turn CRM/task/collection/knowledge changes or cron ticks into agent inbox items.
@@ -6848,11 +7916,24 @@ Entity links replace the earlier task-specific attachments with a generalized mo
 
 Event routines are evaluated by trigger functions on contacts, tasks, knowledge items, and collection records. Schedule routines use `spawn_routine_schedule_items` via pg_cron to create inbox items at defined intervals.
 
+### Plugins
+
+- `hq_plugins` — plugin registry. One row per installed plugin. Source types: `builtin`, `local`, `webhook`, `marketplace`. Key columns: `hooks` (text array of subscribed events), `config` (operator settings JSONB), `config_schema` (JSON Schema for validation), `webhook_url`/`webhook_secret` (for remote plugins), `capabilities` (declared permissions), `is_enabled` (toggle). Subscribed to Supabase Realtime for live UI updates.
+- `hq_plugin_events` — execution log. Every hook dispatch is recorded with `plugin_id`, `hook`, `status` (success/error/timeout/skipped), `duration_ms`, and `error_message`. 30-day retention via pg_cron.
+- `hq_plugin_state` — scoped key-value store for plugins. Keyed by `(plugin_id, scope_kind, scope_id, state_key)`. Scope kinds: `global`, `agent`, `task`, `workspace`.
+- `hq_plugin_event_queue` — lightweight append-only queue bridging SQL triggers to the plugin runner daemon. Triggers on tasks, agents, knowledge_items, inbox, comments, and secrets write here. The plugin runner polls/subscribes and dispatches to matching plugins. Processed rows are cleaned up hourly via pg_cron.
+
+The `emit_plugin_event()` function is a generic trigger function that writes to the event queue and strips sensitive fields (e.g. `encrypted_value`). It's attached to 11 triggers across core tables.
+
+See [Plugins](/concepts/plugins) for the full architecture and [Plugin events](/reference/plugin-events) for the complete event reference.
+
 ### Configuration Tables
 
 - `field_definitions` — custom fields by entity type.
 - `pipeline_stages` — runtime-configurable pipeline stages.
 - `streams` — task stream definitions.
+- `labels` — managed labels for task categorization (Settings → Labels).
+- `task_templates` — reusable task group templates with dependency graphs (Settings → Templates).
 
 These are configured from the UI and read by forms, tables, kanban views, filters, and agent skills.
 
@@ -6872,7 +7953,7 @@ These are configured from the UI and read by forms, tables, kanban views, filter
 
 ### Schema Version
 
-The `_schema_version` table tracks the current schema version (currently at v25). The UI reads `EXPECTED_SCHEMA_VERSION` and compares it to the applied version to show update banners when migrations are pending.
+The `_schema_version` table tracks the current schema version (currently at v31). The UI reads `EXPECTED_SCHEMA_VERSION` and compares it to the applied version to show update banners when migrations are pending.
 
 ## Realtime
 
@@ -6889,7 +7970,7 @@ Fresh project:
 
 1. Create a Supabase project.
 2. Open SQL Editor.
-3. Run every `.sql` file in `db/migrations/` in filename order (`001` through `025`). Or use the onboarding wizard, which concatenates them all into a single copy-paste blob.
+3. Run every `.sql` file in `db/migrations/` in filename order (`001` through `031`). Or use the onboarding wizard, which concatenates them all into a single copy-paste blob.
 4. Create an auth user and disable public signup unless needed.
 
 Existing project:
@@ -6897,6 +7978,8 @@ Existing project:
 1. Back up the database.
 2. Run all migration files — they are idempotent (`IF NOT EXISTS`, `CREATE OR REPLACE`) and safe to re-run.
 3. Confirm the UI onboarding validator passes.
+
+The schema version table currently tracks v31.
 
 ---
 
@@ -6906,7 +7989,7 @@ Source: https://docs.yourhq.ai/reference/migrations
 
 > Ordered Supabase migration files and how to apply them.
 
-Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations). Run them in filename order for a fresh project.
+Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations). Run them in filename order for a fresh project. There are currently 31 migration files (001–031).
 
 ## Migration files
 
@@ -6937,6 +8020,12 @@ Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main
 | `023_source_connections.sql` | External source connections (Notion, Google Drive) |
 | `024_routines_extension.sql` | Event triggers for collections, knowledge, and tasks |
 | `025_modular_workspace.sql` | Modular workspace onboarding |
+| `026_secrets.sql` | Encrypted secrets (AES-256-GCM), agent/gateway scoping, Realtime, `source_connections.secret_id` FK |
+| `027_source_plugin_support.sql` | Extensible source providers, `writable` flag, `source_write` command action |
+| `028_task_relations.sql` | Task dependencies (`task_relations`), `get_task_relations()` RPC, `notify_blocker_resolved` trigger |
+| `029_labels.sql` | Managed labels with color/description, `task_labels` junction table |
+| `030_task_templates.sql` | Reusable task group templates with dependency graphs (JSONB items) |
+| `031_overdue_escalation.sql` | pg_cron job to mark overdue tasks `missed`, inbox notification for assigned agents |
 
 ## Migration CLI
 
@@ -6995,9 +8084,9 @@ Key scripts in `skills/hq/scripts/`:
 
 | Script | Purpose |
 |---|---|
-| `hq_playbook_upsert.py` | Create or update agent-scoped playbooks with auto-embedding and junction linking |
+| `hq_skill_upsert.py` | Create or update agent-scoped skills with auto-embedding and junction linking |
 | `hq_search_docs.py` | Semantic + full-text search across knowledge items |
-| `hq_create_doc.py` | Create a new knowledge item (page or playbook) |
+| `hq_create_doc.py` | Create a new knowledge item (page or skill) |
 | `hq_update_doc.py` | Update an existing knowledge item |
 | `hq_inbox_process.py` | Process background inbox items |
 | `hq_claim_task.py` | Claim and start working on a task |
@@ -7052,6 +8141,10 @@ HQ's default Compose stack has six services that work together. The UI runs on i
 
   - **file-processor**: 
     **File processing daemon.** Leases uploaded knowledge files (PDF, DOCX, XLSX, CSV, PPTX, TXT), extracts plain text, and triggers embedding. Runs independently so file processing doesn't block other gateway operations.
+  
+
+  - **plugin-runner**: 
+    **Plugin daemon.** Watches the `hq_plugin_event_queue` for events emitted by SQL triggers and dispatches them to enabled plugins — local Python handlers or remote webhook endpoints with HMAC signatures. See [Plugins](/concepts/plugins).
   
 
 ## Shared state
@@ -7153,6 +8246,19 @@ The API is gated by `GATEWAY_AUTH_TOKEN` — a pre-shared secret between the UI 
 - Path traversal is rejected via `safe_join()` — requests can't escape the agent's worktree.
 - After a successful write, the UI automatically enqueues an `update` command so OpenClaw reloads the agent with the changed files.
 
+## Source connector endpoints
+
+The files API also serves as the bridge for source connector operations. The UI proxies these requests to the gateway so that provider-specific API calls (validate credentials, browse content) happen on the gateway side, keeping credentials local.
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/sources/validate` | POST | Test credentials for a source provider. Body: `{ provider, credentials }`. Returns `{ valid, error?, account_name? }`. |
+| `/sources/browse` | POST | Browse content from a connected source. Body: `{ connection_id, parent_id?, search? }`. Resolves credentials from the gateway's local secrets. Returns `{ items }`. |
+
+The validate endpoint accepts raw credentials (they haven't been stored yet at validation time). The browse endpoint takes a `connection_id` — the gateway resolves credentials from its encrypted secrets `.env` file, which is more secure than passing decrypted credentials over the network.
+
+Both endpoints use the connector registry (`gateway/connectors/registry.py`) to dynamically load the appropriate provider connector.
+
 > 
   Do not expose the files API directly to the public internet. It should only be reachable by the UI server process or over a private network like Tailscale.
 
@@ -7240,15 +8346,13 @@ Commands are rows in `agent_commands`. Each row has an `action` field that tells
 
 Create a new agent: runs `~/add-agent.sh` which creates a git branch, checks out a template, and registers the agent with OpenClaw.
 
+Before executing, the runner forces a `sync_secrets()` call to ensure the agent's per-agent `.env` file is written to disk with any channel tokens that were stored in the `secrets` table by the UI.
+
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `channel` | string | No | `telegram` / `discord` / `slack` / `none`. Default `telegram` |
-| `telegram_token` | string | If `channel=telegram` | Bot token from @BotFather |
-| `discord_token` | string | If `channel=discord` | Discord bot token |
 | `discord_server_id` | string | No | Discord guild ID |
 | `discord_user_id` | string | No | Discord user ID for DM fallback |
-| `slack_app_token` | string | If `channel=slack` | App-level token (`xapp-...`) |
-| `slack_bot_token` | string | If `channel=slack` | Bot token (`xoxb-...`) |
 | `model` | string | No | Full model ID (e.g. `anthropic/claude-sonnet-4-6`). Sets the agent's default model at provision time |
 | `source_template` | string | No | Git branch name to copy from (e.g. `template/researcher`) |
 | `name` | string | No | Display name |
@@ -7258,7 +8362,7 @@ Create a new agent: runs `~/add-agent.sh` which creates a git branch, checks out
 | `owner_preferred_name` | string | No | Owner's preferred first name |
 | `owner_timezone` | string | No | Owner's timezone (e.g. `America/New_York`) |
 
-After success, the runner scrubs all `*_token` fields from the row's `payload` and sets `tokens_scrubbed = true`.
+Channel tokens (Telegram, Discord, Slack) are **not** in the payload. They are stored encrypted in the `secrets` table and delivered to the gateway via the secrets sync daemon. The `add-agent.sh` script reads them from `~/.openclaw/secrets/agents/.env`.
 
 ---
 
@@ -7469,6 +8573,22 @@ The runner calls `lease_command(p_gateway_slug, p_lease_seconds)` to atomically 
 - **Timeout.** Shell commands are killed after `COMMAND_TIMEOUT` seconds (default 120). Auth flows have a separate 5-minute ceiling.
 - **Parallelism.** `auth_start` runs in a background thread. All other actions run sequentially on the main lease loop. This ensures an `auth_paste` can be leased and processed while an `auth_start` is waiting for user input.
 
+## Source actions
+
+### `source_write`
+
+Execute a write operation against an external source connection. Requires the connection's `writable` flag to be enabled.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `connection_id` | string | Yes | The source connection ID |
+| `action` | string | Yes | Provider-specific action name (e.g. `create_page`) |
+| `params` | object | Yes | Action parameters (schema varies by provider and action) |
+
+The runner looks up the connection, verifies `writable = true`, loads the provider's `ACTION_PROVIDER` from the connector registry, resolves credentials from the gateway's secrets `.env` file, and calls `execute(action, params, creds)`. Results are written to the command's `stdout`.
+
+---
+
 ## Credential scrubbing
 
 The runner redacts secrets from command rows immediately after they're used:
@@ -7580,6 +8700,18 @@ If an agent was just provisioned it may not be in the cache yet — the one-time
 
 ---
 
+## Blocker enrichment
+
+For `task_assignment` inbox items, the dispatcher queries `task_relations` to check for unresolved `blocked_by` dependencies. If the assigned task has active blockers (blocking tasks not in `done` or `cancelled` status), the dispatcher appends a note to the inbox summary:
+
+```
+⚠ This task has N unresolved blocker(s). Check dependencies before starting.
+```
+
+This gives the agent awareness of dependency constraints without requiring it to query relations itself.
+
+---
+
 ## Supabase tables accessed
 
 | Table | Operation | Purpose |
@@ -7589,6 +8721,268 @@ If an agent was just provisioned it may not be in the cache yet — the one-time
 | `agents` | SELECT | Cache local agent IDs; check `status` per wake |
 | `agent_inbox_items` | SELECT, PATCH | Query actionable items; update wake tracking fields |
 | `agent_budgets` | SELECT | Check budget status before waking |
+| `task_relations` | SELECT | Check for unresolved blockers on task assignments |
+
+---
+
+# Plugin events
+
+Source: https://docs.yourhq.ai/reference/plugin-events
+
+> Complete reference of all events available to HQ plugins, with payload schemas and emission sources.
+
+HQ plugins subscribe to events using the `hooks` field in their manifest (local plugins) or configuration (webhook plugins). Events follow the `.` naming convention.
+
+## Event envelope
+
+Every event includes these standard fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `event_id` | UUID | Unique identifier for this event instance |
+| `event_type` | string | The event name (e.g. `task.completed`) |
+| `occurred_at` | ISO 8601 | When the event occurred |
+| `tenant_id` | UUID | Tenant this event belongs to |
+| `entity_type` | string | Source table name (e.g. `tasks`, `agents`) |
+| `entity_id` | UUID | Primary key of the affected entity |
+| `payload` | object | Event-specific data (see below) |
+
+---
+
+## Task events
+
+### `task.created`
+
+Fires when a new task is inserted into the `tasks` table.
+
+**Emitted by:** SQL trigger on `tasks` INSERT
+
+**Payload:** Full task row as JSON — includes `title`, `status`, `priority`, `assignee_agent_id`, `stream_id`, `due_date`, and all other task fields.
+
+---
+
+### `task.completed`
+
+Fires when a task's status changes to `done`.
+
+**Emitted by:** SQL trigger on `tasks.status` UPDATE (only when new status = `done` and old status != `done`)
+
+**Payload:** Task row with both old and new values. Key fields: `title`, `assignee_agent_id`, `status` (= `done`).
+
+---
+
+### `task.assigned`
+
+Fires when a task's `assignee_agent_id` changes.
+
+**Emitted by:** SQL trigger on `tasks.assignee_agent_id` UPDATE (only when the value actually changes)
+
+**Payload:** Task row with old and new values. Key fields: old `assignee_agent_id`, new `assignee_agent_id`, `title`.
+
+---
+
+## Agent events
+
+### `agent.provisioned`
+
+Fires after a new agent is successfully provisioned on the gateway.
+
+**Emitted by:** `command_runner.py` after a successful `provision` command (exit code 0)
+
+**Payload:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agent_id` | UUID | Agent's database ID |
+| `slug` | string | Agent's unique slug |
+| `runtime_type` | string | Runtime type (e.g. `openclaw`) |
+| `gateway_id` | string | Gateway that provisioned the agent |
+
+---
+
+### `agent.deprovisioned`
+
+Fires after an agent is successfully removed from the gateway.
+
+**Emitted by:** `command_runner.py` after a successful `remove` command
+
+**Payload:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agent_id` | UUID | Agent's database ID |
+| `slug` | string | Agent's unique slug |
+
+---
+
+### `agent.status_changed`
+
+Fires when an agent's status changes (e.g. `provisioning` → `ready`, `ready` → `paused`).
+
+**Emitted by:** SQL trigger on `agents.status` UPDATE
+
+**Payload:** Agent row with old and new values. Key fields: old `status`, new `status`, `slug`, `name`.
+
+---
+
+## Knowledge events
+
+### `knowledge.created`
+
+Fires when a new knowledge item is inserted.
+
+**Emitted by:** SQL trigger on `knowledge_items` INSERT
+
+**Payload:** Full knowledge item row. Key fields: `title`, `kind` (page/skill/file/source), `scope` (workspace/agent).
+
+---
+
+### `knowledge.processed`
+
+Fires after text extraction completes for a file-type knowledge item.
+
+**Emitted by:** `file_processor.py` after successful text extraction
+
+**Payload:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `item_id` | UUID | Knowledge item ID |
+| `title` | string | Item title |
+| `content_length` | integer | Length of extracted plain text |
+
+---
+
+### `knowledge.embedded`
+
+Fires after embedding generation completes for a knowledge item.
+
+**Emitted by:** `embedder.py` after successful embedding
+
+**Payload:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `item_id` | UUID | Knowledge item ID |
+| `chunk_count` | integer | Number of chunks created |
+
+---
+
+## Inbox events
+
+### `inbox.created`
+
+Fires when a new inbox item is queued for an agent.
+
+**Emitted by:** SQL trigger on `agent_inbox_items` INSERT
+
+**Payload:** Full inbox item row. Key fields: `agent_id`, `event_type`, `task_id`, `summary`.
+
+---
+
+### `inbox.completed`
+
+Fires when an inbox item's status changes to `done`.
+
+**Emitted by:** SQL trigger on `agent_inbox_items.status` UPDATE (only when new status = `done`)
+
+**Payload:** Inbox item row with old and new values. Key fields: `agent_id`, `event_type`.
+
+---
+
+## Routine events
+
+### `routine.triggered`
+
+Fires when a routine creates an inbox item (either from a schedule or an event trigger).
+
+**Emitted by:** SQL trigger on `agent_inbox_items` INSERT (only when `event_type` is `routine_schedule` or `routine_event`)
+
+**Payload:** Inbox item row. Key fields: `routine_id` (from metadata), `agent_id`, `event_type`.
+
+---
+
+## Communication events
+
+### `comment.created`
+
+Fires when a comment is posted on any entity (task, contact, etc.).
+
+**Emitted by:** SQL trigger on `comments` INSERT
+
+**Payload:** Full comment row. Key fields: `entity_type`, `entity_id`, `author_agent_id`, `body`, `mentioned_agent_ids`.
+
+---
+
+## Security events
+
+### `secret.changed`
+
+Fires when a secret is added, updated, or removed. **The secret value is never included in the payload** — only metadata.
+
+**Emitted by:** SQL trigger on `secrets` INSERT/UPDATE/DELETE
+
+**Payload:** Secret metadata with sensitive fields stripped. Key fields: `key`, `category`, `action` (insert/update/delete).
+
+---
+
+## Usage and budget events
+
+### `usage.recorded`
+
+Fires when LLM usage is logged for an agent.
+
+**Emitted by:** hq-bootstrap plugin (forwarded to event queue via Supabase REST)
+
+**Payload:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agent_id` | UUID | Agent that consumed tokens |
+| `provider` | string | Model provider (e.g. `anthropic`, `openai`) |
+| `model` | string | Model name (e.g. `claude-sonnet-4-20250514`) |
+| `input_tokens` | integer | Input tokens consumed |
+| `output_tokens` | integer | Output tokens consumed |
+| `cost_usd` | number | Estimated cost in USD |
+
+---
+
+### `budget.exceeded`
+
+Fires when an agent's spending exceeds its monthly budget limit.
+
+**Emitted by:** hq-bootstrap plugin (forwarded to event queue)
+
+**Payload:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agent_id` | UUID | Agent that exceeded the budget |
+| `monthly_limit_usd` | number | Configured monthly limit |
+| `spent_usd` | number | Amount spent this period |
+
+---
+
+## Summary table
+
+| Event | Emitted by | Entity type |
+|-------|-----------|-------------|
+| `task.created` | SQL trigger | `tasks` |
+| `task.completed` | SQL trigger | `tasks` |
+| `task.assigned` | SQL trigger | `tasks` |
+| `agent.provisioned` | command_runner.py | `agents` |
+| `agent.deprovisioned` | command_runner.py | `agents` |
+| `agent.status_changed` | SQL trigger | `agents` |
+| `knowledge.created` | SQL trigger | `knowledge_items` |
+| `knowledge.processed` | file_processor.py | `knowledge_items` |
+| `knowledge.embedded` | embedder.py | `knowledge_items` |
+| `inbox.created` | SQL trigger | `agent_inbox_items` |
+| `inbox.completed` | SQL trigger | `agent_inbox_items` |
+| `routine.triggered` | SQL trigger | `agent_inbox_items` |
+| `comment.created` | SQL trigger | `comments` |
+| `secret.changed` | SQL trigger | `secrets` |
+| `usage.recorded` | hq-bootstrap | `agent_usage` |
+| `budget.exceeded` | hq-bootstrap | `agent_budgets` |
 
 ---
 
@@ -7668,7 +9062,7 @@ SUPABASE_SERVICE_ROLE_KEY=...
 GATEWAY_AUTH_TOKEN=...
 ```
 
-Then either complete browser onboarding against the dev server or set `HQ_CONFIG_DIR` to a local directory containing compatible `projects.json` and `secrets.json` files. Pages that depend on a gateway will error if no gateway is running — expected.
+Then either complete browser onboarding against the dev server or set `HQ_CONFIG_DIR` to a local directory containing compatible `workspaces.json` and `secrets.json` files. Pages that depend on a gateway will error if no gateway is running — expected.
 
 ## Working on just the gateway
 
@@ -7716,7 +9110,7 @@ docker compose build --no-cache ui
 docker compose up -d ui
 ```
 
-Needed when you add npm packages or change build-time UI behavior. Supabase browser config is runtime-injected from the project registry, so changing Supabase projects does not require an image rebuild.
+Needed when you add npm packages or change build-time UI behavior. Supabase browser config is runtime-injected from the workspace registry, so changing Supabase connections does not require an image rebuild.
 
 ### Reset the gateway state
 
@@ -7790,12 +9184,15 @@ yourhq/
   apps/ui/              Next.js dashboard (App Router, Tailwind, shadcn)
   apps/migrate/         Database migration runner CLI (yourhq-migrate)
   apps/worker/          Hosted-mode worker service (Stripe, E2B, Resend) — behind `hosted` profile
-  gateway/              Gateway image, files API, daemons, connectors, lifecycle scripts
-  db/migrations/        Supabase SQL migrations (001–025)
+  gateway/              Gateway image, files API, daemons, lifecycle scripts
+  gateway/connectors/   Source connector plugins (one folder per provider + registry)
+  gateway/plugins/      HQ plugin system (SDK, template, built-in plugins, contributor guide)
+  gateway/daemons/      Python daemons (command runner, dispatcher, source sync, secrets sync, plugin runner, etc.)
+  db/migrations/        Supabase SQL migrations (001–031)
   templates/            Agent template library (16 templates)
   installer/            Interactive install scripts (install.sh + install-gateway.sh)
   docs-site/            Mintlify documentation source (docs.yourhq.ai)
-  scripts/              Operational scripts (diagnostic-bundle.sh)
+  scripts/              Operational and build scripts
   .github/workflows/    CI and image publishing
 ```
 
@@ -7838,9 +9235,10 @@ Thanks for wanting to help. This doc covers the contribution flow — code, temp
 1. **Agent templates** — add a new starting point for a role/persona (see below)
 2. **Bug fixes** — check existing issues, open a PR
 3. **UI improvements** — Next.js + Tailwind + shadcn; changes go in `apps/ui/`
-4. **Gateway plugins** — openclaw plugins or integrations (MCP, CDP, custom)
-5. **Documentation** — if something confused you, a doc PR will save the next person
-6. **Translations** — not shipped yet, but we'll accept i18n contributions when the framework is in
+4. **HQ plugins** — event-driven integrations that react to tasks, agents, knowledge, and more (see below)
+5. **Source connectors** — data source integrations for knowledge sync; see `CONTRIBUTING-SOURCES.md`
+6. **Documentation** — if something confused you, a doc PR will save the next person
+7. **Translations** — not shipped yet, but we'll accept i18n contributions when the framework is in
 
 ## Before you start
 
@@ -7883,7 +9281,7 @@ npm install --legacy-peer-deps
 npm run dev
 ```
 
-Complete browser onboarding against the local dev server, or set `HQ_CONFIG_DIR` to a local directory with compatible `projects.json` and `secrets.json` files. You won't have a gateway in this setup, so gateway-dependent pages will error; that's expected.
+Complete browser onboarding against the local dev server, or set `HQ_CONFIG_DIR` to a local directory with compatible `workspaces.json` and `secrets.json` files. You won't have a gateway in this setup, so gateway-dependent pages will error; that's expected.
 
 ### Running just the gateway
 
@@ -7915,6 +9313,30 @@ docker compose logs -f gateway
 7. Open a PR with the new template + the updated generated index
 
 Templates live in the monorepo so they're versioned together. Breaking changes to the template format show up as PRs touching multiple templates.
+
+## Adding an HQ plugin
+
+HQ plugins react to workspace events (task created, agent provisioned, budget exceeded, etc.) and take action. Two types:
+
+**Local plugins** — Python modules on the gateway with full SDK access:
+
+1. Copy the template:
+   ```bash
+   cp -r gateway/plugins/_template gateway/plugins/my-plugin
+   ```
+2. Edit `manifest.json` — set `id`, `name`, `hooks` (events to subscribe to), `config_schema`, and `capabilities`
+3. Implement `handler.py` — subclass `BasePlugin`, implement `on_event()`
+4. Test locally by restarting the gateway
+5. Open a PR with the plugin directory
+
+**Webhook plugins** — remote HTTP endpoints, no gateway code:
+- Register from Settings → Plugins in the UI. No PR needed unless you want to document the integration.
+
+For the full reference, see:
+- [Plugins concept](/concepts/plugins) — architecture and design
+- [Plugins guide](/guides/plugins) — step-by-step walkthrough
+- [Plugin events](/reference/plugin-events) — all 16 available events
+- [`gateway/plugins/CONTRIBUTING.md`](https://github.com/yourhq/yourhq/blob/main/gateway/plugins/CONTRIBUTING.md) — in-repo contributor guide
 
 ## PR checklist
 
@@ -8009,7 +9431,7 @@ Expected:
 - Build completes without errors (first build: 3–5 min — Next.js compile + optimize).
 - `ui` container shows "Ready on http://0.0.0.0:3000" in logs.
 - Codespaces shows a notification for port 3000; click to open the URL.
-- Browser loads the onboarding or login page. If the project registry is empty, onboarding is expected.
+- Browser loads the onboarding or login page. If the workspace registry is empty, onboarding is expected.
 
 Common failures:
 - `ENOENT ./public/...` → a COPY path in the Dockerfile is wrong.
@@ -8227,7 +9649,7 @@ A tighter future alternative is [docker-socket-proxy](https://github.com/Tecnati
 
 ### RLS and tenant isolation
 
-Every table uses tenant-scoped RLS policies — authenticated users can only access rows where `tenant_id` matches the JWT's `app_metadata.tenant_id`. Self-hosted installs use a single default tenant, so in practice all authenticated users see all data. **Make sure Supabase email signup is disabled or invite-only**, otherwise anyone who signs up for your Supabase project gets full HQ access within the default tenant. The multi-project registry adds database-level isolation on top; fine-grained per-role permissions are not implemented.
+Every table uses tenant-scoped RLS policies — authenticated users can only access rows where `tenant_id` matches the JWT's `app_metadata.tenant_id`. Self-hosted installs use a single default tenant, so in practice all authenticated users see all data. **Make sure Supabase email signup is disabled or invite-only**, otherwise anyone who signs up for your Supabase project gets full HQ access within the default tenant. The multi-workspace registry adds database-level isolation on top; fine-grained per-role permissions are not implemented.
 
 ### Default port bindings are loopback-only
 
@@ -8252,6 +9674,26 @@ The one-line installer (`curl install.yourhq.ai | bash`) pipes untrusted input t
 3. Clone the repo and run `./installer/install.sh` directly.
 
 The installer itself invokes `curl | sh` from `get.docker.com` and `tailscale.com/install.sh` — we're not signing or pinning those scripts. They're canonical upstream install scripts. If you don't trust them, install Docker and Tailscale manually and skip the installer.
+
+### Secrets are encrypted at rest
+
+All credentials stored in the `secrets` table (channel tokens, OAuth tokens, user API keys) are encrypted with AES-256-GCM before writing to the database. The plaintext value is never stored in Supabase and never returned in API responses.
+
+**Key derivation (self-hosted):** The encryption key is derived from your `SUPABASE_SERVICE_ROLE_KEY` via HKDF-SHA256 (salt: `yourhq-secrets-v1`, info: `aes-256-gcm`, 32 bytes). Anyone with your service role key can derive the encryption key and decrypt secrets — this is the same trust boundary as the service role key itself.
+
+**Key derivation (hosted):** Uses a dedicated `HOSTED_SECRETS_KEY` held in the worker environment, separate from the service role key.
+
+**Gateway-side decryption:** The `secrets_sync` daemon (running in the runner container) fetches encrypted values, decrypts them in memory, and writes plaintext to `.env` files on the `gateway-state` volume (`chmod 0600`). These files are the same trust boundary as the service role key and the Docker socket. Agent tools read secrets from the environment — the LLM never sees the values.
+
+**What this protects against:**
+- Database dumps or backups leaking plaintext credentials.
+- SQL injection or RLS bypass exposing raw values.
+- Supabase dashboard viewers accidentally seeing token values.
+
+**What this does NOT protect against:**
+- Compromise of the gateway container (secrets are in plaintext `.env` files on the volume).
+- Compromise of the service role key (derives the encryption key).
+- An agent's tools intentionally logging or exfiltrating secrets (treat agent tool code as trusted).
 
 ### Agent capabilities
 
@@ -8304,6 +9746,62 @@ In rough order of importance:
 7. **Generate strong secrets.** `openssl rand -hex 32` for `GATEWAY_AUTH_TOKEN`. Use a password manager for your Supabase credentials.
 8. **Update regularly.** Until gateway update actions are available in the UI, run `docker compose pull && docker compose up -d` manually.
 
+## Hosted trust model
+
+If you use the hosted offering at yourhq.ai, the trust boundaries are different from self-hosted. Here's what you should know.
+
+### Your data lives in a dedicated database
+
+Each hosted workspace gets its own Supabase project. Your data is not shared with other tenants — there is no multi-tenant database. Row-level security policies enforce `tenant_id` isolation within each project, but in practice each project has exactly one tenant.
+
+### Credentials are encrypted at rest
+
+Your Supabase service-role key, database password, and VNC password are encrypted with ChaCha20-Poly1305 before being stored in the control-plane database. The encryption key (`HOSTED_SECRETS_KEY`) is held in the worker's environment, not in the database.
+
+User-managed secrets (API keys, channel tokens, OAuth tokens) in your workspace's `secrets` table are separately encrypted with AES-256-GCM using the same `HOSTED_SECRETS_KEY`. This is a different encryption scheme from the control-plane credentials above, but uses the same key material.
+
+### What the control plane stores
+
+The master database (`hosted_workspaces`) stores:
+
+- Your email address and display name
+- Stripe customer and subscription IDs
+- Your workspace's Supabase project reference, URL, and anon key (not secret — same data the browser uses)
+- Encrypted service-role key and database password
+- E2B sandbox ID, status, and access URLs
+- Provisioning progress and setup metadata (workspace name, chosen template)
+
+### What we can access
+
+- **Supabase Management API**: we use this to create, configure, and delete your Supabase project. We can read project status and API keys. We cannot read your data through the management API.
+- **Service-role key**: decrypted at provisioning time and passed to your gateway sandbox. After provisioning, the worker only decrypts it when the UI requests your workspace config (to connect your browser to your Supabase). We do not read your Supabase data.
+- **E2B sandbox**: we can pause, resume, and destroy your sandbox. We do not connect to it, run commands in it, or read files from it during normal operation.
+- **Worker internal token**: authenticates requests between the UI and the worker service. It is not a user credential.
+
+### What we cannot access
+
+- **Your Supabase data**: we don't query your contacts, tasks, knowledge items, or agent data. The UI connects directly from your browser to your Supabase project.
+- **Your agent sessions**: agents run inside the E2B sandbox. We don't intercept, log, or monitor agent activity.
+- **Your VNC sessions**: noVNC traffic flows directly between your browser and the sandbox. We don't proxy or record it.
+
+### Sandbox isolation
+
+Each workspace runs in a dedicated E2B sandbox — an isolated Linux VM with its own kernel, filesystem, and network namespace. Sandboxes cannot communicate with each other. The gateway, daemons, and agents all run inside this single sandbox.
+
+### Logging policy
+
+The worker logs provisioning stages, sandbox lifecycle events (created, paused, resumed, destroyed), Stripe webhook processing, and errors. Logs include workspace IDs and event types. They do not include your Supabase data, agent outputs, message content, or VNC session data.
+
+### Cancellation and data deletion
+
+When you cancel a workspace, the sandbox is paused immediately (no compute charges during the grace period). After the 30-day grace period:
+
+1. The E2B sandbox is permanently destroyed
+2. The Supabase project is permanently deleted via the management API
+3. All encrypted credentials are cleared from the control-plane database
+
+Both deletions must succeed before the workspace is marked as fully canceled. If either fails, the cleanup loop retries every 6 hours until confirmed.
+
 ## Secrets and data we collect
 
 HQ collects no telemetry. The self-hosted stack never phones home. The only network calls HQ makes are:
@@ -8338,7 +9836,7 @@ Source: https://docs.yourhq.ai/troubleshooting/common-issues
 
     **Why it happens**
 
-    The UI reads Supabase config from the project registry stored in the `ui-config` Docker volume. The registry is empty, unreadable, or was cleared when volumes were recreated.
+    The UI reads Supabase config from the workspace registry stored in the `ui-config` Docker volume. The registry is empty, unreadable, or was cleared when volumes were recreated.
 
     **Fix**
 
@@ -8363,7 +9861,7 @@ Source: https://docs.yourhq.ai/troubleshooting/common-issues
 
     **Fix**
 
-    1. In Supabase → **Project Settings → API**, confirm `Project URL` and `anon public` match what you entered in HQ Settings → Projects.
+    1. In Supabase → **Project Settings → API**, confirm `Project URL` and `anon public` match what you entered in HQ Settings → Database.
     2. In Supabase → **Authentication → Users → Add user → Create new user**, create an email + password. Check **Auto Confirm User**.
     3. Log in with those credentials.
   
@@ -8585,7 +10083,7 @@ Source: https://docs.yourhq.ai/troubleshooting/common-issues
 
     **Fix**
 
-    1. Copy the service role key again from Supabase → Settings → API → `service_role` (not the anon key). Update it in HQ Settings → Projects or in `.env`.
+    1. Copy the service role key again from Supabase → Settings → API → `service_role` (not the anon key). Update it in HQ Settings → Database or in `.env`.
     2. Confirm migrations are complete: run every file in `db/migrations/` in order from Supabase SQL Editor.
     3. Restart: `docker compose restart gateway`.
 

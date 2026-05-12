@@ -27,14 +27,26 @@
 set -euo pipefail
 [[ "${DEBUG:-}" == "1" ]] && set -x
 
-# Forward SIGTERM from tini to children
-trap 'kill -TERM $(jobs -p) 2>/dev/null || true; exit 0' TERM INT
-
 # RUNTIME_MODE controls which subsystems the entrypoint starts.
 #   docker   — default. Runs inside docker-compose; daemons are separate containers.
 #   systemd  — bare-metal / VM installs where systemd manages the process.
 #   e2b      — E2B sandbox. Daemons run in-process; no Docker socket; no registry polling.
 RUNTIME_MODE="${RUNTIME_MODE:-docker}"
+
+# E2B runs start_cmd as "user" (HOME=/home/user) regardless of the
+# Dockerfile USER directive. Repoint HOME to the openclaw home dir
+# where the image's files actually live.
+if [ "$RUNTIME_MODE" = "e2b" ] && [ -d /home/openclaw ]; then
+  export HOME=/home/openclaw
+  export NETWORKING_MODE=e2b
+  chmod -R o+rwX /home/openclaw 2>/dev/null || true
+  exec > >(tee -a /tmp/entrypoint.log) 2>&1
+  set -x
+  trap 'echo "[entrypoint] FATAL: exiting due to error on line $LINENO (exit $?)" | tee -a /tmp/entrypoint.log; kill -TERM $(jobs -p) 2>/dev/null || true; exit 1' ERR
+fi
+
+# Forward SIGTERM from tini to children
+trap 'kill -TERM $(jobs -p) 2>/dev/null || true; exit 0' TERM INT
 
 OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
 CONFIG="$OPENCLAW_HOME/openclaw.json"
@@ -58,7 +70,7 @@ mkdir -p "$OPENCLAW_HOME" "$HOME/.ssh"
 # Three paths land here:
 #
 #   A) Co-located UI + gateway (the default install). The UI writes
-#      /config/projects.json and /config/secrets.json after onboarding;
+#      /config/workspaces.json and /config/secrets.json after onboarding;
 #      registry_config.py reads them and exports SUPABASE_URL +
 #      SUPABASE_SERVICE_ROLE_KEY. We poll with a long timeout so users
 #      running `docker compose up -d` before onboarding don't crash-loop.
@@ -694,5 +706,13 @@ export XDG_CONFIG_DIRS="/etc/xdg"
 export XDG_DATA_DIRS="/usr/local/share:/usr/share"
 [ -S "$XDG_RUNTIME_DIR/bus" ] && \
   export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+
+SECRETS_ENV="$OPENCLAW_HOME/secrets/gateway.env"
+if [ -f "$SECRETS_ENV" ]; then
+  set -a
+  # shellcheck source=/dev/null
+  . "$SECRETS_ENV"
+  set +a
+fi
 
 exec openclaw gateway run

@@ -21,7 +21,8 @@ Click **Add workspace** on the account page. You'll go through the same flow as 
 |---|---|
 | **Active** | Workspace is running. Agents, CRM, and all features work normally. |
 | **Setting up** | Provisioning is in progress. Usually takes about a minute. |
-| **Canceling** | You've requested cancellation. Workspace stays active for 30 days. |
+| **Suspended** | Payment failed after multiple retries. Agents are paused and the runtime is offline. Update your payment method in Stripe to restore access automatically. |
+| **Canceling** | You've requested cancellation. Data is accessible for 30 days, but the agent runtime is paused. |
 | **Canceled** | Grace period expired. Workspace and all its data have been deleted. |
 | **Pending** | Payment hasn't been confirmed yet. |
 
@@ -54,8 +55,8 @@ To cancel a workspace, click **Cancel** next to it on the account page. You'll b
 
 ### What happens when you cancel
 
-1. **Immediately:** status changes to "Canceling." Your workspace keeps working normally.
-2. **30-day grace period:** you have 30 days to change your mind. During this time, everything stays active — agents run, data is accessible, billing stops at the end of the current cycle.
+1. **Immediately:** status changes to "Canceling" and the agent runtime is paused (agents stop running, no compute charges). Your data remains fully accessible in the dashboard.
+2. **30-day grace period:** you have 30 days to change your mind. During this time, your data is accessible and billing stops at the end of the current cycle. The agent runtime stays paused.
 3. **After 30 days:** the workspace is permanently deleted. This includes your database, agent runtime, all agent data, CRM contacts, knowledge items, and files. This cannot be undone.
 
 <Warning>

@@ -8,6 +8,8 @@ export type TargetType =
   | "task"
   | "url";
 
+export type ReviewStatus = "draft" | "in_review" | "approved" | "revision_requested" | "rejected";
+
 export interface EntityLink {
   id: string;
   created_at: string;
@@ -19,6 +21,13 @@ export interface EntityLink {
   label: string | null;
   sort_order: number;
   meta: Record<string, unknown>;
+  is_deliverable: boolean;
+  review_status: ReviewStatus | null;
+  review_note: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  submitted_by_agent_id: string | null;
+  submitted_by_agent?: { id: string; name: string; slug: string } | null;
   resolved_name?: string;
   resolved_icon?: string;
   resolved_extra?: Record<string, unknown>;

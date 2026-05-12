@@ -15,10 +15,12 @@ CREATE INDEX IF NOT EXISTS idx_tags_tenant ON tags(tenant_id);
 
 -- RLS
 ALTER TABLE tags ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON tags;
 CREATE POLICY "Tenant isolation" ON tags
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON tags;
 CREATE POLICY "Service role full access" ON tags
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
@@ -53,10 +55,12 @@ CREATE TRIGGER campaigns_updated_at
 
 -- RLS
 ALTER TABLE campaigns ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON campaigns;
 CREATE POLICY "Tenant isolation" ON campaigns
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON campaigns;
 CREATE POLICY "Service role full access" ON campaigns
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
@@ -132,10 +136,12 @@ CREATE TRIGGER contacts_updated_at
 
 -- RLS
 ALTER TABLE contacts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON contacts;
 CREATE POLICY "Tenant isolation" ON contacts
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON contacts;
 CREATE POLICY "Service role full access" ON contacts
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
@@ -181,10 +187,12 @@ CREATE TRIGGER organizations_updated_at
 
 -- RLS
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON organizations;
 CREATE POLICY "Tenant isolation" ON organizations
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON organizations;
 CREATE POLICY "Service role full access" ON organizations
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
@@ -219,10 +227,12 @@ CREATE INDEX IF NOT EXISTS idx_contact_orgs_current ON contact_organizations(is_
 
 -- RLS
 ALTER TABLE contact_organizations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON contact_organizations;
 CREATE POLICY "Tenant isolation" ON contact_organizations
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON contact_organizations;
 CREATE POLICY "Service role full access" ON contact_organizations
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
@@ -266,10 +276,12 @@ CREATE TRIGGER templates_updated_at
 
 -- RLS
 ALTER TABLE templates ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON templates;
 CREATE POLICY "Tenant isolation" ON templates
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON templates;
 CREATE POLICY "Service role full access" ON templates
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
@@ -315,10 +327,12 @@ CREATE TRIGGER draft_sets_updated_at
 
 -- RLS
 ALTER TABLE draft_sets ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON draft_sets;
 CREATE POLICY "Tenant isolation" ON draft_sets
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON draft_sets;
 CREATE POLICY "Service role full access" ON draft_sets
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 

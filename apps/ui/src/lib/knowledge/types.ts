@@ -1,4 +1,4 @@
-export type KnowledgeKind = "page" | "playbook" | "file" | "source";
+export type KnowledgeKind = "page" | "skill" | "file" | "source";
 export type KnowledgeScope = "workspace" | "agent";
 
 export interface KnowledgeFolder {
@@ -69,9 +69,9 @@ export const KNOWLEDGE_KINDS: {
 }[] = [
   { value: "page", label: "Page", icon: "file-text" },
   {
-    value: "playbook",
-    label: "Playbook",
-    subtitle: "Skills, SOPs, instructions",
+    value: "skill",
+    label: "Skill",
+    subtitle: "Procedures, methods, SOPs",
     icon: "book-open",
   },
   { value: "file", label: "File", icon: "file" },
@@ -80,7 +80,7 @@ export const KNOWLEDGE_KINDS: {
 
 export const KNOWLEDGE_KIND_COLORS: Record<KnowledgeKind, string> = {
   page: "bg-blue-500/20 text-blue-400",
-  playbook: "bg-purple-500/20 text-purple-400",
+  skill: "bg-purple-500/20 text-purple-400",
   file: "bg-amber-500/20 text-amber-400",
   source: "bg-teal-500/20 text-teal-400",
 };

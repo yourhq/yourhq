@@ -13,5 +13,9 @@ export interface SandboxProvider {
 
   destroy(sandboxId: string): Promise<void>;
 
+  pause(sandboxId: string): Promise<void>;
+
+  resume(sandboxId: string): Promise<void>;
+
   renewTimeout(sandboxId: string, timeoutMs: number): Promise<void>;
 }

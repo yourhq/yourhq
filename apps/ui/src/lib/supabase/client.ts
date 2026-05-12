@@ -1,15 +1,15 @@
 import { createBrowserClient } from "@supabase/ssr";
-import { getHqConfig } from "@/lib/projects/hq-config-provider";
+import { getHqConfig } from "@/lib/workspaces/hq-config-provider";
 
 const SSR_PLACEHOLDER_URL = "https://ssr-placeholder.invalid";
 const SSR_PLACEHOLDER_KEY = "ssr-placeholder-not-a-real-key-ssr-placeholder";
 
-function storageKeyFor(projectId: string): string {
-  return `hq-auth:${projectId}`;
+function storageKeyFor(workspaceId: string): string {
+  return `hq-auth:${workspaceId}`;
 }
 
-function cookieNameFor(projectId: string): string {
-  return `hq-${projectId.slice(0, 8)}`;
+function cookieNameFor(workspaceId: string): string {
+  return `hq-${workspaceId.slice(0, 8)}`;
 }
 
 export function createClient() {
@@ -20,37 +20,27 @@ export function createClient() {
   const config = getHqConfig();
   if (!config) {
     throw new Error(
-      "HQ Supabase config is not available. " +
-        "The active project cookie may be missing, or the registry is empty. " +
-        "Navigate to /onboarding to connect a Supabase project.",
+      "HQ config is not available. " +
+        "The active workspace cookie may be missing, or the registry is empty. " +
+        "Navigate to /onboarding to set up a workspace.",
     );
   }
 
   return createBrowserClient(config.url, config.anonKey, {
     cookieOptions: {
-      name: cookieNameFor(config.projectId),
+      name: cookieNameFor(config.workspaceId),
     },
   });
 }
 
-/**
- * Storage key used by Supabase-js for this project's session in
- * localStorage. Exposed so other modules (sign-in modal, project
- * switcher) can inspect "does a session exist for this project?"
- * without constructing the full client.
- */
-export function getSessionStorageKey(projectId: string): string {
-  return storageKeyFor(projectId);
+export function getSessionStorageKey(workspaceId: string): string {
+  return storageKeyFor(workspaceId);
 }
 
-/**
- * True if there's ANY session data stored for the given project. Doesn't
- * validate the token — only tells you whether sign-in has been attempted.
- */
-export function hasStoredSession(projectId: string): boolean {
+export function hasStoredSession(workspaceId: string): boolean {
   if (typeof window === "undefined") return false;
   try {
-    return window.localStorage.getItem(storageKeyFor(projectId)) !== null;
+    return window.localStorage.getItem(storageKeyFor(workspaceId)) !== null;
   } catch {
     return false;
   }

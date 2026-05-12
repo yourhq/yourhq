@@ -8,7 +8,9 @@ export type WizardStep =
   | "infrastructure"
   | "provider"
   | "agent"
-  | "account";
+  | "account"
+  | "payment"
+  | "provisioning";
 
 export interface WizardData {
   ownerName?: string;
@@ -31,7 +33,7 @@ export interface WizardData {
   [key: string]: unknown;
 }
 
-const HOSTED_STEPS: WizardStep[] = ["welcome", "intent", "provider", "agent"];
+const HOSTED_STEPS: WizardStep[] = ["welcome", "intent", "payment", "provisioning", "provider", "agent"];
 const OSS_STEPS: WizardStep[] = ["welcome", "intent", "infrastructure", "provider", "agent", "account"];
 
 const SESSION_KEY = "hq_wizard_session";
@@ -80,8 +82,9 @@ function getInitialData(
   initialData: WizardData | undefined,
   session: WizardSession | null,
 ): WizardData {
-  if (initialData) return initialData;
-  return session?.data ?? {};
+  if (!session?.data) return initialData ?? {};
+  if (!initialData) return session.data;
+  return { ...session.data, ...initialData };
 }
 
 export function useWizardState(opts: {
@@ -101,13 +104,23 @@ export function useWizardState(opts: {
   );
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [direction, setDirection] = useState<"forward" | "backward">("forward");
 
   const currentIndex = steps.indexOf(step);
 
-  // Hydrate from sessionStorage after mount (client-only)
+  // Hydrate from sessionStorage after mount (client-only).
+  // Discard stale sessions from a different user/workspace.
   useEffect(() => {
     const session = loadSession();
     if (!session) return;
+
+    const currentIdentity = opts.initialData?.hostedWorkspaceId;
+    const storedIdentity = session.data?.hostedWorkspaceId;
+    if (currentIdentity && storedIdentity && currentIdentity !== storedIdentity) {
+      clearWizardSession();
+      return;
+    }
+
     const hydratedStep = getInitialStep(steps, opts.initialStep, session);
     const hydratedData = getInitialData(opts.initialData, session);
     setStep(hydratedStep);
@@ -135,6 +148,7 @@ export function useWizardState(opts: {
     const idx = steps.indexOf(step);
     if (idx < steps.length - 1) {
       setError(null);
+      setDirection("forward");
       setStep(steps[idx + 1]);
     }
   }, [step, steps]);
@@ -143,6 +157,7 @@ export function useWizardState(opts: {
     const idx = steps.indexOf(step);
     if (idx > 0) {
       setError(null);
+      setDirection("backward");
       setStep(steps[idx - 1]);
     }
   }, [step, steps]);
@@ -155,6 +170,7 @@ export function useWizardState(opts: {
     goTo,
     advance,
     goBack,
+    direction,
     pending,
     startTransition,
     error,

@@ -1,0 +1,257 @@
+---
+title: "Plugin events"
+description: "Complete reference of all events available to HQ plugins, with payload schemas and emission sources."
+---
+
+HQ plugins subscribe to events using the `hooks` field in their manifest (local plugins) or configuration (webhook plugins). Events follow the `<entity>.<action>` naming convention.
+
+## Event envelope
+
+Every event includes these standard fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `event_id` | UUID | Unique identifier for this event instance |
+| `event_type` | string | The event name (e.g. `task.completed`) |
+| `occurred_at` | ISO 8601 | When the event occurred |
+| `tenant_id` | UUID | Tenant this event belongs to |
+| `entity_type` | string | Source table name (e.g. `tasks`, `agents`) |
+| `entity_id` | UUID | Primary key of the affected entity |
+| `payload` | object | Event-specific data (see below) |
+
+---
+
+## Task events
+
+### `task.created`
+
+Fires when a new task is inserted into the `tasks` table.
+
+**Emitted by:** SQL trigger on `tasks` INSERT
+
+**Payload:** Full task row as JSON — includes `title`, `status`, `priority`, `assignee_agent_id`, `stream_id`, `due_date`, and all other task fields.
+
+---
+
+### `task.completed`
+
+Fires when a task's status changes to `done`.
+
+**Emitted by:** SQL trigger on `tasks.status` UPDATE (only when new status = `done` and old status != `done`)
+
+**Payload:** Task row with both old and new values. Key fields: `title`, `assignee_agent_id`, `status` (= `done`).
+
+---
+
+### `task.assigned`
+
+Fires when a task's `assignee_agent_id` changes.
+
+**Emitted by:** SQL trigger on `tasks.assignee_agent_id` UPDATE (only when the value actually changes)
+
+**Payload:** Task row with old and new values. Key fields: old `assignee_agent_id`, new `assignee_agent_id`, `title`.
+
+---
+
+## Agent events
+
+### `agent.provisioned`
+
+Fires after a new agent is successfully provisioned on the gateway.
+
+**Emitted by:** `command_runner.py` after a successful `provision` command (exit code 0)
+
+**Payload:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agent_id` | UUID | Agent's database ID |
+| `slug` | string | Agent's unique slug |
+| `runtime_type` | string | Runtime type (e.g. `openclaw`) |
+| `gateway_id` | string | Gateway that provisioned the agent |
+
+---
+
+### `agent.deprovisioned`
+
+Fires after an agent is successfully removed from the gateway.
+
+**Emitted by:** `command_runner.py` after a successful `remove` command
+
+**Payload:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agent_id` | UUID | Agent's database ID |
+| `slug` | string | Agent's unique slug |
+
+---
+
+### `agent.status_changed`
+
+Fires when an agent's status changes (e.g. `provisioning` → `ready`, `ready` → `paused`).
+
+**Emitted by:** SQL trigger on `agents.status` UPDATE
+
+**Payload:** Agent row with old and new values. Key fields: old `status`, new `status`, `slug`, `name`.
+
+---
+
+## Knowledge events
+
+### `knowledge.created`
+
+Fires when a new knowledge item is inserted.
+
+**Emitted by:** SQL trigger on `knowledge_items` INSERT
+
+**Payload:** Full knowledge item row. Key fields: `title`, `kind` (page/skill/file/source), `scope` (workspace/agent).
+
+---
+
+### `knowledge.processed`
+
+Fires after text extraction completes for a file-type knowledge item.
+
+**Emitted by:** `file_processor.py` after successful text extraction
+
+**Payload:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `item_id` | UUID | Knowledge item ID |
+| `title` | string | Item title |
+| `content_length` | integer | Length of extracted plain text |
+
+---
+
+### `knowledge.embedded`
+
+Fires after embedding generation completes for a knowledge item.
+
+**Emitted by:** `embedder.py` after successful embedding
+
+**Payload:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `item_id` | UUID | Knowledge item ID |
+| `chunk_count` | integer | Number of chunks created |
+
+---
+
+## Inbox events
+
+### `inbox.created`
+
+Fires when a new inbox item is queued for an agent.
+
+**Emitted by:** SQL trigger on `agent_inbox_items` INSERT
+
+**Payload:** Full inbox item row. Key fields: `agent_id`, `event_type`, `task_id`, `summary`.
+
+---
+
+### `inbox.completed`
+
+Fires when an inbox item's status changes to `done`.
+
+**Emitted by:** SQL trigger on `agent_inbox_items.status` UPDATE (only when new status = `done`)
+
+**Payload:** Inbox item row with old and new values. Key fields: `agent_id`, `event_type`.
+
+---
+
+## Routine events
+
+### `routine.triggered`
+
+Fires when a routine creates an inbox item (either from a schedule or an event trigger).
+
+**Emitted by:** SQL trigger on `agent_inbox_items` INSERT (only when `event_type` is `routine_schedule` or `routine_event`)
+
+**Payload:** Inbox item row. Key fields: `routine_id` (from metadata), `agent_id`, `event_type`.
+
+---
+
+## Communication events
+
+### `comment.created`
+
+Fires when a comment is posted on any entity (task, contact, etc.).
+
+**Emitted by:** SQL trigger on `comments` INSERT
+
+**Payload:** Full comment row. Key fields: `entity_type`, `entity_id`, `author_agent_id`, `body`, `mentioned_agent_ids`.
+
+---
+
+## Security events
+
+### `secret.changed`
+
+Fires when a secret is added, updated, or removed. **The secret value is never included in the payload** — only metadata.
+
+**Emitted by:** SQL trigger on `secrets` INSERT/UPDATE/DELETE
+
+**Payload:** Secret metadata with sensitive fields stripped. Key fields: `key`, `category`, `action` (insert/update/delete).
+
+---
+
+## Usage and budget events
+
+### `usage.recorded`
+
+Fires when LLM usage is logged for an agent.
+
+**Emitted by:** hq-bootstrap plugin (forwarded to event queue via Supabase REST)
+
+**Payload:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agent_id` | UUID | Agent that consumed tokens |
+| `provider` | string | Model provider (e.g. `anthropic`, `openai`) |
+| `model` | string | Model name (e.g. `claude-sonnet-4-20250514`) |
+| `input_tokens` | integer | Input tokens consumed |
+| `output_tokens` | integer | Output tokens consumed |
+| `cost_usd` | number | Estimated cost in USD |
+
+---
+
+### `budget.exceeded`
+
+Fires when an agent's spending exceeds its monthly budget limit.
+
+**Emitted by:** hq-bootstrap plugin (forwarded to event queue)
+
+**Payload:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agent_id` | UUID | Agent that exceeded the budget |
+| `monthly_limit_usd` | number | Configured monthly limit |
+| `spent_usd` | number | Amount spent this period |
+
+---
+
+## Summary table
+
+| Event | Emitted by | Entity type |
+|-------|-----------|-------------|
+| `task.created` | SQL trigger | `tasks` |
+| `task.completed` | SQL trigger | `tasks` |
+| `task.assigned` | SQL trigger | `tasks` |
+| `agent.provisioned` | command_runner.py | `agents` |
+| `agent.deprovisioned` | command_runner.py | `agents` |
+| `agent.status_changed` | SQL trigger | `agents` |
+| `knowledge.created` | SQL trigger | `knowledge_items` |
+| `knowledge.processed` | file_processor.py | `knowledge_items` |
+| `knowledge.embedded` | embedder.py | `knowledge_items` |
+| `inbox.created` | SQL trigger | `agent_inbox_items` |
+| `inbox.completed` | SQL trigger | `agent_inbox_items` |
+| `routine.triggered` | SQL trigger | `agent_inbox_items` |
+| `comment.created` | SQL trigger | `comments` |
+| `secret.changed` | SQL trigger | `secrets` |
+| `usage.recorded` | hq-bootstrap | `agent_usage` |
+| `budget.exceeded` | hq-bootstrap | `agent_budgets` |

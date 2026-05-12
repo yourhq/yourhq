@@ -20,6 +20,7 @@ export function getWebhookSecret(): string {
 
 export async function createCheckoutSession(opts: {
   customerEmail: string;
+  customerId?: string | null;
   workspaceId: string;
   successUrl: string;
   cancelUrl: string;
@@ -30,7 +31,9 @@ export async function createCheckoutSession(opts: {
 
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
-    customer_email: opts.customerEmail,
+    ...(opts.customerId
+      ? { customer: opts.customerId }
+      : { customer_email: opts.customerEmail }),
     line_items: [{ price: priceId, quantity: 1 }],
     success_url: opts.successUrl,
     cancel_url: opts.cancelUrl,

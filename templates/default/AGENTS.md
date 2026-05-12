@@ -34,13 +34,13 @@ Environment variables available to you:
 
 **Tasks:** Claim tasks assigned to you, update status, post comments, mark done. Always audit.
 **CRM:** Read contacts, update extended fields, log interactions, manage organizations. Always audit.
-**Knowledge:** Search knowledge, create/update pages and playbooks. Indexing happens automatically on write.
+**Knowledge:** Search knowledge, create/update pages and skills. Indexing happens automatically on write.
 **Comments:** Post on tasks, @mention other agents or your human.
 **Audit:** Every write operation must produce an audit_log entry. Use the audited helpers.
 
 ### Knowledge System
 
-HQ knowledge in Supabase is your shared context. Knowledge items come in four kinds: pages, playbooks, files, and sources.
+HQ knowledge in Supabase is your shared context. Knowledge items come in four kinds: pages, skills, files, and sources.
 
 **Pinned knowledge items** load automatically at startup:
 - scope='workspace' with pinned=true → every agent loads these at startup
@@ -49,17 +49,47 @@ HQ knowledge in Supabase is your shared context. Knowledge items come in four ki
 **Searching knowledge:**
 - Use `hq_search_docs.py "query"` for natural language lookups with semantic and full-text fallback
 - Use `hq_get_docs_by_tag.py TAG` for exact tag matches
-- Filter by kind: `--kind playbook` to find SOPs and instructions
+- Filter by kind: `--kind skill` to find SOPs and instructions
 
 **Creating knowledge items:**
 - Use `hq_create_doc.py --title "..." --content "..."` to create pages
-- Use `--kind playbook` for SOPs and instructions
+- Use `--kind skill` for SOPs and instructions
 - Use `--scope agent` to scope to yourself only
 - Tags and embeddings are generated automatically
 
 **Task knowledge:**
 - When you claim a task, linked items are fetched automatically
 - Read linked knowledge items before starting work
+
+**Connected sources:**
+- External systems (Notion, Google Drive, etc.) can be connected to the workspace
+- Source items appear in search results alongside native knowledge items
+- Run `hq_list_sources.py` to see what's connected and whether writes are supported
+- Use `hq_write_source.py` to create content in a writable external source
+
+### Where to Write
+
+When you produce information worth keeping, decide where it belongs:
+
+**Personal memory (git files):**
+- Facts about your human → `MEMORY.md`
+- What happened today → `memory/YYYY-MM-DD.md`
+- Detailed work narrative → `history/`
+- Things only you need to remember
+
+**Shared knowledge (Supabase knowledge items):**
+- Information other agents should see → `hq_create_doc.py --scope workspace`
+- A reusable procedure you learned → `hq_skill_upsert.py`
+- Notes scoped to just you but searchable → `hq_create_doc.py --scope agent`
+- Anything you'd want to find via semantic search later
+
+**Connected sources (external systems):**
+- Content that belongs in the team's external tool (Notion, Google Drive, etc.)
+- Run `hq_list_sources.py` to see what's connected
+- If a writable connection exists for the right tool, use `hq_write_source.py`
+- If the connection is read-only or doesn't exist, create a knowledge page instead and tell your human
+
+**Rule of thumb:** If someone else (human or agent) would benefit from finding this, it's a knowledge item. If only you need it for continuity, it's a git file. If it belongs in an external system the team already uses, write it there.
 
 ### Workspace Configuration
 
@@ -261,7 +291,7 @@ Do not send raw tool output, repeated "still running" messages, or internal trac
 - Use your **browser** — a dedicated Chrome profile (isolated from the user's) for opening pages, looking things up, logging into sites, automating flows. Reach for it whenever information isn't in your local context. See `TOOLS.md > Browser` for the specifics.
 - Check calendars
 - Query and update Supabase (with audit logging and write safety rules)
-- Search knowledge and create pages/playbooks
+- Search knowledge and create pages/skills
 - Work within this workspace
 - Commit and push to your git branch
 

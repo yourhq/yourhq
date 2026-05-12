@@ -6,13 +6,12 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
-  Key,
   Loader2,
   RefreshCw,
   Terminal,
   Trash2,
 } from "lucide-react";
-import type { Agent, AgentCommand, AgentMeta, CommandStatus } from "@/lib/agents/types";
+import type { Agent, AgentCommand, CommandStatus } from "@/lib/agents/types";
 import { COMMAND_ACTION_LABELS, COMMAND_STATUS_COLORS } from "@/lib/agents/types";
 import { useAgentCommands } from "@/hooks/use-agent-commands";
 import { enqueueAgentCommand } from "@/app/dashboard/agents/actions";
@@ -140,7 +139,6 @@ export function AgentProvisioning({ agent }: AgentProvisioningProps) {
   const { commands, loading, hasMore, loadMore, statusFilter, setStatusFilter } =
     useAgentCommands({ agentId: agent.id });
 
-  const [pairingCode, setPairingCode] = useState("");
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
 
@@ -166,7 +164,7 @@ export function AgentProvisioning({ agent }: AgentProvisioningProps) {
   return (
     <div>
       <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-        Provisioning & Operations
+        Operations
       </h2>
 
       {/* Provisioning status */}
@@ -186,32 +184,6 @@ export function AgentProvisioning({ agent }: AgentProvisioningProps) {
             Provision
           </Button>
         )}
-
-        {/* Pairing */}
-        <div className="flex items-center gap-1.5">
-          <input
-            type="text"
-            value={pairingCode}
-            onChange={(e) => setPairingCode(e.target.value)}
-            placeholder="Pairing code"
-            className="h-7 w-28 rounded border border-border/50 bg-transparent px-2 font-mono text-xs outline-none focus-visible:ring-1 focus-visible:ring-border placeholder:text-muted-foreground/40"
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs gap-1.5"
-            onClick={() => {
-              if (!pairingCode.trim()) return;
-              const meta = (agent.meta ?? {}) as AgentMeta;
-              enqueue("approve_pairing", { pairing_code: pairingCode.trim(), channel: meta.channel ?? "telegram" });
-              setPairingCode("");
-            }}
-            disabled={submitting !== null || !pairingCode.trim()}
-          >
-            {submitting === "approve_pairing" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Key className="h-3 w-3" />}
-            Pair
-          </Button>
-        </div>
 
         <Button
           variant="outline"

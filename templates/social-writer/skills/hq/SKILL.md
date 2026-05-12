@@ -1,6 +1,6 @@
 ---
 name: hq
-description: Connect to the HQ via Supabase. Use when you need to register yourself, search knowledge, create/update pages and playbooks, claim tasks, post comments, manage contacts and organizations, log interactions, or query the audit trail. Also use at session startup to register and load pinned knowledge items.
+description: Connect to the HQ via Supabase. Use when you need to register yourself, search knowledge, create/update pages and skills, claim tasks, post comments, manage contacts and organizations, log interactions, or query the audit trail. Also use at session startup to register and load pinned knowledge items.
 ---
 
 # HQ
@@ -102,13 +102,13 @@ python3 skills/hq/scripts/hq_search_docs.py "your natural language query"
 ```
 Optional flags: `--tags tag1,tag2` `--folder-id UUID` `--kind page` `--limit 5`
 
-Kind filter: `page`, `playbook`, `file`, `source`. Returns matched knowledge items ranked by similarity.
+Kind filter: `page`, `skill`, `file`, `source`. Returns matched knowledge items ranked by similarity.
 
 ### Create a knowledge item
 ```bash
 python3 skills/hq/scripts/hq_create_doc.py --title "Title" --content "Content here" --tags tag1,tag2
 ```
-Optional: `--kind playbook` (default: page), `--scope agent` (default: workspace), `--folder-id UUID`
+Optional: `--kind skill` (default: page), `--scope agent` (default: workspace), `--folder-id UUID`
 
 Automatically requests a local embedding on creation.
 
@@ -127,6 +127,26 @@ python3 skills/hq/scripts/hq_get_doc.py ITEM_ID
 ```bash
 python3 skills/hq/scripts/hq_get_docs_by_tag.py TAG_NAME
 ```
+
+### List connected sources
+```bash
+python3 skills/hq/scripts/hq_list_sources.py
+```
+Shows what external systems (Notion, Google Drive, etc.) are connected to the workspace, whether they support writes, and how many items are synced from each.
+
+### Write to a connected source
+```bash
+python3 skills/hq/scripts/hq_write_source.py \
+  --connection-id UUID \
+  --action create_item \
+  --params '{"title": "Meeting Notes", "content": "# Summary\n...", "parent_id": "PARENT_UUID"}'
+```
+Creates content in the connected external system. Only works if the connection is writable. Check `hq_list_sources.py` first. The command is routed through the gateway command queue.
+
+### Knowledge vs source decision
+- **Search results include sources.** When you search knowledge, source items appear with their provider and source URL. Read them like any knowledge item.
+- **Don't duplicate.** If content already exists as a synced source (e.g., a Notion page), don't create a duplicate knowledge page. Reference the source item instead.
+- **Write to the right place.** If the user's workflow lives in Notion and the connection is writable, prefer writing there over creating a knowledge page. If the connection is read-only, create a knowledge page and mention that the user may want to move it to Notion.
 
 ## Tasks
 
@@ -263,6 +283,9 @@ For **contact_created** items:
 3. Take action or skip
 4. Mark inbox item done: `python3 skills/hq/scripts/hq_inbox_done.py INBOX_ITEM_ID`
 
+For **routine_schedule** and **routine_event** items:
+See the **Routines** section below for handling details.
+
 ### Mark items done or failed
 ```bash
 python3 skills/hq/scripts/hq_inbox_done.py INBOX_ITEM_ID
@@ -283,16 +306,98 @@ Sets task to `blocked`, posts a comment mentioning the workspace owner, sends Te
 - **Batch up to 3 items per wake** or up to 2 minutes of processing, whichever comes first.
 - **Foreground stays clean.** Never inject inbox work into a live human conversation.
 
-## Learning & Playbooks
+## Routines
 
-You maintain playbooks — reusable procedures for work you do repeatedly. Your human can see what you've learned on your agent detail page.
+Routines are recurring agent behaviors — scheduled checks and event-driven reactions. When a routine fires, it creates an inbox item that wakes you.
 
-### When to create a new playbook
+### Handling routine inbox items
+
+For **routine_schedule** items:
+1. Read the instruction from `context.instruction` — it tells you what to do
+2. Execute the instruction
+3. Mark inbox item done: `python3 skills/hq/scripts/hq_inbox_done.py INBOX_ITEM_ID`
+
+For **routine_event** items:
+1. Read the instruction from `context.instruction` and the entity context (`context.entity_type`, `context.entity_id`, `context.field`, `context.old_value`, `context.new_value`)
+2. Execute the instruction using the provided context — for contact events, the full contact record is enriched automatically
+3. Mark inbox item done: `python3 skills/hq/scripts/hq_inbox_done.py INBOX_ITEM_ID`
+
+### When to create a routine
+
+- User asks for something **recurring** ("every 30 minutes", "daily at 9am", "every Monday") → create a **schedule** routine
+- User asks you to **react** to changes ("whenever a new contact is created", "when a task status changes") → create an **event** routine
+- You discover a pattern you should monitor → **propose** the routine to the user first, don't create silently
+- User asks for a **one-time** action → just do it, don't create a routine
+
+### Create or update a routine
+
+Schedule routine:
+```bash
+python3 skills/hq/scripts/hq_routine_upsert.py \
+  --name "Check email" \
+  --instruction "Check inbox for emails from john@acme.com and create tasks for action items" \
+  --trigger-type schedule \
+  --cadence-type every_n_minutes --interval-n 30 \
+  --timezone America/New_York
+```
+
+Event routine:
+```bash
+python3 skills/hq/scripts/hq_routine_upsert.py \
+  --name "New contact alert" \
+  --instruction "Research {name} and update their profile with LinkedIn data" \
+  --trigger-type event \
+  --entity-type contact --condition created
+```
+
+Update an existing routine:
+```bash
+python3 skills/hq/scripts/hq_routine_upsert.py \
+  --routine-id UUID \
+  --name "Check email" \
+  --instruction "Check inbox for emails from john@acme.com" \
+  --trigger-type schedule \
+  --cadence-type every_n_hours --interval-n 1 \
+  --timezone America/New_York
+```
+
+Schedule cadence types: `every_n_minutes`, `every_n_hours`, `daily`, `weekdays`, `weekly`, `monthly`, `every_n_days`
+
+Event entity types: `contact`, `collection_record`, `knowledge_item`, `task`
+
+Event conditions: `created`, `changed_to`, `changed_from`, `any_change`
+
+Additional event flags: `--field FIELD_NAME`, `--value VALUE` (for changed_to/changed_from), `--collection-id UUID` (for collection_record)
+
+### List your routines
+```bash
+python3 skills/hq/scripts/hq_routine_list.py
+python3 skills/hq/scripts/hq_routine_list.py --active-only
+python3 skills/hq/scripts/hq_routine_list.py --trigger-type schedule
+```
+
+### Delete a routine
+```bash
+python3 skills/hq/scripts/hq_routine_delete.py ROUTINE_ID
+```
+
+### Routine discipline
+- **Confirm before creating.** Tell the user what routine you're about to create and get a thumbs-up, especially for high-frequency schedules.
+- **Set clear instructions.** The instruction field is what you'll see when the routine fires — make it actionable.
+- **Use appropriate cadences.** Don't set every_n_minutes to 1 — that's 1,440 wakes per day. Match frequency to urgency.
+- **Check existing routines first.** Run `hq_routine_list.py` before creating to avoid duplicates.
+- **Clean up when asked.** If the user says to stop a recurring behavior, delete the routine — don't just ignore inbox items.
+
+## Learning & Skills
+
+You maintain skills — reusable procedures for work you do repeatedly. Your human can see what you've learned on your agent detail page.
+
+### When to create a new skill
 - You've done the same sequence 3+ times successfully
 - You figured out a non-obvious method through trial and error (e.g. discovered that YouTube research requires checking channel "About" pages)
 - The user gave you a reusable instruction that isn't already documented
 
-### When to update an existing playbook
+### When to update an existing skill
 - You discovered a better approach than what's documented
 - The user corrected you — encode their preference immediately
 - A step no longer works and you found a fix
@@ -300,29 +405,29 @@ You maintain playbooks — reusable procedures for work you do repeatedly. Your 
 ### When NOT to update
 - You're still experimenting / the approach isn't proven yet
 - It's a one-off edge case unlikely to recur
-- The user is actively editing your playbooks (wait until they're done)
+- The user is actively editing your skills (wait until they're done)
 
-### Create a new playbook
+### Create a new skill
 ```bash
-python3 skills/hq/scripts/hq_playbook_upsert.py \
-  --title "Research Playbook" \
+python3 skills/hq/scripts/hq_skill_upsert.py \
+  --title "Research Skill" \
   --content "## Finding Decision Makers\n1. Start with LinkedIn..." \
   --reason "Codified after 3 successful research tasks" \
   --tags research,linkedin
 ```
 
-### Update an existing playbook
+### Update an existing skill
 ```bash
-python3 skills/hq/scripts/hq_playbook_upsert.py \
-  --item-id PLAYBOOK_UUID \
-  --title "Research Playbook" \
+python3 skills/hq/scripts/hq_skill_upsert.py \
+  --item-id SKILL_UUID \
+  --title "Research Skill" \
   --content "## Finding Decision Makers\n1. Start with YouTube..." \
   --reason "Added YouTube channel research method"
 ```
 
-### Find your existing playbooks
+### Find your existing skills
 ```bash
-python3 skills/hq/scripts/hq_search_docs.py "research" --kind playbook
+python3 skills/hq/scripts/hq_search_docs.py "research" --kind skill
 ```
 
 The `--reason` is important: it's shown to your human on the agent detail page so they can see what you learned and why. Keep it to one sentence.
@@ -335,7 +440,7 @@ The `--reason` is important: it's shown to your human on the agent detail page s
 - **Discover fields before writing.** Fetch `field_definitions` to know what extended fields exist and what they mean.
 - **Use valid pipeline stages.** Fetch `pipeline_stages` before setting a contact's status.
 - **When you claim a task, read its attachments.** They're fetched automatically.
-- **Create knowledge items for reusable info.** Use `--kind playbook` for SOPs and instructions, `--kind page` for general notes.
-- **Learn as you work.** When you discover a reusable method, save it as a playbook using `hq_playbook_upsert.py`.
+- **Create knowledge items for reusable info.** Use `--kind skill` for SOPs and instructions, `--kind page` for general notes.
+- **Learn as you work.** When you discover a reusable method, save it as a skill using `hq_skill_upsert.py`.
 - **Process your inbox without babysitting.** When woken, work through items before going idle.
 - **Escalate to unblock.** Don't sit on a stuck item — escalate and move to the next one.

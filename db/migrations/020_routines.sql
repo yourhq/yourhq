@@ -62,6 +62,7 @@ CREATE INDEX IF NOT EXISTS idx_routines_agent_active ON routines (agent_id, is_a
 CREATE INDEX IF NOT EXISTS idx_routines_next_run  ON routines (next_run_at) WHERE is_active AND trigger_type = 'schedule';
 CREATE INDEX IF NOT EXISTS idx_routines_entity    ON routines (entity_type, condition) WHERE is_active AND trigger_type = 'event';
 
+DROP TRIGGER IF EXISTS set_routines_updated_at ON routines;
 CREATE TRIGGER set_routines_updated_at
   BEFORE UPDATE ON routines
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -70,11 +71,13 @@ CREATE TRIGGER set_routines_updated_at
 
 ALTER TABLE routines ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Tenant isolation" ON routines;
 CREATE POLICY "Tenant isolation" ON routines
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
 
+DROP POLICY IF EXISTS "Service role full access" ON routines;
 CREATE POLICY "Service role full access" ON routines
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
@@ -343,6 +346,7 @@ $$;
 
 GRANT EXECUTE ON FUNCTION process_routine_event() TO authenticated, service_role;
 
+DROP TRIGGER IF EXISTS contact_routine_trigger ON contacts;
 CREATE TRIGGER contact_routine_trigger
   AFTER INSERT OR UPDATE ON contacts
   FOR EACH ROW EXECUTE FUNCTION process_routine_event();

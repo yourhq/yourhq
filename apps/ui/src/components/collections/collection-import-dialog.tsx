@@ -4,13 +4,13 @@ import { useState, useCallback } from "react";
 import type { CollectionField } from "@/lib/collections/types";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+} from "@/components/ui/responsive-dialog";
 import {
   Select,
   SelectContent,
@@ -130,14 +130,14 @@ export function CollectionImportDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) { reset(); onClose(); } }}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Import Records</DialogTitle>
-          <DialogDescription>
+    <ResponsiveDialog open={open} onOpenChange={(o) => { if (!o) { reset(); onClose(); } }}>
+      <ResponsiveDialogContent className="sm:max-w-lg">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>Import Records</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>
             Upload a CSV file to import records into this collection.
-          </DialogDescription>
-        </DialogHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
         {!csv ? (
           <label className="flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed border-border/60 p-8 transition-colors hover:border-border hover:bg-accent/20">
@@ -204,7 +204,7 @@ export function CollectionImportDialog({
           </div>
         )}
 
-        <DialogFooter>
+        <ResponsiveDialogFooter>
           <Button variant="outline" onClick={() => { reset(); onClose(); }}>
             Cancel
           </Button>
@@ -213,8 +213,8 @@ export function CollectionImportDialog({
               {importing ? "Importing..." : `Import ${csv.rows.length} records`}
             </Button>
           )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </ResponsiveDialogFooter>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

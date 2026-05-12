@@ -1,0 +1,32 @@
+name: Build E2B gateway template
+
+on:
+  push:
+    branches: [main, hosted]
+    paths:
+      - "gateway/**"
+      - "templates/**"
+      - ".github/workflows/e2b-template.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: e2b-template-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install E2B SDK
+        run: npm install e2b
+
+      - name: Build and push template
+        env:
+          E2B_API_KEY: ${{ secrets.E2B_API_KEY }}
+        run: node gateway/build-template.mjs

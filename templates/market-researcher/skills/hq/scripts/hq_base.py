@@ -11,6 +11,7 @@ All hq_* scripts import from here. Handles:
 import hashlib
 import json
 import os
+import re as _re
 import sys
 import urllib.error
 import urllib.parse
@@ -59,6 +60,24 @@ def _resolve_agent_channel() -> str:
                     pass
     return "telegram"
 
+
+def _load_secrets():
+    slug = _resolve_agent_slug()
+    secrets_dir = Path(os.environ.get("OPENCLAW_HOME", str(Path.home() / ".openclaw"))) / "secrets" / "agents"
+    env_file = secrets_dir / f"{slug}.env"
+    if env_file.is_file():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            v = v.strip()
+            if len(v) >= 2 and v[0] == v[-1] and v[0] in ("'", '"'):
+                v = v[1:-1]
+            os.environ.setdefault(k.strip(), v)
+
+
+_load_secrets()
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -157,6 +176,20 @@ def api_patch(table, record_id, payload):
         headers=headers(prefer="return=representation"),
         method="PATCH",
         data=data,
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return _read_json_response(r)
+    except urllib.error.HTTPError as e:
+        _raise_http_error(e)
+
+
+def api_delete(table, record_id):
+    url = base_url(table) + "?" + urllib.parse.urlencode({"id": f"eq.{record_id}"})
+    req = urllib.request.Request(
+        url,
+        headers=headers(prefer="return=representation"),
+        method="DELETE",
     )
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
@@ -307,6 +340,136 @@ def build_embedding_input(title, content=None, tags=None):
 
 def embedding_source_hash(text):
     return hashlib.sha256((text or "").encode("utf-8")).hexdigest()
+
+
+# ── Markdown → Tiptap conversion ─────────────────────────────────────
+
+
+def _parse_inline_marks(text):
+    result = []
+    pattern = _re.compile(r"(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`|\[(.+?)\]\((.+?)\))")
+    last = 0
+    for m in pattern.finditer(text):
+        if m.start() > last:
+            result.append({"type": "text", "text": text[last : m.start()]})
+        if m.group(2):
+            result.append({"type": "text", "marks": [{"type": "bold"}], "text": m.group(2)})
+        elif m.group(3):
+            result.append({"type": "text", "marks": [{"type": "italic"}], "text": m.group(3)})
+        elif m.group(4):
+            result.append({"type": "text", "marks": [{"type": "code"}], "text": m.group(4)})
+        elif m.group(5) and m.group(6):
+            result.append(
+                {
+                    "type": "text",
+                    "marks": [{"type": "link", "attrs": {"href": m.group(6), "target": "_blank"}}],
+                    "text": m.group(5),
+                }
+            )
+        last = m.end()
+    if last < len(text):
+        result.append({"type": "text", "text": text[last:]})
+    return result if result else [{"type": "text", "text": text or " "}]
+
+
+def markdown_to_tiptap(markdown):
+    lines = (markdown or "").split("\n")
+    content = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+
+        if line.startswith("```"):
+            lang = line[3:].strip()
+            code_lines = []
+            i += 1
+            while i < len(lines) and not lines[i].startswith("```"):
+                code_lines.append(lines[i])
+                i += 1
+            i += 1
+            node = {"type": "codeBlock", "content": [{"type": "text", "text": "\n".join(code_lines)}]}
+            if lang:
+                node["attrs"] = {"language": lang}
+            content.append(node)
+            continue
+
+        if line.strip() == "":
+            i += 1
+            continue
+
+        if _re.match(r"^---+$", line.strip()):
+            content.append({"type": "horizontalRule"})
+            i += 1
+            continue
+
+        hm = _re.match(r"^(#{1,3})\s+(.*)", line)
+        if hm:
+            content.append(
+                {
+                    "type": "heading",
+                    "attrs": {"level": len(hm.group(1))},
+                    "content": _parse_inline_marks(hm.group(2)),
+                }
+            )
+            i += 1
+            continue
+
+        if _re.match(r"^[-*]\s", line):
+            items = []
+            while i < len(lines) and _re.match(r"^[-*]\s", lines[i]):
+                items.append(
+                    {
+                        "type": "listItem",
+                        "content": [
+                            {"type": "paragraph", "content": _parse_inline_marks(_re.sub(r"^[-*]\s+", "", lines[i]))}
+                        ],
+                    }
+                )
+                i += 1
+            content.append({"type": "bulletList", "content": items})
+            continue
+
+        if _re.match(r"^\d+\.\s", line):
+            items = []
+            while i < len(lines) and _re.match(r"^\d+\.\s", lines[i]):
+                items.append(
+                    {
+                        "type": "listItem",
+                        "content": [
+                            {"type": "paragraph", "content": _parse_inline_marks(_re.sub(r"^\d+\.\s+", "", lines[i]))}
+                        ],
+                    }
+                )
+                i += 1
+            content.append({"type": "orderedList", "content": items})
+            continue
+
+        if line.startswith("> "):
+            quote_lines = []
+            while i < len(lines) and lines[i].startswith("> "):
+                quote_lines.append(lines[i][2:])
+                i += 1
+            content.append(
+                {
+                    "type": "blockquote",
+                    "content": [{"type": "paragraph", "content": _parse_inline_marks(" ".join(quote_lines))}],
+                }
+            )
+            continue
+
+        content.append({"type": "paragraph", "content": _parse_inline_marks(line)})
+        i += 1
+
+    return {"type": "doc", "content": content}
+
+
+def content_for_storage(markdown_text):
+    """Convert markdown to (tiptap_json_string, plain_text) for storage."""
+    plain = markdown_text or ""
+    if not plain.strip():
+        return (None, None)
+    tiptap = markdown_to_tiptap(plain)
+    return (json.dumps(tiptap), plain)
 
 
 # ── Module guards ─────────────────────────────────────────────────────

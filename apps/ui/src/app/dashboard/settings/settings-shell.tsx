@@ -1,25 +1,37 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
+  Blocks,
   Sliders,
   User,
   Puzzle,
   Layers,
   LayoutGrid,
   Plug,
+  Lock,
   Server,
   Globe,
-  FolderKanban,
+  Database,
   BookOpen,
   Zap,
   ScrollText,
   DollarSign,
   Settings,
+  Tag,
+  LayoutTemplate,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useModules } from "@/components/shared/modules-context";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface NavItem {
   href: string;
@@ -44,6 +56,13 @@ const SETTINGS_NAV: NavGroup[] = [
     ],
   },
   {
+    label: "Tasks",
+    items: [
+      { href: "/dashboard/settings/labels", label: "Labels", icon: Tag },
+      { href: "/dashboard/settings/templates", label: "Templates", icon: LayoutTemplate },
+    ],
+  },
+  {
     label: "CRM",
     crmOnly: true,
     items: [
@@ -61,7 +80,9 @@ const SETTINGS_NAV: NavGroup[] = [
     label: "Agents",
     items: [
       { href: "/dashboard/settings/connections", label: "Connections", icon: Plug },
+      { href: "/dashboard/settings/secrets", label: "Secrets", icon: Lock },
       { href: "/dashboard/settings/budgets", label: "Budget Defaults", icon: DollarSign },
+      { href: "/dashboard/settings/plugins", label: "Plugins", icon: Blocks },
     ],
   },
   {
@@ -70,7 +91,7 @@ const SETTINGS_NAV: NavGroup[] = [
     items: [
       { href: "/dashboard/settings/gateways", label: "Gateways", icon: Server },
       { href: "/dashboard/settings/networking", label: "Networking", icon: Globe },
-      { href: "/dashboard/settings/projects", label: "Projects", icon: FolderKanban },
+      { href: "/dashboard/settings/database", label: "Database", icon: Database },
     ],
   },
   {
@@ -91,6 +112,8 @@ export function SettingsShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const mobile = useIsMobile();
   const modules = useModules();
   const crmEnabled = modules.crm !== false;
 
@@ -100,9 +123,44 @@ export function SettingsShell({
     return true;
   });
 
+  const allItems = visibleGroups.flatMap((g) => g.items);
+  const currentItem = allItems.find(
+    (item) =>
+      pathname === item.href ||
+      (item.href !== "/dashboard/settings" && pathname.startsWith(item.href + "/")),
+  );
+
   return (
-    <div className="flex h-full">
-      {/* Settings sidebar */}
+    <div className="flex h-full flex-col md:flex-row">
+      {/* Mobile settings navigation */}
+      {mobile && (
+        <div className="border-b border-border/60 px-4 py-2">
+          <Select
+            value={currentItem?.href ?? pathname}
+            onValueChange={(href) => router.push(href)}
+          >
+            <SelectTrigger className="h-9 text-sm">
+              <SelectValue placeholder="Settings" />
+            </SelectTrigger>
+            <SelectContent>
+              {visibleGroups.map((group) => (
+                <div key={group.label}>
+                  <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                    {group.label}
+                  </div>
+                  {group.items.map((item) => (
+                    <SelectItem key={item.href} value={item.href}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </div>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {/* Desktop settings sidebar */}
       <nav className="hidden md:flex w-[220px] shrink-0 flex-col border-r border-border/60 overflow-y-auto py-3">
         <div className="px-4 pb-2">
           <div className="flex items-center gap-2">

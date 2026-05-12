@@ -7,7 +7,9 @@ import {
   PROVIDER_LABELS,
   CONNECTION_STATUS_COLORS,
   CONNECTION_STATUS_LABELS,
+  getSourceUrl,
 } from "@/lib/sources/types";
+import { PROVIDER_MANIFESTS } from "@/lib/sources/generated-manifests";
 import {
   useSourceConnections,
   type SourceKnowledgeItem,
@@ -51,6 +53,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
 interface SourceConnectionDetailProps {
@@ -164,6 +167,16 @@ export function SourceConnectionDetail({
           <DetailSidebarProperty label="Token">
             <span className="font-mono text-[11px]">••••••••</span>
           </DetailSidebarProperty>
+          {PROVIDER_MANIFESTS[connection.provider]?.supports_write && (
+            <DetailSidebarProperty label="Write access">
+              <Switch
+                checked={connection.writable ?? false}
+                onCheckedChange={(checked) =>
+                  sc.actions.updateConnection(connection.id, { writable: checked })
+                }
+              />
+            </DetailSidebarProperty>
+          )}
         </DetailSidebarPropertyGrid>
       </DetailSidebarSection>
 
@@ -198,7 +211,7 @@ export function SourceConnectionDetail({
         back={{ href: "/dashboard/settings/sources", label: "Sources" }}
         identityIcon={
           <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/60 bg-card text-[13px] font-semibold text-muted-foreground">
-            {connection.provider === "notion" ? "N" : "G"}
+            {PROVIDER_MANIFESTS[connection.provider]?.icon ?? "?"}
           </div>
         }
         identityTitle={connection.account_label}
@@ -445,16 +458,12 @@ function ItemsTab({
               {item.source_external_id && (
                 <DropdownMenuItem asChild>
                   <a
-                    href={
-                      connection.provider === "notion"
-                        ? `https://notion.so/${item.source_external_id.replace(/-/g, "")}`
-                        : `https://drive.google.com/file/d/${item.source_external_id}`
-                    }
+                    href={getSourceUrl(connection.provider, item.source_external_id)}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
                     <ExternalLink className="mr-2 h-3.5 w-3.5" />
-                    Open in {PROVIDER_LABELS[connection.provider]}
+                    Open in {PROVIDER_LABELS[connection.provider] ?? connection.provider}
                   </a>
                 </DropdownMenuItem>
               )}

@@ -14,7 +14,7 @@ Every knowledge item has a **kind** (what it is) and a **scope** (who can see it
 <CardGroup cols={2}>
   <Card title="Kind" icon="shapes">
     **Page** — rich-text documents (company briefs, style guides, priorities).
-    **Playbook** — structured procedures and SOPs.
+    **Skill** — structured procedures and SOPs.
     **File** — uploaded files (images, PDFs, spreadsheets, audio, video).
     **Source** — externally synced content from connected integrations.
   </Card>
@@ -37,7 +37,7 @@ Boot context is what an agent reads before doing any work. Two mechanisms contro
 
 <Steps>
   <Step title="Create a knowledge item">
-    Go to **Knowledge** in the left sidebar and create a new page, playbook, or upload a file.
+    Go to **Knowledge** in the left sidebar and create a new page, skill, or upload a file.
   </Step>
   <Step title="Set scope and visibility">
     For **all agents**: set scope to **Workspace** and toggle **Pinned** on.
@@ -102,11 +102,11 @@ To update: edit the item directly — changes take effect on the next session.
 
 ---
 
-## Agent-created playbooks
+## Agent-created skills
 
-Agents don't just consume knowledge — they create it. When an agent discovers a reusable method during work, it can autonomously create a **playbook** scoped to itself. This happens via the `hq_playbook_upsert.py` skill.
+Agents don't just consume knowledge — they create it. When an agent discovers a reusable method during work, it can autonomously create a **skill** scoped to itself. This happens via the `hq_skill_upsert.py` skill.
 
-**When agents create playbooks:**
+**When agents create skills:**
 
 - After performing the same sequence 3+ times successfully
 - After a breakthrough discovery (figuring out a non-obvious method through trial and error)
@@ -114,12 +114,12 @@ Agents don't just consume knowledge — they create it. When an agent discovers 
 
 **What you see:**
 
-- The agent detail page shows a **Playbooks** section with the agent's self-created procedures
+- The agent detail page shows a **Skills** section with the agent's self-created procedures
 - A blue dot indicates recent edits (within 7 days), with the one-line reason displayed below
 - The knowledge editor's **History** panel shows who made each edit (agent name + emoji vs "You")
-- The dashboard fleet card shows how many playbooks were updated this week
+- The dashboard fleet card shows how many skills were updated this week
 
-**No approval gate.** Agents write directly. You observe via the audit trail and can edit, refine, or delete playbooks at any time through the standard knowledge editor. If you correct a playbook, the agent will respect your edits on subsequent sessions.
+**No approval gate.** Agents write directly. You observe via the audit trail and can edit, refine, or delete skills at any time through the standard knowledge editor. If you correct a skill, the agent will respect your edits on subsequent sessions.
 
 ---
 

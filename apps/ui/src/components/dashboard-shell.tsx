@@ -1,8 +1,7 @@
 "use client";
 
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import {
   LayoutDashboard,
@@ -44,7 +43,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { ProjectSwitcher } from "@/components/projects/project-switcher";
+import { WorkspaceSwitcher } from "@/components/workspaces/workspace-switcher";
 import { SignInModal } from "@/components/auth/sign-in-modal";
 import { useAuthWatcher } from "@/hooks/use-auth-watcher";
 import { ModulesProvider } from "@/components/shared/modules-context";
@@ -277,16 +276,16 @@ function SidebarInner({
   showLabels,
   pathname,
   onLinkClick,
-  activeProjectId,
-  projects,
+  activeWorkspaceId,
+  workspaces,
   isHosted,
   modules,
 }: {
   showLabels: boolean;
   pathname: string;
   onLinkClick?: () => void;
-  activeProjectId: string | null;
-  projects: SwitcherProject[];
+  activeWorkspaceId: string | null;
+  workspaces: SwitcherWorkspace[];
   isHosted: boolean;
   modules?: Record<string, boolean>;
 }) {
@@ -306,11 +305,12 @@ function SidebarInner({
 
   return (
     <>
-      {/* Project switcher (renders as a plain label when ≤1 project) */}
-      <ProjectSwitcher
-        activeProjectId={activeProjectId}
-        projects={projects}
+      {/* Workspace switcher (renders as a plain label when ≤1 workspace) */}
+      <WorkspaceSwitcher
+        activeWorkspaceId={activeWorkspaceId}
+        workspaces={workspaces}
         showLabels={showLabels}
+        isHosted={isHosted}
       />
 
       {/* Search hint — top of sidebar */}
@@ -371,7 +371,10 @@ function SidebarInner({
                     </div>
                     {showLabels && <span className="flex-1">{item.label}</span>}
                     {showBadge && showLabels && (
-                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground">
+                      <span
+                        className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground"
+                        aria-label={`${unreadCount} unread notifications`}
+                      >
                         {unreadCount > 99 ? "99+" : unreadCount}
                       </span>
                     )}
@@ -485,7 +488,7 @@ function SidebarInner({
   );
 }
 
-interface SwitcherProject {
+interface SwitcherWorkspace {
   id: string;
   label: string;
   emoji: string;
@@ -494,20 +497,19 @@ interface SwitcherProject {
 export function DashboardShell({
   user,
   children,
-  activeProjectId,
-  projects,
+  activeWorkspaceId,
+  workspaces,
   isHosted = false,
   modules,
 }: {
   user: User;
   children: React.ReactNode;
-  activeProjectId: string | null;
-  projects: SwitcherProject[];
+  activeWorkspaceId: string | null;
+  workspaces: SwitcherWorkspace[];
   isHosted?: boolean;
   modules?: Record<string, boolean>;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const isMobile = useIsMobile();
@@ -537,13 +539,6 @@ export function DashboardShell({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [toggle]);
 
-  const handleSignOut = React.useCallback(async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
-  }, [router]);
-
   const handleMobileClose = React.useCallback(() => {
     setMobileOpen(false);
   }, []);
@@ -552,10 +547,11 @@ export function DashboardShell({
   // user get kicked out to /login. Triggers on fresh load with no session,
   // when the browser emits SIGNED_OUT (token expired), or when a later
   // caller invokes requireSignIn() after a 401.
-  const auth = useAuthWatcher();
-  const activeProject = React.useMemo(
-    () => projects.find((p) => p.id === activeProjectId) ?? projects[0] ?? null,
-    [projects, activeProjectId],
+  const auth = useAuthWatcher({ signOutPath: isHosted ? "/auth" : "/login" });
+  const handleSignOut = auth.signOut;
+  const activeWorkspace = React.useMemo(
+    () => workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[0] ?? null,
+    [workspaces, activeWorkspaceId],
   );
 
   return (
@@ -563,12 +559,12 @@ export function DashboardShell({
       <ModulesProvider modules={modules}>
       <KeyboardShortcutsProvider>
         <TooltipProvider delayDuration={200}>
-          {activeProject && (
+          {activeWorkspace && (
             <SignInModal
               open={auth.needsSignIn}
               onSuccess={auth.close}
-              workspaceLabel={activeProject.label}
-              workspaceEmoji={activeProject.emoji}
+              workspaceLabel={activeWorkspace.label}
+              workspaceEmoji={activeWorkspace.emoji}
               defaultEmail={auth.email ?? user?.email ?? ""}
             />
           )}
@@ -589,8 +585,8 @@ export function DashboardShell({
                     showLabels
                     pathname={pathname}
                     onLinkClick={handleMobileClose}
-                    activeProjectId={activeProjectId}
-                    projects={projects}
+                    activeWorkspaceId={activeWorkspaceId}
+                    workspaces={workspaces}
                     isHosted={isHosted}
                     modules={modules}
                   />
@@ -608,8 +604,8 @@ export function DashboardShell({
               <SidebarInner
                 showLabels={!collapsed}
                 pathname={pathname}
-                activeProjectId={activeProjectId}
-                projects={projects}
+                activeWorkspaceId={activeWorkspaceId}
+                workspaces={workspaces}
                 isHosted={isHosted}
                 modules={modules}
               />

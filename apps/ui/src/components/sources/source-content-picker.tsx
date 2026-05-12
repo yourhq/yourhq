@@ -5,13 +5,13 @@ import type { SourceBrowseItem, SourceProvider } from "@/lib/sources/types";
 import { PROVIDER_LABELS } from "@/lib/sources/types";
 import { useSourceBrowse } from "@/hooks/use-source-browse";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+} from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -174,16 +174,16 @@ export function SourceContentPicker({
   const isSearchMode = searchResults !== null;
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-2xl flex flex-col max-h-[80vh]">
-        <DialogHeader>
-          <DialogTitle>
+    <ResponsiveDialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <ResponsiveDialogContent variant="fullscreen" className="sm:max-w-2xl flex flex-col max-h-[80vh]">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>
             Select content from {PROVIDER_LABELS[provider]}
-          </DialogTitle>
-          <DialogDescription>
+          </ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>
             Choose pages and databases to sync into Knowledge.
-          </DialogDescription>
-        </DialogHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -247,7 +247,7 @@ export function SourceContentPicker({
           )}
         </div>
 
-        <DialogFooter className="flex items-center justify-between gap-2 sm:justify-between">
+        <ResponsiveDialogFooter className="flex items-center justify-between gap-2 sm:justify-between">
           <span className="text-[13px] text-muted-foreground">
             {selected.size > 0
               ? `${selected.size} item${selected.size > 1 ? "s" : ""} selected`
@@ -268,9 +268,9 @@ export function SourceContentPicker({
               {selected.size !== 1 ? "s" : ""}
             </Button>
           </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </ResponsiveDialogFooter>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }
 

@@ -12,6 +12,7 @@ import {
 import type { Routine } from "@/lib/routines/types";
 import { TRIGGER_TYPE_COLORS } from "@/lib/routines/types";
 import { humanizeRoutine } from "@/lib/routines/humanize";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,7 +41,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowUpDown, Bot, Clock, MoreHorizontal, Pencil, Trash2, Zap } from "lucide-react";
+import { ArrowUpDown, Bot, Clock, MoreHorizontal, Pencil, Play, Trash2, Zap } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface RoutinesTableProps {
@@ -48,6 +49,7 @@ interface RoutinesTableProps {
   onEdit: (routine: Routine) => void;
   onDelete: (id: string) => void;
   onToggleActive: (id: string, currentState: boolean) => void;
+  onRunNow?: (id: string) => void;
 }
 
 export function RoutinesTable({
@@ -55,7 +57,9 @@ export function RoutinesTable({
   onEdit,
   onDelete,
   onToggleActive,
+  onRunNow,
 }: RoutinesTableProps) {
+  const mobile = useIsMobile();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -144,6 +148,23 @@ export function RoutinesTable({
       ),
     },
     {
+      id: "nextRun",
+      accessorFn: (row) => row.next_run_at,
+      header: "Next run",
+      size: 110,
+      cell: ({ row }) => {
+        const r = row.original;
+        if (r.trigger_type !== "schedule" || !r.is_active || !r.next_run_at) {
+          return <span className="text-[11px] text-muted-foreground/50">—</span>;
+        }
+        return (
+          <span className="text-[11px] text-muted-foreground">
+            {formatDistanceToNow(new Date(r.next_run_at), { addSuffix: true })}
+          </span>
+        );
+      },
+    },
+    {
       id: "lastRun",
       accessorFn: (row) => row.last_run_at,
       header: ({ column }) => (
@@ -209,6 +230,12 @@ export function RoutinesTable({
               <Pencil className="mr-2 h-3.5 w-3.5" />
               Edit
             </DropdownMenuItem>
+            {onRunNow && (
+              <DropdownMenuItem onClick={() => onRunNow(row.original.id)}>
+                <Play className="mr-2 h-3.5 w-3.5" />
+                Run now
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
@@ -232,6 +259,120 @@ export function RoutinesTable({
     state: { sorting },
     onSortingChange: setSorting,
   });
+
+  if (mobile) {
+    return (
+      <>
+        <div className="space-y-2">
+          {routines.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              className="flex w-full items-start gap-3 rounded-lg border border-border/50 p-3 text-left transition-colors hover:bg-accent/30 active:bg-accent/50"
+              onClick={() => onEdit(r)}
+            >
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium truncate">{r.name}</span>
+                  <Badge
+                    variant="secondary"
+                    className={TRIGGER_TYPE_COLORS[r.trigger_type]}
+                  >
+                    {r.trigger_type === "schedule" ? (
+                      <Clock className="mr-1 h-3 w-3" />
+                    ) : (
+                      <Zap className="mr-1 h-3 w-3" />
+                    )}
+                    {r.trigger_type === "schedule" ? "Schedule" : "Event"}
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-muted-foreground truncate">
+                  {humanizeRoutine(r)}
+                </p>
+                <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Bot className="h-3 w-3" />
+                    {r.agent?.name ?? r.agent_slug}
+                  </span>
+                  {r.last_run_at && (
+                    <span>{formatDistanceToNow(new Date(r.last_run_at), { addSuffix: true })}</span>
+                  )}
+                  <span>{r.run_count} runs</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 pt-0.5">
+                <Switch
+                  data-size="sm"
+                  checked={r.is_active}
+                  onCheckedChange={() => onToggleActive(r.id, r.is_active)}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenuItem onClick={() => onEdit(r)}>
+                      <Pencil className="mr-2 h-3.5 w-3.5" />
+                      Edit
+                    </DropdownMenuItem>
+                    {onRunNow && (
+                      <DropdownMenuItem onClick={() => onRunNow(r.id)}>
+                        <Play className="mr-2 h-3.5 w-3.5" />
+                        Run now
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => setDeleteId(r.id)}
+                    >
+                      <Trash2 className="mr-2 h-3.5 w-3.5" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <AlertDialog
+          open={!!deleteId}
+          onOpenChange={(open) => !open && setDeleteId(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete routine?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently remove this routine. Existing inbox items
+                will not be affected.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => {
+                  if (deleteId) onDelete(deleteId);
+                  setDeleteId(null);
+                }}
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </>
+    );
+  }
 
   return (
     <>

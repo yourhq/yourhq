@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogTitle,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+} from "@/components/ui/responsive-dialog";
 import { cn } from "@/lib/utils";
 
 export type EditScope = "instance" | "series";
@@ -29,12 +29,12 @@ export function RecurrenceScopeDialog({
   const [scope, setScope] = useState<EditScope>("series");
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onCancel()}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogTitle>{title}</DialogTitle>
-        <DialogDescription className="sr-only">
+    <ResponsiveDialog open={open} onOpenChange={(o) => !o && onCancel()}>
+      <ResponsiveDialogContent className="sm:max-w-sm">
+        <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
+        <ResponsiveDialogDescription className="sr-only">
           Choose whether to apply edits to just this occurrence or to all future occurrences.
-        </DialogDescription>
+        </ResponsiveDialogDescription>
 
         <div className="flex flex-col gap-1.5 mt-2">
           {[
@@ -66,7 +66,7 @@ export function RecurrenceScopeDialog({
           ))}
         </div>
 
-        <DialogFooter className="mt-3 gap-1.5">
+        <ResponsiveDialogFooter className="mt-3 gap-1.5">
           <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancel}>
             Cancel
           </Button>
@@ -77,8 +77,8 @@ export function RecurrenceScopeDialog({
           >
             Apply
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </ResponsiveDialogFooter>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

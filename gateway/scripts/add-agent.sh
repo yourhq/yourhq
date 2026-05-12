@@ -79,15 +79,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 [ -z "$AGENT_NAME" ] && echo "ERROR: <branch> positional arg required. See --help." && exit 1
-if [ "$CHANNEL" = "telegram" ] && [ -z "$BOT_TOKEN" ]; then
-  echo "ERROR: --telegram-token required for telegram channel." && exit 1
-fi
-if [ "$CHANNEL" = "discord" ] && [ -z "$DISCORD_TOKEN" ]; then
-  echo "ERROR: --discord-token required for discord channel." && exit 1
-fi
-if [ "$CHANNEL" = "slack" ] && { [ -z "$SLACK_APP_TOKEN" ] || [ -z "$SLACK_BOT_TOKEN" ]; }; then
-  echo "ERROR: --slack-app-token and --slack-bot-token required for slack channel." && exit 1
-fi
 
 CONFIG="$HOME/.openclaw/openclaw.json"
 REPO_DIR="$HOME/.openclaw/repo.git"
@@ -98,6 +89,18 @@ WORKSPACE="$HOME/.openclaw/workspace-${AGENT_NAME}"
 # Fallbacks
 [ -z "$AGENT_SLUG" ] && AGENT_SLUG="${AGENT_NAME##*/}"
 [ -z "$SOURCE_BRANCH" ] && SOURCE_BRANCH="default"
+
+# Load channel tokens from secrets env (written by secrets_sync daemon)
+OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
+SECRETS_FILE="$OPENCLAW_HOME/secrets/agents/${AGENT_SLUG}.env"
+if [ -f "$SECRETS_FILE" ]; then
+  set -a
+  # shellcheck source=/dev/null
+  . "$SECRETS_FILE"
+  set +a
+fi
+[ -z "$BOT_TOKEN" ] && BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
+[ -z "$DISCORD_TOKEN" ] && DISCORD_TOKEN="${DISCORD_BOT_TOKEN:-}"
 
 echo "══════════════════════════════════════════"
 echo "  Adding agent: $AGENT_NAME"
@@ -373,7 +376,12 @@ if [ -d "$SHARED_AUTH" ] && [ -f "$SHARED_AUTH/auth-profiles.json" ]; then
 fi
 
 # ── 11. Restart gateway to pick up new agent ───────────────────────────
-openclaw gateway restart 2>/dev/null || true
+# Try the service restart first (works in docker-compose setups where the
+# gateway runs as a managed service). Fall back to SIGHUP on the running
+# foreground process (E2B / exec-based setups).
+openclaw gateway restart 2>/dev/null \
+  || kill -HUP "$(pgrep -f 'openclaw gateway run' | head -1)" 2>/dev/null \
+  || true
 case "$CHANNEL" in
   telegram) echo "✓ Agent '$AGENT_NAME' added. Pair: openclaw pairing approve telegram <CODE>" ;;
   discord)  echo "✓ Agent '$AGENT_NAME' added. Pair: openclaw pairing approve discord <CODE>" ;;

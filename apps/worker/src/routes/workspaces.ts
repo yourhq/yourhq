@@ -6,8 +6,15 @@ import {
   getWorkspace,
   getWorkspacesForUser,
   updateWorkspace,
+  logSandboxEvent,
 } from "../lib/master-supabase.js";
 import { createCheckoutSession, createBillingPortalSession, getStripe } from "../lib/stripe.js";
+import { provisionWorkspace } from "../lib/provisioner.js";
+import { decryptSecret } from "../lib/secret-crypto.js";
+import { getPublicSiteUrl } from "../lib/env.js";
+import { E2BSandboxProvider } from "../providers/e2b.js";
+
+const sandboxProvider = new E2BSandboxProvider();
 
 const app = new Hono();
 
@@ -18,8 +25,6 @@ app.get("/users/by-email/:email", async (c) => {
   if (!user) return c.json({ error: "User not found" }, 404);
 
   const workspaces = await getWorkspacesForUser(user.id);
-  // service_role_key included — endpoint is bearer-auth-gated, key is
-  // stored in an httpOnly cookie server-side, never exposed to browser JS.
   return c.json({
     user: { id: user.id, email: user.email, display_name: user.display_name },
     workspaces: workspaces.map((w) => ({
@@ -29,9 +34,51 @@ app.get("/users/by-email/:email", async (c) => {
       status: w.subscription_status,
       supabase_url: w.supabase_url,
       supabase_anon_key: w.supabase_anon_key,
-      supabase_service_role_key: w.supabase_service_role_key_enc,
     })),
   });
+});
+
+// Resolve the active workspace's Supabase config for the UI server.
+// This route is internal-token gated and should never be called from browser JS.
+app.get("/workspaces/:id/connection", async (c) => {
+  const ws = await getWorkspace(c.req.param("id"));
+  if (!ws) return c.json({ error: "Not found" }, 404);
+
+  const serviceRoleKey = decryptSecret(ws.supabase_service_role_key_enc);
+
+  return c.json({
+    id: ws.id,
+    label: ws.label,
+    emoji: ws.emoji,
+    status: ws.subscription_status,
+    supabase_url: ws.supabase_url,
+    supabase_anon_key: ws.supabase_anon_key,
+    supabase_service_role_key: serviceRoleKey,
+    setup_metadata: ws.setup_metadata ?? {},
+  });
+});
+
+// Persist hosted onboarding progress in the master control plane. The tenant
+// project remains the source of truth for product data; this is only wizard state.
+app.patch("/workspaces/:id/onboarding", async (c) => {
+  const ws = await getWorkspace(c.req.param("id"));
+  if (!ws) return c.json({ error: "Not found" }, 404);
+
+  const body = await c.req.json<{
+    step?: string;
+    complete?: boolean;
+    data?: Record<string, unknown>;
+  }>();
+  const previous = ws.setup_metadata ?? {};
+  const next = {
+    ...previous,
+    onboardingStep: body.step ?? previous.onboardingStep,
+    onboardingComplete: body.complete ?? previous.onboardingComplete ?? false,
+    ...(body.data ?? {}),
+  };
+
+  await updateWorkspace(ws.id, { setup_metadata: next } as Record<string, unknown>);
+  return c.json({ ok: true, setup_metadata: next });
 });
 
 // Get workspace provisioning status (polled by /provision page)
@@ -39,12 +86,25 @@ app.get("/workspaces/:id/status", async (c) => {
   const ws = await getWorkspace(c.req.param("id"));
   if (!ws) return c.json({ error: "Not found" }, 404);
 
+  let autoLoginTokenHash: string | null = null;
+  let autoLoginType = "magiclink";
+  if (ws.provision_stage === "complete" && (ws as any).auto_login_url) {
+    try {
+      const loginUrl = new URL((ws as any).auto_login_url);
+      autoLoginTokenHash = loginUrl.searchParams.get("token") ?? null;
+      autoLoginType = loginUrl.searchParams.get("type") ?? "magiclink";
+    } catch {
+      // URL parsing failed — non-fatal
+    }
+  }
+
   return c.json({
     provision_stage: ws.provision_stage,
     provision_error: ws.provision_error,
     subscription_status: ws.subscription_status,
     e2b_sandbox_status: ws.e2b_sandbox_status,
-    auto_login_url: ws.provision_stage === "complete" ? (ws as any).auto_login_url ?? null : null,
+    auto_login_token_hash: autoLoginTokenHash,
+    auto_login_type: autoLoginType,
   });
 });
 
@@ -71,7 +131,7 @@ app.get("/workspaces/:id/siblings", async (c) => {
   });
 });
 
-// Create Stripe Checkout session for a new workspace
+// Create Stripe Checkout session for a workspace
 app.post("/checkout", async (c) => {
   const body = await c.req.json<{
     email: string;
@@ -79,6 +139,8 @@ app.post("/checkout", async (c) => {
     workspaceLabel?: string;
     workspaceEmoji?: string;
     contextPreset?: string;
+    successUrl?: string;
+    cancelUrl?: string;
   }>();
 
   const email = body.email?.toLowerCase().trim();
@@ -90,40 +152,104 @@ app.post("/checkout", async (c) => {
   }
 
   const db = getMasterSupabase();
-  const { data: ws, error } = await db
+  const setupMetadata = {
+    ownerName: body.ownerName || "",
+    preferredName: body.ownerName || "",
+    workspaceName: body.workspaceLabel || "My Workspace",
+    workspaceSlug: (body.workspaceLabel || "workspace")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 40) || "workspace",
+    intentKey: body.contextPreset || "other",
+    contextPresetKey: body.contextPreset || "other",
+    contextPreset: body.contextPreset || "other",
+    onboardingStep: "provider",
+    onboardingComplete: false,
+  };
+
+  // Reuse existing pending workspace if one exists for this user
+  const { data: existing } = await db
     .from("hosted_workspaces")
-    .insert({
-      user_id: user.id,
-      label: body.workspaceLabel || "My Workspace",
-      emoji: body.workspaceEmoji || "🏠",
-      subscription_status: "pending",
-      setup_metadata: {
-        ownerName: body.ownerName || "",
-        contextPreset: body.contextPreset || "other",
-      },
-    })
     .select("id")
-    .single();
-  if (error || !ws) {
-    return c.json({ error: error?.message ?? "Failed to create workspace" }, 500);
+    .eq("user_id", user.id)
+    .eq("subscription_status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let workspaceId: string;
+
+  if (existing) {
+    workspaceId = existing.id;
+    await db
+      .from("hosted_workspaces")
+      .update({
+        label: body.workspaceLabel || "My Workspace",
+        emoji: body.workspaceEmoji || "🏠",
+        setup_metadata: setupMetadata,
+      })
+      .eq("id", existing.id);
+  } else {
+    const { data: ws, error } = await db
+      .from("hosted_workspaces")
+      .insert({
+        user_id: user.id,
+        label: body.workspaceLabel || "My Workspace",
+        emoji: body.workspaceEmoji || "🏠",
+        subscription_status: "pending",
+        setup_metadata: setupMetadata,
+      })
+      .select("id")
+      .single();
+    if (error || !ws) {
+      return c.json({ error: error?.message ?? "Failed to create workspace" }, 500);
+    }
+    workspaceId = ws.id;
   }
 
-  const origin = c.req.header("origin") ?? "https://yourhq.ai";
+  const origin = getPublicSiteUrl();
   const url = await createCheckoutSession({
     customerEmail: email,
-    workspaceId: ws.id,
-    successUrl: `${origin}/provision/${ws.id}`,
-    cancelUrl: `${origin}/signup`,
+    customerId: user.stripe_customer_id,
+    workspaceId,
+    successUrl: body.successUrl || `${origin}/provision/${workspaceId}`,
+    cancelUrl: body.cancelUrl || `${origin}/signup`,
   });
 
-  return c.json({ url });
+  return c.json({ url, workspaceId });
 });
 
-// Cancel a workspace (30-day grace period)
+// Retry provisioning for a workspace stuck in error state
+app.post("/workspaces/:id/retry-provision", async (c) => {
+  const ws = await getWorkspace(c.req.param("id"));
+  if (!ws) return c.json({ error: "Not found" }, 404);
+
+  if (ws.provision_stage !== "error") {
+    return c.json({ error: "Workspace is not in an error state" }, 400);
+  }
+
+  const user = await getMasterSupabase()
+    .from("hosted_users")
+    .select("email")
+    .eq("id", ws.user_id)
+    .single();
+  if (!user.data?.email) {
+    return c.json({ error: "User not found" }, 404);
+  }
+
+  provisionWorkspace(ws.id, user.data.email, sandboxProvider).catch((err) => {
+    console.error(`[retry-provision] ${ws.id} failed:`, err);
+  });
+
+  return c.json({ ok: true });
+});
+
+// Cancel a workspace (30-day grace period, sandbox paused immediately)
 app.post("/workspaces/:id/cancel", async (c) => {
   const ws = await getWorkspace(c.req.param("id"));
   if (!ws) return c.json({ error: "Not found" }, 404);
-  if (ws.subscription_status !== "active") {
+  if (ws.subscription_status !== "active" && ws.subscription_status !== "suspended") {
     return c.json({ error: "Workspace is not active" }, 400);
   }
 
@@ -136,12 +262,30 @@ app.post("/workspaces/:id/cancel", async (c) => {
     });
   }
 
+  if (ws.e2b_sandbox_id && ws.e2b_sandbox_status === "running") {
+    try {
+      await sandboxProvider.pause(ws.e2b_sandbox_id);
+      await updateWorkspace(ws.id, { e2b_sandbox_status: "paused" } as any);
+      await logSandboxEvent(ws.id, "paused", { reason: "user_canceled" });
+    } catch (err) {
+      console.error("[cancel] Failed to pause sandbox");
+    }
+  }
+
   await updateWorkspace(ws.id, {
     subscription_status: "canceling",
     cancel_at: cancelAt,
   } as Record<string, unknown>);
 
   return c.json({ ok: true, cancel_at: cancelAt });
+});
+
+// Record workspace activity (called on login)
+app.post("/workspaces/:id/touch", async (c) => {
+  await updateWorkspace(c.req.param("id"), {
+    last_active_at: new Date().toISOString(),
+  } as Record<string, unknown>);
+  return c.json({ ok: true });
 });
 
 // Create Stripe billing portal session
@@ -160,7 +304,7 @@ app.post("/workspaces/:id/billing-portal", async (c) => {
     return c.json({ error: "No billing account found" }, 400);
   }
 
-  const origin = c.req.header("origin") ?? "https://yourhq.ai";
+  const origin = getPublicSiteUrl();
   const url = await createBillingPortalSession(
     user.stripe_customer_id,
     `${origin}/dashboard/account`,

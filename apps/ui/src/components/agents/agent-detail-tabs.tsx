@@ -39,14 +39,16 @@ import {
 } from "@/components/shared/detail-sidebar";
 import { InboxSection } from "@/components/inbox/inbox-section";
 import { AgentProvisioning } from "@/components/agents/agent-provisioning";
+import { AgentChannelCard } from "@/components/agents/agent-channel-card";
 import { AgentFileBrowser } from "./agent-file-browser";
+import { AgentBrowserTab } from "./agent-browser-tab";
 import { RoutinesSection } from "@/components/routines/routines-section";
 import { OpenDesktopModal } from "@/components/gateways/open-desktop-modal";
 import { getGatewayDesktopUrlAction } from "@/app/dashboard/settings/gateways/actions";
 import { AgentModelSection } from "@/components/agents/agent-model-section";
 import { AgentOrgSlice } from "@/components/agents/agent-org-slice";
 import { AgentUsageRail } from "./agent-usage-rail";
-import { AgentUsageTab } from "./agent-usage-tab";
+import { AgentSecretsTab } from "./agent-secrets-tab";
 import { AgentKnowledgeSection } from "./agent-knowledge-section";
 import { updateAgent, toggleAgentPauseAction } from "@/app/dashboard/agents/actions";
 
@@ -178,14 +180,18 @@ export function AgentDetailTabs({
             <div className="border-b border-border/60 px-5">
               <TabsList variant="line" className="h-9">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="usage">Usage</TabsTrigger>
+                <TabsTrigger value="secrets">Secrets</TabsTrigger>
                 <TabsTrigger value="files">Files</TabsTrigger>
-                <TabsTrigger value="operations">Operations</TabsTrigger>
+                {agent.gateway_id && (
+                  <TabsTrigger value="browser">Browser</TabsTrigger>
+                )}
+                <TabsTrigger value="activity">Activity</TabsTrigger>
               </TabsList>
             </div>
 
             <TabsContent value="overview" className="min-h-0 flex-1 overflow-auto">
               <div className="mx-auto max-w-3xl space-y-6 px-5 py-5">
+                <AgentChannelCard agent={agent} onAgentUpdated={onAgentUpdated} />
                 {agent.description && (
                   <p className="text-sm text-muted-foreground">
                     {agent.description}
@@ -197,14 +203,15 @@ export function AgentDetailTabs({
                 <div className="border-t border-border/50 pt-6">
                   <RoutinesSection agent={agent} onAgentUpdated={onAgentUpdated} />
                 </div>
-                <div className="border-t border-border/50 pt-6">
-                  <InboxSection agentId={agent.id} />
-                </div>
               </div>
             </TabsContent>
 
-            <TabsContent value="usage" className="min-h-0 flex-1 overflow-auto">
-              <AgentUsageTab agentId={agent.id} />
+            <TabsContent value="secrets" className="min-h-0 flex-1 overflow-auto">
+              <AgentSecretsTab
+                agentId={agent.id}
+                agentName={agent.name}
+                gatewayId={agent.gateway_id}
+              />
             </TabsContent>
 
             <TabsContent value="files" className="min-h-0 flex-1 overflow-auto">
@@ -213,12 +220,21 @@ export function AgentDetailTabs({
               </div>
             </TabsContent>
 
+            {agent.gateway_id && (
+              <TabsContent value="browser" className="min-h-0 flex-1">
+                <AgentBrowserTab slug={agent.slug} />
+              </TabsContent>
+            )}
+
             <TabsContent
-              value="operations"
+              value="activity"
               className="min-h-0 flex-1 overflow-auto"
             >
-              <div className="mx-auto max-w-3xl px-5 py-5">
-                <AgentProvisioning agent={agent} />
+              <div className="mx-auto max-w-3xl space-y-6 px-5 py-5">
+                <InboxSection agentId={agent.id} />
+                <div className="border-t border-border/50 pt-6">
+                  <AgentProvisioning agent={agent} />
+                </div>
               </div>
             </TabsContent>
           </Tabs>

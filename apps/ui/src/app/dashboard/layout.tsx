@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { listSwitcherProjects } from "@/lib/projects";
+import { listSwitcherWorkspaces } from "@/lib/workspaces";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +34,7 @@ export default async function DashboardLayout({
     }
   }
 
-  const { activeProjectId, projects } = await listSwitcherProjects();
+  const { activeWorkspaceId, workspaces } = await listSwitcherWorkspaces();
   const isHosted = process.env.DEPLOYMENT_MODE === "hosted";
 
   const { data: ws } = await supabase
@@ -49,8 +49,8 @@ export default async function DashboardLayout({
   return (
     <DashboardShell
       user={user}
-      activeProjectId={activeProjectId}
-      projects={projects}
+      activeWorkspaceId={activeWorkspaceId}
+      workspaces={workspaces}
       isHosted={isHosted}
       modules={modules}
     >

@@ -359,8 +359,17 @@ function renderOrgBlock(agentName: string, agentSlug: string, org: OrgContext): 
   return parts.join("\n");
 }
 
+function formatKindLabel(item: any): string {
+  const kind = item.kind || "page";
+  if (kind === "source" && item.provider) {
+    return `source — ${item.provider}`;
+  }
+  return kind;
+}
+
 function renderBootContext(state: any) {
   const items = Array.isArray(state.knowledge) ? state.knowledge : [];
+  const sources = Array.isArray(state.connectedSources) ? state.connectedSources : [];
   const parts = [
     "HQ bootstrap status: connected.",
     `Agent slug: ${state.agentSlug || "unknown"}.`,
@@ -375,7 +384,7 @@ function renderBootContext(state: any) {
   if (workspace.length > 0) {
     parts.push("\n### Workspace Knowledge");
     for (const item of workspace) {
-      parts.push(`\n#### ${item.title || "Untitled"} [${item.kind || "page"}]`);
+      parts.push(`\n#### ${item.title || "Untitled"} [${formatKindLabel(item)}]`);
       if (Array.isArray(item.tags) && item.tags.length) parts.push(`Tags: ${item.tags.join(", ")}`);
       if (item.content) parts.push(String(item.content));
     }
@@ -384,9 +393,17 @@ function renderBootContext(state: any) {
   if (agent.length > 0) {
     parts.push("\n### Agent Knowledge");
     for (const item of agent) {
-      parts.push(`\n#### ${item.title || "Untitled"} [${item.kind || "page"}]`);
+      parts.push(`\n#### ${item.title || "Untitled"} [${formatKindLabel(item)}]`);
       if (Array.isArray(item.tags) && item.tags.length) parts.push(`Tags: ${item.tags.join(", ")}`);
       if (item.content) parts.push(String(item.content));
+    }
+  }
+
+  if (sources.length > 0) {
+    parts.push("\n## Connected Sources");
+    for (const src of sources) {
+      const writeLabel = src.writable ? "writable" : "read-only";
+      parts.push(`- ${src.provider} (${src.accountLabel}) — ${src.itemCount} items synced, ${writeLabel}`);
     }
   }
 

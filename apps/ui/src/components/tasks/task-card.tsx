@@ -21,7 +21,8 @@ import {
   Repeat,
 } from "lucide-react";
 import { AgentStatusChip } from "./agent-status-chip";
-import { format, isPast, isToday } from "date-fns";
+import { TaskLabelPills } from "./task-labels-picker";
+import { format, isPast, isToday, parseISO } from "date-fns";
 import { shortCadenceLabel } from "@/lib/tasks/cadence";
 
 const priorityDot: Record<string, string> = {
@@ -40,8 +41,8 @@ interface TaskCardProps {
 export function TaskCard({ task, onClick, onArchive }: TaskCardProps) {
   const overdue =
     task.due_date &&
-    isPast(new Date(task.due_date)) &&
-    !isToday(new Date(task.due_date)) &&
+    isPast(parseISO(task.due_date)) &&
+    !isToday(parseISO(task.due_date)) &&
     task.status !== "done";
 
   return (
@@ -99,7 +100,7 @@ export function TaskCard({ task, onClick, onArchive }: TaskCardProps) {
         )}
       </div>
 
-      {(task.stream || task.series) && (
+      {(task.stream || task.series || (task.labels && task.labels.length > 0)) && (
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           {task.stream && (
             <span className="flex items-center gap-1.5">
@@ -116,6 +117,9 @@ export function TaskCard({ task, onClick, onArchive }: TaskCardProps) {
             <span className="rounded-full border border-border/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
               {shortCadenceLabel(task.series)}
             </span>
+          )}
+          {task.labels && task.labels.length > 0 && (
+            <TaskLabelPills labels={task.labels} max={2} />
           )}
         </div>
       )}
@@ -142,7 +146,7 @@ export function TaskCard({ task, onClick, onArchive }: TaskCardProps) {
                 )}
               >
                 <Calendar className="h-3 w-3" />
-                {format(new Date(task.due_date), "MMM d")}
+                {format(parseISO(task.due_date), "MMM d")}
               </span>
             )}
           </div>

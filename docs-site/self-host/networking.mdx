@@ -537,8 +537,8 @@ Set `NOVNC_BIND=local` in `.env` and restart `docker compose up -d gateway`.
 
 Almost always a Supabase URL / key mismatch. Check:
 
-UI Supabase config lives in the project registry, not `.env`. Open the UI,
-go to Settings → Projects, and verify the active project's URL and keys
+UI Supabase config lives in the workspace registry, not `.env`. Open the UI,
+go to Settings → Database, and verify the active workspace's URL and keys
 are correct. To rotate or fix, use the Edit / Rotate buttons there —
 no rebuild needed.
 

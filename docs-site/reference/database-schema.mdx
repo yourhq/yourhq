@@ -31,6 +31,13 @@ HQ stores shared state in one Supabase project per workspace. The SQL source of 
 | `023_source_connections.sql` | External source connections for knowledge sync |
 | `024_routines_extension.sql` | Event triggers for collections, knowledge items, and tasks |
 | `025_modular_workspace.sql` | Modular workspace onboarding |
+| `026_secrets.sql` | Encrypted secrets (AES-256-GCM), RLS, Realtime, `source_connections.secret_id` FK |
+| `027_source_plugin_support.sql` | Extensible source providers (drops hardcoded provider constraint), `writable` flag on `source_connections`, `source_write` command action |
+| `028_task_relations.sql` | Task dependencies and relations (`task_relations` table with `blocked_by`, `blocks`, `relates_to`, `parent_of`, `child_of`), `get_task_relations()` RPC, `notify_blocker_resolved` trigger |
+| `029_labels.sql` | Managed labels with color and description, `task_labels` junction table |
+| `030_task_templates.sql` | Reusable task group templates with dependency graphs (JSONB items) |
+| `031_overdue_escalation.sql` | pg_cron job to mark overdue tasks as `missed`, inbox notification for assigned agents |
+| `032_plugins.sql` | Plugin system: `hq_plugins`, `hq_plugin_events`, `hq_plugin_state`, `hq_plugin_event_queue` tables, `emit_plugin_event()` trigger function, 11 event triggers, pg_cron cleanup jobs |
 
 For a fresh Supabase project, run all files in filename order from the SQL Editor. The onboarding wizard handles this automatically — it concatenates all files and lets you copy/paste a single SQL blob.
 
@@ -38,7 +45,7 @@ For an existing project, review each migration before applying. All files are id
 
 ## Trust Model
 
-HQ uses a multi-project isolation model.
+HQ uses a multi-workspace isolation model.
 
 - Each Supabase project is a fully-isolated workspace. Within each database, every table enforces tenant-scoped RLS via `tenant_id`.
 - Every tenant-owned table has a `tenant_id` column referencing the `tenants` table. RLS policies enforce `tenant_id = current_tenant_id()` for the `authenticated` role, where `current_tenant_id()` extracts the tenant ID from the JWT's `app_metadata`.
@@ -92,19 +99,23 @@ Important RPCs:
 
 ### Tasks
 
-- `tasks` — operator and agent work items. Supports `model_override` and `thinking_override` columns for per-task model selection when assigned to an agent.
+- `tasks` — operator and agent work items. Supports `model_override` and `thinking_override` columns for per-task model selection when assigned to an agent. Status enum includes `missed` for overdue escalation.
 - `streams` — task grouping and workflow lanes.
 - `task_series` — recurring task definitions. Series-level `model_override` and `thinking_override` propagate to spawned instances.
+- `task_relations` — task-to-task dependency links. Relation types: `blocked_by`, `blocks`, `relates_to`, `parent_of`, `child_of`. The `get_task_relations(p_task_id)` RPC returns relations with joined task metadata. A `notify_blocker_resolved` trigger fires when a blocking task reaches `done` or `cancelled`, creating inbox items for the unblocked task's assignee.
+- `labels` — managed workspace labels with `name`, `color`, and optional `description`.
+- `task_labels` — junction table linking tasks to labels.
+- `task_templates` — reusable task group templates. Each template has a `name`, `description`, and `items` JSONB array containing task definitions with `ref`, `title`, `priority`, `assignee_role`, and `blocked_by` dependency references.
 - `comments` — polymorphic comments with mention support.
-- `entity_links` — universal polymorphic links from tasks (and other entities) to knowledge items, contacts, organizations, collection records, and URLs.
+- `entity_links` — universal polymorphic links from tasks (and other entities) to knowledge items, contacts, organizations, collection records, and URLs. Extended with deliverable support: `is_deliverable` flag, `review_status` (`draft`, `in_review`, `approved`, `revision_requested`, `rejected`), `review_note`, `reviewed_at`, and `submitted_by_agent_id`. Agents submit deliverables via the `hq_submit_deliverable.py` skill; humans review them in the task form's Deliverables tab.
 
-Task assignment and comment mention triggers enqueue `agent_inbox_items` for affected agents. When a task has model/thinking overrides, they are included in the inbox item's `context` JSONB and passed to the agent's session at wake time.
+Task assignment and comment mention triggers enqueue `agent_inbox_items` for affected agents. When a task has model/thinking overrides, they are included in the inbox item's `context` JSONB and passed to the agent's session at wake time. The `escalate_overdue_tasks` pg_cron job (every minute) marks tasks past their due date as `missed` and creates inbox items to notify assigned agents.
 
 ### Knowledge
 
-- `knowledge_items` — unified knowledge store for pages, playbooks, files, and sources. Supports scope (`workspace` or `agent`), pinning, folders, tags, embeddings, and full-text search.
+- `knowledge_items` — unified knowledge store for pages, skills, files, and sources. Supports scope (`workspace` or `agent`), pinning, folders, tags, embeddings, and full-text search.
 - `knowledge_folders` — folder hierarchy for organizing knowledge items.
-- `knowledge_item_agents` — junction table linking agent-scoped items to specific agents. Also used to track agent-created playbooks.
+- `knowledge_item_agents` — junction table linking agent-scoped items to specific agents. Also used to track agent-created skills.
 - `knowledge_chunks` — chunked content with per-chunk embeddings for granular retrieval. References `knowledge_item_id`.
 
 Boot context is controlled by scope and pinning:
@@ -112,7 +123,7 @@ Boot context is controlled by scope and pinning:
 - A **workspace-scoped, pinned** item is included in every agent's startup context.
 - An **agent-scoped** item assigned to specific agents via `knowledge_item_agents` is included only for those agents.
 
-Agents can autonomously create playbooks (`kind = 'playbook'`, `scope = 'agent'`) via `hq_playbook_upsert.py`. The script inserts into `knowledge_items`, links via `knowledge_item_agents`, and logs an audit entry with `actor_type = 'agent'`. The `audit_log.summary` field carries the agent's one-line reason, which is surfaced on the agent detail page.
+Agents can autonomously create skills (`kind = 'skill'`, `scope = 'agent'`) via `hq_skill_upsert.py`. The script inserts into `knowledge_items`, links via `knowledge_item_agents`, and logs an audit entry with `actor_type = 'agent'`. The `audit_log.summary` field carries the agent's one-line reason, which is surfaced on the agent detail page.
 
 Important RPCs:
 
@@ -130,9 +141,26 @@ Important RPCs:
 - `collection_records` — JSONB-backed rows belonging to a collection.
 - `collection_views` — saved views (table, kanban, calendar) with filters and sorting.
 
+### Secrets
+
+- `secrets` — encrypted credentials stored as AES-256-GCM ciphertext (`enc:v1:` prefix format). Scoped per gateway, optionally per agent. Used for channel tokens (Telegram/Discord/Slack), integration OAuth tokens (Notion, Google Drive), and user-managed API keys.
+
+Key columns:
+
+- `gateway_id` (required) — which gateway can decrypt and use this secret.
+- `agent_id` (nullable) — if set, the secret is scoped to one agent; if NULL, it's available to all agents on the gateway.
+- `key` — the environment variable name (e.g. `TELEGRAM_BOT_TOKEN`, `NOTION_SOURCE_A1B2C3D4`). Validated `/^[A-Z][A-Z0-9_]*$/`.
+- `encrypted_value` — the ciphertext. Never returned in API responses (excluded from SELECT columns in server actions).
+- `category` — `user` (operator-managed), `channel` (auto-created at agent provision), or `integration` (auto-created by OAuth flows).
+- `sync_status` — `pending` → `active` (synced to gateway filesystem), or `error`/`waiting`.
+
+Unique indexes enforce one value per key at each scope level (gateway-wide or per-agent). When both exist, agent-scoped secrets override gateway-level ones.
+
+The table is subscribed to Supabase Realtime (`REPLICA IDENTITY FULL`). The gateway's `secrets_sync` daemon picks up INSERT/UPDATE/DELETE events and regenerates `.env` files within seconds.
+
 ### Source Connections
 
-- `source_connections` — external source integrations (Notion, Google Drive) with credentials and sync schedules.
+- `source_connections` — external source integrations with credentials and sync schedules. Providers are plugin-based — each connector is a self-contained folder under `gateway/connectors/<provider>/` with a `manifest.json` that defines auth, UI metadata, and capabilities. The `writable` flag controls whether agents can write back to the source. References `secrets` via `secret_id` FK for encrypted OAuth token storage.
 - `source_sync_runs` — sync execution history and status tracking.
 
 ### Entity Links
@@ -141,6 +169,15 @@ Important RPCs:
 
 Entity links replace the earlier task-specific attachments with a generalized model. When an agent claims a task, it receives all linked entities as context.
 
+Entity links also serve as the deliverable system for tasks. When `is_deliverable = true`, the link represents an agent-submitted work product with a review workflow:
+
+- `review_status`: `draft` → `in_review` → `approved` / `revision_requested` / `rejected`
+- `review_note`: human feedback on revision requests or rejections
+- `submitted_by_agent_id`: which agent submitted the deliverable
+- `reviewed_at`: timestamp of the last review action
+
+Agents submit deliverables via `hq_submit_deliverable.py` (page, URL, or record types). Humans review and approve/reject from the task form UI.
+
 ### Routines
 
 - `routines` — event-driven and schedule-driven rules that turn CRM/task/collection/knowledge changes or cron ticks into agent inbox items.
@@ -148,11 +185,24 @@ Entity links replace the earlier task-specific attachments with a generalized mo
 
 Event routines are evaluated by trigger functions on contacts, tasks, knowledge items, and collection records. Schedule routines use `spawn_routine_schedule_items` via pg_cron to create inbox items at defined intervals.
 
+### Plugins
+
+- `hq_plugins` — plugin registry. One row per installed plugin. Source types: `builtin`, `local`, `webhook`, `marketplace`. Key columns: `hooks` (text array of subscribed events), `config` (operator settings JSONB), `config_schema` (JSON Schema for validation), `webhook_url`/`webhook_secret` (for remote plugins), `capabilities` (declared permissions), `is_enabled` (toggle). Subscribed to Supabase Realtime for live UI updates.
+- `hq_plugin_events` — execution log. Every hook dispatch is recorded with `plugin_id`, `hook`, `status` (success/error/timeout/skipped), `duration_ms`, and `error_message`. 30-day retention via pg_cron.
+- `hq_plugin_state` — scoped key-value store for plugins. Keyed by `(plugin_id, scope_kind, scope_id, state_key)`. Scope kinds: `global`, `agent`, `task`, `workspace`.
+- `hq_plugin_event_queue` — lightweight append-only queue bridging SQL triggers to the plugin runner daemon. Triggers on tasks, agents, knowledge_items, inbox, comments, and secrets write here. The plugin runner polls/subscribes and dispatches to matching plugins. Processed rows are cleaned up hourly via pg_cron.
+
+The `emit_plugin_event()` function is a generic trigger function that writes to the event queue and strips sensitive fields (e.g. `encrypted_value`). It's attached to 11 triggers across core tables.
+
+See [Plugins](/concepts/plugins) for the full architecture and [Plugin events](/reference/plugin-events) for the complete event reference.
+
 ### Configuration Tables
 
 - `field_definitions` — custom fields by entity type.
 - `pipeline_stages` — runtime-configurable pipeline stages.
 - `streams` — task stream definitions.
+- `labels` — managed labels for task categorization (Settings → Labels).
+- `task_templates` — reusable task group templates with dependency graphs (Settings → Templates).
 
 These are configured from the UI and read by forms, tables, kanban views, filters, and agent skills.
 
@@ -172,7 +222,7 @@ These are configured from the UI and read by forms, tables, kanban views, filter
 
 ### Schema Version
 
-The `_schema_version` table tracks the current schema version (currently at v25). The UI reads `EXPECTED_SCHEMA_VERSION` and compares it to the applied version to show update banners when migrations are pending.
+The `_schema_version` table tracks the current schema version (currently at v31). The UI reads `EXPECTED_SCHEMA_VERSION` and compares it to the applied version to show update banners when migrations are pending.
 
 ## Realtime
 
@@ -189,7 +239,7 @@ Fresh project:
 
 1. Create a Supabase project.
 2. Open SQL Editor.
-3. Run every `.sql` file in `db/migrations/` in filename order (`001` through `025`). Or use the onboarding wizard, which concatenates them all into a single copy-paste blob.
+3. Run every `.sql` file in `db/migrations/` in filename order (`001` through `031`). Or use the onboarding wizard, which concatenates them all into a single copy-paste blob.
 4. Create an auth user and disable public signup unless needed.
 
 Existing project:
@@ -197,3 +247,5 @@ Existing project:
 1. Back up the database.
 2. Run all migration files — they are idempotent (`IF NOT EXISTS`, `CREATE OR REPLACE`) and safe to re-run.
 3. Confirm the UI onboarding validator passes.
+
+The schema version table currently tracks v31.

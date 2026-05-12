@@ -18,7 +18,7 @@ The installer (`installer/install.sh`) prompts for the minimum required values a
 There are two flavors of variable that behave very differently:
 
 - **Runtime variables** — read by the container process when it starts. Change the value in `.env`, run `docker compose up -d <service>`, and the new value takes effect. Most variables are runtime.
-- **Build-time variables** — baked into the container image when `docker compose build` runs. Changing the value in `.env` does nothing until the image is rebuilt. HQ no longer uses `NEXT_PUBLIC_SUPABASE_*` for project config; Supabase browser config is injected at runtime from the project registry.
+- **Build-time variables** — baked into the container image when `docker compose build` runs. Changing the value in `.env` does nothing until the image is rebuilt. HQ no longer uses `NEXT_PUBLIC_SUPABASE_*` for project config; Supabase browser config is injected at runtime from the workspace registry.
 
 The installer always runs `docker compose pull` (and falls back to `build` if the image isn't in the registry), so on a fresh install the distinction is invisible. It only matters when you edit `.env` later.
 
@@ -33,11 +33,11 @@ Each variable below lists: **Name / Required / Default / What it does / When to 
 The gateway, dispatcher, and runner each read Supabase credentials from **two sources** in this order:
 
 1. **Environment variables** (`SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`) if set.
-2. **Project registry** at `/config/projects.json` + `/config/secrets.json` (written by the UI's onboarding screen and mounted read-only into the gateway services).
+2. **Workspace registry** at `/config/workspaces.json` + `/config/secrets.json` (written by the UI's onboarding screen and mounted read-only into the gateway services).
 
 The normal path is (2) — you never touch `.env` for Supabase. The onboarding screen writes the creds to the shared `ui-config` volume, the gateway polls `/config` on boot and picks them up automatically.
 
-Use (1) only as an override — e.g. a remote gateway that must always point at a specific project regardless of what the UI's active project is.
+Use (1) only as an override — e.g. a remote gateway that must always point at a specific database regardless of what the UI's active workspace is.
 
 - **`SUPABASE_URL`** — **Optional override**. No default. If set, takes precedence over the registry.
 
@@ -49,15 +49,15 @@ Use (1) only as an override — e.g. a remote gateway that must always point at 
 
 - **`EMBEDDER_CHUNK_CHARS`**, **`EMBEDDER_CHUNK_OVERLAP`**, **`EMBEDDER_MAX_CHUNKS`** — Optional. Defaults to `3500`, `500`, and `500`. These tune the source-agnostic knowledge chunker used for documents now and future file/external-source indexing.
 
-**Where the real creds live**: the project registry files (`/config/projects.json` for URL + anon key, `/config/secrets.json` for service role key). Don't edit these by hand — use the onboarding screen on first boot, or Settings → Projects afterward.
+**Where the real creds live**: the workspace registry files (`/config/workspaces.json` for URL + anon key, `/config/secrets.json` for service role key). Don't edit these by hand — use the onboarding screen on first boot, or Settings → Database afterward.
 
 `secrets.json` is mode `0644` inside the Docker-managed config volume so the UI, gateway, runner, and dispatcher containers can all read it despite running as different users. The host-level Docker volume directory is the real filesystem boundary. Treat the host and every container in the Compose stack as trusted.
 
 ### 2.2 Gateway identity
 
-These let one Supabase project host multiple independent gateway hosts (your laptop, a Mac mini, a VPS) without them stepping on each other.
+These let one Supabase database host multiple independent gateway hosts (your laptop, a Mac mini, a VPS) without them stepping on each other.
 
-- **`GATEWAY_ID`** — **Required**. Default `default`. Unique slug per gateway within a Supabase project. Becomes the `slug` column in the `gateways` table. Override when you bring up a second gateway against the same Supabase (e.g. `mac-mini`, `vps-eu`).
+- **`GATEWAY_ID`** — **Required**. Default `default`. Unique slug per gateway within a Supabase database. Becomes the `slug` column in the `gateways` table. Override when you bring up a second gateway against the same Supabase (e.g. `mac-mini`, `vps-eu`).
 
 - **`GATEWAY_LABEL`** — **Optional**. Default `Primary gateway`. Human-readable label shown in the UI's gateway picker. Override for anything you'd show a person.
 
@@ -182,24 +182,38 @@ Next.js enforces an origin allowlist on server actions and form submissions. Whe
 
 The UI used to bake `NEXT_PUBLIC_SUPABASE_*` into the client bundle at build time, which meant every user had to `docker compose build ui` locally to stamp in their own Supabase values. That's gone.
 
-Now the UI reads its Supabase config at **runtime** from the project registry (`/config/projects.json` + `/config/secrets.json`). The root layout renders a `<script>window.__HQ_CONFIG__ = {...}</script>` tag based on the active project's cookie, so the client bundle picks up whoever's connected without a rebuild.
+Now the UI reads its Supabase config at **runtime** from the workspace registry (`/config/workspaces.json` + `/config/secrets.json`). The root layout renders a `<script>window.__HQ_CONFIG__ = {...}</script>` tag based on the active workspace's cookie, so the client bundle picks up whoever's connected without a rebuild.
 
 **Practical consequences:**
 - The GHCR `yourhq-ui:latest` image works for every user. No `docker compose build ui` required — ever.
-- Changing Supabase creds is a UI action (Settings → Projects → Rotate), not a rebuild.
+- Changing Supabase creds is a UI action (Settings → Database → Rotate), not a rebuild.
 - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` env vars are no longer read by the UI. Leave them unset.
+
+---
+
+### 2.11 Secrets encryption
+
+These variables control how user-managed secrets (channel tokens, API keys, OAuth tokens) are encrypted in the `secrets` table and decrypted on the gateway.
+
+- **`HOSTED_SECRETS_KEY`** — **Optional (hosted only), secret**. Empty. A 32-byte encryption key (base64url, base64, or hex encoded) used for AES-256-GCM encryption of secrets. When set, takes precedence over the HKDF-derived key. Used by the hosted offering where the service role key is not a stable derivation source.
+
+- **`SOURCE_SYNC_POLL_INTERVAL`** — **Optional**. Default `60`. Seconds between source-sync poll cycles (checks `source_connections` for connections due for sync). Not secrets-specific but relevant because source sync now reads OAuth tokens from the secrets filesystem.
+
+Self-hosted deployments do not need `HOSTED_SECRETS_KEY` — the encryption key is automatically derived from `SUPABASE_SERVICE_ROLE_KEY` via HKDF-SHA256 (salt: `yourhq-secrets-v1`, info: `aes-256-gcm`, 32 bytes). This means rotating your service role key requires re-encrypting all secrets.
 
 ---
 
 ## 4. Secrets handling
 
-Every secret lives in plaintext in `.env` on disk. The installer `chmod 600` the file, which is the only layer of protection. Don't commit `.env`, don't paste it into issues, don't ship it in backups unencrypted.
+Stack-level secrets (Supabase keys, gateway auth tokens) live in plaintext in `.env` on disk. The installer `chmod 600` the file, which is the only layer of protection. Don't commit `.env`, don't paste it into issues, don't ship it in backups unencrypted.
+
+User-managed secrets (API keys, channel tokens, OAuth tokens) are stored **encrypted** in the `secrets` table using AES-256-GCM. They are never in `.env` on the UI host. On the gateway, they're decrypted and written to `~/.openclaw/secrets/` as per-agent `.env` files (`chmod 0600`). These derived files are regenerated on every change and do not need manual management. See [Secrets management](/guides/secrets-management) for the full architecture.
 
 If one of these leaks:
 
-- **`SUPABASE_SERVICE_ROLE_KEY`** — bypasses RLS and can read/write every row. **High severity.** Rotate in Supabase dashboard (Project Settings → API → "Generate new service_role key"). Update the affected project in Settings → Projects, or update `.env` if you use env overrides. Restart gateway services after changing env overrides. Audit `audit_log` for suspicious activity.
+- **`SUPABASE_SERVICE_ROLE_KEY`** — bypasses RLS and can read/write every row. **High severity.** Rotate in Supabase dashboard (Project Settings → API → "Generate new service_role key"). Update the affected workspace in Settings → Database, or update `.env` if you use env overrides. Restart gateway services after changing env overrides. Audit `audit_log` for suspicious activity.
 
-- **UI anon key** (stored in `/config/projects.json` per project) — subject to RLS, so damage is bounded by your policies. Rotate in the Supabase dashboard, then update it via Settings → Projects → the affected project in the UI.
+- **UI anon key** (stored in `/config/workspaces.json` per workspace) — subject to RLS, so damage is bounded by your policies. Rotate in the Supabase dashboard, then update it via Settings → Database → the affected workspace in the UI.
 
 - **`GATEWAY_AUTH_TOKEN`** — auth between UI and files-API. Rotate by picking a new value (`openssl rand -hex 32`), writing it to `.env`, and running `docker compose up -d ui gateway` (both services must restart together so they agree on the token).
 
@@ -221,7 +235,7 @@ If one of these leaks:
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 ```
 
-**No environment variables change between production and development** — the dev overlay only changes volume mounts, commands, and the UI image (`node:24-slim` instead of the prebuilt UI image). Your `.env` works as-is. Supabase creds for the UI come from the project registry in both modes, so there's no "did I rebuild" confusion.
+**No environment variables change between production and development** — the dev overlay only changes volume mounts, commands, and the UI image (`node:24-slim` instead of the prebuilt UI image). Your `.env` works as-is. Supabase creds for the UI come from the workspace registry in both modes, so there's no "did I rebuild" confusion.
 
 ---
 
@@ -251,9 +265,9 @@ Edit `.env`, then run the appropriate Compose command to pick up the change. The
 docker compose up -d ui
 ```
 
-### UI project config (no rebuild required)
+### UI workspace config (no rebuild required)
 
-Supabase URL, anon key, service role key per project live in the project registry on the `ui-config` volume, not in `.env`. Change them via the UI (Settings → Projects → Edit / Rotate) — takes effect immediately on the next request.
+Supabase URL, anon key, service role key per workspace live in the workspace registry on the `ui-config` volume, not in `.env`. Change them via the UI (Settings → Database → Edit / Rotate) — takes effect immediately on the next request.
 
 ### Gateway variables
 
@@ -295,7 +309,7 @@ docker compose pull && docker compose up -d
 
 ### Gateway Supabase keys
 
-Changing the gateway's Supabase connection (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) affects the gateway, dispatcher, and runner. UI Supabase creds live in the project registry and don't need any restart:
+Changing the gateway's Supabase connection (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) affects the gateway, dispatcher, and runner. UI Supabase creds live in the workspace registry and don't need any restart:
 
 ```bash
 docker compose up -d gateway dispatcher runner
@@ -305,7 +319,7 @@ docker compose up -d gateway dispatcher runner
 
 ## Troubleshooting checklist
 
-- **"The UI loads but login fails"** — the active project in the registry may have wrong creds. Open Settings → Projects → Edit or Rotate to fix, no restart needed.
+- **"The UI loads but login fails"** — the active workspace in the registry may have wrong creds. Open Settings → Database → Edit or Rotate to fix, no restart needed.
 - **"File browser says 401 / auth error"** — `GATEWAY_AUTH_TOKEN` differs between UI and gateway, or is empty. Set it identically in `.env` and run `docker compose up -d ui gateway`.
 - **"Changed the port but the old one still works"** — port bindings need `--force-recreate` (section 7).
 - **"Changed `TEMPLATES_SOURCE` but I still see old templates"** — it's only read on first boot. See section 2.5.

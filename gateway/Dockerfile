@@ -171,6 +171,16 @@ RUN mkdir -p /etc/xdg/xfce4 /etc/xdg \
 COPY --chown=openclaw:openclaw templates /opt/templates
 COPY --chown=openclaw:openclaw gateway/scripts/plugins /opt/openclaw-plugins
 
+# ── Agent lifecycle scripts (used by command_runner in e2b mode) ──
+COPY --chown=openclaw:openclaw gateway/scripts /home/openclaw/.yourhq-infra
+RUN set -eux; \
+    chmod +x /home/openclaw/.yourhq-infra/*.sh 2>/dev/null || true; \
+    for s in add-agent.sh remove-agent.sh update-agent.sh update-all-agents.sh list-agents.sh; do \
+      if [ -f "/home/openclaw/.yourhq-infra/$s" ]; then \
+        ln -sf "/home/openclaw/.yourhq-infra/$s" "/home/openclaw/$s"; \
+      fi; \
+    done
+
 # ── Entrypoint ───────────────────────────────────────────────
 COPY --chown=openclaw:openclaw gateway/files_api.py /usr/local/bin/files_api.py
 COPY --chown=openclaw:openclaw gateway/entrypoint.sh /usr/local/bin/entrypoint.sh
@@ -179,8 +189,13 @@ COPY --chown=openclaw:openclaw gateway/entrypoint.sh /usr/local/bin/entrypoint.s
 # secrets.json via the shared ui-config volume (mounted at /config).
 RUN mkdir -p /opt/yourhq/daemons && chown -R openclaw:openclaw /opt/yourhq
 COPY --chown=openclaw:openclaw gateway/daemons/registry_config.py /opt/yourhq/registry_config.py
+COPY --chown=openclaw:openclaw gateway/connectors /opt/yourhq/connectors
 COPY --chown=openclaw:openclaw gateway/daemons/inbox_dispatcher.py /opt/yourhq/daemons/inbox_dispatcher.py
 COPY --chown=openclaw:openclaw gateway/daemons/command_runner.py /opt/yourhq/daemons/command_runner.py
+COPY --chown=openclaw:openclaw gateway/daemons/git_backup_sweep.py /opt/yourhq/daemons/git_backup_sweep.py
+COPY --chown=openclaw:openclaw gateway/daemons/secrets_sync.py /opt/yourhq/daemons/secrets_sync.py
+COPY --chown=openclaw:openclaw gateway/daemons/file_processor.py /opt/yourhq/daemons/file_processor.py
+COPY --chown=openclaw:openclaw gateway/daemons/source_sync.py /opt/yourhq/daemons/source_sync.py
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # noVNC (when enabled) listens on 6901 inside the container. The compose file

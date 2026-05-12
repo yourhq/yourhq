@@ -12,7 +12,7 @@ export async function applyMigrations(projectRef: string): Promise<void> {
     throw new Error("No migration files found in db/migrations/");
   }
 
-  console.log(`[schema-runner] Applying ${files.length} migrations to ${projectRef}`);
+  console.log(`[schema-runner] Applying ${files.length} migrations`);
 
   for (const file of files) {
     const sql = await readFile(join(migrationsDir, file), "utf-8");
@@ -31,9 +31,10 @@ export async function applyMigrations(projectRef: string): Promise<void> {
 
     if (!res.ok) {
       const body = await res.text();
+      console.error(`[schema-runner] Migration ${file} failed (${res.status}): ${body}`);
       throw new Error(`Migration ${file} failed (${res.status}): ${body}`);
     }
   }
 
-  console.log(`[schema-runner] All ${files.length} migrations applied`);
+  console.log(`[schema-runner] Applied ${files.length} migrations`);
 }

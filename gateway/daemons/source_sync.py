@@ -224,14 +224,56 @@ def mark_deleted(item_id: str) -> None:
     )
 
 
+def _load_gateway_secrets() -> dict:
+    """Read gateway.env from disk (written by secrets_sync daemon)."""
+    from pathlib import Path
+
+    env_file = Path(os.environ.get("OPENCLAW_HOME", os.path.expanduser("~/.openclaw"))) / "secrets" / "gateway.env"
+    if not env_file.is_file():
+        return {}
+    pairs = {}
+    for line in env_file.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        v = v.strip()
+        if len(v) >= 2 and v[0] == v[-1] and v[0] in ("'", '"'):
+            v = v[1:-1]
+        pairs[k.strip()] = v
+    return pairs
+
+
+def _resolve_credentials(provider: str, connection_id: str, creds: dict) -> dict:
+    """Merge secrets from gateway.env into the credential dict.
+
+    Supports two naming conventions written by the secrets_sync daemon:
+      - Single-key:  {PROVIDER}_SOURCE_{ID_PREFIX}        → injected as ``api_key``
+      - Multi-key:   {PROVIDER}_SOURCE_{ID_PREFIX}__{FIELD} → injected as ``{field}`` (lowercase)
+    """
+    secrets = _load_gateway_secrets()
+    prefix = f"{provider.upper()}_SOURCE_{connection_id[:8].upper()}"
+
+    if prefix in secrets and not creds.get("api_key"):
+        creds["api_key"] = secrets[prefix]
+
+    multi_prefix = prefix + "__"
+    for key, value in secrets.items():
+        if key.startswith(multi_prefix):
+            field_name = key[len(multi_prefix) :].lower()
+            if field_name not in creds:
+                creds[field_name] = value
+
+    return creds
+
+
 def sync_connection(connection: dict) -> None:
     provider = connection["provider"]
-    label = connection["account_label"]
     connection_id = connection["id"]
     interval = connection.get("sync_interval_hours", 6)
-    creds = connection.get("credentials", {})
+    creds = _resolve_credentials(provider, connection_id, dict(connection.get("credentials", {})))
 
-    log(f"Syncing {provider} connection '{label}'")
+    log(f"Syncing {provider} connection")
 
     connector = get_connector(provider)
     if not connector:
@@ -276,7 +318,7 @@ def sync_connection(connection: dict) -> None:
             item = item_by_ext_id.get(ext_id)
             if item:
                 mark_deleted(item["id"])
-                log(f"  Marked deleted: {ext_id}")
+                log("  Marked deleted item")
 
         items_to_fetch = changes.modified
         if not items_to_fetch:
@@ -294,7 +336,7 @@ def sync_connection(connection: dict) -> None:
                 upsert_item(connection_id, ext_id, content, existing)
                 synced += 1
             except Exception as e:
-                log(f"  Failed to sync item {ext_id}: {e}")
+                log(f"  Failed to sync item: {e}")
                 failed += 1
 
     except Exception as e:
@@ -345,7 +387,7 @@ def main() -> None:
         log("No Supabase credentials yet, retrying in 10s...")
         time.sleep(10)
 
-    log(f"Connected to {SUPABASE_URL}")
+    log("Connected to Supabase")
 
     while True:
         try:

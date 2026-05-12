@@ -74,11 +74,13 @@ CREATE TRIGGER interactions_template_use
 
 ALTER TABLE interactions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Tenant isolation" ON interactions;
 CREATE POLICY "Tenant isolation" ON interactions
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
 
+DROP POLICY IF EXISTS "Service role full access" ON interactions;
 CREATE POLICY "Service role full access" ON interactions
   FOR ALL TO service_role
   USING (true) WITH CHECK (true);

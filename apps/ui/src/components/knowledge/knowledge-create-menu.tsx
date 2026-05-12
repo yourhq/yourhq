@@ -14,7 +14,7 @@ import type { SourceConnection } from "@/lib/sources/types";
 
 interface KnowledgeCreateMenuProps {
   onCreatePage: () => void;
-  onCreatePlaybook: () => void;
+  onCreateSkill: () => void;
   onUploadFiles: () => void;
   connectedSources?: SourceConnection[];
   onPickFromSource?: (connectionId: string) => void;
@@ -22,7 +22,7 @@ interface KnowledgeCreateMenuProps {
 
 export function KnowledgeCreateMenu({
   onCreatePage,
-  onCreatePlaybook,
+  onCreateSkill,
   onUploadFiles,
   connectedSources,
   onPickFromSource,
@@ -44,12 +44,12 @@ export function KnowledgeCreateMenu({
             <div className="text-sm">Page</div>
           </div>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={onCreatePlaybook} className="gap-2">
+        <DropdownMenuItem onClick={onCreateSkill} className="gap-2">
           <BookOpen className="h-4 w-4 text-purple-400" />
           <div>
-            <div className="text-sm">Playbook</div>
+            <div className="text-sm">Skill</div>
             <div className="text-[10px] text-muted-foreground">
-              Skills, SOPs, instructions
+              Procedures, methods, SOPs
             </div>
           </div>
         </DropdownMenuItem>

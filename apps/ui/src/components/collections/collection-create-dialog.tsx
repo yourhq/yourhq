@@ -7,13 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+} from "@/components/ui/responsive-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Database, Sparkles } from "lucide-react";
 
@@ -84,14 +84,14 @@ export function CollectionCreateDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>New Collection</DialogTitle>
-          <DialogDescription>
+    <ResponsiveDialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <ResponsiveDialogContent className="sm:max-w-lg">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>New Collection</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>
             Create a custom table to track anything, or start from a template.
-          </DialogDescription>
-        </DialogHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as "template" | "blank")}>
           <TabsList className="w-full">
@@ -164,17 +164,17 @@ export function CollectionCreateDialog({
                 rows={2}
               />
             </div>
-            <DialogFooter>
+            <ResponsiveDialogFooter>
               <Button variant="outline" onClick={onClose} disabled={saving}>
                 Cancel
               </Button>
               <Button onClick={handleCreate} disabled={saving || !name.trim() || !slug.trim()}>
                 Create Collection
               </Button>
-            </DialogFooter>
+            </ResponsiveDialogFooter>
           </TabsContent>
         </Tabs>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

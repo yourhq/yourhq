@@ -13,6 +13,7 @@ from hq_base import (
     audit,
     build_embedding_input,
     check_env,
+    content_for_storage,
     generate_embedding,
     output,
 )
@@ -38,13 +39,14 @@ changes = {}
 if args.title is not None:
     changes["title"] = args.title
 if args.content is not None:
-    changes["content"] = args.content
-    changes["plain_text"] = args.content
+    tiptap_json, plain = content_for_storage(args.content)
+    changes["content"] = tiptap_json
+    changes["plain_text"] = plain
 if args.tags is not None:
     changes["tags"] = [t.strip() for t in args.tags.split(",") if t.strip()]
 
 merged_title = changes.get("title", current["title"])
-merged_content = changes.get("content", current.get("content", ""))
+merged_content = changes.get("plain_text", current.get("plain_text", "")) or ""
 merged_tags = changes.get("tags", current.get("tags", []))
 
 try:

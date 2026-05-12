@@ -3,7 +3,7 @@ title: "Knowledge system"
 description: "How HQ's unified knowledge system stores, scopes, searches, and delivers context to agents."
 ---
 
-HQ uses a single knowledge system — `knowledge_items` — to store all workspace knowledge: pages, playbooks, files, and external sources. This replaces the earlier split between separate documents and assets tables.
+HQ uses a single knowledge system — `knowledge_items` — to store all workspace knowledge: pages, skills, files, and external sources. This replaces the earlier split between separate documents and assets tables.
 
 ## Kinds
 
@@ -12,13 +12,36 @@ Every knowledge item has a `kind` that determines how it's stored and rendered:
 | Kind | What it is | Content model |
 |---|---|---|
 | `page` | Rich-text document (company briefs, style guides, meeting notes) | JSON content + plain_text |
-| `playbook` | Structured procedure or SOP | JSON content + plain_text |
+| `skill` | Structured procedure or SOP | JSON content + plain_text |
 | `file` | Uploaded file (PDF, image, spreadsheet, audio, video) | `file_url` + `mime_type` + `file_size` |
 | `source` | Externally synced content from a connected integration | `source_connection_id` + `source_external_id` + sync metadata |
 
-Pages and playbooks support rich editing in the UI. Files go through a processing pipeline (upload, extract text, embed). Sources sync from external integrations and track their sync status.
+Pages and skills support rich editing in the UI. Files go through a processing pipeline (upload, extract text, embed). Sources sync from external integrations and track their sync status.
 
-Playbooks can also be created autonomously by agents during work via `hq_playbook_upsert.py`. When an agent discovers a reusable method, it codifies the procedure as an agent-scoped playbook. These appear on the agent detail page with edit reasons and recency indicators.
+## Source connectors
+
+Source connections use a **plugin-based connector architecture**. Each provider is a self-contained folder under `gateway/connectors/<provider>/` containing:
+
+- `manifest.json` — declarative config for auth, UI metadata, setup steps, and capabilities.
+- `read.py` — `BaseConnector` subclass implementing validate, browse, list, fetch, and change detection.
+- `api.py` — HTTP helpers for the provider's API.
+- `transforms.py` — response-to-markdown conversion logic.
+- `write.py` (optional) — `BaseActionProvider` subclass for write-back operations.
+- `__init__.py` — exports `CONNECTOR` (and optionally `ACTION_PROVIDER`).
+
+The manifest is the contract between the connector and the platform. A build script (`scripts/build-source-manifests.mjs`) generates a TypeScript module from all manifests so the UI renders provider setup forms, icons, and labels without hardcoded constants.
+
+**Auto-discovery**: `gateway/connectors/registry.py` scans subdirectories for exported `CONNECTOR` instances. Adding a new provider requires only the provider folder — no changes to existing platform code.
+
+**Credential handling**: The manifest declares what credentials are needed. The platform encrypts and stores them in the `secrets` table, `secrets_sync.py` decrypts them to the gateway filesystem, and `source_sync.py` assembles a `creds` dict for the connector. Single-key credentials use `{PROVIDER}_SOURCE_{ID_PREFIX}`, multi-key credentials use `{PROVIDER}_SOURCE_{ID_PREFIX}__{FIELD}`.
+
+**Write support**: Providers that support writes set `supports_write: true` in their manifest and implement a `BaseActionProvider`. The UI shows a "Write access" toggle on the connection detail page. Write operations flow through the `source_write` command action in the existing command queue.
+
+**Browse and validate**: The UI proxies browse and validate requests to the gateway's files API (`/sources/browse` and `/sources/validate`), so provider-specific API calls happen on the gateway side where credentials are local.
+
+See `CONTRIBUTING-SOURCES.md` in the repository root for the full contributor guide.
+
+Skills can also be created autonomously by agents during work via `hq_skill_upsert.py`. When an agent discovers a reusable method, it codifies the procedure as an agent-scoped skill. These appear on the agent detail page with edit reasons and recency indicators.
 
 ## Scope and agent access
 
@@ -40,7 +63,7 @@ When an agent starts a session, the bootstrap script:
 4. Deduplicates (an item can be both workspace-pinned and agent-assigned).
 5. Injects the combined set into the agent's startup context, grouped by scope.
 
-The gateway's HQ bootstrap plugin renders this context with kind labels (`[page]`, `[playbook]`, `[file]`) and scope grouping (`Workspace Knowledge` vs `Your Knowledge`).
+The gateway's HQ bootstrap plugin renders this context with kind labels (`[page]`, `[skill]`, `[file]`) and scope grouping (`Workspace Knowledge` vs `Your Knowledge`).
 
 ## Folders and organization
 
@@ -92,9 +115,11 @@ Entity links are stored in `entity_links` with polymorphic `owner_type`/`target_
 | Table | Purpose |
 |---|---|
 | `knowledge_folders` | Folder hierarchy for organizing items |
-| `knowledge_items` | All knowledge content — pages, playbooks, files, sources |
+| `knowledge_items` | All knowledge content — pages, skills, files, sources |
 | `knowledge_item_agents` | Junction table linking agent-scoped items to specific agents |
 | `knowledge_chunks` | Chunked content with per-chunk embeddings for granular retrieval |
+| `source_connections` | External source integrations with plugin-based providers, credentials, and sync schedules |
+| `source_sync_runs` | Sync execution history and status tracking |
 | `entity_links` | Universal polymorphic links between any entities |
 
 ## Agent scripts
@@ -105,8 +130,8 @@ Every agent template ships with HQ skills that interact with the knowledge syste
 |---|---|
 | `hq_session_bootstrap.py` | Fetches workspace-pinned + agent-specific items at session start |
 | `hq_boot_docs.py` | Loads boot context using scope + junction queries |
-| `hq_playbook_upsert.py` | Creates or updates agent-scoped playbooks with auto-embedding and junction linking |
-| `hq_create_doc.py` | Creates a new knowledge item (page or playbook) |
+| `hq_skill_upsert.py` | Creates or updates agent-scoped skills with auto-embedding and junction linking |
+| `hq_create_doc.py` | Creates a new knowledge item (page or skill) |
 | `hq_update_doc.py` | Updates an existing knowledge item |
 | `hq_search_docs.py` | Semantic + full-text search across all knowledge items |
 | `hq_get_knowledge_chunks.py` | Retrieves chunks for a specific knowledge item by ID |

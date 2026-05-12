@@ -30,10 +30,12 @@ CREATE TRIGGER workspace_updated_at
 
 -- RLS
 ALTER TABLE workspace ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON workspace;
 CREATE POLICY "Tenant isolation" ON workspace
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON workspace;
 CREATE POLICY "Service role full access" ON workspace
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
@@ -72,10 +74,12 @@ CREATE INDEX IF NOT EXISTS idx_pipeline_stages_tenant ON pipeline_stages(tenant_
 
 -- RLS
 ALTER TABLE pipeline_stages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON pipeline_stages;
 CREATE POLICY "Tenant isolation" ON pipeline_stages
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON pipeline_stages;
 CREATE POLICY "Service role full access" ON pipeline_stages
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
@@ -112,10 +116,12 @@ CREATE INDEX IF NOT EXISTS idx_field_definitions_tenant ON field_definitions(ten
 
 -- RLS
 ALTER TABLE field_definitions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON field_definitions;
 CREATE POLICY "Tenant isolation" ON field_definitions
   FOR ALL TO authenticated
   USING (tenant_id = current_tenant_id())
   WITH CHECK (tenant_id = current_tenant_id());
+DROP POLICY IF EXISTS "Service role full access" ON field_definitions;
 CREATE POLICY "Service role full access" ON field_definitions
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 

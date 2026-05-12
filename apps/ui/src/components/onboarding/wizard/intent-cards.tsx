@@ -20,7 +20,7 @@ const INTENT_ICONS: Record<string, string> = {
 
 export function IntentCards({ selected, onSelect }: IntentCardsProps) {
   return (
-    <div role="radiogroup" aria-label="Choose your use case" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <div role="radiogroup" aria-label="Choose your use case" className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
       {CONTEXT_PRESETS.map((preset) => (
         <IntentCard
           key={preset.key}
@@ -52,8 +52,9 @@ function IntentCard({
       aria-checked={selected}
       onClick={onClick}
       className={cn(
-        "group relative flex flex-col gap-2 rounded-xl border p-4 text-left transition-all duration-150 cursor-pointer",
+        "group relative flex flex-col gap-2 rounded-xl border p-4 text-left transition-all duration-200 cursor-pointer",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        "hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98]",
         selected
           ? "border-foreground/60 bg-foreground/[0.04] ring-1 ring-foreground/10"
           : "border-border/60 bg-card/40 hover:border-border hover:bg-card/70",
@@ -63,6 +64,7 @@ function IntentCard({
         <span
           className={cn(
             "flex h-8 w-8 items-center justify-center rounded-lg text-[18px] transition-all",
+            "group-hover:scale-110",
             selected ? "bg-foreground/[0.08] scale-105" : "bg-muted/60",
           )}
         >

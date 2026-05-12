@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create a new knowledge item (page or playbook) with automatic embedding."""
+"""Create a new knowledge item (page or skill) with automatic embedding."""
 
 import argparse
 import os
@@ -12,6 +12,7 @@ from hq_base import (
     audit,
     build_embedding_input,
     check_env,
+    content_for_storage,
     generate_embedding,
     output,
 )
@@ -21,7 +22,7 @@ check_env()
 ap = argparse.ArgumentParser()
 ap.add_argument("--title", required=True)
 ap.add_argument("--content", default="")
-ap.add_argument("--kind", default="page", choices=["page", "playbook"])
+ap.add_argument("--kind", default="page", choices=["page", "skill"])
 ap.add_argument("--scope", default="workspace", choices=["workspace", "agent"])
 ap.add_argument("--tags", default="", help="Comma-separated tags")
 ap.add_argument("--folder-id", default=None)
@@ -29,10 +30,12 @@ args = ap.parse_args()
 
 tags = [t.strip() for t in args.tags.split(",") if t.strip()] if args.tags else []
 
+tiptap_json, plain_text = content_for_storage(args.content or "")
+
 payload = {
     "title": args.title,
-    "content": args.content or None,
-    "plain_text": args.content or None,
+    "content": tiptap_json,
+    "plain_text": plain_text,
     "kind": args.kind,
     "scope": args.scope,
     "tags": tags,
