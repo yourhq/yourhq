@@ -6,7 +6,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from hq_base import api_get, check_env, require_crm, output
+from hq_base import api_get, check_env, output, require_crm
 
 check_env()
 require_crm()
@@ -14,7 +14,9 @@ require_crm()
 ap = argparse.ArgumentParser()
 ap.add_argument("--status", default=None, help="Filter by pipeline status (e.g. lead,qualified)")
 ap.add_argument("--priority", default=None, help="Filter by priority (urgent,high,medium,low)")
-ap.add_argument("--relationship", default=None, help="Filter by relationship strength (stranger,acquaintance,warm,strong)")
+ap.add_argument(
+    "--relationship", default=None, help="Filter by relationship strength (stranger,acquaintance,warm,strong)"
+)
 ap.add_argument("--tag", action="append", default=None, help="Filter by tag; can be passed multiple times")
 ap.add_argument("--company", default=None, help="Filter contacts by company name (partial match)")
 ap.add_argument("--search", default=None, help="Search by name or email (partial match)")
