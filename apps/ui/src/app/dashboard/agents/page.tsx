@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { AgentRow, groupAgentsByTeam, getFleetCounts } from "@/components/agents/agent-card";
 import { AgentOrgChart } from "@/components/agents/agent-org-chart";
 import { AgentForm } from "@/components/agents/agent-form";
@@ -29,11 +30,46 @@ const AGENTS_VIEW_KEY = "agents-view-mode";
 
 function AgentsContent() {
   const agents = useAgents();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [teamFilter, setTeamFilter] = useState<string>("all");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [searchQuery, setSearchQueryState] = useState(searchParams.get("q") || "");
+  const [statusFilter, setStatusFilterState] = useState<string>(searchParams.get("status") || "all");
+  const [teamFilter, setTeamFilterState] = useState<string>(searchParams.get("team") || "all");
   const [viewMode, setViewMode] = useState<AgentsViewMode>("fleet");
   const [pendingDelete, setPendingDelete] = useState<Agent | null>(null);
+
+  const updateUrl = useCallback(
+    (overrides: Record<string, string | null>) => {
+      const params = new URLSearchParams(searchParams.toString());
+      for (const [key, value] of Object.entries(overrides)) {
+        if (value === null || value === "" || value === "all") {
+          params.delete(key);
+        } else {
+          params.set(key, value);
+        }
+      }
+      const qs = params.toString();
+      router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+    },
+    [searchParams, router, pathname],
+  );
+
+  function setSearchQuery(value: string) {
+    setSearchQueryState(value);
+    updateUrl({ q: value || null });
+  }
+
+  function setStatusFilter(value: string) {
+    setStatusFilterState(value);
+    updateUrl({ status: value === "all" ? null : value });
+  }
+
+  function setTeamFilter(value: string) {
+    setTeamFilterState(value);
+    updateUrl({ team: value === "all" ? null : value });
+  }
 
   useEffect(() => {
     const saved = localStorage.getItem(AGENTS_VIEW_KEY) as AgentsViewMode | null;
@@ -105,6 +141,17 @@ function AgentsContent() {
 
   const hasActiveFilters =
     searchQuery.trim() !== "" || statusFilter !== "all" || teamFilter !== "all";
+
+  useEffect(() => {
+    if (searchParams.get("create") === "true") {
+      agents.form.openCreateForm();
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("create");
+      const qs = params.toString();
+      router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot on mount
+  }, []);
 
   const isFiltered = hasActiveFilters && filteredAgents.length !== agents.agents.length;
 

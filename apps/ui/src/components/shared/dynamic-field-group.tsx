@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import type { FieldDefinition } from "@/lib/fields/types";
 import { DynamicFieldRow } from "./dynamic-field";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 interface DynamicFieldGroupProps {
   group: string;
@@ -15,10 +16,6 @@ interface DynamicFieldGroupProps {
   inDialog?: boolean;
 }
 
-/**
- * Renders a collapsible section containing DynamicFields for one field group.
- * Reads/writes to the parent's `extended` record.
- */
 export function DynamicFieldGroup({
   group,
   fields,
@@ -28,6 +25,7 @@ export function DynamicFieldGroup({
   inDialog = false,
 }: DynamicFieldGroupProps) {
   const [open, setOpen] = React.useState(defaultOpen);
+  const supabase = React.useMemo(() => createClient(), []);
 
   if (fields.length === 0) return null;
 
@@ -39,6 +37,14 @@ export function DynamicFieldGroup({
       next[fieldKey] = value;
     }
     onChange(next);
+  }
+
+  function handlePersistOptions(fieldId: string, options: string[]) {
+    supabase
+      .from("field_definitions")
+      .update({ options })
+      .eq("id", fieldId)
+      .then();
   }
 
   const filledCount = fields.filter(
@@ -75,6 +81,7 @@ export function DynamicFieldGroup({
               field={field}
               value={values[field.field_key]}
               onChange={(v) => handleFieldChange(field.field_key, v)}
+              onPersistOptions={handlePersistOptions}
               inDialog={inDialog}
             />
           ))}
@@ -89,13 +96,9 @@ interface DynamicFieldGroupsProps {
   values: Record<string, unknown>;
   onChange: (values: Record<string, unknown>) => void;
   inDialog?: boolean;
-  /** Which groups to open by default (by group name). Defaults to none. */
   openByDefault?: string[];
 }
 
-/**
- * Convenience: render all grouped fields from useFieldDefinitions in order.
- */
 export function DynamicFieldGroups({
   groupedFields,
   values,

@@ -4,15 +4,9 @@ import { Contact, PRIORITY_COLORS } from "@/lib/crm/types";
 import { usePipelineStages } from "@/hooks/use-pipeline-stages";
 import { DEFAULT_STAGE_COLOR } from "@/lib/fields/types";
 import { StatusDot } from "@/components/ui/status-dot";
+import { PipelineStagePicker } from "@/components/shared/pipeline-stage-picker";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import {
   Mail,
@@ -51,7 +45,7 @@ export function ContactPreviewCard({
   onStatusChange,
   onArchive,
 }: ContactPreviewCardProps) {
-  const { stages, stagesByKey } = usePipelineStages("contact");
+  const { stagesByKey } = usePipelineStages("contact");
   const stage = stagesByKey[contact.status];
   const activeSocials = SOCIAL_LINKS.filter((s) => contact[s.key]);
 
@@ -83,27 +77,12 @@ export function ContactPreviewCard({
 
       {/* Status selector */}
       {onStatusChange ? (
-        <Select
+        <PipelineStagePicker
+          entityType="contact"
           value={contact.status}
-          onValueChange={(value) => onStatusChange(contact.id, value)}
-        >
-          <SelectTrigger className="h-7 text-xs w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {stages.map((s) => (
-              <SelectItem key={s.stage_key} value={s.stage_key} className="text-xs">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="h-2 w-2 rounded-full"
-                    style={{ backgroundColor: s.color ?? DEFAULT_STAGE_COLOR }}
-                  />
-                  {s.label}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          onValueChange={(v) => v && onStatusChange(contact.id, v)}
+          triggerClassName="w-full justify-between"
+        />
       ) : (
         <StatusDot
           color={stage?.color ?? DEFAULT_STAGE_COLOR}

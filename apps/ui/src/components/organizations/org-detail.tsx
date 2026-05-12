@@ -11,18 +11,10 @@ import {
   ORG_SIZES,
 } from "@/lib/organizations/types";
 import { Contact } from "@/lib/crm/types";
-import { usePipelineStages } from "@/hooks/use-pipeline-stages";
 import { useFieldDefinitions } from "@/hooks/use-field-definitions";
 import { DynamicFieldGroups } from "@/components/shared/dynamic-field-group";
-import { DEFAULT_STAGE_COLOR } from "@/lib/fields/types";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "@/components/ui/select";
 import {
   ArrowLeft,
   Archive,
@@ -39,6 +31,7 @@ import { logAudit } from "@/lib/audit/log";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { InteractionsTimeline } from "@/components/crm/interactions-timeline";
+import { PipelineStagePicker } from "@/components/shared/pipeline-stage-picker";
 import { OrgForm } from "./org-form";
 
 interface OrgDetailProps {
@@ -54,7 +47,6 @@ export function OrgDetail({ organization: initial }: OrgDetailProps) {
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const { stages, stagesByKey } = usePipelineStages("organization");
   const { groupedFields } = useFieldDefinitions("organization");
 
   const fetchPeople = useCallback(async () => {
@@ -134,7 +126,6 @@ export function OrgDetail({ organization: initial }: OrgDetailProps) {
     if (data) setOrganization(data as Organization);
   }
 
-  const stage = organization.status ? stagesByKey[organization.status] : null;
   const typeLabel = organization.type
     ? ORG_TYPES.find((t) => t.value === organization.type)?.label ?? organization.type
     : null;
@@ -263,11 +254,11 @@ export function OrgDetail({ organization: initial }: OrgDetailProps) {
                 </div>
               </div>
 
-              {/* Custom fields */}
-              {groupedFields.length > 0 && (
+              {/* Properties (custom fields) */}
+              {groupedFields.length > 0 ? (
                 <div className="space-y-2">
                   <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Custom fields
+                    Properties
                   </h3>
                   <DynamicFieldGroups
                     groupedFields={groupedFields}
@@ -277,6 +268,15 @@ export function OrgDetail({ organization: initial }: OrgDetailProps) {
                     }}
                     openByDefault={groupedFields.map((g) => g.group)}
                   />
+                </div>
+              ) : (
+                <div className="py-1">
+                  <Link
+                    href="/dashboard/settings/fields"
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    + Add custom properties in Settings
+                  </Link>
                 </div>
               )}
 
@@ -357,36 +357,13 @@ export function OrgDetail({ organization: initial }: OrgDetailProps) {
             <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
               Status
             </label>
-            <Select
-              value={organization.status || "none"}
-              onValueChange={handleStatusChange}
-            >
-              <SelectTrigger className="h-7 text-xs">
-                {organization.status ? (
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      className="h-2 w-2 rounded-full"
-                      style={{ backgroundColor: stage?.color ?? DEFAULT_STAGE_COLOR }}
-                    />
-                    <span>{stage?.label ?? organization.status}</span>
-                  </div>
-                ) : (
-                  <span className="text-muted-foreground">No status</span>
-                )}
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No status</SelectItem>
-                {stages.map((s) => (
-                  <SelectItem key={s.stage_key} value={s.stage_key}>
-                    <span
-                      className="mr-1.5 inline-block h-2 w-2 rounded-full"
-                      style={{ backgroundColor: s.color ?? DEFAULT_STAGE_COLOR }}
-                    />
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <PipelineStagePicker
+              entityType="organization"
+              value={organization.status}
+              onValueChange={(v) => handleStatusChange(v ?? "none")}
+              allowNone
+              triggerClassName="w-full justify-between"
+            />
           </div>
 
           <div className="space-y-1 pt-4 border-t border-border/50">

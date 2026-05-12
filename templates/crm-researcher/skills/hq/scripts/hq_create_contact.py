@@ -38,32 +38,46 @@ args = ap.parse_args()
 # Validate status against pipeline_stages
 status = args.status
 if not status:
-    stages = api_get("pipeline_stages", {
-        "select": "stage_key",
-        "entity_type": "eq.contact",
-        "is_default": "eq.true",
-        "limit": "1",
-    })
+    stages = api_get(
+        "pipeline_stages",
+        {
+            "select": "stage_key",
+            "entity_type": "eq.contact",
+            "is_default": "eq.true",
+            "limit": "1",
+        },
+    )
     status = stages[0]["stage_key"] if stages else ""
 else:
-    stages = api_get("pipeline_stages", {
-        "select": "stage_key",
-        "entity_type": "eq.contact",
-        "stage_key": f"eq.{status}",
-        "limit": "1",
-    })
+    stages = api_get(
+        "pipeline_stages",
+        {
+            "select": "stage_key",
+            "entity_type": "eq.contact",
+            "stage_key": f"eq.{status}",
+            "limit": "1",
+        },
+    )
     if not stages:
-        output({"error": "invalid_status", "message": f"Status '{status}' is not a valid pipeline stage. Use hq_get_pipeline.py to see valid stages."})
+        output(
+            {
+                "error": "invalid_status",
+                "message": f"Status '{status}' is not a valid pipeline stage. Use hq_get_pipeline.py to see valid stages.",
+            }
+        )
         sys.exit(1)
 
 # Parse and validate extended fields
 extended = json.loads(args.extended)
 if extended and not args.no_validate:
-    field_defs = api_get("field_definitions", {
-        "select": "field_key",
-        "entity_type": "eq.contact",
-        "is_active": "eq.true",
-    })
+    field_defs = api_get(
+        "field_definitions",
+        {
+            "select": "field_key",
+            "entity_type": "eq.contact",
+            "is_active": "eq.true",
+        },
+    )
     valid_keys = {f["field_key"] for f in (field_defs or [])}
     invalid = [k for k in extended if k not in valid_keys]
     if invalid:
@@ -113,10 +127,12 @@ if args.org_id:
     except Exception as e:
         print(f"[warning] failed to link org: {e}", file=sys.stderr)
 
-output({
-    "status": "created",
-    "id": contact["id"],
-    "name": contact["name"],
-    "pipeline_status": contact.get("status"),
-    "org_linked": args.org_id is not None,
-})
+output(
+    {
+        "status": "created",
+        "id": contact["id"],
+        "name": contact["name"],
+        "pipeline_status": contact.get("status"),
+        "org_linked": args.org_id is not None,
+    }
+)

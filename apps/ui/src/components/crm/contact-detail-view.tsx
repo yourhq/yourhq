@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -13,6 +14,7 @@ import { usePipelineStages } from "@/hooks/use-pipeline-stages";
 import { useFieldDefinitions } from "@/hooks/use-field-definitions";
 import { DEFAULT_STAGE_COLOR } from "@/lib/fields/types";
 import { DynamicFieldGroups } from "@/components/shared/dynamic-field-group";
+import { PipelineStagePicker } from "@/components/shared/pipeline-stage-picker";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -609,21 +611,29 @@ export function ContactDetailView({ contact: initialContact }: { contact: Contac
             <Separator className="bg-border/50" />
             <ContactOrganizationsSection contactId={contact.id} />
 
-            {/* Dynamic custom fields */}
-            {groupedFields.length > 0 && (
-              <>
-                <Separator className="bg-border/50" />
-                <div>
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                    Custom fields
-                  </h3>
-                  <DynamicFieldGroups
-                    groupedFields={groupedFields}
-                    values={contact.extended ?? {}}
-                    onChange={saveExtended}
-                  />
-                </div>
-              </>
+            {/* Properties (custom fields) */}
+            <Separator className="bg-border/50" />
+            {groupedFields.length > 0 ? (
+              <div>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  Properties
+                </h3>
+                <DynamicFieldGroups
+                  groupedFields={groupedFields}
+                  values={contact.extended ?? {}}
+                  onChange={saveExtended}
+                  openByDefault={groupedFields.map((g) => g.group)}
+                />
+              </div>
+            ) : (
+              <div className="py-1">
+                <Link
+                  href="/dashboard/settings/fields"
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  + Add custom properties in Settings
+                </Link>
+              </div>
             )}
 
             {/* Notes */}
@@ -661,25 +671,12 @@ export function ContactDetailView({ contact: initialContact }: { contact: Contac
               {/* Status */}
               <div>
                 <Label>Status</Label>
-                <Select
+                <PipelineStagePicker
+                  entityType="contact"
                   value={contact.status}
                   onValueChange={(v) => saveField("status", v)}
-                >
-                  <SelectTrigger className="h-8 w-full text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {stages.map((s) => (
-                      <SelectItem key={s.stage_key} value={s.stage_key}>
-                        <span
-                          className="mr-1.5 inline-block h-2 w-2 rounded-full"
-                          style={{ backgroundColor: s.color ?? DEFAULT_STAGE_COLOR }}
-                        />
-                        {s.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  triggerClassName="w-full justify-between"
+                />
                 {currentStage && (
                   <p className="text-[10px] text-muted-foreground mt-1">
                     <span

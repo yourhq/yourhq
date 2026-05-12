@@ -1741,10 +1741,7 @@ def handle_collection_query(cmd_id, payload):
         result = {
             "collection": cols[0]["name"],
             "fields": fields,
-            "records": [
-                {"id": r["id"], "values": r.get("values", {}), "created_at": r["created_at"]}
-                for r in records
-            ],
+            "records": [{"id": r["id"], "values": r.get("values", {}), "created_at": r["created_at"]} for r in records],
             "total": len(records),
         }
 
@@ -2080,6 +2077,8 @@ def execute_command(command_row):
 
 def process_pending():
     """Lease and execute pending commands until none remain."""
+    if GATEWAY_PAUSED:
+        return 0
     processed = 0
     while True:
         try:

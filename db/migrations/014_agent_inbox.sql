@@ -155,8 +155,11 @@ BEGIN
       VALUES (
         NEW.assignee_agent_id, v_agent.slug, 'task_reassignment', NEW.id,
         'Task reassigned: ' || COALESCE(NEW.title, 'Untitled'), v_dedup_key,
-        jsonb_build_object('task_title', NEW.title, 'task_status', NEW.status,
-          'task_priority', NEW.priority, 'previous_agent_id', OLD.assignee_agent_id),
+        jsonb_build_object(
+          'task_title', NEW.title, 'task_status', NEW.status,
+          'task_priority', NEW.priority, 'previous_agent_id', OLD.assignee_agent_id,
+          'model_override', NEW.model_override, 'thinking_override', NEW.thinking_override
+        ),
         v_agent.tenant_id
       ) ON CONFLICT (dedup_key) DO NOTHING;
     ELSE
@@ -165,7 +168,11 @@ BEGIN
       VALUES (
         NEW.assignee_agent_id, v_agent.slug, 'task_assignment', NEW.id,
         'Task assigned: ' || COALESCE(NEW.title, 'Untitled'), v_dedup_key,
-        jsonb_build_object('task_title', NEW.title, 'task_status', NEW.status, 'task_priority', NEW.priority),
+        jsonb_build_object(
+          'task_title', NEW.title, 'task_status', NEW.status,
+          'task_priority', NEW.priority,
+          'model_override', NEW.model_override, 'thinking_override', NEW.thinking_override
+        ),
         v_agent.tenant_id
       ) ON CONFLICT (dedup_key) DO NOTHING;
     END IF;

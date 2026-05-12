@@ -2,18 +2,13 @@
 
 import * as React from "react";
 import type { FieldDefinition } from "@/lib/fields/types";
+import { FIELD_TYPE_ICONS } from "@/lib/fields/types";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { TagInput } from "@/components/ui/tag-input";
 import { DatePickerButton } from "@/components/ui/date-picker-button";
+import { SelectFieldPicker } from "@/components/shared/select-field-picker";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
@@ -21,19 +16,106 @@ interface DynamicFieldProps {
   field: FieldDefinition;
   value: unknown;
   onChange: (value: unknown) => void;
-  /** Render inside a Dialog? If true, Select/Popover skip portaling. */
+  onPersistOptions?: (fieldId: string, options: string[]) => void;
   inDialog?: boolean;
   className?: string;
 }
 
-/**
- * Renders the right input component for a FieldDefinition, based on
- * `field_type`. Reads/writes raw values — parent owns the `extended` map.
- */
+function TextFieldInput({
+  field,
+  value,
+  onChange,
+  type = "text",
+  className,
+}: {
+  field: FieldDefinition;
+  value: unknown;
+  onChange: (value: unknown) => void;
+  type?: "text" | "url";
+  className?: string;
+}) {
+  const [draft, setDraft] = React.useState(typeof value === "string" ? value : "");
+
+  React.useEffect(() => {
+    setDraft(typeof value === "string" ? value : "");
+  }, [value]);
+
+  return (
+    <Input
+      type={type}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => onChange(draft || null)}
+      placeholder={field.description ?? undefined}
+      className={cn("h-9 text-sm", className)}
+    />
+  );
+}
+
+function NumberFieldInput({
+  field,
+  value,
+  onChange,
+  className,
+}: {
+  field: FieldDefinition;
+  value: unknown;
+  onChange: (value: unknown) => void;
+  className?: string;
+}) {
+  const initial = typeof value === "number" ? String(value) : value ? String(value) : "";
+  const [draft, setDraft] = React.useState(initial);
+
+  React.useEffect(() => {
+    const next = typeof value === "number" ? String(value) : value ? String(value) : "";
+    setDraft(next);
+  }, [value]);
+
+  return (
+    <Input
+      type="number"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => onChange(draft === "" ? null : Number(draft))}
+      placeholder={field.description ?? undefined}
+      className={cn("h-9 text-sm", className)}
+    />
+  );
+}
+
+function TextareaFieldInput({
+  field,
+  value,
+  onChange,
+  className,
+}: {
+  field: FieldDefinition;
+  value: unknown;
+  onChange: (value: unknown) => void;
+  className?: string;
+}) {
+  const [draft, setDraft] = React.useState(typeof value === "string" ? value : "");
+
+  React.useEffect(() => {
+    setDraft(typeof value === "string" ? value : "");
+  }, [value]);
+
+  return (
+    <Textarea
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => onChange(draft || null)}
+      placeholder={field.description ?? undefined}
+      className={cn("min-h-[80px] text-sm", className)}
+    />
+  );
+}
+
 export function DynamicField({
   field,
   value,
   onChange,
+  onPersistOptions,
   inDialog = false,
   className,
 }: DynamicFieldProps) {
@@ -41,44 +123,16 @@ export function DynamicField({
 
   switch (field.field_type) {
     case "text":
-    case "url": {
-      return (
-        <Input
-          type={field.field_type === "url" ? "url" : "text"}
-          value={typeof value === "string" ? value : ""}
-          onChange={(e) => onChange(e.target.value || null)}
-          placeholder={field.description ?? undefined}
-          className={cn("h-9 text-sm", className)}
-        />
-      );
-    }
+      return <TextFieldInput field={field} value={value} onChange={onChange} className={className} />;
 
-    case "number": {
-      const num = typeof value === "number" ? value : value ? Number(value) : "";
-      return (
-        <Input
-          type="number"
-          value={num}
-          onChange={(e) => {
-            const v = e.target.value;
-            onChange(v === "" ? null : Number(v));
-          }}
-          placeholder={field.description ?? undefined}
-          className={cn("h-9 text-sm", className)}
-        />
-      );
-    }
+    case "url":
+      return <TextFieldInput field={field} value={value} onChange={onChange} type="url" className={className} />;
 
-    case "textarea": {
-      return (
-        <Textarea
-          value={typeof value === "string" ? value : ""}
-          onChange={(e) => onChange(e.target.value || null)}
-          placeholder={field.description ?? undefined}
-          className={cn("min-h-[80px] text-sm", className)}
-        />
-      );
-    }
+    case "number":
+      return <NumberFieldInput field={field} value={value} onChange={onChange} className={className} />;
+
+    case "textarea":
+      return <TextareaFieldInput field={field} value={value} onChange={onChange} className={className} />;
 
     case "boolean": {
       return (
@@ -95,35 +149,36 @@ export function DynamicField({
     }
 
     case "select": {
-      const options = field.options ?? [];
-      const current = typeof value === "string" ? value : "";
+      const current = typeof value === "string" ? value : null;
       return (
-        <Select
-          value={current || undefined}
-          onValueChange={(v) => onChange(v || null)}
-        >
-          <SelectTrigger className={cn("h-9 text-sm", className)}>
-            <SelectValue placeholder={`Select ${field.label.toLowerCase()}...`} />
-          </SelectTrigger>
-          <SelectContent portal={portal}>
-            {options.map((opt) => (
-              <SelectItem key={opt} value={opt}>
-                {opt}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SelectFieldPicker
+          field={field}
+          value={current}
+          onValueChange={(v) => onChange(v)}
+          className={className}
+        />
       );
     }
 
     case "multiselect": {
-      // Use TagInput for free-form tag-style multiselect.
       const arr = Array.isArray(value) ? (value as string[]) : [];
+      const knownOptions = field.options ?? [];
+
+      function handleMultiselectChange(newValues: string[]) {
+        onChange(newValues.length > 0 ? newValues : null);
+        if (onPersistOptions) {
+          const novel = newValues.filter((v) => !knownOptions.includes(v));
+          if (novel.length > 0) {
+            onPersistOptions(field.id, [...knownOptions, ...novel]);
+          }
+        }
+      }
+
       return (
         <TagInput
           value={arr}
-          onChange={(v) => onChange(v.length > 0 ? v : null)}
-          suggestions={field.options ?? undefined}
+          onChange={handleMultiselectChange}
+          suggestions={knownOptions}
           placeholder={field.description ?? "Add..."}
           className={className}
         />
@@ -151,22 +206,23 @@ interface DynamicFieldRowProps {
   field: FieldDefinition;
   value: unknown;
   onChange: (value: unknown) => void;
+  onPersistOptions?: (fieldId: string, options: string[]) => void;
   inDialog?: boolean;
 }
 
-/**
- * A label + input pair for a FieldDefinition. The standard "one field per row"
- * layout used in forms.
- */
 export function DynamicFieldRow({
   field,
   value,
   onChange,
+  onPersistOptions,
   inDialog,
 }: DynamicFieldRowProps) {
+  const Icon = FIELD_TYPE_ICONS[field.field_type];
+
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs text-muted-foreground">
+      <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+        {Icon && <Icon className="h-3 w-3 shrink-0" />}
         {field.label}
         {field.required && <span className="ml-0.5 text-red-400">*</span>}
       </Label>
@@ -174,6 +230,7 @@ export function DynamicFieldRow({
         field={field}
         value={value}
         onChange={onChange}
+        onPersistOptions={onPersistOptions}
         inDialog={inDialog}
       />
       {field.description && field.field_type !== "text" && field.field_type !== "textarea" && (

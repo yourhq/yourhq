@@ -1,8 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { createClient } from "@/lib/supabase/client";
-import { PipelineStage, DEFAULT_STAGE_COLOR } from "@/lib/fields/types";
+import { PipelineStage, DEFAULT_STAGE_COLOR, STAGE_COLORS } from "@/lib/fields/types";
+import { slugify, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -12,6 +28,17 @@ import {
   TabsTrigger,
   TabsContent,
 } from "@/components/ui/tabs";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Plus, Trash2, GripVertical, Layers } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
@@ -23,14 +50,141 @@ const ENTITY_TYPES = [
   { value: "organization", label: "Organizations" },
 ];
 
-function slugify(label: string): string {
-  return label
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "_")
-    .replace(/-+/g, "_")
-    .slice(0, 40);
+function ColorPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="h-6 w-6 rounded-full border border-border/50 shrink-0 transition-transform hover:scale-110"
+          style={{ backgroundColor: value }}
+        />
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-2" align="start">
+        <div className="grid grid-cols-6 gap-1.5">
+          {STAGE_COLORS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => onChange(c)}
+              className={cn(
+                "h-6 w-6 rounded-full transition-transform hover:scale-110",
+                value === c && "ring-2 ring-ring ring-offset-2 ring-offset-background"
+              )}
+              style={{ backgroundColor: c }}
+            />
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function SortableStageRow({
+  stage,
+  onUpdate,
+  onSetDefault,
+  onDelete,
+}: {
+  stage: PipelineStage;
+  onUpdate: (patch: Partial<PipelineStage>) => void;
+  onSetDefault: () => void;
+  onDelete: () => void;
+}) {
+  const {
+    setNodeRef,
+    attributes,
+    listeners,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: stage.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "group flex items-center gap-2 rounded-md border border-border/50 px-2 py-1.5",
+        isDragging && "opacity-50 bg-accent/30"
+      )}
+    >
+      <button
+        type="button"
+        className="cursor-grab touch-none text-muted-foreground/40 hover:text-muted-foreground shrink-0"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="h-3.5 w-3.5" />
+      </button>
+
+      <ColorPicker
+        value={stage.color ?? DEFAULT_STAGE_COLOR}
+        onChange={(c) => onUpdate({ color: c })}
+      />
+
+      <Input
+        value={stage.label}
+        onChange={(e) => onUpdate({ label: e.target.value })}
+        className="h-7 text-xs flex-1"
+      />
+
+      <span className="text-[10px] text-muted-foreground font-mono w-24 truncate">
+        {stage.stage_key}
+      </span>
+
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
+              <Switch
+                checked={stage.is_terminal}
+                onCheckedChange={(v) => onUpdate({ is_terminal: v })}
+              />
+              Terminal
+            </label>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-[200px] text-xs">
+            Terminal stages will not appear as active columns in Kanban view
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={stage.is_default ? "default" : "ghost"}
+              size="sm"
+              className="h-6 px-2 text-[10px]"
+              onClick={onSetDefault}
+              disabled={stage.is_default}
+            >
+              {stage.is_default ? "Default" : "Set default"}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-[200px] text-xs">
+            Default stage is auto-assigned to new records
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="opacity-0 transition-opacity group-hover:opacity-100"
+        onClick={onDelete}
+        aria-label="Delete stage"
+      >
+        <Trash2 className="h-3 w-3" />
+      </Button>
+    </div>
+  );
 }
 
 function StageEditor({ entityType }: { entityType: string }) {
@@ -39,8 +193,13 @@ function StageEditor({ entityType }: { entityType: string }) {
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [newLabel, setNewLabel] = useState("");
-  const [newColor, setNewColor] = useState(DEFAULT_STAGE_COLOR);
+  const [newColor, setNewColor] = useState(STAGE_COLORS[8]);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor)
+  );
 
   const fetchStages = useCallback(async () => {
     setLoading(true);
@@ -79,7 +238,6 @@ function StageEditor({ entityType }: { entityType: string }) {
   }
 
   async function setDefault(id: string) {
-    // Clear existing default
     await supabase
       .from("pipeline_stages")
       .update({ is_default: false })
@@ -136,29 +294,32 @@ function StageEditor({ entityType }: { entityType: string }) {
       });
     }
     setNewLabel("");
-    setNewColor(DEFAULT_STAGE_COLOR);
+    setNewColor(STAGE_COLORS[8]);
     setAdding(false);
     fetchStages();
   }
 
-  async function moveStage(id: string, delta: -1 | 1) {
-    const index = stages.findIndex((s) => s.id === id);
-    if (index === -1) return;
-    const swapIndex = index + delta;
-    if (swapIndex < 0 || swapIndex >= stages.length) return;
-    const a = stages[index];
-    const b = stages[swapIndex];
-    await Promise.all([
-      supabase
-        .from("pipeline_stages")
-        .update({ sort_order: b.sort_order })
-        .eq("id", a.id),
-      supabase
-        .from("pipeline_stages")
-        .update({ sort_order: a.sort_order })
-        .eq("id", b.id),
-    ]);
-    fetchStages();
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = stages.findIndex((s) => s.id === active.id);
+    const newIndex = stages.findIndex((s) => s.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = [...stages];
+    const [moved] = reordered.splice(oldIndex, 1);
+    reordered.splice(newIndex, 0, moved);
+    setStages(reordered);
+
+    await Promise.all(
+      reordered.map((s, i) =>
+        supabase
+          .from("pipeline_stages")
+          .update({ sort_order: (i + 1) * 10 })
+          .eq("id", s.id)
+      )
+    );
   }
 
   if (loading) {
@@ -173,73 +334,28 @@ function StageEditor({ entityType }: { entityType: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="space-y-1">
-        {stages.map((stage, i) => (
-          <div
-            key={stage.id}
-            className="group flex items-center gap-2 rounded-md border border-border/50 px-2 py-1.5"
-          >
-            <div className="flex flex-col">
-              <button
-                type="button"
-                className="h-3 text-muted-foreground/40 hover:text-foreground disabled:opacity-20"
-                disabled={i === 0}
-                onClick={() => moveStage(stage.id, -1)}
-                aria-label="Move up"
-              >
-                <GripVertical className="h-3 w-3" />
-              </button>
-            </div>
-
-            <input
-              type="color"
-              value={stage.color ?? DEFAULT_STAGE_COLOR}
-              onChange={(e) => updateStage(stage.id, { color: e.target.value })}
-              className="h-6 w-6 rounded cursor-pointer bg-transparent border-0"
-            />
-
-            <Input
-              value={stage.label}
-              onChange={(e) => updateStage(stage.id, { label: e.target.value })}
-              className="h-7 text-xs flex-1"
-            />
-
-            <span className="text-[10px] text-muted-foreground font-mono w-24 truncate">
-              {stage.stage_key}
-            </span>
-
-            <div className="flex items-center gap-1.5">
-              <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
-                <Switch
-                  checked={stage.is_terminal}
-                  onCheckedChange={(v) => updateStage(stage.id, { is_terminal: v })}
-                />
-                Terminal
-              </label>
-            </div>
-
-            <Button
-              variant={stage.is_default ? "default" : "ghost"}
-              size="sm"
-              className="h-6 px-2 text-[10px]"
-              onClick={() => setDefault(stage.id)}
-              disabled={stage.is_default}
-            >
-              {stage.is_default ? "Default" : "Set default"}
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="opacity-0 transition-opacity group-hover:opacity-100"
-              onClick={() => setConfirmDeleteId(stage.id)}
-              aria-label="Delete stage"
-            >
-              <Trash2 className="h-3 w-3" />
-            </Button>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={stages.map((s) => s.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="space-y-1">
+            {stages.map((stage) => (
+              <SortableStageRow
+                key={stage.id}
+                stage={stage}
+                onUpdate={(patch) => updateStage(stage.id, patch)}
+                onSetDefault={() => setDefault(stage.id)}
+                onDelete={() => setConfirmDeleteId(stage.id)}
+              />
+            ))}
           </div>
-        ))}
-      </div>
+        </SortableContext>
+      </DndContext>
 
       <ConfirmDeleteDialog
         open={!!confirmDeleteId}
@@ -254,12 +370,7 @@ function StageEditor({ entityType }: { entityType: string }) {
 
       {adding ? (
         <div className="flex items-center gap-2 rounded-md border border-border/50 px-2 py-1.5">
-          <input
-            type="color"
-            value={newColor}
-            onChange={(e) => setNewColor(e.target.value)}
-            className="h-6 w-6 rounded cursor-pointer bg-transparent border-0"
-          />
+          <ColorPicker value={newColor} onChange={setNewColor} />
           <Input
             value={newLabel}
             onChange={(e) => setNewLabel(e.target.value)}
@@ -310,7 +421,7 @@ export default function PipelineSettingsPage() {
       <PageHeader
         icon={<Layers className="h-4 w-4" />}
         title="Pipeline stages"
-        description="Stages drive status dropdowns and kanban columns across the app."
+        description="Stages drive status dropdowns and kanban columns across the app. Drag to reorder."
       />
 
       <div className="flex-1 overflow-auto">

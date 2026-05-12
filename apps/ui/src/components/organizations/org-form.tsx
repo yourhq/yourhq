@@ -10,6 +10,7 @@ import {
 import { usePipelineStages } from "@/hooks/use-pipeline-stages";
 import { useFieldDefinitions } from "@/hooks/use-field-definitions";
 import { DynamicFieldGroups } from "@/components/shared/dynamic-field-group";
+import { PipelineStagePicker } from "@/components/shared/pipeline-stage-picker";
 import { logAudit } from "@/lib/audit/log";
 import { SidePanel } from "@/components/shared/side-panel";
 import { TagInput } from "@/components/ui/tag-input";
@@ -22,7 +23,6 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
-import { DEFAULT_STAGE_COLOR } from "@/lib/fields/types";
 import { toast } from "sonner";
 
 function PropertyRow({
@@ -73,7 +73,7 @@ export function OrgForm({
   organization: Organization | null;
   onSaved: () => void;
 }) {
-  const { stages, defaultStage, getStageColor } = usePipelineStages("organization");
+  const { defaultStage } = usePipelineStages("organization");
   const { groupedFields } = useFieldDefinitions("organization");
 
   const [saving, setSaving] = useState(false);
@@ -141,6 +141,19 @@ export function OrgForm({
 
   async function handleSubmit() {
     if (!form.name.trim()) return;
+
+    const requiredFields = groupedFields
+      .flatMap((g) => g.fields)
+      .filter((f) => f.required);
+    const missing = requiredFields.filter((f) => {
+      const val = extended[f.field_key];
+      return val === undefined || val === null || val === "";
+    });
+    if (missing.length > 0) {
+      toast.error(`Required: ${missing.map((f) => f.label).join(", ")}`);
+      return;
+    }
+
     setSaving(true);
 
     const data = {
@@ -205,7 +218,6 @@ export function OrgForm({
     }
   }
 
-  const selectedStage = stages.find((s) => s.stage_key === form.status);
   const selectedType = ORG_TYPES.find((t) => t.value === form.type);
   const selectedSize = ORG_SIZES.find((s) => s.value === form.size);
 
@@ -261,29 +273,13 @@ export function OrgForm({
         {/* Primary property bar */}
         <div className="flex flex-wrap items-center gap-1.5 border-t border-border/50 px-4 py-2.5">
           {/* Status */}
-          {stages.length > 0 && (
-            <Select value={form.status || "none"} onValueChange={(v) => update("status", v === "none" ? "" : v)}>
-              <SelectTrigger className="h-6 w-auto gap-1 border-border/50 bg-transparent px-2 text-xs font-normal hover:bg-accent">
-                <span
-                  className="h-2 w-2 rounded-full shrink-0"
-                  style={{ backgroundColor: form.status ? getStageColor(form.status) : DEFAULT_STAGE_COLOR }}
-                />
-                <span>{selectedStage?.label ?? "Status"}</span>
-              </SelectTrigger>
-              <SelectContent portal={false}>
-                <SelectItem value="none">No status</SelectItem>
-                {stages.map((s) => (
-                  <SelectItem key={s.stage_key} value={s.stage_key}>
-                    <span
-                      className="mr-1.5 inline-block h-2 w-2 rounded-full"
-                      style={{ backgroundColor: s.color ?? DEFAULT_STAGE_COLOR }}
-                    />
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+          <PipelineStagePicker
+            entityType="organization"
+            value={form.status || null}
+            onValueChange={(v) => update("status", v ?? "")}
+            allowNone
+            compact
+          />
 
           {/* Type */}
           <Select value={form.type || "none"} onValueChange={(v) => update("type", v === "none" ? "" : v)}>
