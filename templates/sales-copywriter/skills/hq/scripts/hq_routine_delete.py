@@ -31,11 +31,14 @@ if not agent_id:
     output({"error": "agent_not_found", "slug": AGENT_SLUG})
     sys.exit(1)
 
-existing = api_get("routines", {
-    "select": "id,agent_id,name",
-    "id": f"eq.{args.routine_id}",
-    "limit": "1",
-})
+existing = api_get(
+    "routines",
+    {
+        "select": "id,agent_id,name",
+        "id": f"eq.{args.routine_id}",
+        "limit": "1",
+    },
+)
 if not existing:
     output({"error": "not_found", "routine_id": args.routine_id})
     sys.exit(1)
@@ -46,10 +49,17 @@ if routine["agent_id"] != agent_id:
     sys.exit(1)
 
 api_delete("routines", args.routine_id)
-audit("routines", "routine", args.routine_id, "deleted",
-      summary=f"Agent '{AGENT_SLUG}' deleted routine '{routine['name']}'")
-output({
-    "status": "deleted",
-    "id": args.routine_id,
-    "name": routine["name"],
-})
+audit(
+    "routines",
+    "routine",
+    args.routine_id,
+    "deleted",
+    summary=f"Agent '{AGENT_SLUG}' deleted routine '{routine['name']}'",
+)
+output(
+    {
+        "status": "deleted",
+        "id": args.routine_id,
+        "name": routine["name"],
+    }
+)

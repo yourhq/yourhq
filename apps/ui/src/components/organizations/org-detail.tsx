@@ -15,7 +15,6 @@ import { usePipelineStages } from "@/hooks/use-pipeline-stages";
 import { useFieldDefinitions } from "@/hooks/use-field-definitions";
 import { DynamicFieldGroups } from "@/components/shared/dynamic-field-group";
 import { DEFAULT_STAGE_COLOR } from "@/lib/fields/types";
-import { StatusDot } from "@/components/ui/status-dot";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -28,6 +27,7 @@ import {
   ArrowLeft,
   Archive,
   Pencil,
+  Trash2,
   Globe,
   MapPin,
   Briefcase,
@@ -37,6 +37,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { logAudit } from "@/lib/audit/log";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { OrgForm } from "./org-form";
 
 interface OrgDetailProps {
@@ -49,6 +50,8 @@ export function OrgDetail({ organization: initial }: OrgDetailProps) {
   const [organization, setOrganization] = useState<Organization>(initial);
   const [people, setPeople] = useState<(ContactOrganization & { contact: Contact })[]>([]);
   const [editing, setEditing] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const { stages, stagesByKey } = usePipelineStages("organization");
   const { groupedFields } = useFieldDefinitions("organization");
@@ -107,6 +110,19 @@ export function OrgDetail({ organization: initial }: OrgDetailProps) {
     router.push("/dashboard/organizations");
   }
 
+  async function handleDelete() {
+    await supabase.from("organizations").delete().eq("id", organization.id);
+    logAudit(supabase, {
+      module: "crm",
+      entity_type: "organization",
+      entity_id: organization.id,
+      action: "deleted",
+      summary: `Deleted organization '${organization.name}'`,
+    });
+    toast("Organization deleted");
+    router.push("/dashboard/organizations");
+  }
+
   async function onFormSaved() {
     setEditing(false);
     const { data } = await supabase
@@ -155,10 +171,19 @@ export function OrgDetail({ organization: initial }: OrgDetailProps) {
             variant="ghost"
             size="sm"
             className="h-7 text-xs"
-            onClick={handleArchive}
+            onClick={() => setConfirmArchive(true)}
           >
             <Archive className="mr-1 h-3 w-3" />
             Archive
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs text-red-400 hover:text-red-300"
+            onClick={() => setConfirmDelete(true)}
+          >
+            <Trash2 className="mr-1 h-3 w-3" />
+            Delete
           </Button>
         </div>
       </div>
@@ -380,6 +405,31 @@ export function OrgDetail({ organization: initial }: OrgDetailProps) {
         organization={organization}
         onSaved={onFormSaved}
       />
+
+      <ConfirmDialog
+        open={confirmArchive}
+        title={`Archive ${organization.name}?`}
+        description="Archived organizations are hidden from the main list but can be restored later. Contact associations stay intact."
+        confirmLabel="Archive"
+        tone="warning"
+        onConfirm={async () => {
+          await handleArchive();
+          setConfirmArchive(false);
+        }}
+        onCancel={() => setConfirmArchive(false)}
+      />
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title={`Delete ${organization.name}?`}
+        description="This permanently removes the organization and all contact associations. This action cannot be undone."
+        confirmLabel="Delete organization"
+        onConfirm={async () => {
+          await handleDelete();
+          setConfirmDelete(false);
+        }}
+        onCancel={() => setConfirmDelete(false)}
+      />
     </div>
   );
 }
@@ -402,5 +452,3 @@ function DetailItem({
   );
 }
 
-// Avoid unused-symbol lint
-void StatusDot;

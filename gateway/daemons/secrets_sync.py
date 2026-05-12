@@ -48,6 +48,7 @@ _sync_lock = threading.Lock()
 
 def _log(msg: str):
     from datetime import datetime, timezone
+
     entry = {
         "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "level": "info",
@@ -58,6 +59,7 @@ def _log(msg: str):
 
 
 # ── HKDF-SHA256 (RFC 5869) ────────────────────────────────────────────
+
 
 def _hkdf_extract(salt: bytes, ikm: bytes) -> bytes:
     return hmac.new(salt, ikm, hashlib.sha256).digest()
@@ -106,6 +108,7 @@ def _get_encryption_key() -> bytes:
 
 # ── AES-256-GCM decryption ────────────────────────────────────────────
 
+
 def _decrypt(ciphertext_str: str) -> Optional[str]:
     """Decrypt an enc:v1: formatted value. Returns None on failure."""
     if not ciphertext_str or not ciphertext_str.startswith(PREFIX):
@@ -117,7 +120,7 @@ def _decrypt(ciphertext_str: str) -> Optional[str]:
         _log("cryptography library not available — cannot decrypt secrets")
         return None
 
-    parts = ciphertext_str[len(PREFIX):].split(".")
+    parts = ciphertext_str[len(PREFIX) :].split(".")
     if len(parts) != 3:
         return None
 
@@ -136,6 +139,7 @@ def _decrypt(ciphertext_str: str) -> Optional[str]:
 
 
 # ── Supabase API ──────────────────────────────────────────────────────
+
 
 def _api_get(table: str, params: dict) -> list:
     url = _supabase_url.rstrip("/") + f"/rest/v1/{table}?" + urllib.parse.urlencode(params)
@@ -171,6 +175,7 @@ def _api_patch_many(table: str, filter_params: dict, payload: dict):
 
 # ── Sync logic ────────────────────────────────────────────────────────
 
+
 def _get_gateway_db_id() -> Optional[str]:
     """Resolve the gateway slug to its UUID."""
     try:
@@ -184,10 +189,13 @@ def _get_gateway_db_id() -> Optional[str]:
 
 def _fetch_secrets(gateway_db_id: str) -> list:
     try:
-        return _api_get("secrets", {
-            "select": "id,agent_id,key,encrypted_value,sync_status",
-            "gateway_id": f"eq.{gateway_db_id}",
-        })
+        return _api_get(
+            "secrets",
+            {
+                "select": "id,agent_id,key,encrypted_value,sync_status",
+                "gateway_id": f"eq.{gateway_db_id}",
+            },
+        )
     except Exception as e:
         _log(f"Failed to fetch secrets: {e}")
         return []
@@ -301,16 +309,21 @@ def _sync_secrets_inner():
     # Mark synced secrets as active
     if synced_ids:
         from datetime import datetime, timezone
+
         now = datetime.now(timezone.utc).isoformat(timespec="seconds")
         try:
             filter_val = ",".join(synced_ids)
-            _api_patch_many("secrets", {
-                "id": f"in.({filter_val})",
-                "sync_status": "neq.active",
-            }, {
-                "sync_status": "active",
-                "last_synced_at": now,
-            })
+            _api_patch_many(
+                "secrets",
+                {
+                    "id": f"in.({filter_val})",
+                    "sync_status": "neq.active",
+                },
+                {
+                    "sync_status": "active",
+                    "last_synced_at": now,
+                },
+            )
         except Exception as e:
             _log(f"Failed to mark secrets as active: {e}")
 
@@ -318,6 +331,7 @@ def _sync_secrets_inner():
 
 
 # ── Background loop ───────────────────────────────────────────────────
+
 
 def _sync_loop():
     sync_secrets()

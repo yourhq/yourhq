@@ -54,6 +54,30 @@ Returns ordered stages with keys and labels. Only set a contact's `status` to a 
 
 Contacts have universal fields (name, email, phone, company, title, etc.) as real columns, plus workstream-specific fields in an `extended` JSONB column. The shape of `extended` is defined by `field_definitions` — fetch those first to know what fields exist.
 
+### List contacts
+```bash
+python3 skills/hq/scripts/hq_list_contacts.py
+python3 skills/hq/scripts/hq_list_contacts.py --status lead,qualified --priority high
+python3 skills/hq/scripts/hq_list_contacts.py --search "John" --company "Acme"
+python3 skills/hq/scripts/hq_list_contacts.py --tag vip --relationship warm
+```
+Filters: `--status`, `--priority`, `--relationship`, `--tag`, `--company`, `--search`, `--campaign-id`, `--include-archived`, `--limit`
+
+### Get a single contact (full details)
+```bash
+python3 skills/hq/scripts/hq_get_contact.py CONTACT_ID
+python3 skills/hq/scripts/hq_get_contact.py CONTACT_ID --include-organizations --include-interactions
+```
+Returns the full contact record. Optional flags fetch linked organizations and recent interactions in one call.
+
+### List organizations
+```bash
+python3 skills/hq/scripts/hq_list_organizations.py
+python3 skills/hq/scripts/hq_list_organizations.py --type company --search "Acme"
+python3 skills/hq/scripts/hq_list_organizations.py --industry fintech --tag enterprise
+```
+Filters: `--type`, `--industry`, `--search`, `--tag`, `--include-archived`, `--limit`
+
 ### Update extended fields on a contact
 ```bash
 python3 skills/hq/scripts/hq_update_extended.py contacts CONTACT_ID \

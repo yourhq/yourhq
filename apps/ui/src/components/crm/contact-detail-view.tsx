@@ -48,6 +48,7 @@ import { toast } from "sonner";
 import { logAudit } from "@/lib/audit/log";
 import { DraftSetsSection } from "./draft-sets-section";
 import { InteractionsTimeline } from "./interactions-timeline";
+import { ContactOrganizationsSection } from "./contact-organizations-section";
 import { ContactInboxHistory } from "@/components/inbox/contact-inbox-history";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
@@ -603,6 +604,10 @@ export function ContactDetailView({ contact: initialContact }: { contact: Contac
                 />
               </DetailRow>
             </div>
+
+            {/* Organizations */}
+            <Separator className="bg-border/50" />
+            <ContactOrganizationsSection contactId={contact.id} />
 
             {/* Dynamic custom fields */}
             {groupedFields.length > 0 && (

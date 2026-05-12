@@ -104,4 +104,3 @@ else:
 
     audit("knowledge", "knowledge_item", item_id, "created", summary=args.reason)
     output({"status": "created", "id": item_id, "title": args.title, "reason": args.reason})
-

@@ -38,8 +38,8 @@ if not agent_id:
 
 params = {
     "select": "id,name,instruction,trigger_type,is_active,cadence_type,interval_n,"
-              "days_of_week,day_of_month,time_of_day,timezone,entity_type,condition,"
-              "field,value,collection_id,next_run_at,last_run_at,run_count",
+    "days_of_week,day_of_month,time_of_day,timezone,entity_type,condition,"
+    "field,value,collection_id,next_run_at,last_run_at,run_count",
     "agent_id": f"eq.{agent_id}",
     "order": "created_at.desc",
 }
@@ -51,7 +51,9 @@ if args.trigger_type:
 
 rows = api_get("routines", params) or []
 
-output({
-    "count": len(rows),
-    "routines": rows,
-})
+output(
+    {
+        "count": len(rows),
+        "routines": rows,
+    }
+)

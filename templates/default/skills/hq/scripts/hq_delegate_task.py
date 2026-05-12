@@ -35,11 +35,14 @@ args = ap.parse_args()
 agent_id = get_agent_id()
 
 # Validate target agent is a direct report
-target_agents = api_get("agents", {
-    "select": "id,slug,name,reports_to_id",
-    "slug": f"eq.{args.to_agent}",
-    "limit": "1",
-})
+target_agents = api_get(
+    "agents",
+    {
+        "select": "id,slug,name,reports_to_id",
+        "slug": f"eq.{args.to_agent}",
+        "limit": "1",
+    },
+)
 
 if not target_agents:
     output({"error": "agent_not_found", "agent_slug": args.to_agent})
@@ -47,19 +50,24 @@ if not target_agents:
 
 target = target_agents[0]
 if target.get("reports_to_id") != agent_id:
-    output({
-        "error": "not_a_report",
-        "message": f"{args.to_agent} does not report to {AGENT_SLUG}. Delegation requires a direct report relationship.",
-        "agent_slug": args.to_agent,
-    })
+    output(
+        {
+            "error": "not_a_report",
+            "message": f"{args.to_agent} does not report to {AGENT_SLUG}. Delegation requires a direct report relationship.",
+            "agent_slug": args.to_agent,
+        }
+    )
     sys.exit(1)
 
 # Get the parent task's stream for inheritance
-parent_tasks = api_get("tasks", {
-    "select": "stream_id",
-    "id": f"eq.{args.task_id}",
-    "limit": "1",
-})
+parent_tasks = api_get(
+    "tasks",
+    {
+        "select": "stream_id",
+        "id": f"eq.{args.task_id}",
+        "limit": "1",
+    },
+)
 stream_id = parent_tasks[0].get("stream_id") if parent_tasks else None
 
 # Create the subtask
@@ -80,22 +88,28 @@ new_task = result[0] if isinstance(result, list) else result
 new_task_id = new_task["id"]
 
 # Create child_of relation
-api_post("task_relations", {
-    "source_task_id": new_task_id,
-    "target_task_id": args.task_id,
-    "relation_type": "child_of",
-    "created_by_type": "agent",
-    "created_by_agent_id": agent_id,
-})
+api_post(
+    "task_relations",
+    {
+        "source_task_id": new_task_id,
+        "target_task_id": args.task_id,
+        "relation_type": "child_of",
+        "created_by_type": "agent",
+        "created_by_agent_id": agent_id,
+    },
+)
 
-audit("tasks", "task", new_task_id, "created",
-      summary=f"Agent '{AGENT_SLUG}' delegated '{args.title}' to {args.to_agent}")
+audit(
+    "tasks", "task", new_task_id, "created", summary=f"Agent '{AGENT_SLUG}' delegated '{args.title}' to {args.to_agent}"
+)
 
-output({
-    "status": "delegated",
-    "task_id": new_task_id,
-    "parent_task_id": args.task_id,
-    "delegated_to": args.to_agent,
-    "title": args.title,
-    "priority": args.priority,
-})
+output(
+    {
+        "status": "delegated",
+        "task_id": new_task_id,
+        "parent_task_id": args.task_id,
+        "delegated_to": args.to_agent,
+        "title": args.title,
+        "priority": args.priority,
+    }
+)

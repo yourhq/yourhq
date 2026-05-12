@@ -227,6 +227,7 @@ def mark_deleted(item_id: str) -> None:
 def _load_gateway_secrets() -> dict:
     """Read gateway.env from disk (written by secrets_sync daemon)."""
     from pathlib import Path
+
     env_file = Path(os.environ.get("OPENCLAW_HOME", os.path.expanduser("~/.openclaw"))) / "secrets" / "gateway.env"
     if not env_file.is_file():
         return {}
@@ -259,7 +260,7 @@ def _resolve_credentials(provider: str, connection_id: str, creds: dict) -> dict
     multi_prefix = prefix + "__"
     for key, value in secrets.items():
         if key.startswith(multi_prefix):
-            field_name = key[len(multi_prefix):].lower()
+            field_name = key[len(multi_prefix) :].lower()
             if field_name not in creds:
                 creds[field_name] = value
 
@@ -270,9 +271,7 @@ def sync_connection(connection: dict) -> None:
     provider = connection["provider"]
     connection_id = connection["id"]
     interval = connection.get("sync_interval_hours", 6)
-    creds = _resolve_credentials(
-        provider, connection_id, dict(connection.get("credentials", {}))
-    )
+    creds = _resolve_credentials(provider, connection_id, dict(connection.get("credentials", {})))
 
     log(f"Syncing {provider} connection")
 

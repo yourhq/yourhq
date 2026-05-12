@@ -257,20 +257,36 @@ def make_chunks(text: str) -> list[dict[str, Any]]:
 def index_chunks(item_id: str, text: str, digest: str) -> None:
     chunks = make_chunks(text)
     if not chunks:
-        rpc("mark_knowledge_item_chunks_indexed", {
-            "p_item_id": item_id, "p_chunk_count": 0, "p_source_hash": digest,
-        })
+        rpc(
+            "mark_knowledge_item_chunks_indexed",
+            {
+                "p_item_id": item_id,
+                "p_chunk_count": 0,
+                "p_source_hash": digest,
+            },
+        )
         return
 
-    chunk_rows = rpc("upsert_knowledge_chunks", {
-        "p_item_id": item_id,
-        "p_chunks": chunks,
-    }) or []
+    chunk_rows = (
+        rpc(
+            "upsert_knowledge_chunks",
+            {
+                "p_item_id": item_id,
+                "p_chunks": chunks,
+            },
+        )
+        or []
+    )
 
     if not chunk_rows:
-        rpc("mark_knowledge_item_chunks_indexed", {
-            "p_item_id": item_id, "p_chunk_count": 0, "p_source_hash": digest,
-        })
+        rpc(
+            "mark_knowledge_item_chunks_indexed",
+            {
+                "p_item_id": item_id,
+                "p_chunk_count": 0,
+                "p_source_hash": digest,
+            },
+        )
         return
 
     texts = [c["content"] for c in chunks]
@@ -278,40 +294,58 @@ def index_chunks(item_id: str, text: str, digest: str) -> None:
         embeddings = embed_many(texts)
     except Exception as exc:
         log("chunk embedding failed", level="error", item_id=item_id, error=str(exc))
-        rpc("mark_knowledge_item_chunks_failed", {
-            "p_item_id": item_id, "p_error": str(exc),
-        })
+        rpc(
+            "mark_knowledge_item_chunks_failed",
+            {
+                "p_item_id": item_id,
+                "p_error": str(exc),
+            },
+        )
         return
 
     failed = 0
     for chunk_row, emb in zip(chunk_rows, embeddings):
         try:
-            rpc("mark_knowledge_chunk_indexed", {
-                "p_chunk_id": chunk_row["id"],
-                "p_embedding": emb,
-                "p_model": MODEL_NAME,
-                "p_dimensions": 384,
-            })
+            rpc(
+                "mark_knowledge_chunk_indexed",
+                {
+                    "p_chunk_id": chunk_row["id"],
+                    "p_embedding": emb,
+                    "p_model": MODEL_NAME,
+                    "p_dimensions": 384,
+                },
+            )
         except Exception as exc:
             failed += 1
             log("failed to index chunk", level="error", chunk_id=chunk_row.get("id"), error=str(exc))
             try:
-                rpc("mark_knowledge_chunk_failed", {
-                    "p_chunk_id": chunk_row["id"], "p_error": str(exc),
-                })
+                rpc(
+                    "mark_knowledge_chunk_failed",
+                    {
+                        "p_chunk_id": chunk_row["id"],
+                        "p_error": str(exc),
+                    },
+                )
             except Exception:
                 pass
 
     if failed == len(chunk_rows):
-        rpc("mark_knowledge_item_chunks_failed", {
-            "p_item_id": item_id, "p_error": f"All {failed} chunks failed to embed",
-        })
+        rpc(
+            "mark_knowledge_item_chunks_failed",
+            {
+                "p_item_id": item_id,
+                "p_error": f"All {failed} chunks failed to embed",
+            },
+        )
     else:
-        rpc("mark_knowledge_item_chunks_indexed", {
-            "p_item_id": item_id,
-            "p_chunk_count": len(chunk_rows) - failed,
-            "p_source_hash": digest,
-        })
+        rpc(
+            "mark_knowledge_item_chunks_indexed",
+            {
+                "p_item_id": item_id,
+                "p_chunk_count": len(chunk_rows) - failed,
+                "p_source_hash": digest,
+            },
+        )
 
     log("indexed chunks", item_id=item_id, total=len(chunk_rows), failed=failed)
 
@@ -359,9 +393,13 @@ def index_knowledge_item(row: dict[str, Any]) -> None:
     except Exception as exc:
         log("chunk indexing failed", level="error", item_id=row.get("id"), error=str(exc))
         try:
-            rpc("mark_knowledge_item_chunks_failed", {
-                "p_item_id": row["id"], "p_error": str(exc),
-            })
+            rpc(
+                "mark_knowledge_item_chunks_failed",
+                {
+                    "p_item_id": row["id"],
+                    "p_error": str(exc),
+                },
+            )
         except Exception:
             pass
 

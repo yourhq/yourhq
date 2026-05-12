@@ -94,6 +94,7 @@ WORKSPACE="$HOME/.openclaw/workspace-${AGENT_NAME}"
 OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
 SECRETS_FILE="$OPENCLAW_HOME/secrets/agents/${AGENT_SLUG}.env"
 if [ -f "$SECRETS_FILE" ]; then
+  # shellcheck source=/dev/null
   set -a; . "$SECRETS_FILE"; set +a
 fi
 [ -z "$BOT_TOKEN" ] && BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"

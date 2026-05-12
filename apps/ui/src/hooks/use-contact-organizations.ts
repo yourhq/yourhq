@@ -28,6 +28,7 @@ export function useContactOrganizations(contactId: string) {
   }, [supabase, contactId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchLinks();
   }, [fetchLinks]);
 

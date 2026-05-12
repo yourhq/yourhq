@@ -35,8 +35,13 @@ from hq_base import (
 check_env()
 
 VALID_CADENCE_TYPES = [
-    "every_n_minutes", "every_n_hours", "daily", "weekdays",
-    "weekly", "monthly", "every_n_days",
+    "every_n_minutes",
+    "every_n_hours",
+    "daily",
+    "weekdays",
+    "weekly",
+    "monthly",
+    "every_n_days",
 ]
 VALID_ENTITY_TYPES = ["contact", "collection_record", "knowledge_item", "task"]
 VALID_CONDITIONS = ["created", "changed_to", "changed_from", "any_change"]
@@ -115,15 +120,18 @@ if args.trigger_type == "schedule":
 
     # Compute next_run_at
     try:
-        next_run = api_rpc("routine_next_occurrence", {
-            "p_cadence_type": args.cadence_type,
-            "p_interval_n": args.interval_n,
-            "p_days_of_week": days_of_week,
-            "p_day_of_month": args.day_of_month,
-            "p_time_of_day": args.time_of_day,
-            "p_timezone": args.timezone,
-            "p_from": now_iso(),
-        })
+        next_run = api_rpc(
+            "routine_next_occurrence",
+            {
+                "p_cadence_type": args.cadence_type,
+                "p_interval_n": args.interval_n,
+                "p_days_of_week": days_of_week,
+                "p_day_of_month": args.day_of_month,
+                "p_time_of_day": args.time_of_day,
+                "p_timezone": args.timezone,
+                "p_from": now_iso(),
+            },
+        )
         payload["next_run_at"] = next_run
     except Exception as e:
         print(f"[next_run] warning: {e}", file=sys.stderr)
@@ -146,11 +154,14 @@ else:
 
 if args.routine_id:
     # Update — verify ownership first
-    existing = api_get("routines", {
-        "select": "id,agent_id",
-        "id": f"eq.{args.routine_id}",
-        "limit": "1",
-    })
+    existing = api_get(
+        "routines",
+        {
+            "select": "id,agent_id",
+            "id": f"eq.{args.routine_id}",
+            "limit": "1",
+        },
+    )
     if not existing:
         output({"error": "not_found", "routine_id": args.routine_id})
         sys.exit(1)
@@ -159,26 +170,30 @@ if args.routine_id:
         sys.exit(1)
 
     api_patch("routines", args.routine_id, payload)
-    audit("routines", "routine", args.routine_id, "updated",
-          summary=f"Agent '{AGENT_SLUG}' updated routine '{args.name}'")
-    output({
-        "status": "updated",
-        "id": args.routine_id,
-        "name": args.name,
-        "trigger_type": args.trigger_type,
-        "next_run_at": payload.get("next_run_at"),
-    })
+    audit(
+        "routines", "routine", args.routine_id, "updated", summary=f"Agent '{AGENT_SLUG}' updated routine '{args.name}'"
+    )
+    output(
+        {
+            "status": "updated",
+            "id": args.routine_id,
+            "name": args.name,
+            "trigger_type": args.trigger_type,
+            "next_run_at": payload.get("next_run_at"),
+        }
+    )
 
 else:
     result = api_post("routines", payload)
     routine = result[0] if isinstance(result, list) else result
     routine_id = routine["id"]
-    audit("routines", "routine", routine_id, "created",
-          summary=f"Agent '{AGENT_SLUG}' created routine '{args.name}'")
-    output({
-        "status": "created",
-        "id": routine_id,
-        "name": args.name,
-        "trigger_type": args.trigger_type,
-        "next_run_at": payload.get("next_run_at"),
-    })
+    audit("routines", "routine", routine_id, "created", summary=f"Agent '{AGENT_SLUG}' created routine '{args.name}'")
+    output(
+        {
+            "status": "created",
+            "id": routine_id,
+            "name": args.name,
+            "trigger_type": args.trigger_type,
+            "next_run_at": payload.get("next_run_at"),
+        }
+    )

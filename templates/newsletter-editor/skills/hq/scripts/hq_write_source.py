@@ -111,5 +111,11 @@ while elapsed < TIMEOUT:
         )
         sys.exit(1)
 
-output({"status": "timeout", "command_id": cmd_id, "message": f"Command did not complete within {TIMEOUT}s. Check status manually."})
+output(
+    {
+        "status": "timeout",
+        "command_id": cmd_id,
+        "message": f"Command did not complete within {TIMEOUT}s. Check status manually.",
+    }
+)
 sys.exit(1)

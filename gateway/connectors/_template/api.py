@@ -22,7 +22,10 @@ def request(
 ) -> dict:
     body = json.dumps(data).encode() if data else None
     req = urllib.request.Request(
-        url, data=body, headers=headers(api_key), method=method,
+        url,
+        data=body,
+        headers=headers(api_key),
+        method=method,
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return json.loads(resp.read().decode())

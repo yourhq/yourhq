@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   Contact,
@@ -9,6 +9,7 @@ import {
   PRIORITY_COLORS,
   RELATIONSHIP_STRENGTHS,
 } from "@/lib/crm/types";
+import type { Organization } from "@/lib/organizations/types";
 import { usePipelineStages } from "@/hooks/use-pipeline-stages";
 import { useFieldDefinitions } from "@/hooks/use-field-definitions";
 import { DynamicFieldGroups } from "@/components/shared/dynamic-field-group";
@@ -27,6 +28,7 @@ import { DEFAULT_STAGE_COLOR } from "@/lib/fields/types";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
+import { Building2, X, Search } from "lucide-react";
 
 function PropertyRow({
   label,
@@ -84,6 +86,11 @@ export function ContactForm({
   const [saving, setSaving] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
   const [extended, setExtended] = useState<Record<string, unknown>>({});
+  const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
+  const [orgQuery, setOrgQuery] = useState("");
+  const [orgResults, setOrgResults] = useState<Organization[]>([]);
+  const [orgSearching, setOrgSearching] = useState(false);
+  const orgDebounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const nameRef = useRef<HTMLTextAreaElement>(null);
 
   const [form, setForm] = useState({
@@ -106,6 +113,39 @@ export function ContactForm({
   });
 
   const supabase = useMemo(() => createClient(), []);
+
+  const searchOrgs = useCallback(async (q: string) => {
+    if (!q.trim()) { setOrgResults([]); return; }
+    const { data } = await supabase
+      .from("organizations")
+      .select("*")
+      .ilike("name", `%${q.trim()}%`)
+      .is("archived_at", null)
+      .limit(6);
+    setOrgResults((data ?? []) as Organization[]);
+  }, [supabase]);
+
+  useEffect(() => {
+    clearTimeout(orgDebounceRef.current);
+    orgDebounceRef.current = setTimeout(() => searchOrgs(orgQuery), 200);
+    return () => clearTimeout(orgDebounceRef.current);
+  }, [orgQuery, searchOrgs]);
+
+  // Load existing org link when editing
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!contact || !open) { setSelectedOrg(null); return; }
+    (async () => {
+      const { data } = await supabase
+        .from("contact_organizations")
+        .select("*, organization:organizations(*)")
+        .eq("contact_id", contact.id)
+        .eq("is_current", true)
+        .limit(1)
+        .maybeSingle();
+      if (data?.organization) setSelectedOrg(data.organization as Organization);
+    })();
+  }, [contact, open, supabase]);
 
   // Reset form when opening / switching contact
   useEffect(() => {
@@ -152,7 +192,11 @@ export function ContactForm({
       });
       setTags([]);
       setExtended({});
+      setSelectedOrg(null);
     }
+    setOrgQuery("");
+    setOrgResults([]);
+    setOrgSearching(false);
   }, [contact, open, defaultStage]);
 
   // Auto-resize name textarea
@@ -223,6 +267,13 @@ export function ContactForm({
           action: "created",
           summary: `Created contact '${data.name}'`,
         });
+        if (selectedOrg) {
+          await supabase.from("contact_organizations").insert({
+            contact_id: inserted.id,
+            org_id: selectedOrg.id,
+            is_current: true,
+          });
+        }
         toast.success("Contact created");
       }
     }
@@ -395,6 +446,61 @@ export function ContactForm({
               onChange={(v) => update("company", v)}
               placeholder="Company name"
             />
+          </PropertyRow>
+          <PropertyRow label="Organization">
+            {selectedOrg ? (
+              <div className="flex items-center gap-1.5 h-7">
+                <Building2 className="h-3 w-3 text-muted-foreground shrink-0" />
+                <span className="text-xs truncate">{selectedOrg.name}</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedOrg(null)}
+                  className="ml-auto text-muted-foreground hover:text-foreground p-0.5"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : orgSearching ? (
+              <div className="space-y-1">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    value={orgQuery}
+                    onChange={(e) => setOrgQuery(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Escape") setOrgSearching(false); }}
+                    autoFocus
+                    placeholder="Search organizations..."
+                    className="w-full h-7 rounded-md border border-input bg-transparent pl-7 pr-7 text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                  <button type="button" onClick={() => setOrgSearching(false)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+                {orgResults.length > 0 && (
+                  <div className="rounded-md border border-border/50 overflow-hidden max-h-[120px] overflow-y-auto">
+                    {orgResults.map((org) => (
+                      <button
+                        key={org.id}
+                        type="button"
+                        onClick={() => { setSelectedOrg(org); setOrgSearching(false); setOrgQuery(""); }}
+                        className="flex items-center gap-2 w-full px-2.5 py-1.5 text-left text-xs hover:bg-accent/50 transition-colors"
+                      >
+                        <Building2 className="h-3 w-3 text-muted-foreground shrink-0" />
+                        <span className="truncate">{org.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setOrgSearching(true)}
+                className="h-7 text-xs text-muted-foreground/40 hover:text-muted-foreground px-1.5 -ml-1.5 rounded transition-colors hover:bg-accent/30"
+              >
+                Link organization...
+              </button>
+            )}
           </PropertyRow>
           <PropertyRow label="Title">
             <InlineInput

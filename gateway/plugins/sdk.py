@@ -127,7 +127,7 @@ class SecretsClient:
                 for line in f:
                     line = line.strip()
                     if line.startswith(f"{key}="):
-                        return line[len(key) + 1:].strip("'\"")
+                        return line[len(key) + 1 :].strip("'\"")
         except FileNotFoundError:
             pass
         return os.environ.get(key)
@@ -176,8 +176,7 @@ class BasePlugin(ABC):
         self.ctx = ctx
 
     @abstractmethod
-    def on_event(self, event: PluginEvent) -> PluginResponse | None:
-        ...
+    def on_event(self, event: PluginEvent) -> PluginResponse | None: ...
 
     def on_configure(self, new_config: dict) -> None:
         self.ctx.config = new_config

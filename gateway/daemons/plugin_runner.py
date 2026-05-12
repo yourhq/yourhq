@@ -154,10 +154,13 @@ def load_plugins():
     """Fetch enabled plugins from hq_plugins and instantiate handlers."""
     global PLUGINS
     try:
-        rows = api_get("hq_plugins", {
-            "is_enabled": "eq.true",
-            "select": "plugin_id,name,source,hooks,entry_module,webhook_url,webhook_secret,config,capabilities",
-        })
+        rows = api_get(
+            "hq_plugins",
+            {
+                "is_enabled": "eq.true",
+                "select": "plugin_id,name,source,hooks,entry_module,webhook_url,webhook_secret,config,capabilities",
+            },
+        )
     except Exception as e:
         log(f"Failed to load plugins: {e}", level="error")
         return
@@ -343,11 +346,14 @@ def record_plugin_event(
 def process_event_queue():
     """Fetch unprocessed events from hq_plugin_event_queue, dispatch, mark processed."""
     try:
-        rows = api_get("hq_plugin_event_queue", {
-            "processed": "eq.false",
-            "order": "created_at.asc",
-            "limit": "100",
-        })
+        rows = api_get(
+            "hq_plugin_event_queue",
+            {
+                "processed": "eq.false",
+                "order": "created_at.asc",
+                "limit": "100",
+            },
+        )
     except Exception as e:
         log(f"Failed to poll event queue: {e}", level="error")
         return 0
@@ -412,12 +418,14 @@ class PluginListener:
         return f"{base}/realtime/v1/websocket?apikey={SUPABASE_KEY}&vsn=1.0.0"
 
     def _send(self, topic, event, payload):
-        msg = json.dumps({
-            "topic": topic,
-            "event": event,
-            "payload": payload,
-            "ref": self._next_ref(),
-        })
+        msg = json.dumps(
+            {
+                "topic": topic,
+                "event": event,
+                "payload": payload,
+                "ref": self._next_ref(),
+            }
+        )
         if self.ws:
             self.ws.send(msg)
 

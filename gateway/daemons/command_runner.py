@@ -50,9 +50,11 @@ except ImportError:
     def start_backup_sweep() -> None:  # type: ignore[misc]
         pass
 
+
 try:
     from secrets_sync import start_secrets_sync
 except ImportError:
+
     def start_secrets_sync(url: str, key: str, gw: str) -> None:  # type: ignore[misc]
         pass
 
@@ -1540,11 +1542,16 @@ def handle_source_write(cmd_id, payload):
     action_params = payload.get("params") or {}
 
     if not connection_id or not action_name:
-        api_rpc("fail_command", {
-            "p_command_id": cmd_id,
-            "p_exit_code": None, "p_stdout": None, "p_stderr": None,
-            "p_error": "Missing connection_id or action",
-        })
+        api_rpc(
+            "fail_command",
+            {
+                "p_command_id": cmd_id,
+                "p_exit_code": None,
+                "p_stdout": None,
+                "p_stderr": None,
+                "p_error": "Missing connection_id or action",
+            },
+        )
         return
 
     try:
@@ -1553,11 +1560,14 @@ def handle_source_write(cmd_id, payload):
         pass
 
     try:
-        rows = api_get("source_connections", {
-            "id": f"eq.{connection_id}",
-            "select": "provider,writable",
-            "limit": "1",
-        })
+        rows = api_get(
+            "source_connections",
+            {
+                "id": f"eq.{connection_id}",
+                "select": "provider,writable",
+                "limit": "1",
+            },
+        )
         if not rows:
             raise ValueError("Connection not found")
 
@@ -1578,19 +1588,27 @@ def handle_source_write(cmd_id, payload):
         creds = _resolve_credentials(provider, connection_id, {})
         result = action_provider.execute(action_name, action_params, creds)
 
-        api_rpc("complete_command", {
-            "p_command_id": cmd_id,
-            "p_exit_code": 0,
-            "p_stdout": json.dumps(result) if result else "OK",
-            "p_stderr": None,
-        })
+        api_rpc(
+            "complete_command",
+            {
+                "p_command_id": cmd_id,
+                "p_exit_code": 0,
+                "p_stdout": json.dumps(result) if result else "OK",
+                "p_stderr": None,
+            },
+        )
     except Exception as e:
         log(f"source_write failed: {e}")
-        api_rpc("fail_command", {
-            "p_command_id": cmd_id,
-            "p_exit_code": None, "p_stdout": None, "p_stderr": None,
-            "p_error": str(e),
-        })
+        api_rpc(
+            "fail_command",
+            {
+                "p_command_id": cmd_id,
+                "p_exit_code": None,
+                "p_stdout": None,
+                "p_stderr": None,
+                "p_error": str(e),
+            },
+        )
 
 
 CONNECTION_HANDLERS = {
@@ -1663,6 +1681,7 @@ def execute_command(command_row):
     if action == "provision":
         try:
             from secrets_sync import sync_secrets
+
             sync_secrets()
         except Exception:
             pass
@@ -1707,8 +1726,7 @@ def execute_command(command_row):
             if action == "provision":
                 try:
                     subprocess.run(
-                        ["bash", "-c",
-                         "kill -HUP $(pgrep -f 'openclaw gateway run' | head -1) 2>/dev/null || true"],
+                        ["bash", "-c", "kill -HUP $(pgrep -f 'openclaw gateway run' | head -1) 2>/dev/null || true"],
                         timeout=5,
                     )
                 except Exception:
@@ -1916,6 +1934,7 @@ class CommandListener:
             elif table == "secrets":
                 try:
                     from secrets_sync import sync_secrets
+
                     sync_secrets()
                 except Exception as e:
                     log(f"Secrets sync on realtime event failed: {e}")

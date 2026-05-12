@@ -191,11 +191,13 @@ def _get_browser_tabs(cdp_port: int) -> list[dict]:
     for t in targets:
         if t.get("type") != "page":
             continue
-        tabs.append({
-            "id": t.get("id", ""),
-            "url": t.get("url", ""),
-            "title": t.get("title", ""),
-        })
+        tabs.append(
+            {
+                "id": t.get("id", ""),
+                "url": t.get("url", ""),
+                "title": t.get("title", ""),
+            }
+        )
     return tabs
 
 
@@ -219,11 +221,15 @@ def _capture_screenshot(cdp_port: int, quality: int = 50) -> bytes | None:
     try:
         ws = websocket.create_connection(ws_url, timeout=5)
         try:
-            ws.send(json.dumps({
-                "id": 1,
-                "method": "Page.captureScreenshot",
-                "params": {"format": "jpeg", "quality": quality},
-            }))
+            ws.send(
+                json.dumps(
+                    {
+                        "id": 1,
+                        "method": "Page.captureScreenshot",
+                        "params": {"format": "jpeg", "quality": quality},
+                    }
+                )
+            )
             result = json.loads(ws.recv())
             data_b64 = result.get("result", {}).get("data")
             if not data_b64:
@@ -329,11 +335,14 @@ class Handler(BaseHTTPRequestHandler):
             if not tabs:
                 return self._error(503, "Chrome is not reachable")
             active = tabs[0]
-            return self._send_json(200, {
-                "url": active.get("url"),
-                "title": active.get("title"),
-                "tabs": tabs,
-            })
+            return self._send_json(
+                200,
+                {
+                    "url": active.get("url"),
+                    "title": active.get("title"),
+                    "tabs": tabs,
+                },
+            )
         if kind == "browser_screenshot":
             assert segment is not None
             cdp_port = _get_cdp_port(segment)
@@ -477,6 +486,7 @@ class Handler(BaseHTTPRequestHandler):
 
         try:
             from connectors import get_connector
+
             connector = get_connector(provider)
             if not connector:
                 return self._send_json(200, {"valid": False, "error": f"Unknown provider: {provider}"})
@@ -530,9 +540,7 @@ class Handler(BaseHTTPRequestHandler):
 
             connection = rows[0]
             provider = connection["provider"]
-            creds = _resolve_credentials(
-                provider, connection_id, dict(connection.get("credentials") or {})
-            )
+            creds = _resolve_credentials(provider, connection_id, dict(connection.get("credentials") or {}))
 
             connector = get_connector(provider)
             if not connector:
