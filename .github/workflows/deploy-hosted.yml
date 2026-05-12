@@ -42,3 +42,18 @@ jobs:
           health-check-path: /health
           min-task-count: 1
           max-task-count: 1
+          secrets: |
+            [
+              {"name": "MASTER_SUPABASE_URL", "valueFrom": "${{ secrets.WORKER_SECRET_ARN }}:MASTER_SUPABASE_URL::"},
+              {"name": "MASTER_SUPABASE_SERVICE_ROLE_KEY", "valueFrom": "${{ secrets.WORKER_SECRET_ARN }}:MASTER_SUPABASE_SERVICE_ROLE_KEY::"},
+              {"name": "SUPABASE_MANAGEMENT_API_TOKEN", "valueFrom": "${{ secrets.WORKER_SECRET_ARN }}:SUPABASE_MANAGEMENT_API_TOKEN::"},
+              {"name": "SUPABASE_ORG_ID", "valueFrom": "${{ secrets.WORKER_SECRET_ARN }}:SUPABASE_ORG_ID::"},
+              {"name": "STRIPE_SECRET_KEY", "valueFrom": "${{ secrets.WORKER_SECRET_ARN }}:STRIPE_SECRET_KEY::"},
+              {"name": "STRIPE_WEBHOOK_SECRET", "valueFrom": "${{ secrets.WORKER_SECRET_ARN }}:STRIPE_WEBHOOK_SECRET::"},
+              {"name": "STRIPE_PRICE_ID", "valueFrom": "${{ secrets.WORKER_SECRET_ARN }}:STRIPE_PRICE_ID::"},
+              {"name": "WORKER_INTERNAL_TOKEN", "valueFrom": "${{ secrets.WORKER_SECRET_ARN }}:WORKER_INTERNAL_TOKEN::"},
+              {"name": "HOSTED_SECRETS_KEY", "valueFrom": "${{ secrets.WORKER_SECRET_ARN }}:HOSTED_SECRETS_KEY::"},
+              {"name": "E2B_API_KEY", "valueFrom": "${{ secrets.WORKER_SECRET_ARN }}:E2B_API_KEY::"},
+              {"name": "PUBLIC_SITE_URL", "valueFrom": "${{ secrets.WORKER_SECRET_ARN }}:PUBLIC_SITE_URL::"},
+              {"name": "RESEND_API_KEY", "valueFrom": "${{ secrets.WORKER_SECRET_ARN }}:RESEND_API_KEY::"}
+            ]
