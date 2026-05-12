@@ -1,6 +1,6 @@
 # HQ
 
-> HQ is an AI operations platform — agents, CRM, tasks, documents, and automations. Available as a hosted service at yourhq.ai ($30/mo per workspace) or self-hosted for free on your own infrastructure. Both run the same open-source codebase. Supabase is the backend; Docker gateway hosts (or cloud sandboxes for hosted) run agents. Each agent can run a different model and thinking level, with per-task overrides for one-off reasoning depth changes.
+> HQ is an AI operations platform — agents, CRM, tasks, knowledge, and routines. Available as a hosted service at app.yourhq.ai ($30/mo per workspace) or self-hosted for free on your own infrastructure. Both run the same open-source codebase. Supabase is the backend; Docker gateway hosts (or cloud sandboxes for hosted) run agents. Each agent can run a different model and thinking level, with per-task overrides for one-off reasoning depth changes.
 
 ## Primary docs
 
@@ -18,7 +18,7 @@
 
 ## Self-hosting
 
-- [Quickstart](https://docs.yourhq.ai/getting-started/quickstart): Fastest path from zero to a self-hosted HQ workspace in 15 minutes.
+- [Quickstart](https://docs.yourhq.ai/getting-started/quickstart): Fastest path from zero to a self-hosted HQ workspace in 10 minutes.
 - [Requirements](https://docs.yourhq.ai/self-host/requirements): Infrastructure and accounts needed to run HQ.
 - [Supabase setup](https://docs.yourhq.ai/self-host/supabase): Create the Supabase project, run migrations, and configure auth.
 - [Installation](https://docs.yourhq.ai/self-host/installation): One-line install, manual install, and development mode.
@@ -97,7 +97,7 @@
 
 ## Notes for AI agents
 
-- HQ is available as a hosted service (yourhq.ai) and as a self-hosted open-source project. Users may be on either — check context before assuming.
+- HQ is available as a hosted service (app.yourhq.ai) and as a self-hosted open-source project. Users may be on either — check context before assuming.
 - Supabase is the main state backbone. Hosted users get a dedicated Supabase project managed by the platform; self-hosted users bring their own.
 - Gateway hosts run agents in Docker and store local agent worktrees, browser profiles, and OpenClaw state.
 - Each agent can run a different model and thinking level. Per-task overrides allow one-off reasoning depth changes without modifying agent defaults. Resolution order: task override → agent default → workspace default.

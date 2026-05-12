@@ -91,7 +91,7 @@ Plugins:
 
 ## Database
 
-`db/migrations/` contains 31 ordered migrations (001–031). Key tables:
+`db/migrations/` contains 34 ordered migrations (001–033). Key tables:
 
 - `gateways` — one row per gateway host. Seeded with a `default` row so single-gateway setups work immediately.
 - `agents` — agent definitions with `gateway_id`, `reports_to_id` hierarchy.
@@ -132,5 +132,5 @@ RLS: All tables use tenant-scoped policies via `current_tenant_id()` JWT claim. 
 ## Current Roadmap Shape
 
 - Shipped: self-hosted stack, browser onboarding, multi-workspace registry, UI-driven gateway registration, provider connections, noVNC modal, usage budgets, agent hierarchy, unified knowledge (pages/skills/files/sources), entity links, routines (schedule + event), collections (table/kanban/calendar views), file processing pipeline, source connections (Notion) with plugin-based connector architecture (manifest-driven, auto-discovery, generic OAuth, gateway-proxied browse/validate, optional write-back, contributor template + guide), modular onboarding, task calendar view, agent-initiated skill learning (auto-creation with version history), encrypted secrets management (AES-256-GCM, Settings UI + agent Secrets tab, gateway .env sync), task relations/dependencies (blocked_by, blocks, relates_to, parent_of, child_of with blocker resolution notifications), labels (managed colors, task picker, filter), deliverables (agent-submitted work products with review workflow: draft → approved/revision_requested/rejected), task templates (reusable task groups with dependency graphs), overdue escalation (pg_cron auto-miss + inbox notification), agent delegation skill (subtask creation with org-chart validation), and HQ plugin system (event-driven hooks, local Python + webhook plugins, plugin runner daemon, SDK with state/secrets/supabase clients, Settings UI for management).
+- Shipped (hosted): hosted offering live at app.yourhq.ai — Worker on AWS ECS Express Mode (worker.yourhq.ai), UI on Vercel, E2B sandboxes for gateways, Stripe billing, magic link auth, master Supabase accounts DB, CI/CD via docker-publish.yml → ECR + deploy-hosted.yml → ECS Express, secrets in AWS Secrets Manager.
 - Next: Google Drive connector (validates plugin architecture with second provider), public deployment docs, richer pricing coverage, template docs, and docs site generation.
-- Later: hosted offering with account management, automated provisioning, and billing.

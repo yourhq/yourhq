@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Bot,
   Pause,
@@ -37,6 +38,7 @@ import {
   DetailSidebarPropertyGrid,
   DetailSidebarProperty,
 } from "@/components/shared/detail-sidebar";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { InboxSection } from "@/components/inbox/inbox-section";
 import { AgentProvisioning } from "@/components/agents/agent-provisioning";
 import { AgentChannelCard } from "@/components/agents/agent-channel-card";
@@ -50,7 +52,8 @@ import { AgentOrgSlice } from "@/components/agents/agent-org-slice";
 import { AgentUsageRail } from "./agent-usage-rail";
 import { AgentSecretsTab } from "./agent-secrets-tab";
 import { AgentKnowledgeSection } from "./agent-knowledge-section";
-import { updateAgent, toggleAgentPauseAction } from "@/app/dashboard/agents/actions";
+import { InlineEdit } from "@/components/ui/inline-edit";
+import { updateAgent, toggleAgentPauseAction, deleteAgentAction } from "@/app/dashboard/agents/actions";
 
 const agentStatusDotHex: Record<string, string> = {
   ready: "var(--status-success)",
@@ -80,10 +83,12 @@ export function AgentDetailTabs({
   contextKnowledge = [],
   onAgentUpdated,
 }: AgentDetailTabsProps) {
+  const router = useRouter();
   const statusLabel =
     AGENT_STATUSES.find((s) => s.value === agent.status)?.label ?? agent.status;
   const statusColor = agentStatusDotHex[agent.status] ?? "var(--status-neutral)";
 
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [desktop, setDesktop] = useState<{
     open: boolean;
     novncUrl: string | null;
@@ -126,7 +131,21 @@ export function AgentDetailTabs({
       <DetailHeader
         back={{ href: "/dashboard/agents", label: "Agents" }}
         identityIcon={<AgentAvatar agent={agent} />}
-        identityTitle={agent.name}
+        identityTitle={
+          <InlineEdit
+            value={agent.name}
+            onSave={async (v) => {
+              try {
+                await updateAgent({ agentId: agent.id, name: v });
+                onAgentUpdated?.();
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Failed to rename");
+              }
+            }}
+            className="text-sm font-semibold -ml-1.5"
+            inputClassName="text-sm font-semibold"
+          />
+        }
         identityMeta={
           <>
             <StatusDot
@@ -162,9 +181,7 @@ export function AgentDetailTabs({
             <DropdownMenuContent align="end" className="w-44">
               <DropdownMenuItem
                 className="gap-2 text-destructive focus:text-destructive"
-                onSelect={(e) => {
-                  e.preventDefault();
-                }}
+                onSelect={() => setConfirmDelete(true)}
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 Remove agent
@@ -192,11 +209,21 @@ export function AgentDetailTabs({
             <TabsContent value="overview" className="min-h-0 flex-1 overflow-auto">
               <div className="mx-auto max-w-3xl space-y-6 px-5 py-5">
                 <AgentChannelCard agent={agent} onAgentUpdated={onAgentUpdated} />
-                {agent.description && (
-                  <p className="text-sm text-muted-foreground">
-                    {agent.description}
-                  </p>
-                )}
+                <InlineEdit
+                  value={agent.description ?? ""}
+                  type="textarea"
+                  placeholder="Add a description — what does this agent do?"
+                  onSave={async (v) => {
+                    try {
+                      await updateAgent({ agentId: agent.id, description: v || null });
+                      onAgentUpdated?.();
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Failed to update");
+                    }
+                  }}
+                  className="text-sm text-muted-foreground -ml-1.5"
+                  inputClassName="text-sm text-muted-foreground"
+                />
                 <DirectReportsSection agent={agent} allAgents={allAgents} />
                 <AgentKnowledgeSection agentId={agent.id} agentSlug={agent.slug} />
                 <ContextKnowledgeSection agent={agent} contextKnowledge={contextKnowledge} />
@@ -272,6 +299,24 @@ export function AgentDetailTabs({
               ? "loading…"
               : undefined
         }
+      />
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title={`Delete ${agent.name}?`}
+        description="This permanently removes the agent from your workspace. Its git branch and conversation history will no longer be accessible from HQ."
+        confirmLabel="Delete agent"
+        onConfirm={async () => {
+          setConfirmDelete(false);
+          try {
+            await deleteAgentAction(agent.id);
+            toast.success(`Deleted ${agent.name}`);
+            router.push("/dashboard/agents");
+          } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Failed to delete agent");
+          }
+        }}
+        onCancel={() => setConfirmDelete(false)}
       />
     </div>
   );
@@ -370,8 +415,8 @@ function AgentRailContent({
           <DetailSidebarProperty label="Slug">
             <span className="font-mono text-foreground/80">@{agent.slug}</span>
           </DetailSidebarProperty>
-          {agent.domains.length > 0 && (
-            <DetailSidebarProperty label="Domains">
+          <DetailSidebarProperty label="Domains">
+            {agent.domains.length > 0 ? (
               <span className="flex flex-wrap gap-1">
                 {agent.domains.map((d) => (
                   <span
@@ -382,10 +427,14 @@ function AgentRailContent({
                   </span>
                 ))}
               </span>
-            </DetailSidebarProperty>
-          )}
-          {agent.capabilities && agent.capabilities.length > 0 && (
-            <DetailSidebarProperty label="Capabilities">
+            ) : (
+              <span className="text-[11px] text-muted-foreground/50 italic">
+                None
+              </span>
+            )}
+          </DetailSidebarProperty>
+          <DetailSidebarProperty label="Capabilities">
+            {agent.capabilities && agent.capabilities.length > 0 ? (
               <span className="flex flex-wrap gap-1">
                 {agent.capabilities.map((c) => (
                   <span
@@ -396,8 +445,12 @@ function AgentRailContent({
                   </span>
                 ))}
               </span>
-            </DetailSidebarProperty>
-          )}
+            ) : (
+              <span className="text-[11px] text-muted-foreground/50 italic">
+                None
+              </span>
+            )}
+          </DetailSidebarProperty>
           <DetailSidebarProperty label="Created">
             <span className="text-muted-foreground">
               {format(new Date(agent.created_at), "MMM d, yyyy")}

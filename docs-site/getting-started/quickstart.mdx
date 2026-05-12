@@ -1,6 +1,6 @@
 ---
 title: "Quickstart"
-description: "Get HQ running in about 15 minutes. You need Docker, a free Supabase account, and a model API key."
+description: "Get HQ running in about 10 minutes. You need Docker, a free Supabase account, and a model API key."
 ---
 
 <Info>
@@ -34,13 +34,6 @@ You need three things. All are free to start.
 <Steps>
   <Step title="Create a project">
     Go to [supabase.com](https://supabase.com), sign in, and create a new project. Choose any name and region. Wait about 2 minutes for it to provision.
-  </Step>
-  <Step title="Run the migrations">
-    In your Supabase dashboard, click **SQL Editor** in the left sidebar. Then run every `.sql` file from [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) in filename order (001 through 025).
-
-    <Tip>
-      The easiest way: open each file, copy the SQL, paste it into the SQL Editor, and click **Run**. Repeat for each file in order. The onboarding wizard can also generate a single combined SQL blob for you.
-    </Tip>
   </Step>
   <Step title="Create an auth user">
     Go to **Authentication → Users** in your Supabase dashboard. Click **Add user → Create new user**. Enter an email and password — this is what you'll use to log in to HQ. Check "Auto Confirm User" so you can sign in immediately.
@@ -105,7 +98,7 @@ Your browser opens to `http://localhost:3000`. Sign in with the email and passwo
   <Step title="Infrastructure">
     Paste the three Supabase values you copied in Step 1 (Project URL, anon key, service role key). Then choose where to run your gateway — "This machine" (Docker, already running) or "Remote server" (copy a one-liner to another host).
 
-    HQ validates the database connection and waits for the gateway to come online.
+    HQ validates the database connection, installs the schema automatically if needed, and waits for the gateway to come online.
   </Step>
   <Step title="Model provider">
     Choose **Anthropic**, **OpenAI**, or **Ollama** and enter your API key. HQ validates it inline. For Ollama, it auto-detects the local instance — just make sure Ollama is running.
@@ -118,7 +111,7 @@ Your browser opens to `http://localhost:3000`. Sign in with the email and passwo
 After creation, you land on the **Tasks** page with a suggested first task pre-filled.
 
 <Info>
-  If you see a "table does not exist" error during the infrastructure step, you missed some migration files. Go back to the SQL Editor and run any files you skipped.
+  If you see a "table does not exist" error during the infrastructure step, the one-click schema install may not have completed. Re-run it from the onboarding wizard, or manually apply the migration files from [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) in the Supabase SQL Editor. See [Supabase setup](/self-host/supabase) for details.
 </Info>
 
 ---

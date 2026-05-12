@@ -115,25 +115,17 @@ export function AgentChannelCard({ agent, onAgentUpdated }: AgentChannelCardProp
 
     setPhase("provisioning");
 
-    // Poll provision status
     if (r.provisionCommandId) {
       const startedAt = Date.now();
-      const interval = setInterval(async () => {
+      const pollInterval = setInterval(async () => {
         const status = await pollProvisionStatus(r.provisionCommandId!);
-        if (status === "completed") {
-          clearInterval(interval);
-          setProvisionDone(true);
-          setPhase("pairing");
-        } else if (status === "error") {
-          clearInterval(interval);
-          setProvisionDone(true);
-          setPhase("pairing");
-        } else if (Date.now() - startedAt > 120_000) {
-          clearInterval(interval);
+        if (status === "completed" || status === "error" || Date.now() - startedAt > 120_000) {
+          clearInterval(pollInterval);
           setProvisionDone(true);
           setPhase("pairing");
         }
       }, 3000);
+      return () => clearInterval(pollInterval);
     } else {
       setProvisionDone(true);
       setPhase("pairing");

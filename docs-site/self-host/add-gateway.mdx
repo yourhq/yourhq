@@ -107,7 +107,7 @@ When you create a new agent, HQ asks which gateway it should run on. The agent's
 The runner daemon has likely stopped. Check: `docker compose logs -f runner | tail -50`. Restart: `docker compose restart runner`.
 
 **Gateway registered but agents won't provision:**
-The `dispatcher` or `runner` may not be running. Check all six services: `docker compose ps`. If any show `Restarting`, tail their logs.
+The `dispatcher` or `runner` may not be running. Check all services: `docker compose ps`. If any show `Restarting`, tail their logs.
 
 **Token expired before you ran the command:**
 Close the Add Gateway dialog and open it again — this generates a fresh token with a new 10-minute window.

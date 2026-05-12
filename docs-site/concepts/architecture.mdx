@@ -1,6 +1,6 @@
 # HQ — Architecture
 
-HQ (the codebase at [`yourhq/yourhq`](https://github.com/yourhq/yourhq), hosted at [yourhq.ai](https://yourhq.ai)) is a self-hostable operations platform for running a fleet of personal AI agents. One Next.js UI manages your work — CRM, tasks, knowledge, routines — and one or more gateway hosts run the agents themselves inside Docker containers you control. The target user is a founder, solo team, or power user who wants their agents to do real work on their behalf, in their own environment, against their own Supabase project. This document is the top-to-bottom tour of how the pieces fit together. It assumes you've skimmed the [README](https://github.com/yourhq/yourhq#readme) and want to know where things actually live.
+HQ (the codebase at [`yourhq/yourhq`](https://github.com/yourhq/yourhq), hosted at [app.yourhq.ai](https://app.yourhq.ai)) is a self-hostable operations platform for running a fleet of personal AI agents. One Next.js UI manages your work — CRM, tasks, knowledge, routines — and one or more gateway hosts run the agents themselves inside Docker containers you control. The target user is a founder, solo team, or power user who wants their agents to do real work on their behalf, in their own environment, against their own Supabase project. This document is the top-to-bottom tour of how the pieces fit together. It assumes you've skimmed the [README](https://github.com/yourhq/yourhq#readme) and want to know where things actually live.
 
 For deeper dives, see:
 
@@ -58,9 +58,9 @@ Every table enforces tenant-scoped RLS via `tenant_id` — authenticated users c
 
 Every arrow on the left of the diagram is a Supabase API call. The only direct UI↔gateway link is the files-API (right side), which is an authenticated HTTP request from the UI's server process into each gateway's `files_api.py`. Nothing is peer-to-peer; there is no central control plane outside Supabase.
 
-## 3. The six services
+## 3. The services
 
-All six services live in the same monorepo ([`docker-compose.yml`](https://github.com/yourhq/yourhq/blob/main/docker-compose.yml)). The UI ships as one container. The five gateway services — gateway, dispatcher, runner, embedder, and file-processor — are behind a Compose `gateway` profile, so they only pull and run on machines that actually host agents. Start them with `docker compose --profile gateway up -d`. Larger installs can run the UI and gateway services on separate hosts against the same Supabase project.
+All services live in the same monorepo ([`docker-compose.yml`](https://github.com/yourhq/yourhq/blob/main/docker-compose.yml)). The UI ships as one container. The gateway services — gateway, dispatcher, runner, embedder, file-processor, and plugin-runner — are behind a Compose `gateway` profile, so they only pull and run on machines that actually host agents. Start them with `docker compose --profile gateway up -d`. Larger installs can run the UI and gateway services on separate hosts against the same Supabase project.
 
 | Service | Role | Key files | Ports | Reads from Supabase | Writes to Supabase |
 |---|---|---|---|---|---|
@@ -244,7 +244,7 @@ The structures to know:
 - **`agent_usage` / `agent_budgets`** — usage source-of-truth and per-agent current-period rollup from [`016_usage_budgets.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/016_usage_budgets.sql). Runtime usage is logged by the HQ bootstrap OpenClaw plugin; hard budget cutoffs are enforced both before replies and before dispatcher wakes.
 - **`agents.reports_to_id`** — lightweight org chart from [`008_agents.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/008_agents.sql). The `agent_reports_chain` RPC lets the UI prevent cycles before saving manager changes.
 - **Realtime**. Both daemons open a WebSocket to `/realtime/v1/websocket` and subscribe to `postgres_changes` on `agent_commands` / `agent_inbox_items` INSERT. Fallback poll every `POLL_INTERVAL` (30 s runner) / `RECONCILE_INTERVAL` (120 s dispatcher) catches anything Realtime missed during a reconnect.
-- **Triggers worth knowing**: `enqueue_task_assignment` enqueues inbox items when a task is assigned (defined in [`014_agent_inbox.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/014_agent_inbox.sql)); `enqueue_comment_mentions` does the same for @-mentions (in [`011_comments.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/011_comments.sql)); `process_routine_event` runs routines on contact inserts/updates (in [`020_routines.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/020_routines.sql)); `notify_blocker_resolved` creates inbox items when a blocking task completes (in [`028_task_relations.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/028_task_relations.sql)); `escalate_overdue_tasks` pg_cron job marks overdue tasks as `missed` (in [`031_overdue_escalation.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/031_overdue_escalation.sql)).
+- **Triggers worth knowing**: `enqueue_task_assignment` enqueues inbox items when a task is assigned (defined in [`014_agent_inbox.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/014_agent_inbox.sql)); `enqueue_comment_mentions` does the same for @-mentions (in [`011_comments.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/011_comments.sql)); `process_routine_event` runs routines on contact inserts/updates (in [`020_routines.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/020_routines.sql)); `notify_blocker_resolved` creates inbox items when a blocking task completes (in [`028_task_relations.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/028_task_relations.sql)); `escalate_overdue_tasks` pg_cron job marks overdue tasks as `missed` (in [`031_overdue_escalation.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/031_overdue_escalation.sql)); `032_notification_gaps.sql` and `033_knowledge_chunk_pipeline.sql` add notification and embedding pipeline improvements.
 
 ## 13. Extensibility
 
@@ -262,10 +262,20 @@ The UI is designed to be configured, not coded, for most everyday changes:
 - **Source connectors.** Add a folder under [`gateway/connectors/<provider>/`](https://github.com/yourhq/yourhq/tree/main/gateway/connectors) with a `manifest.json` and a `BaseConnector` subclass. The auto-discovery registry picks it up, the build script generates UI types from the manifest, and the platform handles secrets, OAuth, sync scheduling, and embedding. Copy `_template/` to start. See `CONTRIBUTING-SOURCES.md`.
 - **Plugins.** HQ has a full event-driven plugin system. Local plugins are Python modules in `gateway/plugins/<id>/` that subclass `BasePlugin` and implement `on_event()`. Webhook plugins are remote HTTP endpoints registered from Settings → Plugins — zero gateway code. Both receive the same events (task.created, agent.status_changed, budget.exceeded, etc.) from SQL triggers and daemon emission points. The plugin runner daemon (`gateway/daemons/plugin_runner.py`) subscribes to the `hq_plugin_event_queue` via Realtime and dispatches to all matching plugins. Full details in [Plugins](/concepts/plugins).
 
-## 14. Where things are going
+## 14. Hosted deployment
+
+The hosted offering at [app.yourhq.ai](https://app.yourhq.ai) runs the same codebase, controlled by `DEPLOYMENT_MODE=hosted`:
+
+- **UI** at `app.yourhq.ai` — the same Next.js dashboard, with hosted-specific routes for signup, account management, and billing.
+- **Worker** (`apps/worker/`) at `worker.yourhq.ai` — a standalone Hono service that handles provisioning, billing (Stripe), sandbox lifecycle, and the master accounts database.
+- **Gateways** — per-workspace cloud sandboxes running the gateway Dockerfile with `RUNTIME_MODE=e2b`. Provisioned and destroyed by the Worker on demand.
+- **Master DB** — a dedicated Supabase project storing `hosted_users`, `hosted_workspaces`, and `sandbox_events`. Each workspace gets its own isolated Supabase project.
+
+Self-hosted code is unaffected — hosted routes are gated behind `DEPLOYMENT_MODE=hosted` and the Worker service is a separate app.
+
+## 15. Where things are going
 
 - **Self-hosted hardening.** Better migration tooling, stronger validation around workspace setup, and clearer gateway health diagnostics.
-- **Hosted offering.** Account management, automated Supabase/gateway provisioning, billing, and managed operations in front of the same core runtime.
 - **Integrations.** More MCP-first integrations, richer provider auth UX, optional email/calendar/Slack/Notion flows, and deeper routine primitives.
 - **Docs site.** The docs site at [docs.yourhq.ai](https://docs.yourhq.ai) is live and rendered from the `docs-site/` directory in this repo.
 

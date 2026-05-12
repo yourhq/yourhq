@@ -40,12 +40,14 @@ You need a Supabase project before running the installer.
 
 1. Sign up at [supabase.com](https://supabase.com) (free tier is fine for personal use).
 2. Create a new project. Wait ~2 minutes for provisioning.
-3. Open SQL Editor and run every `.sql` file in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) in filename order (`001` through `025`). Each file is named descriptively. The onboarding wizard handles this automatically if you set up through the browser.
-4. Go to Authentication → Users → Add user (check "Auto Confirm User"). Remember the email/password.
-5. Go to Project Settings → API. Copy three values:
+3. Go to Project Settings → API. Copy three values:
    - Project URL
    - Anon public key
    - Service role key (the secret one)
+
+<Info>
+  You do **not** need to run the SQL migrations manually. The onboarding wizard in the browser detects a fresh database and offers a **one-click schema install** that applies all migrations automatically. See [Supabase setup](/self-host/supabase) if you prefer to run them by hand.
+</Info>
 
 ### (Optional) Tailscale
 
@@ -141,7 +143,7 @@ See [Networking](/self-host/networking) for the networking model and topology di
 - **"Pull access denied" on GHCR**: only relevant if the repo is private. `docker login ghcr.io -u <your-gh-user>` with a PAT that has `read:packages` scope.
 - **`docker compose up` fails with "port already in use"**: something else is on port 3000 on your host. Change `UI_HOST_PORT` in `.env`.
 - **Onboarding wizard 500s**: CSRF origin mismatch. Set `ALLOWED_ORIGINS` in `.env` to match the host you're accessing from. Restart the UI.
-- **Onboarding validator says a table/function doesn't exist**: you haven't run all migrations. Run every file in `db/migrations/` in filename order and retry.
+- **Onboarding validator says a table/function doesn't exist**: the schema is incomplete. Re-run the one-click schema install from the onboarding wizard, or manually apply every file in `db/migrations/` (001 through 033) in filename order.
 
 See [Troubleshooting](/troubleshooting/common-issues) for more.
 

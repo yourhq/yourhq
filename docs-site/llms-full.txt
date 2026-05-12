@@ -17,7 +17,7 @@ Source: https://docs.yourhq.ai
 **HQ is an AI operations workspace — agents, CRM, tasks, knowledge, and routines.** Run it on your own infrastructure or let us host it for you.
 
   - **Hosted — ready in 2 min**: 
-    Sign up at yourhq.ai. We handle infrastructure, you create agents.
+    Sign up at app.yourhq.ai. We handle infrastructure, you create agents.
   
 
   - **Self-host in 15 min**: 
@@ -227,7 +227,7 @@ Source: https://docs.yourhq.ai/getting-started/choose-your-path
 HQ is useful to different people for different reasons. Start with the path that matches what you are trying to do today.
 
   - **I want HQ without managing infrastructure**: 
-    Sign up at yourhq.ai. We handle the database, runtime, and updates. Bring your own model API key and create agents in under 2 minutes.
+    Sign up at app.yourhq.ai. We handle the database, runtime, and updates. Bring your own model API key and create agents in under 2 minutes.
   
 
   - **I want to self-host it**: 
@@ -289,12 +289,13 @@ HQ is an open-source platform for running AI agents on your own infrastructure. 
   
 
   
-    About 15 minutes:
+    About 10 minutes:
 
-    - ~2 min to create a Supabase project
-    - ~3 min to run migrations and create an auth user
+    - ~2 min to create a Supabase project and an auth user
     - ~5 min for Docker to pull images on first run (~1.5 GB)
     - ~2 min to connect your model provider and create the first agent
+
+    The onboarding wizard handles database setup automatically — no manual SQL needed.
 
     See the [Quickstart →](/getting-started/quickstart)
   
@@ -306,7 +307,7 @@ HQ is an open-source platform for running AI agents on your own infrastructure. 
   
 
   
-    Yes. Sign up at [yourhq.ai](https://yourhq.ai) and skip the self-hosting entirely — we handle the database, agent runtime, and updates. $30/month per workspace, ready in under 2 minutes.
+    Yes. Sign up at [app.yourhq.ai](https://app.yourhq.ai) and skip the self-hosting entirely — we handle the database, agent runtime, and updates. $30/month per workspace, ready in under 2 minutes.
 
     See [Hosted getting started →](/hosted/getting-started)
   
@@ -385,9 +386,9 @@ HQ is an open-source platform for running AI agents on your own infrastructure. 
   
 
   
-    HQ ships 15 built-in templates:
+    HQ ships 17 built-in templates:
 
-    `default`, `analytics`, `assistant`, `chief-of-staff`, `cmo`, `cofounder`, `crm-researcher`, `designer`, `market-researcher`, `newsletter-editor`, `newsletter-writer`, `sales-copywriter`, `script-writer`, `social-strategist`, `social-writer`
+    `default`, `analytics`, `assistant`, `chief-of-staff`, `cmo`, `cofounder`, `crm-researcher`, `data-analyst`, `designer`, `ghostwriter`, `market-researcher`, `newsletter-editor`, `newsletter-writer`, `sales-copywriter`, `script-writer`, `social-strategist`, `social-writer`
 
     Each template comes with pre-loaded identity files, skills, and a personality. You pick one when creating an agent — you can customize everything afterward.
 
@@ -598,11 +599,11 @@ Where HQ is now, what ships in v0.1, and what comes after.
 ### Core platform
 
 - One repo (`yourhq/yourhq`) for UI, gateway, dispatcher, runner, templates, migrations, installer, and docs
-- `docker-compose.yml` stack with six services (ui, gateway, dispatcher, runner, embedder, file-processor) and Docker healthchecks on all of them
+- `docker-compose.yml` stack with seven services (ui, gateway, dispatcher, runner, embedder, file-processor, plugin-runner) and Docker healthchecks on all of them
 - Interactive `installer/install.sh` with local, Tailscale, and public networking modes
 - Gateway runtime with OpenClaw, Chrome/Chromium, Xtigervnc, XFCE desktop, noVNC, and files API
 - `RUNTIME_MODE` env var (`docker` | `systemd` | `e2b`) for portable entrypoint behavior
-- Agent templates bundled into the gateway image (16 templates, each with a README)
+- Agent templates bundled into the gateway image (17 templates, each with a README)
 - Multi-arch GHCR images for amd64 and arm64
 - Multi-gateway database model with `gateways` table and `agents.gateway_id`
 - Tailscale as a host-level dependency, not a container dependency
@@ -699,17 +700,18 @@ Small items to address before tagging. None are blockers, but they'd be good to 
 - **Templates source UI** — switch between bundled templates and a custom git URL per workspace.
 - **Pretty tailnet URLs** — optional Tailscale Serve automation in the installer for `http://hq` instead of ported URLs.
 
-## Hosted Offering
+## Hosted Offering (shipped)
 
-`yourhq.ai` signup flow for users who do not want to self-host. Same monorepo, same images, controlled by `DEPLOYMENT_MODE=hosted` env var. Self-hosted code stays usable on its own.
+Live at [app.yourhq.ai](https://app.yourhq.ai). Same monorepo, same images, controlled by `DEPLOYMENT_MODE=hosted` env var. Self-hosted code stays usable on its own.
 
-- Worker service (`apps/worker/`) for provisioning, billing, and sandbox lifecycle
+- Worker service (`apps/worker/`) — handles provisioning, billing, and sandbox lifecycle
+- UI at `app.yourhq.ai`
 - Per-user Supabase project provisioning via Management API
-- E2B sandbox hosting (gateway Dockerfile runs on E2B with `RUNTIME_MODE=e2b`)
+- Cloud sandbox hosting for gateways (gateway Dockerfile runs with `RUNTIME_MODE=e2b`)
 - Stripe billing ($30/month per workspace, self-serve add/cancel)
 - Magic link authentication
 - Hosted registry backed by a master Supabase accounts database
-- noVNC proxy with E2B access token injection (extends the `/desktop/` proxy already in OSS)
+- noVNC proxy with sandbox access token injection (extends the `/desktop/` proxy already in OSS)
 - Onboarding flow that skips Supabase and gateway setup steps
 
 ## Longer-Term Ideas
@@ -740,7 +742,7 @@ Source: https://docs.yourhq.ai/hosted/getting-started
 HQ hosted gives you the full platform without managing any infrastructure. You sign up, bring your own model API key, and create agents immediately.
 
 > 
-  This guide is for the hosted version at [yourhq.ai](https://yourhq.ai). If you want to self-host HQ on your own machine, see the [self-host quickstart](/getting-started/quickstart) instead.
+  This guide is for the hosted version at [app.yourhq.ai](https://app.yourhq.ai). If you want to self-host HQ on your own machine, see the [self-host quickstart](/getting-started/quickstart) instead.
 
 ---
 
@@ -758,7 +760,7 @@ HQ hosted gives you the full platform without managing any infrastructure. You s
 
 ## Step 1 — Sign up and complete the wizard
 
-Go to [yourhq.ai](https://yourhq.ai) and click **Get started**. The onboarding wizard walks you through everything in one flow:
+Go to [app.yourhq.ai](https://app.yourhq.ai) and click **Get started**. The onboarding wizard walks you through everything in one flow:
 
   
 ### Welcome
@@ -911,7 +913,7 @@ During the 30-day grace period, contact `support@yourhq.ai` to reactivate your w
 
 ## Signing in
 
-HQ uses **magic links** — no passwords. Enter your email at [yourhq.ai/login](https://yourhq.ai/login) and check your inbox for a sign-in link.
+HQ uses **magic links** — no passwords. Enter your email at [app.yourhq.ai/login](https://app.yourhq.ai/login) and check your inbox for a sign-in link.
 
 - Links expire after **1 hour**
 - Each link is single-use
@@ -945,7 +947,7 @@ Source: https://docs.yourhq.ai/hosted/faq
 
 > Common questions about HQ's hosted offering — pricing, data, cancellation, and differences from self-hosting.
 
-HQ hosted is the managed version of HQ at [yourhq.ai](https://yourhq.ai). You get the same platform as the open-source self-hosted version — agents, CRM, tasks, knowledge, routines — without managing Docker, Supabase, or any infrastructure.
+HQ hosted is the managed version of HQ at [app.yourhq.ai](https://app.yourhq.ai). You get the same platform as the open-source self-hosted version — agents, CRM, tasks, knowledge, routines — without managing Docker, Supabase, or any infrastructure.
 
     You sign up, we provision a dedicated workspace (database + agent runtime), and you're ready to create agents in under two minutes.
   
@@ -1096,7 +1098,7 @@ HQ hosted is the managed version of HQ at [yourhq.ai](https://yourhq.ai). You ge
 
 Source: https://docs.yourhq.ai/getting-started/quickstart
 
-> Get HQ running in about 15 minutes. You need Docker, a free Supabase account, and a model API key.
+> Get HQ running in about 10 minutes. You need Docker, a free Supabase account, and a model API key.
 
 > 
   **Not technical?** That's fine. The install is one command in a terminal and a few steps in your browser. You don't need to edit code or understand Docker to get started. Or skip infrastructure entirely with [HQ hosted](/hosted/getting-started).
@@ -1128,18 +1130,6 @@ You need three things. All are free to start.
 ### Create a project
 
     Go to [supabase.com](https://supabase.com), sign in, and create a new project. Choose any name and region. Wait about 2 minutes for it to provision.
-  
-
-  
-### Run the migrations
-
-    In your Supabase dashboard, click **SQL Editor** in the left sidebar. Then run every `.sql` file from [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) in filename order (001 through 025).
-
-    
-> 
-      The easiest way: open each file, copy the SQL, paste it into the SQL Editor, and click **Run**. Repeat for each file in order. The onboarding wizard can also generate a single combined SQL blob for you.
-    
-
   
 
   
@@ -1220,7 +1210,7 @@ Your browser opens to `http://localhost:3000`. Sign in with the email and passwo
 
     Paste the three Supabase values you copied in Step 1 (Project URL, anon key, service role key). Then choose where to run your gateway — "This machine" (Docker, already running) or "Remote server" (copy a one-liner to another host).
 
-    HQ validates the database connection and waits for the gateway to come online.
+    HQ validates the database connection, installs the schema automatically if needed, and waits for the gateway to come online.
   
 
   
@@ -1238,7 +1228,7 @@ Your browser opens to `http://localhost:3000`. Sign in with the email and passwo
 After creation, you land on the **Tasks** page with a suggested first task pre-filled.
 
 > 
-  If you see a "table does not exist" error during the infrastructure step, you missed some migration files. Go back to the SQL Editor and run any files you skipped.
+  If you see a "table does not exist" error during the infrastructure step, the one-click schema install may not have completed. Re-run it from the onboarding wizard, or manually apply the migration files from [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) in the Supabase SQL Editor. See [Supabase setup](/self-host/supabase) for details.
 
 ---
 
@@ -1362,19 +1352,19 @@ HQ uses your own Supabase project as its database, auth system, real-time event 
   
 ### Run the migrations
 
-    HQ needs 25 SQL migration files applied in order. Open **SQL Editor** in your Supabase dashboard.
+    HQ needs 34 SQL migration files applied in order.
 
-    The cleanest approach is to run each file individually:
+    
+> 
+      **Recommended:** The onboarding wizard offers a **one-click schema install** that applies all migrations automatically — no SQL Editor needed. Just connect your Supabase project in the browser and the wizard handles the rest.
+    
+
+    If you prefer to run them manually, open **SQL Editor** in your Supabase dashboard:
 
     1. Browse to [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) on GitHub
     2. Open `001_extensions.sql`, copy the SQL
     3. Paste into the SQL Editor, click **Run**
-    4. Repeat for `002`, `003` ... through `025`
-
-    
-> 
-      If you've already run the HQ installer or opened the onboarding screen, the wizard offers a **Copy all SQL** button that concatenates all 25 files into one blob you can paste and run at once.
-    
+    4. Repeat for `002`, `003` ... through `033`
 
     
 > 
@@ -1519,12 +1509,13 @@ You need a Supabase project before running the installer.
 
 1. Sign up at [supabase.com](https://supabase.com) (free tier is fine for personal use).
 2. Create a new project. Wait ~2 minutes for provisioning.
-3. Open SQL Editor and run every `.sql` file in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) in filename order (`001` through `025`). Each file is named descriptively. The onboarding wizard handles this automatically if you set up through the browser.
-4. Go to Authentication → Users → Add user (check "Auto Confirm User"). Remember the email/password.
-5. Go to Project Settings → API. Copy three values:
+3. Go to Project Settings → API. Copy three values:
    - Project URL
    - Anon public key
    - Service role key (the secret one)
+
+> 
+  You do **not** need to run the SQL migrations manually. The onboarding wizard in the browser detects a fresh database and offers a **one-click schema install** that applies all migrations automatically. See [Supabase setup](/self-host/supabase) if you prefer to run them by hand.
 
 ### (Optional) Tailscale
 
@@ -1620,7 +1611,7 @@ See [Networking](/self-host/networking) for the networking model and topology di
 - **"Pull access denied" on GHCR**: only relevant if the repo is private. `docker login ghcr.io -u ` with a PAT that has `read:packages` scope.
 - **`docker compose up` fails with "port already in use"**: something else is on port 3000 on your host. Change `UI_HOST_PORT` in `.env`.
 - **Onboarding wizard 500s**: CSRF origin mismatch. Set `ALLOWED_ORIGINS` in `.env` to match the host you're accessing from. Restart the UI.
-- **Onboarding validator says a table/function doesn't exist**: you haven't run all migrations. Run every file in `db/migrations/` in filename order and retry.
+- **Onboarding validator says a table/function doesn't exist**: the schema is incomplete. Re-run the one-click schema install from the onboarding wizard, or manually apply every file in `db/migrations/` (001 through 033) in filename order.
 
 See [Troubleshooting](/troubleshooting/common-issues) for more.
 
@@ -2373,7 +2364,7 @@ When you create a new agent, HQ asks which gateway it should run on. The agent's
 The runner daemon has likely stopped. Check: `docker compose logs -f runner | tail -50`. Restart: `docker compose restart runner`.
 
 **Gateway registered but agents won't provision:**
-The `dispatcher` or `runner` may not be running. Check all six services: `docker compose ps`. If any show `Restarting`, tail their logs.
+The `dispatcher` or `runner` may not be running. Check all services: `docker compose ps`. If any show `Restarting`, tail their logs.
 
 **Token expired before you ran the command:**
 Close the Add Gateway dialog and open it again — this generates a fresh token with a new 10-minute window.
@@ -2712,7 +2703,7 @@ docker compose logs -f runner
 docker compose logs -f dispatcher
 ```
 
-All six services should show `Status: Up` (ui, gateway, dispatcher, runner, embedder, file-processor). If a container is in `Restarting` state, tail its logs to find the error.
+All services should show `Status: Up` (ui, gateway, dispatcher, runner, embedder, file-processor, plugin-runner). If a container is in `Restarting` state, tail its logs to find the error.
 
 ### Gateway heartbeat
 
@@ -4407,7 +4398,7 @@ The agent detail page includes:
 
 ## Agent Templates
 
-Templates are role-specific starting points for agents. The repository ships 16 templates: default, assistant, analytics, chief of staff, CMO, cofounder, CRM researcher, designer, ghostwriter, market researcher, newsletter editor, newsletter writer, sales copywriter, script writer, social strategist, and social writer.
+Templates are role-specific starting points for agents. The repository ships 17 templates: default, analytics, assistant, chief of staff, CMO, cofounder, CRM researcher, data analyst, designer, ghostwriter, market researcher, newsletter editor, newsletter writer, sales copywriter, script writer, social strategist, and social writer.
 
 Each template includes files such as:
 
@@ -4581,13 +4572,14 @@ Inbox items have retry state, attempt counts, lease fields, done/failed/dead-let
 
 A gateway is a Docker host that runs agents. One workspace can have multiple gateways.
 
-The gateway stack includes five services (all behind the `gateway` Compose profile):
+The gateway stack includes seven services (all behind the `gateway` Compose profile):
 
 - **Gateway** container with OpenClaw, Chrome/Chromium, XFCE, noVNC, and the files API.
 - **Dispatcher** daemon for agent inbox work.
 - **Runner** daemon for lifecycle and operations commands.
 - **Embedder** daemon for knowledge indexing and vector search.
 - **File processor** daemon for extracting text from uploaded files (PDF, DOCX, XLSX, etc.).
+- **Plugin runner** daemon for dispatching workspace events to local and webhook plugins.
 - A shared `gateway-state` volume for OpenClaw config, git repo, worktrees, browser profiles, desktop files, plugins, and auth state.
 
 The Settings -> Gateways UI supports:
@@ -4723,7 +4715,7 @@ Source: https://docs.yourhq.ai/concepts/architecture
 
 # HQ — Architecture
 
-HQ (the codebase at [`yourhq/yourhq`](https://github.com/yourhq/yourhq), hosted at [yourhq.ai](https://yourhq.ai)) is a self-hostable operations platform for running a fleet of personal AI agents. One Next.js UI manages your work — CRM, tasks, knowledge, routines — and one or more gateway hosts run the agents themselves inside Docker containers you control. The target user is a founder, solo team, or power user who wants their agents to do real work on their behalf, in their own environment, against their own Supabase project. This document is the top-to-bottom tour of how the pieces fit together. It assumes you've skimmed the [README](https://github.com/yourhq/yourhq#readme) and want to know where things actually live.
+HQ (the codebase at [`yourhq/yourhq`](https://github.com/yourhq/yourhq), hosted at [app.yourhq.ai](https://app.yourhq.ai)) is a self-hostable operations platform for running a fleet of personal AI agents. One Next.js UI manages your work — CRM, tasks, knowledge, routines — and one or more gateway hosts run the agents themselves inside Docker containers you control. The target user is a founder, solo team, or power user who wants their agents to do real work on their behalf, in their own environment, against their own Supabase project. This document is the top-to-bottom tour of how the pieces fit together. It assumes you've skimmed the [README](https://github.com/yourhq/yourhq#readme) and want to know where things actually live.
 
 For deeper dives, see:
 
@@ -4781,9 +4773,9 @@ Every table enforces tenant-scoped RLS via `tenant_id` — authenticated users c
 
 Every arrow on the left of the diagram is a Supabase API call. The only direct UI↔gateway link is the files-API (right side), which is an authenticated HTTP request from the UI's server process into each gateway's `files_api.py`. Nothing is peer-to-peer; there is no central control plane outside Supabase.
 
-## 3. The six services
+## 3. The services
 
-All six services live in the same monorepo ([`docker-compose.yml`](https://github.com/yourhq/yourhq/blob/main/docker-compose.yml)). The UI ships as one container. The five gateway services — gateway, dispatcher, runner, embedder, and file-processor — are behind a Compose `gateway` profile, so they only pull and run on machines that actually host agents. Start them with `docker compose --profile gateway up -d`. Larger installs can run the UI and gateway services on separate hosts against the same Supabase project.
+All services live in the same monorepo ([`docker-compose.yml`](https://github.com/yourhq/yourhq/blob/main/docker-compose.yml)). The UI ships as one container. The gateway services — gateway, dispatcher, runner, embedder, file-processor, and plugin-runner — are behind a Compose `gateway` profile, so they only pull and run on machines that actually host agents. Start them with `docker compose --profile gateway up -d`. Larger installs can run the UI and gateway services on separate hosts against the same Supabase project.
 
 | Service | Role | Key files | Ports | Reads from Supabase | Writes to Supabase |
 |---|---|---|---|---|---|
@@ -4967,7 +4959,7 @@ The structures to know:
 - **`agent_usage` / `agent_budgets`** — usage source-of-truth and per-agent current-period rollup from [`016_usage_budgets.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/016_usage_budgets.sql). Runtime usage is logged by the HQ bootstrap OpenClaw plugin; hard budget cutoffs are enforced both before replies and before dispatcher wakes.
 - **`agents.reports_to_id`** — lightweight org chart from [`008_agents.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/008_agents.sql). The `agent_reports_chain` RPC lets the UI prevent cycles before saving manager changes.
 - **Realtime**. Both daemons open a WebSocket to `/realtime/v1/websocket` and subscribe to `postgres_changes` on `agent_commands` / `agent_inbox_items` INSERT. Fallback poll every `POLL_INTERVAL` (30 s runner) / `RECONCILE_INTERVAL` (120 s dispatcher) catches anything Realtime missed during a reconnect.
-- **Triggers worth knowing**: `enqueue_task_assignment` enqueues inbox items when a task is assigned (defined in [`014_agent_inbox.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/014_agent_inbox.sql)); `enqueue_comment_mentions` does the same for @-mentions (in [`011_comments.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/011_comments.sql)); `process_routine_event` runs routines on contact inserts/updates (in [`020_routines.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/020_routines.sql)); `notify_blocker_resolved` creates inbox items when a blocking task completes (in [`028_task_relations.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/028_task_relations.sql)); `escalate_overdue_tasks` pg_cron job marks overdue tasks as `missed` (in [`031_overdue_escalation.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/031_overdue_escalation.sql)).
+- **Triggers worth knowing**: `enqueue_task_assignment` enqueues inbox items when a task is assigned (defined in [`014_agent_inbox.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/014_agent_inbox.sql)); `enqueue_comment_mentions` does the same for @-mentions (in [`011_comments.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/011_comments.sql)); `process_routine_event` runs routines on contact inserts/updates (in [`020_routines.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/020_routines.sql)); `notify_blocker_resolved` creates inbox items when a blocking task completes (in [`028_task_relations.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/028_task_relations.sql)); `escalate_overdue_tasks` pg_cron job marks overdue tasks as `missed` (in [`031_overdue_escalation.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/031_overdue_escalation.sql)); `032_notification_gaps.sql` and `033_knowledge_chunk_pipeline.sql` add notification and embedding pipeline improvements.
 
 ## 13. Extensibility
 
@@ -4985,10 +4977,20 @@ The UI is designed to be configured, not coded, for most everyday changes:
 - **Source connectors.** Add a folder under [`gateway/connectors//`](https://github.com/yourhq/yourhq/tree/main/gateway/connectors) with a `manifest.json` and a `BaseConnector` subclass. The auto-discovery registry picks it up, the build script generates UI types from the manifest, and the platform handles secrets, OAuth, sync scheduling, and embedding. Copy `_template/` to start. See `CONTRIBUTING-SOURCES.md`.
 - **Plugins.** HQ has a full event-driven plugin system. Local plugins are Python modules in `gateway/plugins//` that subclass `BasePlugin` and implement `on_event()`. Webhook plugins are remote HTTP endpoints registered from Settings → Plugins — zero gateway code. Both receive the same events (task.created, agent.status_changed, budget.exceeded, etc.) from SQL triggers and daemon emission points. The plugin runner daemon (`gateway/daemons/plugin_runner.py`) subscribes to the `hq_plugin_event_queue` via Realtime and dispatches to all matching plugins. Full details in [Plugins](/concepts/plugins).
 
-## 14. Where things are going
+## 14. Hosted deployment
+
+The hosted offering at [app.yourhq.ai](https://app.yourhq.ai) runs the same codebase, controlled by `DEPLOYMENT_MODE=hosted`:
+
+- **UI** at `app.yourhq.ai` — the same Next.js dashboard, with hosted-specific routes for signup, account management, and billing.
+- **Worker** (`apps/worker/`) at `worker.yourhq.ai` — a standalone Hono service that handles provisioning, billing (Stripe), sandbox lifecycle, and the master accounts database.
+- **Gateways** — per-workspace cloud sandboxes running the gateway Dockerfile with `RUNTIME_MODE=e2b`. Provisioned and destroyed by the Worker on demand.
+- **Master DB** — a dedicated Supabase project storing `hosted_users`, `hosted_workspaces`, and `sandbox_events`. Each workspace gets its own isolated Supabase project.
+
+Self-hosted code is unaffected — hosted routes are gated behind `DEPLOYMENT_MODE=hosted` and the Worker service is a separate app.
+
+## 15. Where things are going
 
 - **Self-hosted hardening.** Better migration tooling, stronger validation around workspace setup, and clearer gateway health diagnostics.
-- **Hosted offering.** Account management, automated Supabase/gateway provisioning, billing, and managed operations in front of the same core runtime.
 - **Integrations.** More MCP-first integrations, richer provider auth UX, optional email/calendar/Slack/Notion flows, and deeper routine primitives.
 - **Docs site.** The docs site at [docs.yourhq.ai](https://docs.yourhq.ai) is live and rendered from the `docs-site/` directory in this repo.
 
@@ -7541,7 +7543,7 @@ Control loops in the dispatcher and runner daemons. Defaults are sensible; overr
 
 - **`GIT_SYNC_INTERVAL`** — **Optional**. Default `1800` (30 min). Seconds between backup-sweep passes in the runner (commits dirty worktrees, fast-forwards branches that moved on the remote). Set to `0` to disable the sweep entirely — event-driven commits and the post-commit auto-push still work.
 
-- **`RUNTIME_MODE`** — **Optional**. Default `docker`. One of `docker` or `systemd`. Controls how `restart_gateway`, `restart_dispatcher`, and `update_gateway` commands are executed. `docker` uses `docker compose` commands; `systemd` uses `openclaw gateway restart` and `systemctl`. Set to `systemd` only if you installed without Docker (rare).
+- **`RUNTIME_MODE`** — **Optional**. Default `docker`. One of `docker`, `systemd`, or `e2b`. Controls how `restart_gateway`, `restart_dispatcher`, and `update_gateway` commands are executed. `docker` uses `docker compose` commands; `systemd` uses `openclaw gateway restart` and `systemctl`; `e2b` adapts the entrypoint for cloud sandbox environments. Self-hosted installs should use `docker` (default).
 
 - **`TENANT_ID`** — **Optional**. Default `00000000-0000-0000-0000-000000000000`. The UUID of the tenant row this gateway and its agents belong to. Self-hosted installs use the default nil UUID. Override only if you're running a multi-tenant setup.
 
@@ -7561,6 +7563,8 @@ Pin specific image tags for reproducible production deploys. All four default to
 - **`GATEWAY_IMAGE`** — **Optional**. Default `ghcr.io/yourhq/yourhq-gateway:latest`.
 - **`DISPATCHER_IMAGE`** — **Optional**. Default `ghcr.io/yourhq/yourhq-dispatcher:latest`.
 - **`RUNNER_IMAGE`** — **Optional**. Default `ghcr.io/yourhq/yourhq-runner:latest`.
+- **`EMBEDDER_IMAGE`** — **Optional**. Default `ghcr.io/yourhq/yourhq-embedder:latest`.
+- **`FILE_PROCESSOR_IMAGE`** — **Optional**. Default `ghcr.io/yourhq/yourhq-file-processor:latest`.
 
 Override to `ghcr.io/yourhq/yourhq-:2026.04.20` (or similar date-pinned tag) for production. Don't pin in dev — you want to track `:latest`.
 
@@ -7763,14 +7767,16 @@ HQ stores shared state in one Supabase project per workspace. The SQL source of 
 | `024_routines_extension.sql` | Event triggers for collections, knowledge items, and tasks |
 | `025_modular_workspace.sql` | Modular workspace onboarding |
 | `026_secrets.sql` | Encrypted secrets (AES-256-GCM), RLS, Realtime, `source_connections.secret_id` FK |
+| `027_plugins.sql` | Plugin system: `hq_plugins`, `hq_plugin_events`, `hq_plugin_state`, `hq_plugin_event_queue` tables, `emit_plugin_event()` trigger function, event triggers, pg_cron cleanup jobs |
 | `027_source_plugin_support.sql` | Extensible source providers (drops hardcoded provider constraint), `writable` flag on `source_connections`, `source_write` command action |
 | `028_task_relations.sql` | Task dependencies and relations (`task_relations` table with `blocked_by`, `blocks`, `relates_to`, `parent_of`, `child_of`), `get_task_relations()` RPC, `notify_blocker_resolved` trigger |
 | `029_labels.sql` | Managed labels with color and description, `task_labels` junction table |
 | `030_task_templates.sql` | Reusable task group templates with dependency graphs (JSONB items) |
 | `031_overdue_escalation.sql` | pg_cron job to mark overdue tasks as `missed`, inbox notification for assigned agents |
-| `032_plugins.sql` | Plugin system: `hq_plugins`, `hq_plugin_events`, `hq_plugin_state`, `hq_plugin_event_queue` tables, `emit_plugin_event()` trigger function, 11 event triggers, pg_cron cleanup jobs |
+| `032_notification_gaps.sql` | Notifications for deliverable submissions and overdue task events |
+| `033_knowledge_chunk_pipeline.sql` | Knowledge chunk creation, embedding pipeline, and source item indexing fixes |
 
-For a fresh Supabase project, run all files in filename order from the SQL Editor. The onboarding wizard handles this automatically — it concatenates all files and lets you copy/paste a single SQL blob.
+For a fresh Supabase project, the onboarding wizard handles schema installation automatically with a one-click install. You can also run all files in filename order from the SQL Editor manually.
 
 For an existing project, review each migration before applying. All files are idempotent (`IF NOT EXISTS`, `CREATE OR REPLACE`) and safe to re-run.
 
@@ -7970,7 +7976,7 @@ Fresh project:
 
 1. Create a Supabase project.
 2. Open SQL Editor.
-3. Run every `.sql` file in `db/migrations/` in filename order (`001` through `031`). Or use the onboarding wizard, which concatenates them all into a single copy-paste blob.
+3. Run the one-click schema install from the onboarding wizard, or manually run every `.sql` file in `db/migrations/` in filename order (`001` through `033`).
 4. Create an auth user and disable public signup unless needed.
 
 Existing project:
@@ -7989,7 +7995,7 @@ Source: https://docs.yourhq.ai/reference/migrations
 
 > Ordered Supabase migration files and how to apply them.
 
-Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations). Run them in filename order for a fresh project. There are currently 31 migration files (001–031).
+Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations). Run them in filename order for a fresh project. There are currently 34 migration files (001–033).
 
 ## Migration files
 
@@ -8021,11 +8027,14 @@ Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main
 | `024_routines_extension.sql` | Event triggers for collections, knowledge, and tasks |
 | `025_modular_workspace.sql` | Modular workspace onboarding |
 | `026_secrets.sql` | Encrypted secrets (AES-256-GCM), agent/gateway scoping, Realtime, `source_connections.secret_id` FK |
+| `027_plugins.sql` | Plugin system: `hq_plugins`, `hq_plugin_events`, `hq_plugin_state`, `hq_plugin_event_queue`, event triggers, pg_cron cleanup |
 | `027_source_plugin_support.sql` | Extensible source providers, `writable` flag, `source_write` command action |
 | `028_task_relations.sql` | Task dependencies (`task_relations`), `get_task_relations()` RPC, `notify_blocker_resolved` trigger |
 | `029_labels.sql` | Managed labels with color/description, `task_labels` junction table |
 | `030_task_templates.sql` | Reusable task group templates with dependency graphs (JSONB items) |
 | `031_overdue_escalation.sql` | pg_cron job to mark overdue tasks `missed`, inbox notification for assigned agents |
+| `032_notification_gaps.sql` | Notifications for deliverable submissions and overdue task events |
+| `033_knowledge_chunk_pipeline.sql` | Knowledge chunk creation, embedding pipeline, and source item indexing fixes |
 
 ## Migration CLI
 
@@ -8117,7 +8126,7 @@ Source: https://docs.yourhq.ai/reference/docker-services
 
 > The containers in the HQ Compose stack and what each one does.
 
-HQ's default Compose stack has six services that work together. The UI runs on its own; the other five are gateway services that run agents and process data.
+HQ's default Compose stack has seven services that work together. The UI runs on its own; the other six are gateway services that run agents, process data, and handle event-driven plugins.
 
   - **ui**: 
     **Next.js dashboard.** Renders the workspace — agents, CRM, tasks, knowledge, routines, settings — and writes to Supabase through server actions. Port `3000`.
@@ -9188,8 +9197,8 @@ yourhq/
   gateway/connectors/   Source connector plugins (one folder per provider + registry)
   gateway/plugins/      HQ plugin system (SDK, template, built-in plugins, contributor guide)
   gateway/daemons/      Python daemons (command runner, dispatcher, source sync, secrets sync, plugin runner, etc.)
-  db/migrations/        Supabase SQL migrations (001–031)
-  templates/            Agent template library (16 templates)
+  db/migrations/        Supabase SQL migrations (001–033, 34 files)
+  templates/            Agent template library (17 templates)
   installer/            Interactive install scripts (install.sh + install-gateway.sh)
   docs-site/            Mintlify documentation source (docs.yourhq.ai)
   scripts/              Operational and build scripts
@@ -9748,7 +9757,7 @@ In rough order of importance:
 
 ## Hosted trust model
 
-If you use the hosted offering at yourhq.ai, the trust boundaries are different from self-hosted. Here's what you should know.
+If you use the hosted offering at [app.yourhq.ai](https://app.yourhq.ai), the trust boundaries are different from self-hosted. Here's what you should know.
 
 ### Your data lives in a dedicated database
 

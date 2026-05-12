@@ -24,7 +24,7 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
-  CREATE TYPE agent_status AS ENUM ('ready', 'busy', 'error', 'provisioning', 'hibernating');
+  CREATE TYPE agent_status AS ENUM ('ready', 'paused', 'error', 'provisioning', 'hibernating');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
@@ -70,7 +70,7 @@ DO $$ BEGIN
     'restart_gateway', 'update_all', 'restart_dispatcher', 'update_gateway',
     'auth_set_api_key', 'auth_start', 'auth_paste',
     'auth_list', 'auth_remove', 'auth_refresh', 'auth_set_default',
-    'set_agent_model', 'list_models'
+    'set_agent_model', 'list_models', 'source_write'
   );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 

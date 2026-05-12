@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { Agent } from "@/lib/agents/types";
 import { logAudit } from "@/lib/audit/log";
@@ -21,7 +22,9 @@ export function useAgents() {
       .select("*")
       .order("name", { ascending: true });
 
-    if (!error && data) {
+    if (error) {
+      toast.error("Failed to load agents");
+    } else if (data) {
       setAgents(data as Agent[]);
     }
     setLoading(false);
@@ -32,7 +35,6 @@ export function useAgents() {
     fetchAgents();
   }, [fetchAgents]);
 
-  // Real-time: direct merge (no JOINs)
   useRealtime({
     table: "agents",
     onPayload: (payload) => {
@@ -54,7 +56,12 @@ export function useAgents() {
 
   async function deleteAgent(id: string) {
     const agent = agents.find((a) => a.id === id);
-    await supabase.from("agents").delete().eq("id", id);
+    const { error } = await supabase.from("agents").delete().eq("id", id);
+    if (error) {
+      toast.error(`Failed to delete agent: ${error.message}`);
+      return;
+    }
+    toast.success(`Deleted ${agent?.name ?? "agent"}`);
     logAudit(supabase, {
       module: "agents",
       entity_type: "agent",
@@ -62,13 +69,25 @@ export function useAgents() {
       action: "deleted",
       summary: `Deleted agent '${agent?.name ?? id}'`,
     });
-    fetchAgents();
   }
 
   async function togglePause(id: string, currentStatus: string) {
     const agent = agents.find((a) => a.id === id);
     const newStatus = currentStatus === "paused" ? "ready" : "paused";
-    await supabase.from("agents").update({ status: newStatus }).eq("id", id);
+
+    setAgents((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, status: newStatus as Agent["status"] } : a)),
+    );
+
+    const { error } = await supabase.from("agents").update({ status: newStatus }).eq("id", id);
+    if (error) {
+      setAgents((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, status: currentStatus as Agent["status"] } : a)),
+      );
+      toast.error(`Failed to ${newStatus === "paused" ? "pause" : "resume"} agent`);
+      return;
+    }
+    toast.success(newStatus === "paused" ? `Paused ${agent?.name}` : `Resumed ${agent?.name}`);
     logAudit(supabase, {
       module: "agents",
       entity_type: "agent",
@@ -77,7 +96,6 @@ export function useAgents() {
       summary: `${newStatus === "paused" ? "Paused" : "Resumed"} agent '${agent?.name ?? id}'`,
       changes: { status: { old: currentStatus, new: newStatus } },
     });
-    fetchAgents();
   }
 
   function openCreateForm() {

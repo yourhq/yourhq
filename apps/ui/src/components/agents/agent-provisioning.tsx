@@ -119,7 +119,7 @@ function ProvisioningBanner({ commands }: { commands: AgentCommand[] }) {
       {isActive && <Loader2 className="h-3 w-3 animate-spin shrink-0" />}
       <StatusDot color={color} size="sm" />
       <span className="flex-1">
-        {latest.status === "pending" && "Provisioning queued — waiting for EC2 daemon…"}
+        {latest.status === "pending" && "Provisioning queued — waiting for gateway…"}
         {latest.status === "leased" && "Provisioning claimed — starting…"}
         {latest.status === "running" && "Provisioning in progress…"}
         {latest.status === "done" && "Provisioned successfully"}
@@ -267,7 +267,7 @@ export function AgentProvisioning({ agent }: AgentProvisioningProps) {
         }}
         onCancel={() => setConfirmRemove(false)}
         title={`Remove agent "${agent.name}"?`}
-        description="This will remove the agent from the EC2 instance (delete worktree and config). The Git branch and database record will remain."
+        description="This will remove the agent from the gateway (delete its workspace and config). The database record will remain."
       />
     </div>
   );

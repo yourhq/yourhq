@@ -7,11 +7,11 @@ Where HQ is now, what ships in v0.1, and what comes after.
 ### Core platform
 
 - One repo (`yourhq/yourhq`) for UI, gateway, dispatcher, runner, templates, migrations, installer, and docs
-- `docker-compose.yml` stack with six services (ui, gateway, dispatcher, runner, embedder, file-processor) and Docker healthchecks on all of them
+- `docker-compose.yml` stack with seven services (ui, gateway, dispatcher, runner, embedder, file-processor, plugin-runner) and Docker healthchecks on all of them
 - Interactive `installer/install.sh` with local, Tailscale, and public networking modes
 - Gateway runtime with OpenClaw, Chrome/Chromium, Xtigervnc, XFCE desktop, noVNC, and files API
 - `RUNTIME_MODE` env var (`docker` | `systemd` | `e2b`) for portable entrypoint behavior
-- Agent templates bundled into the gateway image (16 templates, each with a README)
+- Agent templates bundled into the gateway image (17 templates, each with a README)
 - Multi-arch GHCR images for amd64 and arm64
 - Multi-gateway database model with `gateways` table and `agents.gateway_id`
 - Tailscale as a host-level dependency, not a container dependency
@@ -108,17 +108,18 @@ Small items to address before tagging. None are blockers, but they'd be good to 
 - **Templates source UI** — switch between bundled templates and a custom git URL per workspace.
 - **Pretty tailnet URLs** — optional Tailscale Serve automation in the installer for `http://hq` instead of ported URLs.
 
-## Hosted Offering
+## Hosted Offering (shipped)
 
-`yourhq.ai` signup flow for users who do not want to self-host. Same monorepo, same images, controlled by `DEPLOYMENT_MODE=hosted` env var. Self-hosted code stays usable on its own.
+Live at [app.yourhq.ai](https://app.yourhq.ai). Same monorepo, same images, controlled by `DEPLOYMENT_MODE=hosted` env var. Self-hosted code stays usable on its own.
 
-- Worker service (`apps/worker/`) for provisioning, billing, and sandbox lifecycle
+- Worker service (`apps/worker/`) — handles provisioning, billing, and sandbox lifecycle
+- UI at `app.yourhq.ai`
 - Per-user Supabase project provisioning via Management API
-- E2B sandbox hosting (gateway Dockerfile runs on E2B with `RUNTIME_MODE=e2b`)
+- Cloud sandbox hosting for gateways (gateway Dockerfile runs with `RUNTIME_MODE=e2b`)
 - Stripe billing ($30/month per workspace, self-serve add/cancel)
 - Magic link authentication
 - Hosted registry backed by a master Supabase accounts database
-- noVNC proxy with E2B access token injection (extends the `/desktop/` proxy already in OSS)
+- noVNC proxy with sandbox access token injection (extends the `/desktop/` proxy already in OSS)
 - Onboarding flow that skips Supabase and gateway setup steps
 
 ## Longer-Term Ideas

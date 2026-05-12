@@ -156,6 +156,35 @@ export async function createAgentWithBranch(
   };
 }
 
+// ── Delete Agent ────────────────────────────────────────────────
+
+export async function deleteAgentAction(agentId: string): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const { data: agent } = await supabase
+    .from("agents")
+    .select("id, name, slug")
+    .eq("id", agentId)
+    .single();
+  if (!agent) throw new Error("Agent not found");
+
+  const { error } = await supabase.from("agents").delete().eq("id", agentId);
+  if (error) throw new Error(error.message);
+
+  await supabase.from("audit_log").insert({
+    actor_type: "human",
+    module: "agents",
+    entity_type: "agent",
+    entity_id: agentId,
+    action: "deleted",
+    summary: `Deleted agent '${agent.name}'`,
+  });
+}
+
 // ── Agent Command Queue ──────────────────────────────────────
 
 export interface EnqueueCommandInput {
@@ -245,6 +274,10 @@ export async function enqueueAgentCommand(
 
 export interface UpdateAgentInput {
   agentId: string;
+  name?: string;
+  description?: string | null;
+  domains?: string[];
+  capabilities?: string[];
   reportsToId?: string | null;
   model?: string | null;
   thinking?: string | null;
@@ -265,6 +298,24 @@ export async function updateAgent(input: UpdateAgentInput): Promise<void> {
   if (!agent) throw new Error("Agent not found");
 
   const updates: Record<string, unknown> = {};
+
+  if (input.name !== undefined) {
+    const trimmed = input.name.trim();
+    if (!trimmed) throw new Error("Name is required");
+    updates.name = trimmed;
+  }
+
+  if (input.description !== undefined) {
+    updates.description = input.description?.trim() || null;
+  }
+
+  if (input.domains !== undefined) {
+    updates.domains = input.domains;
+  }
+
+  if (input.capabilities !== undefined) {
+    updates.capabilities = input.capabilities;
+  }
 
   if (input.model !== undefined) {
     updates.model = input.model;
@@ -305,6 +356,22 @@ export async function updateAgent(input: UpdateAgentInput): Promise<void> {
   if (error) throw new Error(error.message);
 
   const summaryParts: string[] = [];
+
+  if (input.name !== undefined) {
+    summaryParts.push(`Renamed '${agent.slug}' to '${input.name.trim()}'`);
+  }
+
+  if (input.description !== undefined) {
+    summaryParts.push(`Updated description of '${agent.slug}'`);
+  }
+
+  if (input.domains !== undefined) {
+    summaryParts.push(`Updated domains of '${agent.slug}'`);
+  }
+
+  if (input.capabilities !== undefined) {
+    summaryParts.push(`Updated capabilities of '${agent.slug}'`);
+  }
 
   if (input.reportsToId !== undefined) {
     let managerLabel = "Operator";

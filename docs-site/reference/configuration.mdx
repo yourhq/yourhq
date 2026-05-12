@@ -143,7 +143,7 @@ Control loops in the dispatcher and runner daemons. Defaults are sensible; overr
 
 - **`GIT_SYNC_INTERVAL`** — **Optional**. Default `1800` (30 min). Seconds between backup-sweep passes in the runner (commits dirty worktrees, fast-forwards branches that moved on the remote). Set to `0` to disable the sweep entirely — event-driven commits and the post-commit auto-push still work.
 
-- **`RUNTIME_MODE`** — **Optional**. Default `docker`. One of `docker` or `systemd`. Controls how `restart_gateway`, `restart_dispatcher`, and `update_gateway` commands are executed. `docker` uses `docker compose` commands; `systemd` uses `openclaw gateway restart` and `systemctl`. Set to `systemd` only if you installed without Docker (rare).
+- **`RUNTIME_MODE`** — **Optional**. Default `docker`. One of `docker`, `systemd`, or `e2b`. Controls how `restart_gateway`, `restart_dispatcher`, and `update_gateway` commands are executed. `docker` uses `docker compose` commands; `systemd` uses `openclaw gateway restart` and `systemctl`; `e2b` adapts the entrypoint for cloud sandbox environments. Self-hosted installs should use `docker` (default).
 
 - **`TENANT_ID`** — **Optional**. Default `00000000-0000-0000-0000-000000000000`. The UUID of the tenant row this gateway and its agents belong to. Self-hosted installs use the default nil UUID. Override only if you're running a multi-tenant setup.
 
@@ -163,6 +163,8 @@ Pin specific image tags for reproducible production deploys. All four default to
 - **`GATEWAY_IMAGE`** — **Optional**. Default `ghcr.io/yourhq/yourhq-gateway:latest`.
 - **`DISPATCHER_IMAGE`** — **Optional**. Default `ghcr.io/yourhq/yourhq-dispatcher:latest`.
 - **`RUNNER_IMAGE`** — **Optional**. Default `ghcr.io/yourhq/yourhq-runner:latest`.
+- **`EMBEDDER_IMAGE`** — **Optional**. Default `ghcr.io/yourhq/yourhq-embedder:latest`.
+- **`FILE_PROCESSOR_IMAGE`** — **Optional**. Default `ghcr.io/yourhq/yourhq-file-processor:latest`.
 
 Override to `ghcr.io/yourhq/yourhq-<svc>:2026.04.20` (or similar date-pinned tag) for production. Don't pin in dev — you want to track `:latest`.
 

@@ -88,6 +88,15 @@ export async function updateSession(request: NextRequest) {
     );
   }
 
+  if (!user && isHosted && isOnboarding) {
+    const hasHostedEmail = request.cookies.has("hq_hosted_email");
+    if (!hasHostedEmail) {
+      const url = request.nextUrl.clone();
+      url.pathname = AUTH_PATH;
+      return NextResponse.redirect(url);
+    }
+  }
+
   if (!user && !isDashboard && !isOnboarding && !isLogin) {
     const url = request.nextUrl.clone();
     url.pathname = isHosted ? AUTH_PATH : LOGIN_PATH;

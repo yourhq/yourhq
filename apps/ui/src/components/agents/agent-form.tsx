@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { Agent } from "@/lib/agents/types";
 import { logAudit } from "@/lib/audit/log";
@@ -40,7 +41,6 @@ export function AgentForm({ editingAgent, onSave, onCancel }: AgentFormProps) {
       .replace(/^-|-$/g, "");
   }
 
-  // Auto-resize name
   useEffect(() => {
     if (nameRef.current) {
       nameRef.current.style.height = "auto";
@@ -52,38 +52,41 @@ export function AgentForm({ editingAgent, onSave, onCancel }: AgentFormProps) {
     if (!name.trim() || !slug.trim()) return;
     setSaving(true);
 
-    const payload = {
-      name: name.trim(),
-      slug: slug.trim(),
-      description: description.trim() || null,
-      domains,
-      capabilities,
-    };
-
-    if (editingAgent) {
-      await supabase.from("agents").update(payload).eq("id", editingAgent.id);
-      logAudit(supabase, {
-        module: "agents",
-        entity_type: "agent",
-        entity_id: editingAgent.id,
-        action: "updated",
-        summary: `Updated agent '${payload.name}'`,
-      });
-    } else {
-      const { data: inserted } = await supabase.from("agents").insert(payload).select("id").single();
-      if (inserted) {
+    try {
+      if (editingAgent) {
+        const payload = {
+          name: name.trim(),
+          slug: slug.trim(),
+          description: description.trim() || null,
+          domains,
+          capabilities,
+        };
+        const { error } = await supabase.from("agents").update(payload).eq("id", editingAgent.id);
+        if (error) throw new Error(error.message);
         logAudit(supabase, {
           module: "agents",
           entity_type: "agent",
-          entity_id: inserted.id,
-          action: "created",
-          summary: `Registered agent '${payload.name}'`,
+          entity_id: editingAgent.id,
+          action: "updated",
+          summary: `Updated agent '${payload.name}'`,
         });
+        toast.success(`Updated ${payload.name}`);
+      } else {
+        const { createAgentWithBranch } = await import("@/app/dashboard/agents/actions");
+        await createAgentWithBranch({
+          name: name.trim(),
+          slug: slug.trim(),
+          description: description.trim() || undefined,
+          templateBranch: null,
+        });
+        toast.success(`Registered ${name.trim()}`);
       }
+      onSave();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save agent");
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
-    onSave();
   }
 
   function handleNameKeyDown(e: React.KeyboardEvent) {
