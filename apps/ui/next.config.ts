@@ -15,7 +15,6 @@ const codespacesHost = process.env.CODESPACE_NAME
 
 const nextConfig: NextConfig = {
   output: process.env.VERCEL ? undefined : "standalone",
-  serverExternalPackages: ["node:crypto"],
   allowedDevOrigins: [
     ...(codespacesHost ? [codespacesHost] : []),
     ...extraAllowedOrigins,

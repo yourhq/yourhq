@@ -1,4 +1,9 @@
 import "server-only";
+import { promises as fs } from "fs";
+import path from "path";
+
+const MIGRATIONS_PATH =
+  process.env.HQ_SCHEMA_PATH ?? path.join(__dirname, "../../db/migrations");
 
 export interface InstallSchemaInput {
   url: string;
@@ -17,35 +22,30 @@ export type InstallSchemaResult =
   | { ok: false; error: string; hint?: string };
 
 async function readSchemaSql(): Promise<string> {
-  const fs = require("fs").promises as typeof import("fs").promises;
-  const path = require("path") as typeof import("path");
-  const migrationsPath =
-    process.env.HQ_SCHEMA_PATH ?? path.join(__dirname, "../../db/migrations");
-
   try {
-    const stat = await fs.stat(migrationsPath);
+    const stat = await fs.stat(MIGRATIONS_PATH);
 
     if (stat.isFile()) {
-      return await fs.readFile(migrationsPath, "utf-8");
+      return await fs.readFile(MIGRATIONS_PATH, "utf-8");
     }
 
-    const entries = await fs.readdir(migrationsPath);
+    const entries = await fs.readdir(MIGRATIONS_PATH);
     const sqlFiles = entries
-      .filter((f: string) => f.endsWith(".sql"))
+      .filter((f) => f.endsWith(".sql"))
       .sort();
 
     if (sqlFiles.length === 0) {
-      throw new Error(`No .sql files found in ${migrationsPath}`);
+      throw new Error(`No .sql files found in ${MIGRATIONS_PATH}`);
     }
 
     const parts = await Promise.all(
-      sqlFiles.map((f: string) => fs.readFile(path.join(migrationsPath, f), "utf-8")),
+      sqlFiles.map((f) => fs.readFile(path.join(MIGRATIONS_PATH, f), "utf-8")),
     );
 
     return parts.join("\n\n");
   } catch (err) {
     throw new Error(
-      `Failed to read schema migrations at ${migrationsPath}: ${(err as Error).message}. ` +
+      `Failed to read schema migrations at ${MIGRATIONS_PATH}: ${(err as Error).message}. ` +
         `HQ_SCHEMA_PATH should point at the db/migrations/ directory.`,
     );
   }
