@@ -12,7 +12,7 @@ import { promises as fs } from "fs";
 import path from "path";
 
 const MIGRATIONS_PATH =
-  process.env.HQ_SCHEMA_PATH ?? path.resolve(/* turbopackIgnore: true */ process.cwd(), "../../db/migrations");
+  process.env.HQ_SCHEMA_PATH ?? path.join(__dirname, "../../db/migrations");
 
 export interface InstallSchemaInput {
   url: string;
