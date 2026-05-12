@@ -140,6 +140,7 @@ export function CollectionTableView({
     return cols;
   }, [activeFields, viewConfig.field_widths, onCellChange, onArchiveRecord, onDeleteRecord, onRecordClick]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: records,
     columns,

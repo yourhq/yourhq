@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { NewWorkspaceWizard } from "@/components/workspaces/new-workspace-wizard";
 

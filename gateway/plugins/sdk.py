@@ -12,8 +12,8 @@ import os
 import urllib.parse
 import urllib.request
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field, asdict
-from typing import Any, Optional
+from dataclasses import asdict, dataclass, field
+from typing import Any
 
 
 @dataclass

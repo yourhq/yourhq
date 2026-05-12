@@ -29,6 +29,7 @@ export function useTaskRelations(taskId: string | null) {
   }, [supabase, taskId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchRelations();
   }, [fetchRelations]);
 

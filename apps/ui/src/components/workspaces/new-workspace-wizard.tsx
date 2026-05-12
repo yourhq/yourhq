@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, Loader2, AlertCircle, CreditCard, Pencil, Eye, EyeOff, Copy, CheckCheck, ExternalLink } from "lucide-react";
+import { useCallback, useEffect, useState, useTransition } from "react";
+import { useSearchParams } from "next/navigation";
+import { ArrowLeft, ArrowRight, Check, Loader2, AlertCircle, CreditCard, Eye, EyeOff, Copy, CheckCheck, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StaggeredEntrance } from "@/components/onboarding/wizard/staggered-entrance";
 import { WizardProgress } from "@/components/onboarding/wizard/wizard-progress";
@@ -13,7 +13,7 @@ import {
   createOssWorkspace,
   createHostedWorkspaceCheckout,
 } from "@/app/new-workspace/actions";
-import { pollProvisionStatus, verifyAutoLogin } from "@/components/onboarding/wizard/hosted-actions";
+import { verifyAutoLogin } from "@/components/onboarding/wizard/hosted-actions";
 
 type Step = "name" | "database" | "account" | "payment" | "provisioning" | "done";
 
@@ -40,7 +40,6 @@ interface Props {
 }
 
 export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const steps = isHosted ? HOSTED_STEPS : OSS_STEPS;
   const progressSteps = isHosted ? HOSTED_PROGRESS : OSS_PROGRESS;

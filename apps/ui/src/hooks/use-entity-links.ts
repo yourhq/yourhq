@@ -66,7 +66,7 @@ export function useEntityLinks(ownerType: OwnerType, ownerId: string) {
         contactIds.length > 0
           ? supabase
               .from("contacts")
-              .select("id, first_name, last_name")
+              .select("id, name")
               .in("id", contactIds)
           : Promise.resolve({ data: [] }),
         orgIds.length > 0
@@ -120,9 +120,7 @@ export function useEntityLinks(ownerType: OwnerType, ownerId: string) {
         case "contact": {
           const contact = contactMap.get(row.target_id);
           if (contact) {
-            link.resolved_name = [contact.first_name, contact.last_name]
-              .filter(Boolean)
-              .join(" ");
+            link.resolved_name = contact.name as string;
           }
           break;
         }
@@ -244,15 +242,16 @@ export function useEntityLinks(ownerType: OwnerType, ownerId: string) {
       searches.push(
         supabase
           .from("contacts")
-          .select("id, first_name, last_name")
-          .or(`first_name.ilike.${q},last_name.ilike.${q}`)
+          .select("id, name")
+          .ilike("name", q)
+          .is("archived_at", null)
           .limit(5)
           .then(({ data }) =>
             (data ?? []).forEach(
-              (c: { id: string; first_name: string; last_name: string }) =>
+              (c: { id: string; name: string }) =>
                 results.push({
                   id: c.id,
-                  name: [c.first_name, c.last_name].filter(Boolean).join(" "),
+                  name: c.name,
                   target_type: "contact",
                 })
             )

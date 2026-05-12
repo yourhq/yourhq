@@ -22,7 +22,6 @@ import {
   FolderOpen,
   Globe2,
   Bot,
-  Image as ImageIcon,
   Loader2,
   Pin,
   PinOff,

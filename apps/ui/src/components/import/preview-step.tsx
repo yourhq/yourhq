@@ -146,6 +146,7 @@ export function PreviewStep({
     return cols;
   }, [activeMappings]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: previewRows,
     columns,

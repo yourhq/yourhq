@@ -34,7 +34,7 @@ interface Props {
 const MAX_ITEMS = 8;
 const RECENCY_DAYS = 7;
 
-export function AgentKnowledgeSection({ agentId, agentSlug }: Props) {
+export function AgentKnowledgeSection({ agentId, agentSlug: _agentSlug }: Props) {
   const supabase = useMemo(() => createClient(), []);
   const [items, setItems] = useState<SkillItem[]>([]);
   const [recentEdits, setRecentEdits] = useState<Map<string, AuditEntry>>(new Map());

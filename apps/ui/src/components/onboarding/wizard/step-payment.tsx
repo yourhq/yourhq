@@ -15,7 +15,7 @@ interface StepPaymentProps {
 }
 
 export function StepPayment({
-  ownerName,
+  ownerName: _ownerName,
   workspaceLabel,
   intentKey,
   email: initialEmail,

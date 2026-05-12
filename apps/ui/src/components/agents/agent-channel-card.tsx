@@ -47,7 +47,7 @@ export function AgentChannelCard({ agent, onAgentUpdated }: AgentChannelCardProp
   const [connecting, setConnecting] = useState(false);
 
   // Provisioning + pairing
-  const [provisionDone, setProvisionDone] = useState(false);
+  const [, setProvisionDone] = useState(false);
   const [pairingCode, setPairingCode] = useState("");
   const [pairingBusy, setPairingBusy] = useState(false);
   const [pairingResult, setPairingResult] = useState<"idle" | "done" | "error">("idle");

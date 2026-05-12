@@ -11,6 +11,7 @@ All hq_* scripts import from here. Handles:
 import hashlib
 import json
 import os
+import re as _re
 import sys
 import urllib.error
 import urllib.parse
@@ -342,9 +343,6 @@ def embedding_source_hash(text):
 
 
 # ── Markdown → Tiptap conversion ─────────────────────────────────────
-
-
-import re as _re
 
 
 def _parse_inline_marks(text):

@@ -20,6 +20,7 @@ export function usePlugins(initialPlugins?: HQPlugin[]) {
 
   useEffect(() => {
     if (!initialPlugins) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       refetch().finally(() => setLoading(false));
     }
   }, [initialPlugins, refetch]);

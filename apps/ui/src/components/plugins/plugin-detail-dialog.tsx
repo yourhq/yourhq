@@ -70,6 +70,7 @@ export function PluginDetailDialog({
 
   useEffect(() => {
     if (open && plugin) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       void fetchEvents(plugin.plugin_id);
     } else {
       setEvents([]);

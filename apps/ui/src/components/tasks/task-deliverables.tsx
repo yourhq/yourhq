@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useDeliverables } from "@/hooks/use-deliverables";
-import type { EntityLink, ReviewStatus } from "@/lib/entity-links/types";
+import type { EntityLink } from "@/lib/entity-links/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";

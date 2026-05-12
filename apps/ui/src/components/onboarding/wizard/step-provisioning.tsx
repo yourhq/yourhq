@@ -61,7 +61,7 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
   const [showSlowPayment, setShowSlowPayment] = useState(false);
   const pendingSinceRef = useRef<number | null>(null);
   const completedRef = useRef(false);
-  const pollStartRef = useRef<number>(Date.now());
+  const pollStartRef = useRef<number>(0);
 
   const poll = useCallback(async () => {
     if (completedRef.current) return;
@@ -107,6 +107,8 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
 
   useEffect(() => {
     if (error) return;
+    if (pollStartRef.current === 0) pollStartRef.current = Date.now();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     poll();
     const interval = setInterval(() => {
       if (Date.now() - pollStartRef.current > MAX_POLL_MS) {

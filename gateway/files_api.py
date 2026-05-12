@@ -506,7 +506,7 @@ class Handler(BaseHTTPRequestHandler):
 
         try:
             from connectors import get_connector
-            from daemons.source_sync import _load_gateway_secrets, _resolve_credentials
+            from daemons.source_sync import _resolve_credentials
 
             supabase_url = os.environ.get("SUPABASE_URL", "")
             supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")

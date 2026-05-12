@@ -13,7 +13,7 @@ from connectors.base import (
 
 class ExampleConnector(BaseConnector):
     def validate_credentials(self, creds: dict) -> bool:
-        api_key = creds["api_key"]
+        _api_key = creds["api_key"]
         # Make a lightweight authenticated request to verify the key.
         # Raise an exception with a user-facing message on failure.
         raise NotImplementedError

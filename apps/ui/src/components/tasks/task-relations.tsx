@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useTaskRelations } from "@/hooks/use-task-relations";
-import type { TaskRelationType, TaskStatus } from "@/lib/tasks/types";
+import type { TaskRelationType } from "@/lib/tasks/types";
 import { RELATION_TYPES } from "@/lib/tasks/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -56,7 +56,7 @@ interface TaskRelationsProps {
 }
 
 export function TaskRelations({ taskId }: TaskRelationsProps) {
-  const { relations, loading, actions } = useTaskRelations(taskId);
+  const { relations, actions } = useTaskRelations(taskId);
   const [open, setOpen] = useState(false);
   const [relationType, setRelationType] = useState<TaskRelationType>("blocked_by");
   const [search, setSearch] = useState("");

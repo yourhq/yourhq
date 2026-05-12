@@ -81,6 +81,7 @@ export function AuthForm() {
     const queryErr = getQueryError();
     const initialError = hashErr || queryErr;
     if (initialError) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setError(initialError);
       if (window.location.hash || window.location.search) {
         window.history.replaceState(null, "", window.location.pathname);

@@ -37,7 +37,7 @@ const STATUS_DOT: Record<TaskStatus, string> = {
 
 export function TaskCalendarView({
   tasks,
-  loading,
+  loading: _loading,
   onSelect,
   onCreateForDate,
 }: TaskCalendarViewProps) {

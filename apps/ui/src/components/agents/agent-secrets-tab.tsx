@@ -44,6 +44,7 @@ export function AgentSecretsTab({
   }, [agentId, gatewayId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refetch();
   }, [refetch]);
 

@@ -31,11 +31,11 @@ import hashlib
 import hmac
 import importlib.util
 import json
+import logging
 import os
 import sys
 import threading
 import time
-import logging
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
@@ -202,8 +202,8 @@ def load_local_plugin(row: dict):
     from gateway.plugins.sdk import (
         BasePlugin,
         PluginContext,
-        StateClient,
         SecretsClient,
+        StateClient,
         SupabaseClient,
     )
 

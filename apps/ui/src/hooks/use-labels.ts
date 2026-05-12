@@ -26,6 +26,7 @@ export function useLabels() {
   }, [supabase]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchLabels();
   }, [fetchLabels]);
 

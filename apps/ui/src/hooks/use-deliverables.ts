@@ -64,6 +64,7 @@ export function useDeliverables(taskId: string | null) {
   }, [supabase, taskId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchDeliverables();
   }, [fetchDeliverables]);
 

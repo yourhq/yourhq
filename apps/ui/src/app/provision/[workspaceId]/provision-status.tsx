@@ -60,7 +60,7 @@ export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
   const router = useRouter();
-  const pollStartRef = useRef<number>(Date.now());
+  const pollStartRef = useRef<number>(0);
 
   const poll = useCallback(async () => {
     const status = await pollProvisionAction(workspaceId);
@@ -84,9 +84,10 @@ export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
     setRetrying(false);
   }, [workspaceId, retrying]);
 
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (error) return;
+    if (pollStartRef.current === 0) pollStartRef.current = Date.now();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     poll();
     const interval = setInterval(() => {
       if (Date.now() - pollStartRef.current > MAX_POLL_MS) {
@@ -98,7 +99,6 @@ export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
     }, 2000);
     return () => clearInterval(interval);
   }, [poll, error]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   const current = stageIndex(currentStage);
   const isComplete = currentStage === "complete";
