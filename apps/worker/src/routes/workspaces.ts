@@ -277,6 +277,60 @@ app.post(
   return c.json({ url, workspaceId });
 });
 
+// Verify payment with Stripe and kick provisioning if webhook was missed
+app.post(
+  "/workspaces/:id/verify-payment",
+  rateLimit({ keyFn: (c) => `verify:${c.req.param("id") ?? ""}`, max: 5, windowMs: HOUR }),
+  async (c) => {
+  const ws = await getWorkspace(c.req.param("id")!);
+  if (!ws) return c.json({ error: "Not found" }, 404);
+
+  if (ws.subscription_status !== "pending") {
+    return c.json({ ok: true, status: ws.subscription_status });
+  }
+
+  const stripe = getStripe();
+  const sessions = await stripe.checkout.sessions.list({
+    limit: 5,
+  });
+
+  const match = sessions.data.find(
+    (s) => s.metadata?.workspace_id === ws.id && s.status === "complete",
+  );
+
+  if (!match) {
+    return c.json({ ok: false, error: "No completed payment found yet. Please wait a moment and try again." });
+  }
+
+  const email = match.customer_email ?? match.customer_details?.email;
+  if (!email) {
+    return c.json({ ok: false, error: "Payment found but could not resolve your email. Please contact support." });
+  }
+
+  await updateWorkspace(ws.id, {
+    stripe_subscription_id: match.subscription as string,
+    subscription_status: "provisioning",
+  } as any);
+
+  const { data: wsRow } = await getMasterSupabase()
+    .from("hosted_workspaces")
+    .select("user_id")
+    .eq("id", ws.id)
+    .single();
+  if (wsRow && match.customer) {
+    await getMasterSupabase()
+      .from("hosted_users")
+      .update({ stripe_customer_id: match.customer as string })
+      .eq("id", wsRow.user_id);
+  }
+
+  provisionWorkspace(ws.id, email, sandboxProvider).catch((err) => {
+    console.error(`[verify-payment] Background provisioning failed for ${ws.id}:`, err);
+  });
+
+  return c.json({ ok: true, status: "provisioning" });
+});
+
 // Retry provisioning for a workspace stuck in error state
 app.post(
   "/workspaces/:id/retry-provision",

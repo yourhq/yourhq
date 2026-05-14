@@ -13,6 +13,8 @@ import { getPublicSiteUrl } from "./env.js";
 import type { SandboxProvider } from "../providers/types.js";
 import { randomBytes } from "node:crypto";
 
+const provisionLocks = new Map<string, Promise<void>>();
+
 async function setStage(workspaceId: string, stage: string) {
   await updateWorkspace(workspaceId, { provision_stage: stage } as any);
 }
@@ -26,6 +28,29 @@ async function setError(workspaceId: string, error: string) {
 }
 
 export async function provisionWorkspace(
+  workspaceId: string,
+  email: string,
+  sandboxProvider: SandboxProvider,
+): Promise<void> {
+  const existing = provisionLocks.get(workspaceId);
+  if (existing) {
+    await existing;
+    return;
+  }
+
+  let resolve: () => void;
+  const lock = new Promise<void>((r) => { resolve = r; });
+  provisionLocks.set(workspaceId, lock);
+
+  try {
+    await doProvision(workspaceId, email, sandboxProvider);
+  } finally {
+    provisionLocks.delete(workspaceId);
+    resolve!();
+  }
+}
+
+async function doProvision(
   workspaceId: string,
   email: string,
   sandboxProvider: SandboxProvider,
@@ -47,8 +72,10 @@ export async function provisionWorkspace(
     const orgId = process.env.SUPABASE_ORG_ID;
     if (!orgId) throw new Error("SUPABASE_ORG_ID required");
 
-    let projectRef = workspace.supabase_project_ref;
-    let dbPassword = decryptSecret(workspace.supabase_db_password_enc);
+    // Re-read to catch project created by a concurrent caller
+    const freshForProject = await getWorkspace(workspaceId);
+    let projectRef = freshForProject?.supabase_project_ref ?? workspace.supabase_project_ref;
+    let dbPassword = decryptSecret(freshForProject?.supabase_db_password_enc ?? workspace.supabase_db_password_enc);
     if (!projectRef) {
       dbPassword = randomBytes(24).toString("base64url");
 

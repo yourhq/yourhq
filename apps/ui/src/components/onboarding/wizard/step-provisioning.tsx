@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Sparkles, Check, Loader2, AlertCircle, CreditCard, RotateCw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { pollProvisionStatus, retryProvisionAction } from "./hosted-actions";
+import { pollProvisionStatus, retryProvisionAction, verifyAndKickProvision } from "./hosted-actions";
 
 interface Stage {
   key: string;
@@ -46,7 +46,8 @@ function friendlyError(raw: string): string {
 }
 
 const MAX_POLL_MS = 5 * 60 * 1000;
-const SLOW_PAYMENT_MS = 60_000;
+const PENDING_TIMEOUT_MS = 90_000;
+const MAX_CONSECUTIVE_FAILURES = 5;
 
 interface StepProvisioningProps {
   workspaceId: string;
@@ -58,14 +59,29 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
   const [currentStage, setCurrentStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
-  const [showSlowPayment, setShowSlowPayment] = useState(false);
+  const [pendingStale, setPendingStale] = useState(false);
+  const [kickingProvision, setKickingProvision] = useState(false);
   const pendingSinceRef = useRef<number | null>(null);
   const completedRef = useRef(false);
   const pollStartRef = useRef<number>(0);
+  const failureCountRef = useRef(0);
 
   const poll = useCallback(async () => {
     if (completedRef.current) return;
-    const status = await pollProvisionStatus(workspaceId);
+
+    let status: Awaited<ReturnType<typeof pollProvisionStatus>>;
+    try {
+      status = await pollProvisionStatus(workspaceId);
+    } catch {
+      failureCountRef.current++;
+      if (failureCountRef.current >= MAX_CONSECUTIVE_FAILURES) {
+        setError("Unable to reach our servers. Please check your connection and refresh the page.");
+      }
+      return;
+    }
+
+    failureCountRef.current = 0;
+
     if (!status || completedRef.current) return;
 
     if (status.provision_error) {
@@ -77,13 +93,14 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
 
     if (status.subscription_status === "pending") {
       if (!pendingSinceRef.current) pendingSinceRef.current = Date.now();
-      if (Date.now() - pendingSinceRef.current > SLOW_PAYMENT_MS) {
-        setShowSlowPayment(true);
+      if (Date.now() - pendingSinceRef.current > PENDING_TIMEOUT_MS) {
+        setPendingStale(true);
       }
       return;
     }
 
     pendingSinceRef.current = null;
+    setPendingStale(false);
     setCurrentStage(status.provision_stage);
 
     if (status.provision_stage === "complete") {
@@ -95,20 +112,42 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
   const handleRetry = useCallback(async () => {
     if (retrying) return;
     setRetrying(true);
-    const result = await retryProvisionAction(workspaceId);
-    if (result.ok) {
-      setError(null);
-      setCurrentStage(null);
-      completedRef.current = false;
-      pollStartRef.current = Date.now();
+    try {
+      const result = await retryProvisionAction(workspaceId);
+      if (result.ok) {
+        setError(null);
+        setCurrentStage(null);
+        completedRef.current = false;
+        pollStartRef.current = Date.now();
+        failureCountRef.current = 0;
+      }
+    } catch {
+      setError("Unable to reach our servers. Please check your connection and try again.");
     }
     setRetrying(false);
   }, [workspaceId, retrying]);
 
+  const handleKickProvision = useCallback(async () => {
+    if (kickingProvision) return;
+    setKickingProvision(true);
+    try {
+      const result = await verifyAndKickProvision(workspaceId);
+      if (result.ok) {
+        pendingSinceRef.current = null;
+        setPendingStale(false);
+        failureCountRef.current = 0;
+      } else if (result.error) {
+        setError(result.error);
+      }
+    } catch {
+      setError("Unable to reach our servers. Please check your connection and try again.");
+    }
+    setKickingProvision(false);
+  }, [workspaceId, kickingProvision]);
+
   useEffect(() => {
     if (error) return;
     if (pollStartRef.current === 0) pollStartRef.current = Date.now();
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     poll();
     const interval = setInterval(() => {
       if (Date.now() - pollStartRef.current > MAX_POLL_MS) {
@@ -216,13 +255,27 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
               <div className="flex items-center gap-3">
                 <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
                 <span className="text-[13px] font-medium text-foreground">
-                  Waiting for Stripe confirmation...
+                  Waiting for payment confirmation...
                 </span>
               </div>
-              {showSlowPayment && (
+              {pendingStale ? (
+                <div className="space-y-3 pl-7">
+                  <p className="text-[12px] text-muted-foreground">
+                    We haven&apos;t received confirmation from Stripe yet. If you completed
+                    payment, click below and we&apos;ll verify it directly.
+                  </p>
+                  <button
+                    onClick={handleKickProvision}
+                    disabled={kickingProvision}
+                    className="flex h-8 items-center gap-2 rounded-lg border border-border bg-background px-3 text-[12px] font-medium text-foreground transition-all hover:bg-accent active:scale-[0.98] disabled:opacity-50"
+                  >
+                    <RotateCw className={cn("h-3 w-3", kickingProvision && "animate-spin")} />
+                    {kickingProvision ? "Verifying…" : "Verify payment"}
+                  </button>
+                </div>
+              ) : (
                 <p className="text-[12px] text-muted-foreground pl-7">
-                  Payment is still being processed. This can take up to a minute.
-                  This page will update automatically.
+                  This usually takes a few seconds. This page will update automatically.
                 </p>
               )}
             </div>

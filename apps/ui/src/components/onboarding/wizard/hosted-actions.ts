@@ -74,6 +74,21 @@ export async function pollProvisionStatus(workspaceId: string) {
   return getProvisionStatus(workspaceId);
 }
 
+export async function verifyAndKickProvision(workspaceId: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await workerFetch(`/workspaces/${workspaceId}/verify-payment`, {
+      method: "POST",
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: "Verification failed" }));
+      return { ok: false, error: (body as { error?: string }).error ?? "Verification failed" };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Unable to reach our servers. Please try again." };
+  }
+}
+
 export async function retryProvisionAction(workspaceId: string): Promise<{ ok: boolean; error?: string }> {
   const { workerFetch } = await import("@/lib/worker-client");
   const res = await workerFetch(`/workspaces/${workspaceId}/retry-provision`, {

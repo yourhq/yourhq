@@ -282,9 +282,13 @@ export async function getProvisionStatus(workspaceId: string): Promise<{
   auto_login_token_hash: string | null;
   auto_login_type: string;
 } | null> {
-  const res = await workerFetch(
-    `/workspaces/${workspaceId}/status`,
-  );
-  if (!res.ok) return null;
-  return res.json();
+  try {
+    const res = await workerFetch(
+      `/workspaces/${workspaceId}/status`,
+    );
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
 }
