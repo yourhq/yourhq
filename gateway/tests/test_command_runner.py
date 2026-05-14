@@ -184,3 +184,291 @@ def test_build_command_provision_with_optional_fields():
     assert "gpt-4" in args
     assert "--source-branch" in args
     assert "default" in args
+
+
+def test_heartbeat_once_sets_ready_for_active_gateway(monkeypatch):
+    import command_runner as cr
+
+    api_calls = []
+
+    def fake_api_get(table, params):
+        api_calls.append(("GET", table, params))
+        if "gateways" in table:
+            return [{"status": "ready"}]
+        return []
+
+    upsert_calls = []
+
+    def fake_upsert(table, body, on_conflict):
+        upsert_calls.append((table, body))
+
+    monkeypatch.setattr(cr, "api_get", fake_api_get)
+    monkeypatch.setattr(cr, "api_post_upsert", fake_upsert)
+    monkeypatch.setattr(cr, "HEARTBEAT_FILE", "/dev/null")
+
+    cr.heartbeat_once()
+
+    assert len(upsert_calls) == 1
+    assert upsert_calls[0][1]["status"] == "ready"
+    assert cr.GATEWAY_PAUSED is False
+
+
+def test_heartbeat_once_preserves_paused_status(monkeypatch):
+    import command_runner as cr
+
+    def fake_api_get(table, params):
+        if "gateways" in table:
+            return [{"status": "paused"}]
+        return []
+
+    patch_calls = []
+
+    def fake_patch_by_slug(table, slug, payload):
+        patch_calls.append((table, slug, payload))
+
+    monkeypatch.setattr(cr, "api_get", fake_api_get)
+    monkeypatch.setattr(cr, "api_patch_by_slug", fake_patch_by_slug)
+    monkeypatch.setattr(cr, "HEARTBEAT_FILE", "/dev/null")
+
+    cr.heartbeat_once()
+
+    assert cr.GATEWAY_PAUSED is True
+    assert len(patch_calls) == 1
+    assert "last_seen_at" in patch_calls[0][2]
+
+
+def test_heartbeat_once_preserves_hibernating_status(monkeypatch):
+    import command_runner as cr
+
+    def fake_api_get(table, params):
+        if "gateways" in table:
+            return [{"status": "hibernating"}]
+        return []
+
+    patch_calls = []
+
+    def fake_patch_by_slug(table, slug, payload):
+        patch_calls.append(payload)
+
+    monkeypatch.setattr(cr, "api_get", fake_api_get)
+    monkeypatch.setattr(cr, "api_patch_by_slug", fake_patch_by_slug)
+    monkeypatch.setattr(cr, "HEARTBEAT_FILE", "/dev/null")
+
+    cr.heartbeat_once()
+
+    assert cr.GATEWAY_PAUSED is True
+
+
+def test_heartbeat_once_handles_api_failure(monkeypatch):
+    import command_runner as cr
+
+    def failing_get(table, params):
+        raise ConnectionError("down")
+
+    monkeypatch.setattr(cr, "api_get", failing_get)
+    monkeypatch.setattr(cr, "HEARTBEAT_FILE", "/dev/null")
+
+    cr.heartbeat_once()
+
+
+def test_execute_command_timeout(monkeypatch):
+    import subprocess
+    import command_runner as cr
+
+    rpc_calls = []
+
+    def fake_rpc(fn, payload=None):
+        rpc_calls.append((fn, payload))
+        return None
+
+    def fake_run(args, **kwargs):
+        raise subprocess.TimeoutExpired(args, 120)
+
+    monkeypatch.setattr(cr, "api_rpc", fake_rpc)
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    cr.execute_command({
+        "id": "cmd-1",
+        "action": "update",
+        "agent_slug": "my-agent",
+        "payload": {},
+    })
+
+    fail_calls = [(fn, p) for fn, p in rpc_calls if fn == "fail_command"]
+    assert len(fail_calls) == 1
+    assert "Timed out" in fail_calls[0][1]["p_error"]
+
+
+def test_execute_command_subprocess_error(monkeypatch):
+    import subprocess
+    import command_runner as cr
+
+    rpc_calls = []
+
+    def fake_rpc(fn, payload=None):
+        rpc_calls.append((fn, payload))
+        return None
+
+    def fake_run(args, **kwargs):
+        raise OSError("command not found")
+
+    monkeypatch.setattr(cr, "api_rpc", fake_rpc)
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    cr.execute_command({
+        "id": "cmd-2",
+        "action": "update",
+        "agent_slug": "my-agent",
+        "payload": {},
+    })
+
+    fail_calls = [(fn, p) for fn, p in rpc_calls if fn == "fail_command"]
+    assert len(fail_calls) == 1
+    assert "command not found" in fail_calls[0][1]["p_error"]
+
+
+def test_execute_command_validation_failure(monkeypatch):
+    import command_runner as cr
+
+    rpc_calls = []
+
+    def fake_rpc(fn, payload=None):
+        rpc_calls.append((fn, payload))
+        return None
+
+    monkeypatch.setattr(cr, "api_rpc", fake_rpc)
+
+    cr.execute_command({
+        "id": "cmd-3",
+        "action": "nonexistent_action",
+        "agent_slug": "my-agent",
+        "payload": {},
+    })
+
+    fail_calls = [(fn, p) for fn, p in rpc_calls if fn == "fail_command"]
+    assert len(fail_calls) == 1
+    assert "Unknown action" in fail_calls[0][1]["p_error"]
+
+
+def test_process_pending_skipped_when_paused(monkeypatch):
+    import command_runner as cr
+
+    monkeypatch.setattr(cr, "GATEWAY_PAUSED", True)
+    result = cr.process_pending()
+    assert result == 0
+
+
+def test_command_listener_ws_url(monkeypatch):
+    import command_runner as cr
+
+    monkeypatch.setattr(cr, "SUPABASE_URL", "https://xyz.supabase.co")
+    monkeypatch.setattr(cr, "SUPABASE_KEY", "my-key")
+
+    listener = cr.CommandListener()
+    url = listener._ws_url()
+    assert url.startswith("wss://xyz.supabase.co/realtime/v1/websocket")
+    assert "apikey=my-key" in url
+
+
+def test_command_listener_http_to_ws(monkeypatch):
+    import command_runner as cr
+
+    monkeypatch.setattr(cr, "SUPABASE_URL", "http://localhost:54321")
+    monkeypatch.setattr(cr, "SUPABASE_KEY", "k")
+
+    listener = cr.CommandListener()
+    url = listener._ws_url()
+    assert url.startswith("ws://localhost:54321")
+
+
+def test_command_listener_next_ref_increments():
+    import command_runner as cr
+
+    listener = cr.CommandListener()
+    assert listener._next_ref() == "1"
+    assert listener._next_ref() == "2"
+    assert listener._next_ref() == "3"
+
+
+def test_command_listener_on_message_triggers_processing(monkeypatch):
+    import command_runner as cr
+    import json
+
+    processed = []
+    monkeypatch.setattr(cr, "process_pending", lambda: (processed.append(True), 1)[1])
+
+    listener = cr.CommandListener()
+    raw = json.dumps({
+        "event": "postgres_changes",
+        "payload": {
+            "data": {
+                "table": "agent_commands",
+                "type": "INSERT",
+                "record": {"action": "update", "agent_slug": "test"},
+            }
+        },
+    })
+    listener._on_message(None, raw)
+    assert len(processed) == 1
+
+
+def test_command_listener_on_message_secrets_change(monkeypatch):
+    import command_runner as cr
+    import json
+
+    sync_called = []
+
+    import secrets_sync
+    monkeypatch.setattr(secrets_sync, "sync_secrets", lambda: sync_called.append(True))
+
+    listener = cr.CommandListener()
+    raw = json.dumps({
+        "event": "postgres_changes",
+        "payload": {
+            "data": {
+                "table": "secrets",
+                "type": "UPDATE",
+            }
+        },
+    })
+    listener._on_message(None, raw)
+    assert len(sync_called) == 1
+
+
+def test_command_listener_on_message_ignores_malformed():
+    import command_runner as cr
+
+    listener = cr.CommandListener()
+    listener._on_message(None, "not-json")
+    listener._on_message(None, json.dumps({"event": "heartbeat"}))
+
+
+def test_parse_auth_progress_extracts_url():
+    from command_runner import parse_auth_progress
+
+    url, code = parse_auth_progress("Visit https://github.com/login/device to sign in")
+    assert url == "https://github.com/login/device"
+
+
+def test_parse_auth_progress_ignores_localhost():
+    from command_runner import parse_auth_progress
+
+    url, code = parse_auth_progress("Callback at http://localhost:1455/callback")
+    assert url is None
+
+
+def test_parse_auth_progress_extracts_code():
+    from command_runner import parse_auth_progress
+
+    url, code = parse_auth_progress("Enter code: ABCD-1234")
+    assert code == "ABCD-1234"
+
+
+def test_strip_ansi_removes_escape_sequences():
+    from command_runner import strip_ansi
+
+    assert strip_ansi("\x1b[32mhello\x1b[0m") == "hello"
+    assert strip_ansi("\x1b[?25lhidden\x1b[?25h") == "hidden"
+
+
+import json

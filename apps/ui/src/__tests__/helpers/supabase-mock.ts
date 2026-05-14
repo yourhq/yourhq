@@ -72,11 +72,17 @@ function createQueryBuilder(config: MockConfig, table: string) {
     if (resp.data && Array.isArray(resp.data) && resp.data.length > 0) {
       return Promise.resolve({ data: resp.data[0], error: null });
     }
+    if (resp.data && Array.isArray(resp.data) && resp.data.length === 0) {
+      return Promise.resolve({ data: null, error: null });
+    }
     return Promise.resolve(resp);
   });
 
   builder.maybeSingle = vi.fn().mockImplementation(() => {
     const resp = selectResponse;
+    if (resp.error) {
+      return Promise.resolve({ data: null, error: resp.error });
+    }
     if (resp.data && Array.isArray(resp.data) && resp.data.length > 0) {
       return Promise.resolve({ data: resp.data[0], error: null });
     }
@@ -113,6 +119,11 @@ function createQueryBuilder(config: MockConfig, table: string) {
     const mutBuilder = { ...builder };
     mutBuilder.then = (resolve: (v: unknown) => void, reject?: (e: unknown) => void) =>
       Promise.resolve(updateResponse).then(resolve, reject);
+    for (const m of chainMethods) {
+      if (m !== "update" && m !== "insert" && m !== "delete") {
+        mutBuilder[m] = vi.fn().mockReturnValue(mutBuilder);
+      }
+    }
     return mutBuilder;
   });
 
@@ -122,6 +133,11 @@ function createQueryBuilder(config: MockConfig, table: string) {
     const mutBuilder = { ...builder };
     mutBuilder.then = (resolve: (v: unknown) => void, reject?: (e: unknown) => void) =>
       Promise.resolve(deleteResponse).then(resolve, reject);
+    for (const m of chainMethods) {
+      if (m !== "update" && m !== "insert" && m !== "delete") {
+        mutBuilder[m] = vi.fn().mockReturnValue(mutBuilder);
+      }
+    }
     return mutBuilder;
   });
 
