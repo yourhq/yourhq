@@ -1,5 +1,5 @@
 import { Sandbox } from "e2b";
-import type { SandboxProvider, SpawnResult } from "./types.js";
+import type { SandboxProvider, SandboxStatus, SpawnResult } from "./types.js";
 
 const DEFAULT_TEMPLATE_NAME = "yourhq-gateway";
 const DEFAULT_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24h
@@ -104,5 +104,21 @@ export class E2BSandboxProvider implements SandboxProvider {
   async renewTimeout(sandboxId: string, timeoutMs: number): Promise<void> {
     const sandbox = await Sandbox.connect(sandboxId);
     await sandbox.setTimeout(timeoutMs);
+  }
+
+  async status(sandboxId: string): Promise<SandboxStatus> {
+    try {
+      const res = await fetch(`${E2B_API_BASE}/sandboxes/${sandboxId}`, {
+        headers: { "X-API-Key": getApiKey() },
+      });
+      if (res.status === 404) return "stopped";
+      if (!res.ok) return "unknown";
+      const data = (await res.json()) as { status?: string };
+      if (data.status === "running") return "running";
+      if (data.status === "paused") return "paused";
+      return "stopped";
+    } catch {
+      return "unknown";
+    }
   }
 }

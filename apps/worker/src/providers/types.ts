@@ -5,6 +5,8 @@ export interface SpawnResult {
   sandboxHost: string;
 }
 
+export type SandboxStatus = "running" | "paused" | "stopped" | "unknown";
+
 export interface SandboxProvider {
   spawn(opts: {
     workspaceId: string;
@@ -18,4 +20,6 @@ export interface SandboxProvider {
   resume(sandboxId: string): Promise<void>;
 
   renewTimeout(sandboxId: string, timeoutMs: number): Promise<void>;
+
+  status(sandboxId: string): Promise<SandboxStatus>;
 }

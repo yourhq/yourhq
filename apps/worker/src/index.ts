@@ -7,6 +7,7 @@ import { E2BSandboxProvider } from "./providers/e2b.js";
 import { startTimeoutRenewer } from "./loops/timeout-renewer.js";
 import { startCleanupLoop } from "./loops/cleanup.js";
 import { startProvisioningRetryLoop } from "./loops/provisioning-retry.js";
+import { startSandboxHealthLoop } from "./loops/sandbox-health.js";
 import { validateWorkerEnv } from "./lib/env.js";
 
 validateWorkerEnv();
@@ -27,6 +28,7 @@ const sandboxProvider = new E2BSandboxProvider();
 startTimeoutRenewer(sandboxProvider);
 startCleanupLoop(sandboxProvider);
 startProvisioningRetryLoop(sandboxProvider);
+startSandboxHealthLoop(sandboxProvider);
 
 const port = Number(process.env.PORT ?? 3001);
 console.log(`[worker] Starting on port ${port}`);
