@@ -1,5 +1,6 @@
 import { getMasterSupabase, updateWorkspace, logSandboxEvent } from "../lib/master-supabase.js";
 import { deleteSupabaseProject } from "../lib/supabase-mgmt.js";
+import { reportLoopRun } from "../lib/loop-status.js";
 import type { SandboxProvider } from "../providers/types.js";
 
 const CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -24,13 +25,16 @@ export function startCleanupLoop(provider: SandboxProvider): NodeJS.Timeout {
 
       if (!sandboxDone && ws.e2b_sandbox_id) {
         try {
-          if (ws.e2b_sandbox_status === "paused") {
-            await provider.resume(ws.e2b_sandbox_id);
-          }
           await provider.destroy(ws.e2b_sandbox_id);
           sandboxDone = true;
         } catch (err) {
-          console.error("[cleanup] Failed to destroy sandbox", ws.id);
+          // Sandbox may already be gone (404) — treat as success
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes("404") || msg.includes("not found")) {
+            sandboxDone = true;
+          } else {
+            console.error("[cleanup] Failed to destroy sandbox", ws.id, msg);
+          }
         }
       } else if (!ws.e2b_sandbox_id) {
         sandboxDone = true;
@@ -80,6 +84,13 @@ export function startCleanupLoop(provider: SandboxProvider): NodeJS.Timeout {
     }
   }
 
-  cleanup().catch(console.error);
-  return setInterval(() => cleanup().catch(console.error), CLEANUP_INTERVAL_MS);
+  const run = () =>
+    cleanup()
+      .then(() => reportLoopRun("cleanup", true))
+      .catch((err) => {
+        reportLoopRun("cleanup", false, err instanceof Error ? err.message : String(err));
+        console.error("[cleanup]", err);
+      });
+  run();
+  return setInterval(run, CLEANUP_INTERVAL_MS);
 }

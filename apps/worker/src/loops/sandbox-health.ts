@@ -4,6 +4,7 @@ import {
   updateWorkspace,
   logSandboxEvent,
 } from "../lib/master-supabase.js";
+import { reportLoopRun } from "../lib/loop-status.js";
 import { decryptSecret } from "../lib/secret-crypto.js";
 import { sendSandboxError } from "../lib/email.js";
 import { getPublicSiteUrl } from "../lib/env.js";
@@ -160,6 +161,13 @@ export function startSandboxHealthLoop(provider: SandboxProvider): NodeJS.Timeou
     }
   }
 
-  check().catch(console.error);
-  return setInterval(() => check().catch(console.error), HEALTH_INTERVAL_MS);
+  const run = () =>
+    check()
+      .then(() => reportLoopRun("sandbox-health", true))
+      .catch((err) => {
+        reportLoopRun("sandbox-health", false, err instanceof Error ? err.message : String(err));
+        console.error("[sandbox-health]", err);
+      });
+  run();
+  return setInterval(run, HEALTH_INTERVAL_MS);
 }

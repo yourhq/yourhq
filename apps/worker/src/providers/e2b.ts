@@ -71,8 +71,19 @@ export class E2BSandboxProvider implements SandboxProvider {
   }
 
   async destroy(sandboxId: string): Promise<void> {
-    const sandbox = await Sandbox.connect(sandboxId);
-    await sandbox.kill();
+    try {
+      const sandbox = await Sandbox.connect(sandboxId);
+      await sandbox.kill();
+    } catch {
+      // SDK connect may fail on paused/dead sandboxes — use REST API directly
+      const res = await fetch(`${E2B_API_BASE}/sandboxes/${sandboxId}`, {
+        method: "DELETE",
+        headers: { "X-API-Key": getApiKey() },
+      });
+      if (!res.ok && res.status !== 404) {
+        throw new Error(`E2B destroy failed (${res.status})`);
+      }
+    }
   }
 
   async pause(sandboxId: string): Promise<void> {

@@ -3,6 +3,7 @@ import {
   getUser,
 } from "../lib/master-supabase.js";
 import { provisionWorkspace } from "../lib/provisioner.js";
+import { reportLoopRun } from "../lib/loop-status.js";
 import type { SandboxProvider } from "../providers/types.js";
 
 const RETRY_INTERVAL_MS = 5 * 60 * 1000;
@@ -42,6 +43,13 @@ export function startProvisioningRetryLoop(provider: SandboxProvider): NodeJS.Ti
     }
   }
 
-  retry().catch(console.error);
-  return setInterval(() => retry().catch(console.error), RETRY_INTERVAL_MS);
+  const run = () =>
+    retry()
+      .then(() => reportLoopRun("provisioning-retry", true))
+      .catch((err) => {
+        reportLoopRun("provisioning-retry", false, err instanceof Error ? err.message : String(err));
+        console.error("[provisioning-retry]", err);
+      });
+  run();
+  return setInterval(run, RETRY_INTERVAL_MS);
 }

@@ -85,6 +85,9 @@ CREATE INDEX IF NOT EXISTS idx_hosted_workspaces_cancel_at
 CREATE UNIQUE INDEX IF NOT EXISTS idx_hosted_users_stripe_customer
   ON hosted_users(stripe_customer_id)
   WHERE stripe_customer_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_hosted_workspaces_one_pending
+  ON hosted_workspaces(user_id)
+  WHERE subscription_status = 'pending';
 
 ALTER TABLE hosted_workspaces
   ADD COLUMN IF NOT EXISTS auto_login_url text;

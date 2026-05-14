@@ -1,7 +1,7 @@
 "use server";
 
-import { cookies } from "next/headers";
-import { getWorkspaceSession } from "@/lib/workspaces/hosted-registry";
+import { cookies, headers } from "next/headers";
+import { getWorkspaceSession, createWorkspaceSessionValue } from "@/lib/workspaces/hosted-registry";
 import { workerFetch } from "@/lib/worker-client";
 
 interface WorkspaceInfo {
@@ -89,6 +89,46 @@ export async function getBillingPortalAction(): Promise<{
     return { ok: true, url: data.url };
   } catch {
     return { ok: false, error: "Unable to reach the billing service. Please try again." };
+  }
+}
+
+export async function switchWorkspaceAction(workspaceId: string): Promise<{
+  ok: boolean;
+  error?: string;
+}> {
+  const session = await getWorkspaceSession();
+  if (!session) return { ok: false, error: "Not logged in." };
+
+  if (session.workspaceId === workspaceId) return { ok: true };
+
+  try {
+    const res = await workerFetch(
+      `/workspaces/${session.workspaceId}/siblings`,
+    );
+    if (!res.ok) return { ok: false, error: "Failed to verify workspace ownership." };
+    const data = (await res.json()) as { workspaces: WorkspaceInfo[] };
+    const target = data.workspaces.find((w) => w.id === workspaceId);
+    if (!target) return { ok: false, error: "Workspace not found." };
+    if (target.subscription_status !== "active") {
+      return { ok: false, error: "That workspace is not active." };
+    }
+
+    const jar = await cookies();
+    const hdrs = await headers();
+    const proto = hdrs.get("x-forwarded-proto") ?? "http";
+    jar.set("hq_workspace_session", createWorkspaceSessionValue(workspaceId), {
+      path: "/",
+      httpOnly: true,
+      secure: proto === "https",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 30,
+    });
+
+    workerFetch(`/workspaces/${workspaceId}/touch`, { method: "POST" }).catch(() => {});
+
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Unable to switch workspace. Please try again." };
   }
 }
 

@@ -1,4 +1,5 @@
 import { getMasterSupabase, logSandboxEvent } from "../lib/master-supabase.js";
+import { reportLoopRun } from "../lib/loop-status.js";
 import type { SandboxProvider } from "../providers/types.js";
 
 const RENEWAL_INTERVAL_MS = 60 * 60 * 1000;
@@ -37,6 +38,13 @@ export function startTimeoutRenewer(provider: SandboxProvider): NodeJS.Timeout {
     }
   }
 
-  renew().catch(console.error);
-  return setInterval(() => renew().catch(console.error), RENEWAL_INTERVAL_MS);
+  const run = () =>
+    renew()
+      .then(() => reportLoopRun("timeout-renewer", true))
+      .catch((err) => {
+        reportLoopRun("timeout-renewer", false, err instanceof Error ? err.message : String(err));
+        console.error("[timeout-renewer]", err);
+      });
+  run();
+  return setInterval(run, RENEWAL_INTERVAL_MS);
 }

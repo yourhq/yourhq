@@ -7,6 +7,7 @@ interface StepCelebrationProps {
   workspaceName?: string;
   agentName?: string;
   agentEmoji?: string;
+  needsManualLogin?: boolean;
   onContinue: () => void;
 }
 
@@ -14,18 +15,19 @@ export function StepCelebration({
   workspaceName,
   agentName,
   agentEmoji,
+  needsManualLogin,
   onContinue,
 }: StepCelebrationProps) {
   const [showContent, setShowContent] = useState(false);
 
   useEffect(() => {
     const t1 = setTimeout(() => setShowContent(true), 300);
-    const t2 = setTimeout(onContinue, 3000);
+    const t2 = needsManualLogin ? undefined : setTimeout(onContinue, 3000);
     return () => {
       clearTimeout(t1);
-      clearTimeout(t2);
+      if (t2) clearTimeout(t2);
     };
-  }, [onContinue]);
+  }, [onContinue, needsManualLogin]);
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
@@ -79,10 +81,15 @@ export function StepCelebration({
           <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight">
             Welcome to {workspaceName || "your workspace"}
           </h1>
-          {agentName && (
+          {agentName && !needsManualLogin && (
             <p className="text-[14px] text-muted-foreground">
               {agentEmoji && <span className="mr-1">{agentEmoji}</span>}
               {agentName} is ready to help.
+            </p>
+          )}
+          {needsManualLogin && (
+            <p className="text-[14px] text-muted-foreground">
+              We sent a sign-in link to your email. Check your inbox to access your workspace.
             </p>
           )}
           <div className="pt-4">
@@ -91,7 +98,7 @@ export function StepCelebration({
               onClick={onContinue}
               className="group inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-[13px] font-medium text-background transition-all hover:bg-foreground/90 active:scale-[0.97]"
             >
-              Go to dashboard
+              {needsManualLogin ? "Go to sign in" : "Go to dashboard"}
               <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
             </button>
           </div>

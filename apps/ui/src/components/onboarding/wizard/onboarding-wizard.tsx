@@ -35,7 +35,7 @@ import {
   signOutFromOnboarding,
   markOnboardingComplete,
 } from "./actions";
-import { createHostedCheckout, getHostedEmail, verifyAutoLogin } from "./hosted-actions";
+import { createHostedCheckout, getHostedEmail, verifyAutoLogin, sendFreshLoginLink } from "./hosted-actions";
 
 const INTENT_TO_TEMPLATE: Record<string, { branch: string; name: string; emoji: string; role: string; description: string }> = {
   reach: { branch: "template/crm-researcher", name: "Scout", emoji: "🦅", role: "Research & Outreach", description: "Researches people, verifies info, and helps you craft personalized outreach." },
@@ -458,12 +458,18 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
   );
 
   // ─── Provisioning complete (Hosted) ───
+  const [needsManualLogin, setNeedsManualLogin] = useState(false);
+
   const handleProvisionComplete = useCallback(
     async (tokenHash: string | null, tokenType: string) => {
       if (tokenHash) {
         const result = await verifyAutoLogin(tokenHash, tokenType as "magiclink" | "email");
         if (!result.ok) {
-          console.warn("[onboarding] Auto-login failed, user can log in via email later:", result.error);
+          const hostedEmail = await getHostedEmail().catch(() => null);
+          if (hostedEmail) {
+            await sendFreshLoginLink(hostedEmail).catch(() => {});
+          }
+          setNeedsManualLogin(true);
         }
       }
       advance();
@@ -544,7 +550,8 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
               workspaceName={data.workspaceName as string | undefined}
               agentName={data.agentName as string | undefined}
               agentEmoji={data.agentEmoji as string | undefined}
-              onContinue={navigateToTasks}
+              needsManualLogin={needsManualLogin}
+              onContinue={needsManualLogin ? () => window.location.assign("/auth") : navigateToTasks}
             />
           </div>
         ) : (

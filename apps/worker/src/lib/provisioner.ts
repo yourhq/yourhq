@@ -60,7 +60,7 @@ export async function provisionWorkspace(
           name: `hq-${workspace.label.toLowerCase().replace(/[^a-z0-9]/g, "-").slice(0, 30)}-${workspaceId.slice(0, 8)}`,
           db_pass: dbPassword,
           region: process.env.SUPABASE_REGION ?? "us-east-1",
-          plan: "free",
+          plan: process.env.SUPABASE_PROJECT_PLAN ?? "pro",
         }),
       });
 
@@ -174,44 +174,49 @@ export async function provisionWorkspace(
     }
 
     // ── 5b. Initialize workspace via complete_setup() ──
-    const meta = workspace.setup_metadata ?? {};
-    const ownerName = meta.ownerName || "";
-    const presetKey = meta.contextPreset || "other";
-    const { stages, fields, streams } = resolvePreset(presetKey);
+    const { count: wsCount } = await tenantClient
+      .from("workspace")
+      .select("id", { count: "exact", head: true });
 
-    const slug = workspace.label
-      .toLowerCase()
-      .replace(/['']s\b/g, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
-      .slice(0, 40) || "workspace";
+    if (!wsCount) {
+      const meta = workspace.setup_metadata ?? {};
+      const ownerName = meta.ownerName || "";
+      const presetKey = meta.contextPreset || "other";
+      const { stages, fields, streams, modules } = resolvePreset(presetKey);
 
-    const { error: setupError } = await tenantClient.rpc("complete_setup", {
-      p_name: workspace.label,
-      p_slug: slug,
-      p_description: "",
-      p_owner_name: ownerName,
-      p_preferred_name: ownerName.split(" ")[0] || "",
-      p_timezone: "UTC",
-      p_stages: stages,
-      p_fields: fields,
-      p_streams: streams,
-    });
-    if (setupError) throw new Error(`Workspace setup failed: ${setupError.message}`);
+      const slug = workspace.label
+        .toLowerCase()
+        .replace(/['']s\b/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
+        .slice(0, 40) || "workspace";
 
-    // ── 5c. Set workspace modules based on preset ──
-    const { modules } = resolvePreset(presetKey);
-    if (modules) {
-      await tenantClient
-        .from("workspace")
-        .update({ settings: { modules } })
-        .eq("tenant_id", "00000000-0000-0000-0000-000000000000");
+      const { error: setupError } = await tenantClient.rpc("complete_setup", {
+        p_name: workspace.label,
+        p_slug: slug,
+        p_description: "",
+        p_owner_name: ownerName,
+        p_preferred_name: ownerName.split(" ")[0] || "",
+        p_timezone: "UTC",
+        p_stages: stages,
+        p_fields: fields,
+        p_streams: streams,
+      });
+      if (setupError) throw new Error(`Workspace setup failed: ${setupError.message}`);
+
+      if (modules) {
+        await tenantClient
+          .from("workspace")
+          .update({ settings: { modules } })
+          .eq("tenant_id", "00000000-0000-0000-0000-000000000000");
+      }
     }
 
     // ── 6. Spawn E2B sandbox ──
     await setStage(workspaceId, "starting_sandbox");
 
-    if (!workspace.e2b_sandbox_id) {
+    const freshWs = await getWorkspace(workspaceId);
+    if (!freshWs?.e2b_sandbox_id) {
       const vncPassword = randomBytes(12).toString("base64url").slice(0, 12);
 
       const sandbox = await sandboxProvider.spawn({

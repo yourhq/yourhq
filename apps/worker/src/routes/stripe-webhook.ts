@@ -223,6 +223,10 @@ app.post("/webhooks/stripe", async (c) => {
         }
         break;
       }
+      default: {
+        console.log(`[stripe] Unhandled event type: ${event.type}`);
+        break;
+      }
     }
   } catch (err) {
     await releaseStripeEvent(event.id);
