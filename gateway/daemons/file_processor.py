@@ -313,7 +313,7 @@ def resolve_config() -> bool:
     if not SUPABASE_URL and resolve_hq_config:
         cfg = resolve_hq_config()
         if cfg:
-            SUPABASE_URL = cfg.supabase_url or ""
+            SUPABASE_URL = cfg.url or ""
             SUPABASE_KEY = cfg.service_role_key or ""
 
     return bool(SUPABASE_URL and SUPABASE_KEY)

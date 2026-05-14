@@ -6,8 +6,14 @@ interface ValidateProviderRequest {
 }
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json()) as ValidateProviderRequest;
-  const { provider, apiKey } = body;
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return NextResponse.json(
+      { valid: false, error: "Invalid request body" },
+      { status: 400 },
+    );
+  }
+  const { provider, apiKey } = body as ValidateProviderRequest;
 
   if (!provider) {
     return NextResponse.json(

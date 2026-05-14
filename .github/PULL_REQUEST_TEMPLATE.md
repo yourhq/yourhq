@@ -12,19 +12,18 @@
 
 <!-- Tell us how you verified this works. Concrete commands and outcomes are more useful than "tested locally". -->
 
-- [ ] `docker compose -f docker-compose.yml -f docker-compose.dev.yml up` boots the stack
+- [ ] `make test` passes (unit + component tests, no Docker needed)
 - [ ] UI changes were exercised in a browser
 - [ ] Gateway/daemon changes were exercised against a real Supabase
 
 ## Checklist
 
-- [ ] `npx tsc --noEmit` passes in `apps/ui/` (zero TypeScript errors)
-- [ ] `npm run lint` passes in `apps/ui/` (warnings ok, errors fail CI)
-- [ ] For gateway/template changes: `ruff check gateway/ templates/` and `ruff format --check gateway/ templates/` both pass
-- [ ] For shell changes: `shellcheck` is clean (`gateway/entrypoint.sh`, `gateway/scripts/*.sh`, `installer/install.sh`)
+- [ ] `make test` passes locally
+- [ ] `make test-lint` passes (TypeScript, ESLint, Ruff, ShellCheck)
+- [ ] Added/updated tests for changed behavior
 - [ ] No secrets, `.env` files, or `*.pem` files committed
 - [ ] If schema changed: a new file was added under `db/migrations/` (do not edit existing migrations)
-- [ ] If a new template was added: `node apps/ui/scripts/build-templates-index.mjs` was re-run and the generated index is committed
+- [ ] If a new source connector was added: `node scripts/build-source-manifests.mjs` was re-run
 - [ ] If user-facing behaviour changed: docs in `docs-site/` were updated in the same PR
 - [ ] Commit messages describe **why**, not just **what**
 

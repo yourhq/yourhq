@@ -42,22 +42,46 @@ const DEFAULT_PROGRESS: OnboardingProgress = {
   dismissedAt: null,
 };
 
+function freshDefaults(): OnboardingProgress {
+  return {
+    wizardCompleted: false,
+    tier1: {
+      agentCreated: false,
+      channelConnected: false,
+      taskAssigned: false,
+      agentWorked: false,
+      knowledgeCreated: false,
+      dashboardExplored: false,
+    },
+    tier2: {
+      sourceConnected: false,
+      routineCreated: false,
+      desktopViewed: false,
+      secondAgentCreated: false,
+    },
+    pagesVisited: [],
+    microTipsSeen: [],
+    dismissedAt: null,
+  };
+}
+
 export function loadProgress(): OnboardingProgress {
-  if (typeof window === "undefined") return DEFAULT_PROGRESS;
+  if (typeof window === "undefined") return freshDefaults();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_PROGRESS;
+    if (!raw) return freshDefaults();
     const stored = JSON.parse(raw);
+    const defaults = freshDefaults();
     return {
-      ...DEFAULT_PROGRESS,
+      ...defaults,
       ...stored,
-      tier1: { ...DEFAULT_PROGRESS.tier1, ...stored.tier1 },
-      tier2: { ...DEFAULT_PROGRESS.tier2, ...stored.tier2 },
+      tier1: { ...defaults.tier1, ...stored.tier1 },
+      tier2: { ...defaults.tier2, ...stored.tier2 },
       pagesVisited: stored.pagesVisited ?? [],
       microTipsSeen: stored.microTipsSeen ?? [],
     };
   } catch {
-    return DEFAULT_PROGRESS;
+    return freshDefaults();
   }
 }
 

@@ -1,7 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
-AGENT_NAME="${1:-}"
-[ -z "$AGENT_NAME" ] && echo "Usage: ~/remove-agent.sh <name>" && exit 1
+
+usage() {
+  echo "Usage: remove-agent.sh <agent-name>"
+  echo ""
+  echo "Remove an agent from the gateway configuration and clean up its worktree."
+}
+
+case "${1:-}" in
+  -h|--help) usage; exit 0 ;;
+  "") usage >&2; exit 1 ;;
+esac
+
+AGENT_NAME="$1"
 CONFIG="$HOME/.openclaw/openclaw.json"
 REPO_DIR="$HOME/.openclaw/repo.git"
 TG_ACCOUNT_ID="${AGENT_NAME##*/}"

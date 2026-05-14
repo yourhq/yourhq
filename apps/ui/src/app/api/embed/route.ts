@@ -6,7 +6,11 @@ const EMBEDDER_URL = process.env.EMBEDDER_URL || "http://embedder:18801";
 
 export async function POST(req: NextRequest) {
   try {
-    const { input } = (await req.json()) as { input?: string };
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "invalid_body" }, { status: 400 });
+    }
+    const { input } = body as { input?: string };
     if (!input?.trim()) {
       return NextResponse.json({ error: "input_required" }, { status: 400 });
     }
