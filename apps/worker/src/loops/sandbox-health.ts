@@ -118,6 +118,8 @@ export function startSandboxHealthLoop(provider: SandboxProvider): NodeJS.Timeou
       }
 
       try {
+        await provider.destroy(ws.e2b_sandbox_id).catch(() => {});
+
         const result = await provider.spawn({
           workspaceId: ws.id,
           envs: {

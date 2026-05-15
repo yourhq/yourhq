@@ -84,12 +84,23 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
 
     if (!status || completedRef.current) return;
 
-    if (status.provision_error) {
-      setError(status.provision_error);
+    setSubscriptionStatus(status.subscription_status);
+
+    if (status.provision_stage === "complete") {
+      completedRef.current = true;
+      setError(null);
+      setCurrentStage("complete");
+      onComplete(status.auto_login_token_hash, status.auto_login_type);
       return;
     }
 
-    setSubscriptionStatus(status.subscription_status);
+    if (status.provision_error) {
+      setError(status.provision_error);
+      setCurrentStage(status.provision_stage);
+      return;
+    }
+
+    setError(null);
 
     if (status.subscription_status === "pending") {
       if (!pendingSinceRef.current) pendingSinceRef.current = Date.now();
@@ -102,11 +113,6 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
     pendingSinceRef.current = null;
     setPendingStale(false);
     setCurrentStage(status.provision_stage);
-
-    if (status.provision_stage === "complete") {
-      completedRef.current = true;
-      onComplete(status.auto_login_token_hash, status.auto_login_type);
-    }
   }, [workspaceId, onComplete]);
 
   const handleRetry = useCallback(async () => {
@@ -146,7 +152,6 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
   }, [workspaceId, kickingProvision]);
 
   useEffect(() => {
-    if (error) return;
     if (pollStartRef.current === 0) pollStartRef.current = Date.now();
     poll();
     const interval = setInterval(() => {
@@ -158,7 +163,7 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
       poll();
     }, 2000);
     return () => clearInterval(interval);
-  }, [poll, error]);
+  }, [poll]);
 
   const isPending = subscriptionStatus === "pending" || subscriptionStatus === null;
   const current = stageIndex(currentStage);

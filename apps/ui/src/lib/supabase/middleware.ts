@@ -90,7 +90,8 @@ export async function updateSession(request: NextRequest) {
 
   if (!user && isHosted && isOnboarding) {
     const hasHostedEmail = request.cookies.has("hq_hosted_email");
-    if (!hasHostedEmail) {
+    const hasWorkspaceSession = request.cookies.has("hq_workspace_session");
+    if (!hasHostedEmail && !hasWorkspaceSession) {
       const url = request.nextUrl.clone();
       url.pathname = AUTH_PATH;
       return NextResponse.redirect(url);

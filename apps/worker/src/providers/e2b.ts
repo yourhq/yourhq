@@ -124,9 +124,9 @@ export class E2BSandboxProvider implements SandboxProvider {
       });
       if (res.status === 404) return "stopped";
       if (!res.ok) return "unknown";
-      const data = (await res.json()) as { status?: string };
-      if (data.status === "running") return "running";
-      if (data.status === "paused") return "paused";
+      const data = (await res.json()) as { state?: string };
+      if (data.state === "running") return "running";
+      if (data.state === "paused") return "paused";
       return "stopped";
     } catch {
       return "unknown";
