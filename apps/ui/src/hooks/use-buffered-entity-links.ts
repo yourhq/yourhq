@@ -102,10 +102,10 @@ export function useBufferedEntityLinks(
 
   function removeLink(localId: string) {
     setBuffer((prev) =>
-      prev.map((l) => {
-        if (l.localId !== localId) return l;
-        if (l.pending === "add") return { ...l, pending: "remove" as const };
-        return { ...l, pending: "remove" as const };
+      prev.flatMap((l) => {
+        if (l.localId !== localId) return [l];
+        if (l.pending === "add") return [];
+        return [{ ...l, pending: "remove" as const }];
       }),
     );
   }

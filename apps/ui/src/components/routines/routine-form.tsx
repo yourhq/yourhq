@@ -25,8 +25,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Clock, Play, Zap } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { Clock, Play, Zap, ChevronDown } from "lucide-react";
+import { formatDistanceToNow, differenceInSeconds } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface RoutineFormProps {
@@ -105,8 +105,9 @@ export function RoutineForm({
   const [collections, setCollections] = useState<{ id: string; name: string; slug: string }[]>([]);
   const [collectionFields, setCollectionFields] = useState<{ field_key: string; label: string; field_type: string; options: unknown }[]>([]);
   const [recentRuns, setRecentRuns] = useState<
-    { id: string; created_at: string; status: string; context: Record<string, unknown> | null }[]
+    { id: string; created_at: string; completed_at: string | null; event_type: string; status: string; summary: string | null; context: Record<string, unknown> | null }[]
   >([]);
+  const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
 
   const instructionRef = useRef<HTMLTextAreaElement>(null);
 
@@ -164,7 +165,7 @@ export function RoutineForm({
     let cancelled = false;
     supabase
       .from("agent_inbox_items")
-      .select("id, created_at, status, context")
+      .select("id, created_at, completed_at, event_type, status, summary, context")
       .contains("context", { routine_id: editingRoutine.id })
       .order("created_at", { ascending: false })
       .limit(5)
@@ -336,6 +337,34 @@ export function RoutineForm({
 
     setSaving(false);
     onSave();
+  }
+
+  function formatDuration(run: typeof recentRuns[number]): string | null {
+    if (!run.completed_at) return null;
+    const secs = differenceInSeconds(new Date(run.completed_at), new Date(run.created_at));
+    if (secs < 60) return `${secs}s`;
+    const mins = Math.floor(secs / 60);
+    const remSecs = secs % 60;
+    if (mins < 60) return remSecs > 0 ? `${mins}m ${remSecs}s` : `${mins}m`;
+    const hrs = Math.floor(mins / 60);
+    const remMins = mins % 60;
+    return remMins > 0 ? `${hrs}h ${remMins}m` : `${hrs}h`;
+  }
+
+  function triggerLabel(run: typeof recentRuns[number]): string | null {
+    const ctx = run.context;
+    if (!ctx) return null;
+    if (run.event_type === "routine_event") {
+      const entity = ctx.entity_type as string | undefined;
+      const cond = ctx.condition as string | undefined;
+      const field = ctx.field as string | undefined;
+      const newVal = ctx.new_value as string | undefined;
+      if (cond === "created" && entity) return `${entity} created`;
+      if (field && cond && newVal) return `${field} ${cond.replace(/_/g, " ")} ${newVal}`;
+      if (field && cond) return `${field} ${cond.replace(/_/g, " ")}`;
+      return "event triggered";
+    }
+    return null;
   }
 
   return (
@@ -776,33 +805,67 @@ export function RoutineForm({
                   Recent runs
                 </label>
                 <div className="mt-1 space-y-0.5">
-                  {recentRuns.map((run) => (
-                    <div
-                      key={run.id}
-                      className="flex items-center gap-2 rounded px-2.5 py-1.5 text-[11px] bg-muted/20"
-                    >
-                      <span
-                        className={cn(
-                          "inline-flex h-4 items-center rounded px-1 text-[10px] font-medium",
-                          run.status === "done"
-                            ? "bg-status-success/15 text-status-success"
-                            : run.status === "pending" || run.status === "leased"
-                              ? "bg-status-info/15 text-status-info"
-                              : run.status === "failed"
-                                ? "bg-status-error/15 text-status-error"
-                                : "bg-muted text-muted-foreground"
+                  {recentRuns.map((run) => {
+                    const duration = formatDuration(run);
+                    const trigger = triggerLabel(run);
+                    const isExpanded = expandedRunId === run.id;
+                    const hasSummary = !!run.summary;
+
+                    return (
+                      <div key={run.id}>
+                        <button
+                          type="button"
+                          onClick={() => hasSummary && setExpandedRunId(isExpanded ? null : run.id)}
+                          className={cn(
+                            "flex items-center gap-2 rounded px-2.5 py-1.5 text-[11px] bg-muted/20 w-full text-left",
+                            hasSummary && "cursor-pointer hover:bg-muted/30 transition-colors"
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "inline-flex h-4 items-center rounded px-1 text-[10px] font-medium shrink-0",
+                              run.status === "done"
+                                ? "bg-status-success/15 text-status-success"
+                                : run.status === "pending" || run.status === "leased"
+                                  ? "bg-status-info/15 text-status-info"
+                                  : run.status === "failed" || run.status === "dead_letter"
+                                    ? "bg-status-error/15 text-status-error"
+                                    : "bg-status-neutral/15 text-status-neutral"
+                            )}
+                          >
+                            {run.status === "dead_letter" ? "failed" : run.status}
+                          </span>
+                          <span className="text-muted-foreground shrink-0">
+                            {formatDistanceToNow(new Date(run.created_at), { addSuffix: true })}
+                          </span>
+                          {duration && (
+                            <span className="text-muted-foreground/50 shrink-0">
+                              {duration}
+                            </span>
+                          )}
+                          {trigger && (
+                            <span className="text-muted-foreground/40 truncate">
+                              {trigger}
+                            </span>
+                          )}
+                          {Boolean(run.context?.manual_trigger) && (
+                            <span className="text-muted-foreground/50 shrink-0">manual</span>
+                          )}
+                          {hasSummary && (
+                            <ChevronDown className={cn(
+                              "h-3 w-3 ml-auto shrink-0 text-muted-foreground/40 transition-transform",
+                              isExpanded && "rotate-180"
+                            )} />
+                          )}
+                        </button>
+                        {isExpanded && run.summary && (
+                          <div className="mx-2.5 mt-0.5 mb-1 rounded bg-muted/10 px-2.5 py-2 text-[11px] text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                            {run.summary}
+                          </div>
                         )}
-                      >
-                        {run.status}
-                      </span>
-                      <span className="text-muted-foreground">
-                        {formatDistanceToNow(new Date(run.created_at), { addSuffix: true })}
-                      </span>
-                      {Boolean(run.context?.manual_trigger) && (
-                        <span className="text-muted-foreground/50">manual</span>
-                      )}
-                    </div>
-                  ))}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
