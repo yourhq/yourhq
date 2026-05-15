@@ -171,6 +171,7 @@ fi
 seed_templates_from_dir() {
   local src="$1"
   log "Seeding templates from $src ..."
+  local shared_dir="$src/_shared"
   local work
   work="$(mktemp -d)"
   cd "$work"
@@ -182,6 +183,7 @@ seed_templates_from_dir() {
     local tpl_name
     tpl_name="$(basename "$tpl_path")"
     [ "$tpl_name" = "README.md" ] && continue
+    [ "$tpl_name" = "_shared" ] && continue
     local branch
     if [ "$tpl_name" = "default" ]; then
       branch="default"
@@ -191,6 +193,8 @@ seed_templates_from_dir() {
     git checkout --orphan "$branch" -q
     git rm -rf --cached . >/dev/null 2>&1 || true
     rm -rf -- *
+    # Layer shared files first, then template-specific files on top (overrides win)
+    [ -d "$shared_dir" ] && cp -a "$shared_dir"/. .
     cp -a "$tpl_path"/. .
     git add -A
     git commit -q -m "Seed $branch from bundled templates" || true
