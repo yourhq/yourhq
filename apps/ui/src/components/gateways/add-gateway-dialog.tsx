@@ -358,7 +358,7 @@ function WaitingPhase({
           >
             {copied ? (
               <>
-                <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                <CheckCircle2 className="h-3 w-3 text-status-success" />
                 Copied
               </>
             ) : (
@@ -400,9 +400,9 @@ function ExpiredPhase({
   return (
     <>
       <div className="px-5 py-4">
-        <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-[12px]">
-          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
-          <span className="min-w-0 text-amber-300">
+        <div className="flex items-start gap-2 rounded-md border border-status-warning/40 bg-status-warning/5 px-3 py-2 text-[12px]">
+          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-warning" />
+          <span className="min-w-0 text-status-warning">
             Token expired before the gateway connected. Generate a new one
             and re-run the install command.
           </span>
@@ -426,8 +426,8 @@ function ConnectedPhase({ onClose }: { onClose: () => void }) {
   return (
     <>
       <div className="px-5 py-4">
-        <div className="flex items-start gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/5 px-3 py-2 text-[12px]">
-          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+        <div className="flex items-start gap-2 rounded-md border border-status-success/40 bg-status-success/5 px-3 py-2 text-[12px]">
+          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-success" />
           <div className="min-w-0 space-y-0.5">
             <div className="font-medium text-foreground">
               Gateway connected

@@ -364,7 +364,7 @@ function VariantCard({
           className={cn(
             "absolute top-3 right-3 flex h-5 w-5 items-center justify-center rounded-full",
             isApproved
-              ? "bg-green-500/20 text-green-400"
+              ? "bg-status-success/20 text-status-success"
               : "bg-primary/20 text-primary"
           )}
         >
@@ -463,7 +463,7 @@ function DraftActions({
         ? VARIANT_LABELS[draftSet.selected_variant_index - 1]
         : "—";
     return (
-      <div className="flex items-center gap-2 text-xs text-green-400">
+      <div className="flex items-center gap-2 text-xs text-status-success">
         <Check className="h-3.5 w-3.5" />
         <span>Approved · Variant {selectedLabel}</span>
       </div>
@@ -473,7 +473,7 @@ function DraftActions({
   if (isRefining) {
     return (
       <div className="space-y-2">
-        <div className="flex items-center gap-2 text-xs text-blue-400">
+        <div className="flex items-center gap-2 text-xs text-status-info">
           <MessageSquare className="h-3.5 w-3.5" />
           <span>Refining — awaiting new version from agent</span>
         </div>
@@ -552,10 +552,10 @@ function DraftActions({
 
 function StatusDot({ status }: { status: DraftStatus }) {
   const colorMap: Record<DraftStatus, string> = {
-    draft: "bg-yellow-400",
-    refining: "bg-blue-400",
-    approved: "bg-green-400",
-    superseded: "bg-zinc-500",
+    draft: "bg-status-warning",
+    refining: "bg-status-info",
+    approved: "bg-status-success",
+    superseded: "bg-status-neutral",
   };
 
   const labelMap: Record<DraftStatus, string> = {

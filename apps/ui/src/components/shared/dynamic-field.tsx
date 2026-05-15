@@ -224,7 +224,7 @@ export function DynamicFieldRow({
       <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
         {Icon && <Icon className="h-3 w-3 shrink-0" />}
         {field.label}
-        {field.required && <span className="ml-0.5 text-red-400">*</span>}
+        {field.required && <span className="ml-0.5 text-status-error">*</span>}
       </Label>
       <DynamicField
         field={field}

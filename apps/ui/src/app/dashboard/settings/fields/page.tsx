@@ -126,7 +126,7 @@ function SortableFieldRow({
       </span>
 
       {field.required && (
-        <span className="h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
+        <span className="h-1.5 w-1.5 rounded-full bg-status-error shrink-0" />
       )}
 
       {!field.is_active && (

@@ -83,13 +83,13 @@ const TYPE_ICONS: Record<SearchResultType, React.ComponentType<{ className?: str
 };
 
 const TYPE_COLORS: Record<SearchResultType, string> = {
-  knowledge: "text-blue-400",
-  knowledge_chunk: "text-blue-300",
-  task: "text-amber-400",
-  contact: "text-emerald-400",
-  collection_record: "text-violet-400",
-  agent: "text-orange-400",
-  routine: "text-cyan-400",
+  knowledge: "text-accent-blue",
+  knowledge_chunk: "text-accent-blue",
+  task: "text-accent-amber",
+  contact: "text-accent-emerald",
+  collection_record: "text-accent-violet",
+  agent: "text-accent-orange",
+  routine: "text-accent-cyan",
 };
 
 const RECENT_TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {

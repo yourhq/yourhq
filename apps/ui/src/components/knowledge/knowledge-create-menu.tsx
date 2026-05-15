@@ -39,13 +39,13 @@ export function KnowledgeCreateMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
         <DropdownMenuItem onClick={onCreatePage} className="gap-2">
-          <FileText className="h-4 w-4 text-blue-400" />
+          <FileText className="h-4 w-4 text-accent-blue" />
           <div>
             <div className="text-sm">Page</div>
           </div>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={onCreateSkill} className="gap-2">
-          <BookOpen className="h-4 w-4 text-purple-400" />
+          <BookOpen className="h-4 w-4 text-accent-purple" />
           <div>
             <div className="text-sm">Skill</div>
             <div className="text-[10px] text-muted-foreground">
@@ -55,7 +55,7 @@ export function KnowledgeCreateMenu({
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onUploadFiles} className="gap-2">
-          <Upload className="h-4 w-4 text-amber-400" />
+          <Upload className="h-4 w-4 text-accent-amber" />
           <div className="text-sm">Upload files</div>
         </DropdownMenuItem>
 
@@ -68,7 +68,7 @@ export function KnowledgeCreateMenu({
                 onClick={() => onPickFromSource(conn.id)}
                 className="gap-2"
               >
-                <Globe className="h-4 w-4 text-teal-400" />
+                <Globe className="h-4 w-4 text-accent-teal" />
                 <div className="text-sm">
                   From {conn.account_label}
                 </div>

@@ -157,7 +157,7 @@ export function AgentKnowledgeSection({ agentId, agentSlug: _agentSlug }: Props)
                   </span>
                   <span className="flex items-center gap-1.5 shrink-0">
                     {isNew && (
-                      <span className="text-[10px] font-medium text-emerald-400">
+                      <span className="text-[10px] font-medium text-accent-emerald">
                         New
                       </span>
                     )}
@@ -167,7 +167,7 @@ export function AgentKnowledgeSection({ agentId, agentSlug: _agentSlug }: Props)
                     {wasRecentlyEdited && (
                       <span
                         className={cn(
-                          "h-1.5 w-1.5 rounded-full bg-blue-400",
+                          "h-1.5 w-1.5 rounded-full bg-accent-blue",
                         )}
                         title="Agent edited recently"
                       />

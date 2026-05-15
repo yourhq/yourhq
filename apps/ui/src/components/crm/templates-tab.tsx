@@ -105,7 +105,7 @@ export function TemplatesTab() {
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium truncate">{template.name}</span>
                   <StatusDot
-                    color={template.is_active ? "#4ade80" : "#6b7280"}
+                    color={template.is_active ? "var(--status-success)" : "var(--status-neutral)"}
                     label={template.is_active ? "Active" : "Archived"}
                   />
                 </div>
@@ -154,7 +154,7 @@ export function TemplatesTab() {
                   </TableCell>
                   <TableCell className="py-1.5 px-3">
                     <StatusDot
-                      color={template.is_active ? "#4ade80" : "#6b7280"}
+                      color={template.is_active ? "var(--status-success)" : "var(--status-neutral)"}
                       label={template.is_active ? "Active" : "Archived"}
                     />
                   </TableCell>

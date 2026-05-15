@@ -232,7 +232,7 @@ export function StepProvider({
             </div>
           )}
           {isSelected && oauthPhase.kind === "done" && (
-            <div className="flex h-4 w-4 items-center justify-center rounded-full bg-green-600 text-white shrink-0">
+            <div className="flex h-4 w-4 items-center justify-center rounded-full bg-status-success text-white shrink-0">
               <Check className="h-2.5 w-2.5" strokeWidth={3} />
             </div>
           )}
@@ -279,7 +279,7 @@ export function StepProvider({
               </p>
             )}
             {validated && (
-              <p className="flex items-center gap-1.5 text-[12px] text-green-600 animate-in fade-in duration-200">
+              <p className="flex items-center gap-1.5 text-[12px] text-status-success animate-in fade-in duration-200">
                 <Check className="h-3 w-3" />
                 Connected
               </p>
@@ -362,7 +362,7 @@ export function StepProvider({
                           className="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border/60 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                           title="Copy URL"
                         >
-                          {copied === "url" ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                          {copied === "url" ? <CheckCircle2 className="h-3.5 w-3.5 text-status-success" /> : <Copy className="h-3.5 w-3.5" />}
                         </button>
                         <a
                           href={oauthPhase.state.url}
@@ -390,7 +390,7 @@ export function StepProvider({
                             onClick={() => copyToClipboard(oauthPhase.state.stage !== "starting" ? ((oauthPhase.state as { verificationCode?: string }).verificationCode ?? "") : "", "code")}
                             className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                           >
-                            {copied === "code" ? <CheckCircle2 className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                            {copied === "code" ? <CheckCircle2 className="h-3 w-3 text-status-success" /> : <Copy className="h-3 w-3" />}
                             {copied === "code" ? "Copied" : "Copy"}
                           </button>
                         </div>
@@ -440,7 +440,7 @@ export function StepProvider({
                 )}
 
                 {oauthPhase.state.stage === "completed" && (
-                  <div className="flex items-center gap-2 rounded-lg border border-green-500/40 bg-green-500/5 px-3 py-2 text-[12px] text-green-400">
+                  <div className="flex items-center gap-2 rounded-lg border border-status-success/40 bg-status-success/5 px-3 py-2 text-[12px] text-status-success">
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     Signed in. Saving credential…
                   </div>
@@ -462,7 +462,7 @@ export function StepProvider({
 
             {oauthPhase.kind === "done" && (
               <div className="space-y-2">
-                <p className="flex items-center gap-1.5 text-[12px] text-green-600 animate-in fade-in duration-200">
+                <p className="flex items-center gap-1.5 text-[12px] text-status-success animate-in fade-in duration-200">
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   {p.displayName} connected
                 </p>

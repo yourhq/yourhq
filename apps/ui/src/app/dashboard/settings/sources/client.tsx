@@ -132,7 +132,7 @@ function SourcesContent({
                     )}
                   </div>
                   {conn.status !== "active" && conn.error_message && (
-                    <div className="flex items-center gap-1 mt-1 text-[11px] text-red-400">
+                    <div className="flex items-center gap-1 mt-1 text-[11px] text-status-error">
                       <AlertTriangle className="h-3 w-3 shrink-0" />
                       <span className="truncate">{conn.error_message}</span>
                     </div>

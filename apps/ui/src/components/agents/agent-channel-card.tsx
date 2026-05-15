@@ -402,13 +402,13 @@ export function AgentChannelCard({ agent, onAgentUpdated }: AgentChannelCardProp
                 </div>
 
                 {pairingBusy && (
-                  <div className="flex items-center gap-2 text-[11px] text-blue-400">
+                  <div className="flex items-center gap-2 text-[11px] text-status-info">
                     <Loader2 className="h-3 w-3 animate-spin" />
                     Pairing…
                   </div>
                 )}
                 {pairingResult === "done" && (
-                  <div className="flex items-center gap-2 text-[11px] text-green-400">
+                  <div className="flex items-center gap-2 text-[11px] text-status-success">
                     <Check className="h-3 w-3" />
                     Paired!
                   </div>
@@ -475,7 +475,7 @@ export function AgentChannelCard({ agent, onAgentUpdated }: AgentChannelCardProp
 
         {/* Phase: just connected (no prior channel) */}
         {phase === "connected" && !existingChannel && (
-          <div className="flex items-center gap-2 text-[13px] text-green-600">
+          <div className="flex items-center gap-2 text-[13px] text-status-success">
             <Check className="h-4 w-4" />
             Channel connected
           </div>

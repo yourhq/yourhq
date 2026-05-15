@@ -171,7 +171,7 @@ export function OrgDetail({ organization: initial }: OrgDetailProps) {
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 text-xs text-red-400 hover:text-red-300"
+            className="h-7 text-xs text-destructive hover:text-destructive/80"
             onClick={() => setConfirmDelete(true)}
           >
             <Trash2 className="mr-1 h-3 w-3" />

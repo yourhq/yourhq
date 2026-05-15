@@ -25,6 +25,18 @@
   --color-surface-selected: var(--surface-selected);
   --color-text-secondary: var(--text-secondary);
   --color-text-tertiary: var(--text-tertiary);
+  --color-accent-blue: var(--accent-blue);
+  --color-accent-purple: var(--accent-purple);
+  --color-accent-emerald: var(--accent-emerald);
+  --color-accent-cyan: var(--accent-cyan);
+  --color-accent-violet: var(--accent-violet);
+  --color-accent-amber: var(--accent-amber);
+  --color-accent-teal: var(--accent-teal);
+  --color-accent-orange: var(--accent-orange);
+  --color-accent-pink: var(--accent-pink);
+  --color-accent-slate: var(--accent-slate);
+  --color-accent-indigo: var(--accent-indigo);
+  --color-accent-sky: var(--accent-sky);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -116,6 +128,20 @@
   --priority-medium: oklch(0.65 0.15 90);
   --priority-low: oklch(0.5 0.13 240);
 
+  /* Accent palette — category / identity colors */
+  --accent-blue: oklch(0.5 0.18 250);
+  --accent-purple: oklch(0.5 0.18 300);
+  --accent-emerald: oklch(0.52 0.14 162);
+  --accent-cyan: oklch(0.52 0.12 220);
+  --accent-violet: oklch(0.5 0.18 290);
+  --accent-amber: oklch(0.6 0.16 70);
+  --accent-teal: oklch(0.5 0.12 195);
+  --accent-orange: oklch(0.58 0.16 45);
+  --accent-pink: oklch(0.55 0.18 350);
+  --accent-slate: oklch(0.45 0.01 260);
+  --accent-indigo: oklch(0.48 0.18 275);
+  --accent-sky: oklch(0.52 0.14 235);
+
   /* Semantic text */
   --text-secondary: oklch(0.556 0 0);
   --text-tertiary: oklch(0.65 0 0);
@@ -183,6 +209,20 @@
   --priority-medium: oklch(0.83 0.17 90);
   --priority-low: oklch(0.68 0.12 240);
 
+  /* Accent palette */
+  --accent-blue: oklch(0.7 0.15 250);
+  --accent-purple: oklch(0.72 0.15 300);
+  --accent-emerald: oklch(0.72 0.14 162);
+  --accent-cyan: oklch(0.72 0.1 220);
+  --accent-violet: oklch(0.7 0.15 290);
+  --accent-amber: oklch(0.8 0.15 70);
+  --accent-teal: oklch(0.7 0.1 195);
+  --accent-orange: oklch(0.75 0.14 45);
+  --accent-pink: oklch(0.72 0.15 350);
+  --accent-slate: oklch(0.6 0.01 260);
+  --accent-indigo: oklch(0.68 0.15 275);
+  --accent-sky: oklch(0.72 0.12 235);
+
   /* Semantic text */
   --text-secondary: oklch(0.62 0 0);
   --text-tertiary: oklch(0.45 0 0);
@@ -219,13 +259,13 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: oklch(1 0 0 / 9%);
+    background: var(--border);
     border-radius: 4px;
     border: 2px solid transparent;
     background-clip: padding-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: oklch(1 0 0 / 18%);
+    background: var(--border-strong);
     background-clip: padding-box;
     border: 2px solid transparent;
   }

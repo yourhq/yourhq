@@ -191,8 +191,8 @@ export function StepAgent({
               )}
               {provisionStatus === "ready" && (
                 <>
-                  <Check className="h-4 w-4 text-green-500" />
-                  <span className="text-green-600">Ready</span>
+                  <Check className="h-4 w-4 text-status-success" />
+                  <span className="text-status-success">Ready</span>
                 </>
               )}
               {provisionStatus === "error" && (

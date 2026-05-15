@@ -69,13 +69,13 @@ export const MODULE_LABELS: Record<AuditModule, string> = {
 };
 
 export const MODULE_COLORS: Record<AuditModule, string> = {
-  crm: "bg-blue-500/20 text-blue-400",
-  tasks: "bg-purple-500/20 text-purple-400",
-  agents: "bg-emerald-500/20 text-emerald-400",
-  knowledge: "bg-cyan-500/20 text-cyan-400",
-  routines: "bg-violet-500/20 text-violet-400",
-  collections: "bg-pink-500/20 text-pink-400",
-  sources: "bg-teal-500/20 text-teal-400",
-  settings: "bg-slate-500/20 text-slate-400",
-  entity_links: "bg-indigo-500/20 text-indigo-400",
+  crm: "bg-accent-blue/20 text-accent-blue",
+  tasks: "bg-accent-purple/20 text-accent-purple",
+  agents: "bg-accent-emerald/20 text-accent-emerald",
+  knowledge: "bg-accent-cyan/20 text-accent-cyan",
+  routines: "bg-accent-violet/20 text-accent-violet",
+  collections: "bg-accent-pink/20 text-accent-pink",
+  sources: "bg-accent-teal/20 text-accent-teal",
+  settings: "bg-accent-slate/20 text-accent-slate",
+  entity_links: "bg-accent-indigo/20 text-accent-indigo",
 };

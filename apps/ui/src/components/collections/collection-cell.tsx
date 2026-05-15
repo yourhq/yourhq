@@ -217,7 +217,7 @@ function UrlCell({
       >
         {value ? (
           <>
-            <span className="truncate text-blue-400">{value}</span>
+            <span className="truncate text-accent-blue">{value}</span>
             <a
               href={value}
               target="_blank"

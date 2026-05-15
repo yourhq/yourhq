@@ -297,7 +297,7 @@ export function KnowledgeDetailEditor({
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 text-red-400 hover:text-red-300"
+              className="h-6 w-6 text-destructive hover:text-destructive/80"
               onClick={handleRetryEmbedding}
               title="Retry indexing"
             >
@@ -312,7 +312,7 @@ export function KnowledgeDetailEditor({
                 Saving...
               </span>
             ) : saved ? (
-              <span className="flex items-center gap-1 text-green-400">
+              <span className="flex items-center gap-1 text-status-success">
                 <Check className="h-3 w-3" />
                 Saved
               </span>
@@ -473,7 +473,7 @@ export function KnowledgeDetailEditor({
                     </div>
                   )}
                   {scope === "agent" && assignedAgentIds.length === 0 && allAgents.length > 0 && (
-                    <p className="text-[10px] text-amber-400/70 px-1.5 mt-1">Select at least one agent</p>
+                    <p className="text-[10px] text-status-warning/70 px-1.5 mt-1">Select at least one agent</p>
                   )}
                 </div>
               </div>
@@ -673,13 +673,13 @@ function SourceDetailView({ item }: { item: KnowledgeItem }) {
       </div>
 
       {item.source_sync_status === "source_deleted" && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-[13px] text-red-400">
+        <div className="rounded-lg border border-status-error/30 bg-status-error/10 px-4 py-3 text-[13px] text-status-error">
           This item has been deleted in the source and will no longer receive updates.
         </div>
       )}
 
       {item.source_sync_status === "error" && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-[13px] text-red-400">
+        <div className="rounded-lg border border-status-error/30 bg-status-error/10 px-4 py-3 text-[13px] text-status-error">
           The last sync failed. The content below may be outdated.
         </div>
       )}
@@ -770,7 +770,7 @@ function FileDetailView({
       )}
 
       {item.processing_status === "failed" && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-[13px] text-red-400">
+        <div className="rounded-lg border border-status-error/30 bg-status-error/10 px-4 py-3 text-[13px] text-status-error">
           Processing failed: {item.processing_error}
         </div>
       )}

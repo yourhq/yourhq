@@ -166,7 +166,7 @@ export function AgentBrowserTab({ slug }: AgentBrowserTabProps) {
         <div className="relative flex h-4 w-4 shrink-0 items-center justify-center">
           <Globe className="h-3.5 w-3.5 text-muted-foreground" />
           {isStreaming && (
-            <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-status-success" />
           )}
         </div>
 
@@ -268,7 +268,7 @@ export function AgentBrowserTab({ slug }: AgentBrowserTabProps) {
             </div>
           </div>
         ) : screenshotUrl ? (
-          <div className="flex h-full items-center justify-center bg-neutral-950/[0.02] p-3 dark:bg-neutral-950/30">
+          <div className="flex h-full items-center justify-center bg-foreground/[0.02] p-3 dark:bg-foreground/5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={screenshotUrl}

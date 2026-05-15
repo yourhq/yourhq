@@ -141,7 +141,7 @@ export function CollectionRecordDetail({
           {record.archived_at && (
             <>
               <span className="text-muted-foreground/20">·</span>
-              <span className="text-amber-500/80">Archived</span>
+              <span className="text-status-warning/80">Archived</span>
             </>
           )}
         </div>

@@ -144,10 +144,10 @@ export function InteractionsTimeline({ contactId, orgId, contactName }: Interact
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium capitalize">{typeLabel(i.type)}</span>
                     {i.direction === "outbound" && (
-                      <ArrowUpRight className="h-3 w-3 text-blue-400" />
+                      <ArrowUpRight className="h-3 w-3 text-status-info" />
                     )}
                     {i.direction === "inbound" && (
-                      <ArrowDownLeft className="h-3 w-3 text-green-400" />
+                      <ArrowDownLeft className="h-3 w-3 text-status-success" />
                     )}
                     {i.channel && (
                       <span className="text-[10px] text-muted-foreground">· {i.channel}</span>
@@ -185,7 +185,7 @@ export function InteractionsTimeline({ contactId, orgId, contactName }: Interact
                       className={cn(
                         "flex items-center gap-1.5 pt-1 text-[11px]",
                         new Date(i.next_action_date) <= new Date()
-                          ? "text-red-400"
+                          ? "text-status-error"
                           : "text-muted-foreground"
                       )}
                     >

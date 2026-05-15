@@ -16,7 +16,7 @@ export function EmbeddingStatus({
 }: EmbeddingStatusProps) {
   if (embeddingStatus === "indexed" && chunkStatus === "indexed") {
     return (
-      <span className={cn("inline-flex items-center gap-1 text-[10px] text-emerald-400", className)}>
+      <span className={cn("inline-flex items-center gap-1 text-[10px] text-status-success", className)}>
         <Search className="h-3 w-3" />
         Search ready
       </span>
@@ -25,7 +25,7 @@ export function EmbeddingStatus({
 
   if (chunkStatus === "indexed") {
     return (
-      <span className={cn("inline-flex items-center gap-1 text-[10px] text-amber-400", className)}>
+      <span className={cn("inline-flex items-center gap-1 text-[10px] text-status-warning", className)}>
         <CheckCircle2 className="h-3 w-3" />
         Text ready
       </span>
@@ -34,7 +34,7 @@ export function EmbeddingStatus({
 
   if (embeddingStatus === "failed" || chunkStatus === "failed") {
     return (
-      <span className={cn("inline-flex items-center gap-1 text-[10px] text-red-400", className)}>
+      <span className={cn("inline-flex items-center gap-1 text-[10px] text-status-error", className)}>
         <AlertCircle className="h-3 w-3" />
         Index failed
       </span>

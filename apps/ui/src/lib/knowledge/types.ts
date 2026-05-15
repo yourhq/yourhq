@@ -79,8 +79,8 @@ export const KNOWLEDGE_KINDS: {
 ];
 
 export const KNOWLEDGE_KIND_COLORS: Record<KnowledgeKind, string> = {
-  page: "bg-blue-500/20 text-blue-400",
-  skill: "bg-purple-500/20 text-purple-400",
-  file: "bg-amber-500/20 text-amber-400",
-  source: "bg-teal-500/20 text-teal-400",
+  page: "bg-accent-blue/20 text-accent-blue",
+  skill: "bg-accent-purple/20 text-accent-purple",
+  file: "bg-accent-amber/20 text-accent-amber",
+  source: "bg-accent-teal/20 text-accent-teal",
 };

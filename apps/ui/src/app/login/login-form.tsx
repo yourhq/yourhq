@@ -71,7 +71,7 @@ export function LoginForm({ mode }: { mode: "oss" | "hosted" }) {
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
         <div className="w-full max-w-[400px]">
           <div className="mb-8 flex flex-col items-center gap-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-500/10 text-green-600">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-status-success/10 text-status-success">
               <Mail className="h-[18px] w-[18px]" />
             </div>
             <div className="text-center space-y-1">
@@ -87,8 +87,8 @@ export function LoginForm({ mode }: { mode: "oss" | "hosted" }) {
 
           <div className="rounded-xl border border-border/60 bg-card p-6 shadow-sm">
             <div className="space-y-4 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-500/10">
-                <Check className="h-5 w-5 text-green-600" />
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-status-success/10">
+                <Check className="h-5 w-5 text-status-success" />
               </div>
               <div className="space-y-1.5">
                 <p className="text-[13px] text-foreground">

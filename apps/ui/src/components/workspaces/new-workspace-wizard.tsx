@@ -521,7 +521,7 @@ function DatabaseStep({
       )}
 
       {status === "schema-needed" && (
-        <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+        <div className="space-y-3 rounded-lg border border-status-warning/30 bg-status-warning/5 p-4">
           <p className="text-[13px] font-medium text-foreground">Schema required</p>
           <p className="text-[12px] text-muted-foreground">
             Run the SQL below in your Supabase SQL editor, then click &ldquo;Verify&rdquo;.
@@ -575,7 +575,7 @@ function DatabaseStep({
       )}
 
       {status === "connected" && (
-        <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/5 px-3 py-2.5 text-[12px] text-green-700 dark:text-green-400">
+        <div className="flex items-center gap-2 rounded-lg border border-status-success/30 bg-status-success/5 px-3 py-2.5 text-[12px] text-status-success">
           <Check className="h-3.5 w-3.5" />
           Connected successfully
         </div>
@@ -828,7 +828,7 @@ function DoneStep({
   return (
     <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
       <div className="mb-6">
-        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" className="text-green-500">
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" className="text-status-success">
           <circle cx="32" cy="32" r="30" stroke="currentColor" strokeWidth="2" opacity="0.2" />
           <circle
             cx="32" cy="32" r="30"

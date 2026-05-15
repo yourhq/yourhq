@@ -23,7 +23,7 @@ function EntryRow({ entry }: { entry: AuditLogEntry }) {
     <div className="flex items-start gap-2 py-1.5">
       <div className={cn(
         "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
-        isAgent ? "bg-emerald-500/10 text-emerald-400" : "bg-muted text-muted-foreground"
+        isAgent ? "bg-accent-emerald/10 text-accent-emerald" : "bg-muted text-muted-foreground"
       )}>
         {isAgent ? <Bot className="h-2.5 w-2.5" /> : <Icon className="h-2.5 w-2.5" />}
       </div>

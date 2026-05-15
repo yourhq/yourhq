@@ -96,7 +96,7 @@ function MissionContent({
                 className={cn(
                   "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full transition-all duration-300",
                   done
-                    ? "bg-green-500 text-white"
+                    ? "bg-status-success text-white"
                     : "border-[1.5px] border-border",
                 )}
               >

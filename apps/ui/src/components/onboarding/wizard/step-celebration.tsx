@@ -38,7 +38,7 @@ export function StepCelebration({
           height="64"
           viewBox="0 0 64 64"
           fill="none"
-          className="text-green-500"
+          className="text-status-success"
         >
           <circle
             cx="32"

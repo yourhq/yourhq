@@ -281,7 +281,7 @@ function KnowledgeContent() {
             className={cn(
               "flex items-center gap-1 h-7 px-2 rounded text-xs transition-colors",
               k.filters.showArchived
-                ? "bg-amber-500/20 text-amber-400"
+                ? "bg-status-warning/20 text-status-warning"
                 : "text-muted-foreground hover:text-foreground"
             )}
           >

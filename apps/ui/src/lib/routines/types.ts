@@ -48,8 +48,8 @@ export const TRIGGER_TYPE_LABELS: Record<TriggerType, string> = {
 };
 
 export const TRIGGER_TYPE_COLORS: Record<TriggerType, string> = {
-  schedule: "bg-blue-500/20 text-blue-400",
-  event: "bg-amber-500/20 text-amber-400",
+  schedule: "bg-accent-blue/20 text-accent-blue",
+  event: "bg-accent-amber/20 text-accent-amber",
 };
 
 export const CADENCE_OPTIONS: { value: RoutineCadenceType; label: string; hasInterval: boolean; hasTime: boolean }[] = [

@@ -966,7 +966,7 @@ function InteractivePhase({
                   title="Copy"
                 >
                   {copied === "url" ? (
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    <CheckCircle2 className="h-3.5 w-3.5 text-status-success" />
                   ) : (
                     <Copy className="h-3.5 w-3.5" />
                   )}
@@ -1001,7 +1001,7 @@ function InteractivePhase({
                   >
                     {copied === "code" ? (
                       <>
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mr-1.5" />
+                        <CheckCircle2 className="h-3.5 w-3.5 text-status-success mr-1.5" />
                         Copied
                       </>
                     ) : (
@@ -1089,7 +1089,7 @@ function InteractivePhase({
         )}
 
         {state.stage === "completed" && (
-          <div className="flex items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/5 px-3 py-2 text-[12px] text-emerald-300">
+          <div className="flex items-center gap-2 rounded-md border border-status-success/40 bg-status-success/5 px-3 py-2 text-[12px] text-status-success">
             <CheckCircle2 className="h-3.5 w-3.5" />
             Signed in. Saving credential…
           </div>
@@ -1121,8 +1121,8 @@ function DonePhase({
   return (
     <>
       <div className="px-5 py-4">
-        <div className="flex items-start gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/5 px-3 py-2.5 text-[12px]">
-          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+        <div className="flex items-start gap-2 rounded-md border border-status-success/40 bg-status-success/5 px-3 py-2.5 text-[12px]">
+          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-success" />
           <div className="min-w-0 space-y-0.5">
             <div className="font-medium text-foreground">
               {provider.displayName} connected

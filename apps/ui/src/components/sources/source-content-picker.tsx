@@ -321,7 +321,7 @@ function TreeRow({
         )}
 
         {isSynced ? (
-          <CheckCircle2 className="h-4 w-4 shrink-0 text-green-400" />
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-status-success" />
         ) : (
           <Checkbox
             checked={isSelected}
@@ -394,7 +394,7 @@ function BrowseRow({
       <div className="w-5 shrink-0" />
 
       {synced ? (
-        <CheckCircle2 className="h-4 w-4 shrink-0 text-green-400" />
+        <CheckCircle2 className="h-4 w-4 shrink-0 text-status-success" />
       ) : (
         <Checkbox
           checked={selected}

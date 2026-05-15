@@ -61,7 +61,7 @@ function CopyButton({ text }: { text: string }) {
       className="rounded p-1 text-muted-foreground/60 transition-colors hover:text-foreground"
       aria-label="Copy"
     >
-      {copied ? <CheckCheck className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+      {copied ? <CheckCheck className="h-3.5 w-3.5 text-status-success" /> : <Copy className="h-3.5 w-3.5" />}
     </button>
   );
 }
@@ -82,9 +82,9 @@ function SchemaInstallPanel({
   const busy = schemaInstall.phase === "running" || schemaInstall.phase === "confirming";
 
   return (
-    <div className="mt-3 space-y-4 rounded-xl border border-amber-500/30 bg-amber-500/[0.04] px-4 py-4">
+    <div className="mt-3 space-y-4 rounded-xl border border-status-warning/30 bg-status-warning/[0.04] px-4 py-4">
       <div className="flex items-start gap-2">
-        <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+        <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-warning" />
         <div className="space-y-0.5">
           <p className="text-[13px] font-medium text-foreground">Your database needs HQ&apos;s tables</p>
           <p className="text-[12px] text-muted-foreground">
@@ -311,7 +311,7 @@ export function StepInfrastructure({
           <div className={cn(
             "flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold transition-all duration-300",
             dbReady
-              ? "bg-green-500 text-white"
+              ? "bg-status-success text-white"
               : "bg-foreground text-background",
           )}>
             {dbReady ? <Check className="h-3 w-3" strokeWidth={3} /> : "1"}
@@ -320,8 +320,8 @@ export function StepInfrastructure({
         </div>
 
         {dbReady ? (
-          <div className="rounded-xl border border-green-500/20 bg-green-500/[0.04] px-4 py-3">
-            <div className="flex items-center gap-2 text-[13px] text-green-600">
+          <div className="rounded-xl border border-status-success/20 bg-status-success/[0.04] px-4 py-3">
+            <div className="flex items-center gap-2 text-[13px] text-status-success">
               <Check className="h-3.5 w-3.5" />
               Connected to Supabase
             </div>
@@ -469,7 +469,7 @@ export function StepInfrastructure({
             <div className={cn(
               "flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold transition-all duration-300",
               gwReady
-                ? "bg-green-500 text-white"
+                ? "bg-status-success text-white"
                 : "bg-foreground text-background",
             )}>
               {gwReady ? <Check className="h-3 w-3" strokeWidth={3} /> : "2"}
@@ -478,8 +478,8 @@ export function StepInfrastructure({
           </div>
 
           {gwReady ? (
-            <div className="rounded-xl border border-green-500/20 bg-green-500/[0.04] px-4 py-3">
-              <div className="flex items-center gap-2 text-[13px] text-green-600">
+            <div className="rounded-xl border border-status-success/20 bg-status-success/[0.04] px-4 py-3">
+              <div className="flex items-center gap-2 text-[13px] text-status-success">
                 <Check className="h-3.5 w-3.5" />
                 Gateway connected
               </div>

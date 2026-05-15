@@ -268,7 +268,7 @@ function InlineLink({
           href={value}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sm text-blue-400 hover:text-blue-300 hover:underline truncate min-w-0"
+          className="text-sm text-accent-blue hover:text-accent-blue/80 hover:underline truncate min-w-0"
           title={value}
         >
           {value.replace(/^https?:\/\/(www\.)?/, "")}
@@ -285,7 +285,7 @@ function InlineLink({
           href={value}
           target="_blank"
           rel="noopener noreferrer"
-          className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-blue-400"
+          className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-accent-blue"
           title="Open in new tab"
         >
           <ExternalLink className="size-3" />
@@ -494,7 +494,7 @@ export function ContactDetailView({ contact: initialContact }: { contact: Contac
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-red-400 hover:text-red-300"
+            className="h-7 w-7 text-destructive hover:text-destructive/80"
             onClick={() => setConfirmDelete(true)}
             title="Delete"
           >

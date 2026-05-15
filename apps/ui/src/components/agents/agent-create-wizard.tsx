@@ -505,7 +505,7 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
           onKeyDown={handleKeyDown}
         >
           {error && (
-            <div className="mb-3 rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+            <div className="mb-3 rounded border border-status-error/30 bg-status-error/10 px-3 py-2 text-xs text-status-error">
               {error}
             </div>
           )}
@@ -1049,13 +1049,13 @@ function ProvisioningStep({
           <div key={row.label} className="flex items-center gap-3 px-1">
             <div className="flex h-4 w-4 shrink-0 items-center justify-center">
               {row.state === "done" && (
-                <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
+                <CheckCircle2 className="h-3.5 w-3.5 text-status-success" />
               )}
               {row.state === "running" && (
-                <Loader2 className="h-3 w-3 animate-spin text-blue-400" />
+                <Loader2 className="h-3 w-3 animate-spin text-status-info" />
               )}
               {row.state === "failed" && (
-                <AlertCircle className="h-3.5 w-3.5 text-red-400" />
+                <AlertCircle className="h-3.5 w-3.5 text-status-error" />
               )}
               {row.state === "pending" && (
                 <span className="h-1.5 w-1.5 rounded-full bg-border" />
@@ -1066,7 +1066,7 @@ function ProvisioningStep({
                 "text-xs transition-colors",
                 row.state === "done" && "text-foreground",
                 row.state === "running" && "text-foreground",
-                row.state === "failed" && "text-red-400",
+                row.state === "failed" && "text-status-error",
                 row.state === "pending" && "text-muted-foreground/60"
               )}
             >
@@ -1086,12 +1086,12 @@ function ProvisioningStep({
 
       {/* Failure panel */}
       {provisionFailed && (
-        <div className="rounded border border-red-500/20 bg-red-500/5 px-3 py-2.5">
-          <div className="text-[11px] font-medium text-red-400 mb-1">
+        <div className="rounded border border-status-error/20 bg-status-error/5 px-3 py-2.5">
+          <div className="text-[11px] font-medium text-status-error mb-1">
             Provisioning failed
           </div>
           {provisionError && (
-            <div className="text-[11px] text-red-300/80 font-mono whitespace-pre-wrap break-all mb-2 max-h-24 overflow-y-auto">
+            <div className="text-[11px] text-status-error/80 font-mono whitespace-pre-wrap break-all mb-2 max-h-24 overflow-y-auto">
               {provisionError}
             </div>
           )}
@@ -1181,14 +1181,14 @@ function PairingStep({
 
         {/* Live status for pair attempt */}
         {pairing && (
-          <div className="flex items-center gap-2 rounded border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-[11px] text-blue-400">
+          <div className="flex items-center gap-2 rounded border border-status-info/20 bg-status-info/5 px-3 py-2 text-[11px] text-status-info">
             <Loader2 className="h-3 w-3 animate-spin shrink-0" />
             <span>Pairing in progress…</span>
           </div>
         )}
         {failed && (
-          <div className="rounded border border-red-500/20 bg-red-500/5 px-3 py-2">
-            <div className="flex items-start gap-2 text-[11px] text-red-400">
+          <div className="rounded border border-status-error/20 bg-status-error/5 px-3 py-2">
+            <div className="flex items-start gap-2 text-[11px] text-status-error">
               <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
               <span>
                 Pairing failed{latestError ? `: ${latestError}` : ""}. Double-check the code and try again.
@@ -1208,7 +1208,7 @@ function PairingStep({
         </Button>
       </div>
 
-      <div className="col-span-2 rounded border border-border/40 bg-[oklch(0.155_0_0)] p-3">
+      <div className="col-span-2 rounded border border-border/40 bg-muted p-3">
         <div className="text-[11px] font-medium text-foreground mb-2">
           Get your pairing code
         </div>
@@ -1514,7 +1514,7 @@ function ChannelStep({
 
       {/* Credential form — only shown for channels that need one */}
       {channel !== "none" && (
-        <div className="rounded-xl border border-border/40 bg-[oklch(0.13_0_0)] overflow-hidden">
+        <div className="rounded-xl border border-border/40 bg-background overflow-hidden">
           <div className="grid grid-cols-[1fr_auto] divide-x divide-border/30">
 
             {/* Left: form */}
@@ -1546,7 +1546,7 @@ function ChannelStep({
                     {token && (
                       <div className={cn(
                         "flex items-center gap-1.5 text-[11px]",
-                        tokenLooksValid ? "text-green-400/80" : "text-muted-foreground/40"
+                        tokenLooksValid ? "text-status-success/80" : "text-muted-foreground/40"
                       )}>
                         {tokenLooksValid
                           ? <><Check className="h-3 w-3" /> Looks valid</>
@@ -1687,8 +1687,8 @@ function ReadyStep({
   const channelLabel = CHANNEL_LABELS[channel];
   return (
     <div className="flex flex-col items-center justify-center py-8 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-500/10 mb-4">
-        <CheckCircle2 className="h-7 w-7 text-green-400" />
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-status-success/10 mb-4">
+        <CheckCircle2 className="h-7 w-7 text-status-success" />
       </div>
       <div className="text-base font-medium text-foreground">
         {emoji ? `${emoji} ` : ""}

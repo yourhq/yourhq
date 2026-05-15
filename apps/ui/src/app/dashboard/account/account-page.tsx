@@ -33,18 +33,18 @@ const STATUS_CONFIG: Record<
 > = {
   active: {
     label: "Active",
-    color: "text-green-600",
-    bg: "bg-green-500/10",
+    color: "text-status-success",
+    bg: "bg-status-success/10",
   },
   provisioning: {
     label: "Setting up",
-    color: "text-amber-600",
-    bg: "bg-amber-500/10",
+    color: "text-status-warning",
+    bg: "bg-status-warning/10",
   },
   canceling: {
     label: "Canceling",
-    color: "text-orange-600",
-    bg: "bg-orange-500/10",
+    color: "text-status-warning",
+    bg: "bg-status-warning/10",
   },
   canceled: {
     label: "Canceled",
@@ -53,8 +53,8 @@ const STATUS_CONFIG: Record<
   },
   suspended: {
     label: "Suspended",
-    color: "text-red-600",
-    bg: "bg-red-500/10",
+    color: "text-status-error",
+    bg: "bg-status-error/10",
   },
   pending: {
     label: "Pending",

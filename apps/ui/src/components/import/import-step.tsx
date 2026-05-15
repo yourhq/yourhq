@@ -45,9 +45,9 @@ export function ImportStep({
       <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
         <div className="mb-3 flex items-center gap-2">
           {result.errored === 0 ? (
-            <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+            <CheckCircle2 className="h-5 w-5 text-status-success" />
           ) : (
-            <AlertTriangle className="h-5 w-5 text-yellow-400" />
+            <AlertTriangle className="h-5 w-5 text-status-warning" />
           )}
           <h3 className="text-[14px] font-medium">Import complete</h3>
         </div>
@@ -55,7 +55,7 @@ export function ImportStep({
         <div className="grid grid-cols-2 gap-y-2 gap-x-6 text-[13px] sm:grid-cols-4">
           <div>
             <p className="text-muted-foreground">Created</p>
-            <p className="font-medium text-emerald-400">{result.created}</p>
+            <p className="font-medium text-status-success">{result.created}</p>
           </div>
           <div>
             <p className="text-muted-foreground">Skipped</p>

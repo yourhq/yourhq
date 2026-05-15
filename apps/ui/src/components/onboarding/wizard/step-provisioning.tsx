@@ -196,9 +196,9 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
           className={cn(
             "flex h-11 w-11 items-center justify-center rounded-xl shadow-sm transition-colors duration-500",
             isComplete
-              ? "bg-green-500/10 text-green-600"
+              ? "bg-status-success/10 text-status-success"
               : isPending
-                ? "bg-amber-500/10 text-amber-600"
+                ? "bg-status-warning/10 text-status-warning"
                 : "bg-foreground text-background",
           )}
         >
@@ -225,7 +225,7 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
           <div
             className={cn(
               "h-full rounded-full transition-all duration-700 ease-out",
-              isComplete ? "bg-green-500" : isPending ? "bg-amber-500" : "bg-foreground",
+              isComplete ? "bg-status-success" : isPending ? "bg-status-warning" : "bg-foreground",
             )}
             style={{ width: `${Math.max(progressPercent, isPending ? 5 : 0)}%` }}
           />
@@ -258,7 +258,7 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
           ) : isPending ? (
             <div className="p-6 space-y-4">
               <div className="flex items-center gap-3">
-                <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
+                <Loader2 className="h-4 w-4 animate-spin text-status-warning" />
                 <span className="text-[13px] font-medium text-foreground">
                   Waiting for payment confirmation...
                 </span>
@@ -299,8 +299,8 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
                   >
                     <div className="flex h-5 w-5 shrink-0 items-center justify-center">
                       {done ? (
-                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-green-500/10">
-                          <Check className="h-3 w-3 text-green-600" />
+                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-status-success/10">
+                          <Check className="h-3 w-3 text-status-success" />
                         </div>
                       ) : active ? (
                         <Loader2 className="h-4 w-4 animate-spin text-foreground" />

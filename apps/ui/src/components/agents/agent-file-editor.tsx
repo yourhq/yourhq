@@ -153,10 +153,10 @@ export function AgentFileEditor({
         {/* Status + Save */}
         <div className="flex items-center gap-2 shrink-0">
           {dirty && !saving && !saved && (
-            <span className="h-2 w-2 rounded-full bg-orange-400" title="Unsaved changes" />
+            <span className="h-2 w-2 rounded-full bg-accent-orange" title="Unsaved changes" />
           )}
           {saved && (
-            <span className="flex items-center gap-1 text-[11px] text-green-400">
+            <span className="flex items-center gap-1 text-[11px] text-status-success">
               <Check className="h-3 w-3" />
               Saved
             </span>

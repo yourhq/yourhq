@@ -35,7 +35,7 @@ export default function RootError({
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6">
       <div className="w-full max-w-md space-y-5 text-center">
-        <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500">
+        <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-status-warning/10 text-status-warning">
           <AlertTriangle className="h-5 w-5" />
         </div>
 

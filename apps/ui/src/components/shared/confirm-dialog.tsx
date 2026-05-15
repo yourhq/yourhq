@@ -56,8 +56,8 @@ const TONE_STYLES: Record<
     defaultIcon: AlertTriangle,
   },
   warning: {
-    iconWrap: "bg-amber-500/10",
-    iconColor: "text-amber-400",
+    iconWrap: "bg-status-warning/10",
+    iconColor: "text-status-warning",
     buttonVariant: "default",
     defaultIcon: AlertTriangle,
   },

@@ -20,7 +20,7 @@ export function KnowledgeScopeBadge({ scope, className }: KnowledgeScopeBadgePro
   }
 
   return (
-    <span className={cn("inline-flex items-center gap-1 text-[10px] text-sky-400", className)}>
+    <span className={cn("inline-flex items-center gap-1 text-[10px] text-accent-sky", className)}>
       <Bot className="h-3 w-3" />
       Agent
     </span>

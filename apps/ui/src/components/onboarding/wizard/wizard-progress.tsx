@@ -44,7 +44,7 @@ export function WizardProgress({
                   className={cn(
                     "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold transition-all duration-300",
                     completed &&
-                      "bg-green-500 text-white",
+                      "bg-status-success text-white",
                     current &&
                       "bg-foreground text-background ring-2 ring-foreground/20 ring-offset-1 ring-offset-background",
                     !completed &&
@@ -96,7 +96,7 @@ export function WizardProgress({
               <div
                 className={cn(
                   "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold transition-all duration-300",
-                  completed && "bg-green-500 text-white",
+                  completed && "bg-status-success text-white",
                   current &&
                     "bg-foreground text-background ring-2 ring-foreground/20 ring-offset-1 ring-offset-background",
                   !completed &&

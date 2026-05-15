@@ -359,7 +359,7 @@ export function RoutineForm({
           {/* Header */}
           <div className="px-5 pt-5 pb-3">
             <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded bg-purple-500/10 text-purple-400">
+              <div className="flex h-6 w-6 items-center justify-center rounded bg-accent-purple/10 text-accent-purple">
                 {triggerType === "schedule" ? (
                   <Clock className="h-3.5 w-3.5" />
                 ) : (
@@ -398,7 +398,7 @@ export function RoutineForm({
                   className={cn(
                     "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
                     triggerType === "schedule"
-                      ? "bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/30"
+                      ? "bg-accent-blue/15 text-accent-blue ring-1 ring-accent-blue/30"
                       : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
                   )}
                 >
@@ -411,7 +411,7 @@ export function RoutineForm({
                   className={cn(
                     "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
                     triggerType === "event"
-                      ? "bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30"
+                      ? "bg-accent-amber/15 text-accent-amber ring-1 ring-accent-amber/30"
                       : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
                   )}
                 >
@@ -468,7 +468,7 @@ export function RoutineForm({
                           className={cn(
                             "rounded px-2 py-1 text-[11px] transition-colors",
                             cadenceType === p.cadence_type && intervalN === p.interval_n
-                              ? "bg-blue-500/20 text-blue-400"
+                              ? "bg-accent-blue/20 text-accent-blue"
                               : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
                           )}
                         >
@@ -516,7 +516,7 @@ export function RoutineForm({
                         className={cn(
                           "h-7 w-9 rounded text-[11px] font-medium transition-colors",
                           daysOfWeek.includes(i + 1)
-                            ? "bg-blue-500/20 text-blue-400"
+                            ? "bg-accent-blue/20 text-accent-blue"
                             : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
                         )}
                       >
@@ -785,11 +785,11 @@ export function RoutineForm({
                         className={cn(
                           "inline-flex h-4 items-center rounded px-1 text-[10px] font-medium",
                           run.status === "done"
-                            ? "bg-emerald-500/15 text-emerald-400"
+                            ? "bg-status-success/15 text-status-success"
                             : run.status === "pending" || run.status === "leased"
-                              ? "bg-blue-500/15 text-blue-400"
+                              ? "bg-status-info/15 text-status-info"
                               : run.status === "failed"
-                                ? "bg-red-500/15 text-red-400"
+                                ? "bg-status-error/15 text-status-error"
                                 : "bg-muted text-muted-foreground"
                         )}
                       >

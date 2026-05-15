@@ -246,7 +246,7 @@ function GatewayRow({
         {stale && (
           <span
             title="No recent heartbeat"
-            className="inline-flex shrink-0 items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-300"
+            className="inline-flex shrink-0 items-center gap-1 rounded bg-status-warning/10 px-1.5 py-0.5 text-[10px] text-status-warning"
           >
             <AlertTriangle className="h-2.5 w-2.5" />
             stale
