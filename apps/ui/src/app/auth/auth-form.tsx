@@ -244,7 +244,7 @@ export function AuthForm() {
               className={cn(
                 "block h-11 w-full rounded-lg border border-border/50 bg-muted/20 px-4 text-sm text-foreground outline-none transition-all",
                 "placeholder:text-muted-foreground/40",
-                "focus:border-foreground/30 focus:bg-muted/30 focus:ring-2 focus:ring-foreground/5",
+                "focus:border-primary/40 focus:bg-muted/30 focus:ring-2 focus:ring-primary/10",
                 "disabled:cursor-not-allowed disabled:opacity-50",
               )}
             />
@@ -261,7 +261,7 @@ export function AuthForm() {
               disabled={loading}
               className={cn(
                 "flex h-11 w-full items-center justify-center gap-2 rounded-lg text-sm font-medium transition-all",
-                "bg-foreground text-background",
+                "bg-primary text-primary-foreground",
                 "hover:opacity-90 active:scale-[0.98]",
                 loading && "cursor-wait opacity-60",
               )}

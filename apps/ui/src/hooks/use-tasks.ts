@@ -7,6 +7,7 @@ import type { SortingState } from "@tanstack/react-table";
 import type { Task, TaskStatus } from "@/lib/tasks/types";
 import { TaskForm } from "@/components/tasks/task-form";
 import { logAudit } from "@/lib/audit/log";
+import { completeItem } from "@/lib/onboarding/progress";
 import { useRealtimeSync } from "./use-realtime-sync";
 import { useRealtime } from "./use-realtime";
 import { toast } from "sonner";
@@ -310,6 +311,7 @@ export function useTasks() {
 
       if (newRow.status === "done") {
         toast.success(`${agentName} completed: ${title}`);
+        completeItem("agentWorked");
       } else if (newRow.status === "blocked") {
         toast.warning(`${agentName} is blocked on: ${title}`);
       } else if (oldRow.status === "todo" && newRow.status === "in_progress") {
@@ -336,6 +338,9 @@ export function useTasks() {
       toast.error("Failed to update task status", { description: error.message });
       fetchTasks();
       return;
+    }
+    if (status === "done" && task?.assignee_agent_id) {
+      completeItem("agentWorked");
     }
     logAudit(supabase, {
       module: "tasks",
