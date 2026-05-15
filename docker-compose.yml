@@ -26,6 +26,7 @@ x-gateway-env: &gateway-env
   SUPABASE_URL: ${SUPABASE_URL}
   SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
   EMBEDDER_URL: ${EMBEDDER_URL:-http://embedder:18801}
+  # Override with a different fastembed-compatible model; non-default models download on first boot
   EMBEDDER_MODEL: ${EMBEDDER_MODEL:-BAAI/bge-small-en-v1.5}
   WORKSPACE_SLUG: ${WORKSPACE_SLUG:-}
   GATEWAY_ID: ${GATEWAY_ID:-default}
@@ -221,7 +222,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 30s
+      start_period: 10s
     environment:
       <<: *gateway-env
       EMBEDDER_HOST: 0.0.0.0
