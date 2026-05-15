@@ -7,6 +7,7 @@ import {
   Sliders,
   User,
   Puzzle,
+  Palette,
   Layers,
   LayoutGrid,
   Plug,
@@ -53,6 +54,7 @@ const SETTINGS_NAV: NavGroup[] = [
       { href: "/dashboard/settings/general", label: "General", icon: Sliders },
       { href: "/dashboard/settings/profile", label: "Profile", icon: User },
       { href: "/dashboard/settings/modules", label: "Modules", icon: Puzzle },
+      { href: "/dashboard/settings/appearance", label: "Appearance", icon: Palette },
     ],
   },
   {

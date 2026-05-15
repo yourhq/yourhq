@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeApplier } from "@/components/theme-applier";
 import { HqConfigProvider } from "@/lib/workspaces/hq-config-provider";
 import { readActiveWorkspacePublic } from "@/lib/workspaces/server";
 import { getOrCreateGatewayAuthToken } from "@/lib/workspaces/gateway-auth-token";
@@ -76,6 +77,7 @@ export default async function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
+            <ThemeApplier />
             {children}
             <Toaster />
           </ThemeProvider>
