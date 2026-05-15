@@ -251,6 +251,14 @@ export function useRoutines() {
       return;
     }
 
+    await supabase
+      .from("routines")
+      .update({
+        last_run_at: new Date().toISOString(),
+        run_count: (routine.run_count ?? 0) + 1,
+      })
+      .eq("id", routine.id);
+
     toast.success(`"${routine.name}" triggered`, {
       description: "The agent will process it shortly.",
     });
@@ -262,6 +270,8 @@ export function useRoutines() {
       action: "updated",
       summary: `Manually triggered routine "${routine.name}"`,
     });
+
+    fetchRoutines();
   }
 
   function openCreateForm() {

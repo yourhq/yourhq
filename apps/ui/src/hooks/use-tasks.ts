@@ -264,6 +264,25 @@ export function useTasks() {
     [supabase]
   );
 
+  const shouldIncludeTask = useCallback(
+    (task: Task): boolean => {
+      if (showArchived) {
+        if (!task.archived_at) return false;
+      } else {
+        if (task.archived_at) return false;
+      }
+      if (statusFilter !== "all" && task.status !== statusFilter) return false;
+      if (streamFilter !== "all" && task.stream_id !== streamFilter) return false;
+      if (priorityFilter !== "all" && task.priority !== priorityFilter) return false;
+      if (assigneeFilter === "me" && task.assignee_type !== "human") return false;
+      if (assigneeFilter === "unassigned" && task.assignee_type !== null) return false;
+      if (assigneeFilter !== "all" && assigneeFilter !== "me" && assigneeFilter !== "unassigned" && task.assignee_agent_id !== assigneeFilter) return false;
+      if (labelFilter !== "all" && !task.labels?.some((l) => l.id === labelFilter)) return false;
+      return true;
+    },
+    [statusFilter, streamFilter, priorityFilter, assigneeFilter, labelFilter, showArchived]
+  );
+
   useRealtimeSync<Task>({
     table: "tasks",
     select: "*, stream:streams(id, name, color, icon), assignee_agent:agents!tasks_assignee_agent_id_fkey(id, name, slug, avatar_url), series:task_series(id, cadence_type, interval_n, days_of_week, day_of_month, time_of_day, timezone)",
@@ -271,6 +290,7 @@ export function useTasks() {
     setItems: setTasks,
     filter: "parent_id=is.null",
     postProcess: taskPostProcess,
+    shouldInclude: shouldIncludeTask,
   });
 
   // Toast notifications when agent-assigned tasks change status
@@ -301,9 +321,20 @@ export function useTasks() {
   async function handleStatusChange(id: string, status: TaskStatus) {
     const task = tasks.find((t) => t.id === id);
     const oldStatus = task?.status;
+
+    // Optimistic update: reflect the change immediately in the UI
+    if (statusFilter !== "all" && status !== statusFilter) {
+      setTasks((prev) => prev.filter((t) => t.id !== id));
+    } else {
+      setTasks((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, status } : t))
+      );
+    }
+
     const { error } = await supabase.from("tasks").update({ status }).eq("id", id);
     if (error) {
       toast.error("Failed to update task status", { description: error.message });
+      fetchTasks();
       return;
     }
     logAudit(supabase, {
@@ -314,7 +345,6 @@ export function useTasks() {
       summary: `Changed task '${task?.title ?? id}' from ${oldStatus} to ${status}`,
       changes: { status: { old: oldStatus, new: status } },
     });
-    fetchTasks();
   }
 
   async function handleArchiveTask(id: string) {

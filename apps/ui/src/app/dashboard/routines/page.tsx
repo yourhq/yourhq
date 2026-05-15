@@ -113,6 +113,7 @@ function RoutinesContent() {
           editingRoutine={form.editingRoutine}
           onSave={form.onFormSaved}
           onCancel={form.closeForm}
+          onRunNow={actions.runNow}
         />
       )}
     </div>

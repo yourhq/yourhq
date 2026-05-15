@@ -1,21 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { CollectionTemplate } from "@/lib/collections/types";
+import { VIEW_TYPE_LABELS } from "@/lib/collections/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
   ResponsiveDialogDescription,
-  ResponsiveDialogFooter,
 } from "@/components/ui/responsive-dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Database, Sparkles } from "lucide-react";
+import {
+  Database,
+  Table,
+  Columns,
+  Calendar,
+  ArrowLeft,
+  ArrowRight,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface CollectionCreateDialogProps {
   open: boolean;
@@ -33,6 +38,12 @@ function slugify(name: string): string {
     .slice(0, 40);
 }
 
+const VIEW_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  table: Table,
+  kanban: Columns,
+  calendar: Calendar,
+};
+
 export function CollectionCreateDialog({
   open,
   onClose,
@@ -40,140 +51,202 @@ export function CollectionCreateDialog({
   onCreateBlank,
   onInstallTemplate,
 }: CollectionCreateDialogProps) {
-  const [tab, setTab] = useState<"template" | "blank">(templates.length > 0 ? "template" : "blank");
+  const [step, setStep] = useState<"pick" | "name">("pick");
+  const [selectedTemplate, setSelectedTemplate] = useState<CollectionTemplate | null>(null);
   const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
-  const [description, setDescription] = useState("");
-  const [slugTouched, setSlugTouched] = useState(false);
   const [saving, setSaving] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
 
-  const handleNameChange = (v: string) => {
-    setName(v);
-    if (!slugTouched) setSlug(slugify(v));
+  useEffect(() => {
+    if (!open) {
+      setStep("pick");
+      setSelectedTemplate(null);
+      setName("");
+      setSaving(false);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (step === "name") {
+      setTimeout(() => nameRef.current?.focus(), 50);
+    }
+  }, [step]);
+
+  const handlePickBlank = () => {
+    setSelectedTemplate(null);
+    setStep("name");
+  };
+
+  const handlePickTemplate = (t: CollectionTemplate) => {
+    setSelectedTemplate(t);
+    setName(t.name);
+    setStep("name");
   };
 
   const handleCreate = async () => {
-    if (!name.trim() || !slug.trim()) return;
+    const finalName = name.trim();
+    if (!finalName) return;
     setSaving(true);
     try {
-      await onCreateBlank({ name: name.trim(), slug: slug.trim(), description: description.trim() || undefined });
-      reset();
+      if (selectedTemplate) {
+        await onInstallTemplate(selectedTemplate);
+      } else {
+        await onCreateBlank({ name: finalName, slug: slugify(finalName) });
+      }
       onClose();
     } finally {
       setSaving(false);
     }
   };
 
-  const handleInstall = async (t: CollectionTemplate) => {
-    setSaving(true);
-    try {
-      await onInstallTemplate(t);
-      reset();
-      onClose();
-    } finally {
-      setSaving(false);
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && name.trim() && !saving) {
+      e.preventDefault();
+      handleCreate();
     }
-  };
-
-  const reset = () => {
-    setName("");
-    setSlug("");
-    setDescription("");
-    setSlugTouched(false);
-    setTab(templates.length > 0 ? "template" : "blank");
   };
 
   return (
     <ResponsiveDialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <ResponsiveDialogContent className="sm:max-w-lg">
-        <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>New Collection</ResponsiveDialogTitle>
-          <ResponsiveDialogDescription>
-            Create a custom table to track anything, or start from a template.
+      <ResponsiveDialogContent className="sm:max-w-[520px] gap-0 overflow-hidden">
+        <ResponsiveDialogHeader className="px-5 pt-5 pb-0">
+          <ResponsiveDialogTitle className="text-base">
+            {step === "pick" ? "New Collection" : (
+              <button
+                type="button"
+                onClick={() => { setStep("pick"); setName(""); setSelectedTemplate(null); }}
+                className="inline-flex items-center gap-1.5 text-base font-semibold hover:text-muted-foreground transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                {selectedTemplate ? selectedTemplate.name : "Blank Collection"}
+              </button>
+            )}
+          </ResponsiveDialogTitle>
+          <ResponsiveDialogDescription className="text-[13px]">
+            {step === "pick"
+              ? "Track anything with custom fields and views."
+              : "Give your collection a name to get started."}
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as "template" | "blank")}>
-          <TabsList className="w-full">
-            {templates.length > 0 && (
-              <TabsTrigger value="template" className="flex-1 gap-1.5">
-                <Sparkles className="h-3.5 w-3.5" />
-                Templates
-              </TabsTrigger>
-            )}
-            <TabsTrigger value="blank" className="flex-1 gap-1.5">
-              <Database className="h-3.5 w-3.5" />
-              Blank
-            </TabsTrigger>
-          </TabsList>
-
-          {templates.length > 0 && (
-            <TabsContent value="template" className="mt-3 space-y-2">
-              {templates.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  disabled={saving}
-                  onClick={() => handleInstall(t)}
-                  className="flex w-full items-start gap-3 rounded-md border border-border/60 p-3 text-left transition-colors hover:bg-accent/50 disabled:opacity-50"
-                >
-                  <span className="text-lg">{t.icon ?? "📋"}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-heading">{t.name}</div>
-                    {t.description && (
-                      <div className="text-body text-muted-foreground mt-0.5">
-                        {t.description}
-                      </div>
-                    )}
+        {step === "pick" ? (
+          <div className="px-5 pt-4 pb-5">
+            <div className="grid grid-cols-2 gap-2.5">
+              {/* Blank card */}
+              <button
+                type="button"
+                onClick={handlePickBlank}
+                className="group relative flex flex-col items-start gap-3 rounded-lg border border-border/60 p-4 text-left transition-all hover:border-foreground/20 hover:bg-accent/40"
+              >
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
+                  <Database className="h-4.5 w-4.5" />
+                </div>
+                <div>
+                  <div className="text-[13px] font-medium">Start from scratch</div>
+                  <div className="mt-0.5 text-[12px] text-muted-foreground leading-snug">
+                    Empty collection with custom fields
                   </div>
-                </button>
-              ))}
-            </TabsContent>
-          )}
+                </div>
+                <ArrowRight className="absolute right-3 top-4 h-3.5 w-3.5 text-muted-foreground/0 transition-all group-hover:text-muted-foreground/60" />
+              </button>
 
-          <TabsContent value="blank" className="mt-3 space-y-3">
-            <div className="space-y-1.5">
-              <Label>Name</Label>
+              {/* Template cards */}
+              {templates.map((t) => {
+                const viewTypes = t.definition.views?.map((v) => v.view_type) ?? [];
+                const fieldCount = t.definition.fields?.length ?? 0;
+
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => handlePickTemplate(t)}
+                    className="group relative flex flex-col items-start gap-3 rounded-lg border border-border/60 p-4 text-left transition-all hover:border-foreground/20 hover:bg-accent/40"
+                  >
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted/60 text-lg transition-colors group-hover:bg-primary/10">
+                      {t.icon ?? "📋"}
+                    </div>
+                    <div>
+                      <div className="text-[13px] font-medium">{t.name}</div>
+                      {t.description && (
+                        <div className="mt-0.5 text-[12px] text-muted-foreground leading-snug line-clamp-2">
+                          {t.description}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground/70">
+                      <span>{fieldCount} fields</span>
+                      {viewTypes.length > 0 && (
+                        <>
+                          <span className="text-border">·</span>
+                          <span className="flex items-center gap-1">
+                            {viewTypes.map((vt) => {
+                              const Icon = VIEW_ICONS[vt];
+                              return Icon ? (
+                                <span key={vt} className="inline-flex items-center gap-0.5" title={VIEW_TYPE_LABELS[vt]}>
+                                  <Icon className="h-3 w-3" />
+                                </span>
+                              ) : null;
+                            })}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <ArrowRight className="absolute right-3 top-4 h-3.5 w-3.5 text-muted-foreground/0 transition-all group-hover:text-muted-foreground/60" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="px-5 pt-4 pb-5">
+            {selectedTemplate && (
+              <div className="mb-4 flex flex-wrap gap-1.5">
+                {selectedTemplate.definition.fields?.map((f) => (
+                  <span
+                    key={f.field_key}
+                    className="inline-flex items-center rounded-md bg-muted/60 px-2 py-0.5 text-[11px] text-muted-foreground"
+                  >
+                    {f.label}
+                  </span>
+                ))}
+                {selectedTemplate.definition.views?.map((v) => {
+                  const Icon = VIEW_ICONS[v.view_type];
+                  return (
+                    <span
+                      key={v.name}
+                      className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-[11px] text-primary"
+                    >
+                      {Icon && <Icon className="h-3 w-3" />}
+                      {VIEW_TYPE_LABELS[v.view_type]}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="flex gap-2">
               <Input
+                ref={nameRef}
                 value={name}
-                onChange={(e) => handleNameChange(e.target.value)}
-                placeholder="e.g. Job Applications"
-                autoFocus
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={selectedTemplate ? selectedTemplate.name : "e.g. Job Applications"}
+                className={cn(
+                  "h-10 flex-1 text-[14px]",
+                  saving && "opacity-60"
+                )}
+                disabled={saving}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Slug</Label>
-              <Input
-                value={slug}
-                onChange={(e) => {
-                  setSlug(e.target.value);
-                  setSlugTouched(true);
-                }}
-                placeholder="job-applications"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Used in URLs and API references
-              </p>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Description</Label>
-              <Textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="What is this collection for?"
-                rows={2}
-              />
-            </div>
-            <ResponsiveDialogFooter>
-              <Button variant="outline" onClick={onClose} disabled={saving}>
-                Cancel
+              <Button
+                onClick={handleCreate}
+                disabled={saving || !name.trim()}
+                className="h-10 px-5"
+              >
+                Create
               </Button>
-              <Button onClick={handleCreate} disabled={saving || !name.trim() || !slug.trim()}>
-                Create Collection
-              </Button>
-            </ResponsiveDialogFooter>
-          </TabsContent>
-        </Tabs>
+            </div>
+          </div>
+        )}
       </ResponsiveDialogContent>
     </ResponsiveDialog>
   );

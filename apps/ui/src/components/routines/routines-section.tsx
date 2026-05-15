@@ -203,6 +203,7 @@ export function RoutinesSection({ agent }: RoutinesSectionProps) {
             void actions.refetch();
           }}
           onCancel={() => setEditingRoutineId(null)}
+          onRunNow={actions.runNow}
         />
       )}
 

@@ -120,6 +120,14 @@ export function useAgentRoutines(agentId: string) {
       return;
     }
 
+    await supabase
+      .from("routines")
+      .update({
+        last_run_at: new Date().toISOString(),
+        run_count: (routine.run_count ?? 0) + 1,
+      })
+      .eq("id", routine.id);
+
     toast.success(`"${routine.name}" triggered`, {
       description: "The agent will process it shortly.",
     });
@@ -131,6 +139,8 @@ export function useAgentRoutines(agentId: string) {
       action: "updated",
       summary: `Manually triggered routine "${routine.name}"`,
     });
+
+    fetchRoutines();
   }
 
   return {

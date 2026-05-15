@@ -81,25 +81,25 @@ export function CollectionViewTabs({
 
   return (
     <>
-      <div className="flex items-center gap-1 border-b border-border/50 px-2">
+      <div className="flex items-center gap-0 border-b border-border/40 px-3">
         {views.map((v) => {
           const Icon = VIEW_ICONS[v.view_type];
           const isActive = v.id === activeView?.id;
           return (
-            <div key={v.id} className="flex items-center">
+            <div key={v.id} className="flex items-center -mb-px">
               <button
                 type="button"
                 onClick={() => onSelectView(v.id)}
                 className={cn(
-                  "flex items-center gap-1.5 px-2.5 py-1.5 text-[13px] transition-colors border-b-2",
+                  "flex items-center gap-1.5 px-3 py-2 text-[13px] transition-colors border-b-2",
                   isActive
                     ? "border-foreground text-foreground font-medium"
-                    : "border-transparent text-muted-foreground hover:text-foreground",
+                    : "border-transparent text-muted-foreground/70 hover:text-foreground",
                 )}
               >
                 <Icon className="h-3.5 w-3.5" />
                 {v.name}
-                {v.is_default && <Star className="h-2.5 w-2.5 fill-current" />}
+                {v.is_default && <Star className="h-2.5 w-2.5 fill-current opacity-40" />}
               </button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -107,7 +107,7 @@ export function CollectionViewTabs({
                     variant="ghost"
                     size="icon"
                     className={cn(
-                      "h-5 w-5",
+                      "h-5 w-5 transition-opacity",
                       !isActive && "opacity-0 hover:opacity-100",
                     )}
                   >

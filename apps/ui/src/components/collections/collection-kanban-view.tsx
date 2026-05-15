@@ -227,7 +227,7 @@ export function CollectionKanbanView({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex gap-3 overflow-x-auto pb-4 px-1">
+      <div className="flex gap-2.5 overflow-x-auto pb-4 px-3 pt-3">
         {columns.map((col) => (
           <KanbanColumn
             key={col.value}
@@ -249,6 +249,7 @@ export function CollectionKanbanView({
                 record={record}
                 title={getTitle(record)}
                 previewFields={previewFields}
+                groupField={groupField}
                 onClick={onRecordClick}
                 onArchive={onArchiveRecord}
                 onDelete={onDeleteRecord}
@@ -260,8 +261,8 @@ export function CollectionKanbanView({
 
       <DragOverlay>
         {activeRecord ? (
-          <div className="rotate-1 cursor-grabbing rounded-md border border-border bg-background p-2.5 shadow-lg">
-            <span className="text-body font-medium leading-snug">
+          <div className="rotate-[2deg] cursor-grabbing rounded-md border border-border/60 bg-background p-2.5 shadow-xl shadow-black/10 w-[260px]">
+            <span className="text-[13px] font-medium leading-snug">
               {getTitle(activeRecord)}
             </span>
           </div>
@@ -291,40 +292,42 @@ function KanbanColumn({
   const { setNodeRef, isOver } = useDroppable({ id: value });
 
   return (
-    <div className="flex w-[260px] shrink-0 flex-col rounded-lg border border-border/50 bg-muted/20">
-      {/* Column header */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30">
+    <div className="flex w-[272px] shrink-0 flex-col rounded-lg bg-muted/30">
+      <div className="flex items-center gap-2 px-3 py-2.5">
         {color && (
           <span
-            className="h-2.5 w-2.5 rounded-full shrink-0"
+            className="h-2 w-2 rounded-full shrink-0"
             style={{ backgroundColor: color }}
           />
         )}
-        <span className="text-heading text-[13px] flex-1 truncate">{label}</span>
-        <span className="text-[11px] text-muted-foreground tabular-nums">
+        <span className="text-[13px] font-medium flex-1 truncate">{label}</span>
+        <span className="text-[11px] text-muted-foreground/70 tabular-nums rounded-full bg-muted px-1.5 py-0.5 min-w-[20px] text-center">
           {count}
         </span>
       </div>
 
-      {/* Cards — droppable */}
       <div
         ref={setNodeRef}
         className={cn(
-          "flex-1 space-y-1.5 p-2 overflow-y-auto max-h-[calc(100vh-280px)] transition-colors",
-          isOver && "bg-surface-selected",
+          "flex-1 space-y-1.5 px-1.5 pb-1.5 overflow-y-auto max-h-[calc(100vh-280px)] transition-colors min-h-[60px]",
+          isOver && "bg-primary/5 rounded-md",
         )}
       >
         {children}
+        {count === 0 && (
+          <div className="flex items-center justify-center py-6 text-[11px] text-muted-foreground/40">
+            No records
+          </div>
+        )}
       </div>
 
-      {/* Add card */}
       <button
         type="button"
         onClick={onAdd}
-        className="flex items-center gap-1 px-3 py-2 text-body text-muted-foreground transition-colors hover:text-foreground border-t border-border/30"
+        className="flex items-center gap-1.5 mx-1.5 mb-1.5 px-2 py-1.5 rounded-md text-[12px] text-muted-foreground/50 transition-colors hover:bg-accent/60 hover:text-muted-foreground"
       >
-        <Plus className="h-3.5 w-3.5" />
-        Add
+        <Plus className="h-3 w-3" />
+        New
       </button>
     </div>
   );
@@ -334,6 +337,7 @@ interface DraggableRecordCardProps {
   record: CollectionRecord;
   title: string;
   previewFields: CollectionField[];
+  groupField?: CollectionField;
   onClick?: (recordId: string) => void;
   onArchive: (recordId: string) => void;
   onDelete: (recordId: string) => void;
@@ -343,6 +347,7 @@ function DraggableRecordCard({
   record,
   title,
   previewFields,
+  groupField,
   onClick,
   onArchive,
   onDelete,
@@ -352,26 +357,32 @@ function DraggableRecordCard({
     data: { record },
   });
 
+  const statusColor = useMemo(() => {
+    if (!groupField) return undefined;
+    const val = record.values[groupField.field_key];
+    return groupField.options?.choices?.find((c) => c.value === val)?.color;
+  }, [groupField, record.values]);
+
   return (
     <div
       ref={setNodeRef}
       {...attributes}
       {...listeners}
       className={cn(
-        "group rounded-md border border-border/50 bg-background p-2.5 transition-colors hover:border-border",
+        "group rounded-md border border-border/40 bg-background p-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_2px_4px_rgba(0,0,0,0.06)] hover:border-border/60",
         onClick && "cursor-pointer",
-        isDragging && "opacity-50",
+        isDragging && "opacity-40 scale-[0.98]",
       )}
       onClick={() => onClick?.(record.id)}
     >
       <div className="flex items-start justify-between gap-1">
-        <span className="text-body font-medium leading-snug">{title}</span>
+        <span className="text-[13px] font-medium leading-snug">{title}</span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100"
+              className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
               onClick={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
             >
@@ -394,13 +405,39 @@ function DraggableRecordCard({
         </DropdownMenu>
       </div>
       {previewFields.length > 0 && (
-        <div className="mt-1.5 flex flex-wrap gap-x-2.5 gap-y-0.5 text-[11px] text-muted-foreground">
+        <div className="mt-2 flex flex-wrap gap-1.5">
           {previewFields.map((f) => {
             const val = record.values[f.field_key];
             if (val == null || val === "") return null;
+            if (f.field_type === "select") {
+              const choice = f.options?.choices?.find((c) => c.value === val);
+              if (choice) {
+                return (
+                  <span
+                    key={f.field_key}
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-muted/60"
+                  >
+                    {choice.color && (
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: choice.color }} />
+                    )}
+                    {choice.label}
+                  </span>
+                );
+              }
+            }
+            if (f.field_type === "date" || f.field_type === "datetime") {
+              const dateStr = String(val);
+              try {
+                const d = new Date(dateStr);
+                return (
+                  <span key={f.field_key} className="text-[10px] text-muted-foreground">
+                    {d.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                  </span>
+                );
+              } catch { /* skip */ }
+            }
             return (
-              <span key={f.field_key} className="truncate max-w-[180px]">
-                <span className="text-muted-foreground/60">{f.label}:</span>{" "}
+              <span key={f.field_key} className="text-[10px] text-muted-foreground truncate max-w-[160px]">
                 {Array.isArray(val) ? val.join(", ") : String(val)}
               </span>
             );

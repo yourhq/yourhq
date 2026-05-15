@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import type { Routine, TriggerType, RoutineCadenceType, RoutineCondition, RoutineEntityType } from "@/lib/routines/types";
 import { CADENCE_OPTIONS, SUB_DAILY_PRESETS, CONDITION_LABELS, ENTITY_TYPE_LABELS, DAYS_OF_WEEK_LABELS } from "@/lib/routines/types";
 import { usePipelineStages } from "@/hooks/use-pipeline-stages";
+import { useBufferedEntityLinks } from "@/hooks/use-buffered-entity-links";
+import { EntityLinkList } from "@/components/shared/entity-link-list";
 import { logAudit } from "@/lib/audit/log";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -23,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Clock, Zap } from "lucide-react";
+import { Clock, Play, Zap } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +38,7 @@ interface RoutineFormProps {
   };
   onSave: () => void;
   onCancel: () => void;
+  onRunNow?: (id: string) => void;
 }
 
 interface AgentOption {
@@ -56,11 +59,13 @@ export function RoutineForm({
   initialValues,
   onSave,
   onCancel,
+  onRunNow,
 }: RoutineFormProps) {
   const supabase = useMemo(() => createClient(), []);
   const [agents, setAgents] = useState<AgentOption[]>([]);
   const [saving, setSaving] = useState(false);
   const { stageOptions, stagesByKey } = usePipelineStages("contact");
+  const entityLinks = useBufferedEntityLinks("routine", editingRoutine?.id ?? null);
 
   const lockAgent = !editingRoutine && Boolean(initialValues?.lockAgent);
 
@@ -296,6 +301,9 @@ export function RoutineForm({
         setSaving(false);
         return;
       }
+      if (entityLinks.dirty) {
+        await entityLinks.actions.flush(editingRoutine.id);
+      }
       logAudit(supabase, {
         module: "routines",
         entity_type: "routine",
@@ -313,6 +321,9 @@ export function RoutineForm({
         toast.error("Failed to create routine", { description: error?.message });
         setSaving(false);
         return;
+      }
+      if (entityLinks.dirty) {
+        await entityLinks.actions.flush(inserted.id);
       }
       logAudit(supabase, {
         module: "routines",
@@ -751,6 +762,14 @@ export function RoutineForm({
               />
             </div>
 
+            {/* Entity links */}
+            <EntityLinkList
+              links={entityLinks.links}
+              onAddLink={entityLinks.actions.addLink}
+              onRemoveLink={entityLinks.actions.removeLink}
+              searchTargets={entityLinks.actions.searchTargets}
+            />
+
             {editingRoutine && recentRuns.length > 0 && (
               <div>
                 <label className="text-[11px] uppercase tracking-wide text-muted-foreground/70">
@@ -792,16 +811,30 @@ export function RoutineForm({
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-border/50 px-5 py-3 shrink-0">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <Switch
-              data-size="sm"
-              checked={isActive}
-              onCheckedChange={setIsActive}
-            />
-            <span className="text-xs text-muted-foreground">
-              {isActive ? "Active" : "Paused"}
-            </span>
-          </label>
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Switch
+                data-size="sm"
+                checked={isActive}
+                onCheckedChange={setIsActive}
+              />
+              <span className="text-xs text-muted-foreground">
+                {isActive ? "Active" : "Paused"}
+              </span>
+            </label>
+            {editingRoutine && onRunNow && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => onRunNow(editingRoutine.id)}
+              >
+                <Play className="mr-1.5 h-3 w-3" />
+                Run now
+              </Button>
+            )}
+          </div>
           <div className="flex items-center gap-1.5">
             <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancel}>
               Cancel

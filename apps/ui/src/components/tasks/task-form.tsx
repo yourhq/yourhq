@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback, type SetStateAction } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { completeItem } from "@/lib/onboarding/progress";
 import { MicroTip } from "@/components/onboarding/micro-tip";
@@ -27,10 +27,11 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { EntityLinkList } from "@/components/shared/entity-link-list";
+import { useBufferedEntityLinks } from "@/hooks/use-buffered-entity-links";
 import { CommentThread } from "./comment-thread";
 import { useComments } from "@/hooks/use-comments";
 import { useLabels } from "@/hooks/use-labels";
-import { Paperclip, Archive, AlertTriangle, Tag } from "lucide-react";
+import { Archive, AlertTriangle, Tag, Check } from "lucide-react";
 import { TaskActivityFeed } from "./task-activity-feed";
 import { TaskRelations } from "./task-relations";
 import { TaskLabelsPicker } from "./task-labels-picker";
@@ -96,28 +97,142 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
   const router = useRouter();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const titleRef = useRef<HTMLTextAreaElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isEditing = !!editingTask;
 
-  const [title, setTitle] = useState(editingTask?.title ?? defaultTitle ?? "");
-  const [description, setDescription] = useState(editingTask?.description ?? "");
-  const [status, setStatus] = useState<TaskStatus>(editingTask?.status ?? "todo");
-  const [priority, setPriority] = useState<TaskPriority>(editingTask?.priority ?? "medium");
-  const [streamId, setStreamId] = useState(editingTask?.stream_id ?? "none");
-  const [assignee, setAssignee] = useState(() => {
+  const [title, setTitleRaw] = useState(editingTask?.title ?? defaultTitle ?? "");
+  const [description, setDescriptionRaw] = useState(editingTask?.description ?? "");
+  const [status, setStatusRaw] = useState<TaskStatus>(editingTask?.status ?? "todo");
+  const [priority, setPriorityRaw] = useState<TaskPriority>(editingTask?.priority ?? "medium");
+  const [streamId, setStreamIdRaw] = useState(editingTask?.stream_id ?? "none");
+  const [assignee, setAssigneeRaw] = useState(() => {
     if (editingTask?.assignee_type === "human") return "me";
     if (editingTask?.assignee_agent_id) return editingTask.assignee_agent_id;
     if (defaultAssignee) return defaultAssignee;
     return "none";
   });
-  const [dueDate, setDueDate] = useState<string | null>(editingTask?.due_date ?? null);
+  const [dueDate, setDueDateRaw] = useState<string | null>(editingTask?.due_date ?? null);
   const [savedTaskId, setSavedTaskId] = useState<string | null>(editingTask?.id ?? null);
   const [recurrence, setRecurrence] = useState<RecurrenceValue>(DEFAULT_RECURRENCE);
   const [tz, setTz] = useState<string>(browserTimezone());
-  const [modelOverride, setModelOverride] = useState<string | null>(editingTask?.model_override ?? null);
-  const [thinkingOverride, setThinkingOverride] = useState<string | null>(editingTask?.thinking_override ?? null);
+  const [modelOverride, setModelOverrideRaw] = useState<string | null>(editingTask?.model_override ?? null);
+  const [thinkingOverride, setThinkingOverrideRaw] = useState<string | null>(editingTask?.thinking_override ?? null);
   const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
   const { actions: seriesActions } = useTaskSeries();
   const editingSeriesId = editingTask?.series_id ?? null;
+
+  // --- Auto-save infrastructure (only for existing tasks) ---
+
+  const pendingFieldsRef = useRef<Record<string, unknown>>({});
+
+  const flushSave = useCallback(async () => {
+    const taskId = savedTaskId;
+    if (!taskId) return;
+    const fields = { ...pendingFieldsRef.current };
+    if (Object.keys(fields).length === 0) return;
+    pendingFieldsRef.current = {};
+
+    setSaveStatus("saving");
+    const { error } = await supabase.from("tasks").update(fields).eq("id", taskId);
+    if (error) {
+      toast.error("Auto-save failed", { description: error.message });
+      setSaveStatus("idle");
+      return;
+    }
+    logAudit(supabase, {
+      module: "tasks",
+      entity_type: "task",
+      entity_id: taskId,
+      action: "updated",
+      summary: `Updated task fields: ${Object.keys(fields).join(", ")}`,
+    });
+    setSaveStatus("saved");
+    setTimeout(() => setSaveStatus((s) => (s === "saved" ? "idle" : s)), 2000);
+  }, [savedTaskId, supabase]);
+
+  const queueSave = useCallback(
+    (fields: Record<string, unknown>, debounce: boolean) => {
+      if (!savedTaskId) return;
+      Object.assign(pendingFieldsRef.current, fields);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (debounce) {
+        debounceRef.current = setTimeout(flushSave, 800);
+      } else {
+        flushSave();
+      }
+    },
+    [savedTaskId, flushSave]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
+  // Flush any pending debounced text saves on close
+  const handleClose = useCallback(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+      flushSave();
+    }
+    onCancel();
+  }, [flushSave, onCancel]);
+
+  // Wrapped setters: update local state and queue a save for existing tasks
+  function setTitle(v: string) {
+    setTitleRaw(v);
+    if (isEditing) queueSave({ title: v.trim() }, true);
+  }
+  function setDescription(v: string) {
+    setDescriptionRaw(v);
+    if (isEditing) queueSave({ description: v.trim() || null }, true);
+  }
+  function setStatus(v: TaskStatus) {
+    setStatusRaw(v);
+    if (isEditing) queueSave({ status: v }, false);
+  }
+  function setPriority(v: TaskPriority) {
+    setPriorityRaw(v);
+    if (isEditing) queueSave({ priority: v }, false);
+  }
+  function setStreamId(v: string) {
+    setStreamIdRaw(v);
+    if (isEditing) queueSave({ stream_id: v !== "none" ? v : null }, false);
+  }
+  function setAssignee(v: string) {
+    setAssigneeRaw(v);
+    if (isEditing) {
+      queueSave({
+        assignee_type: v === "me" ? "human" : v !== "none" ? "agent" : null,
+        assignee_agent_id: v !== "me" && v !== "none" ? v : null,
+      }, false);
+    }
+  }
+  function setDueDate(v: string | null) {
+    setDueDateRaw(v);
+    if (isEditing) queueSave({ due_date: v || null }, false);
+  }
+  function setModelOverride(v: SetStateAction<string | null>) {
+    setModelOverrideRaw((prev) => {
+      const next = typeof v === "function" ? v(prev) : v;
+      if (isEditing) queueSave({ model_override: next }, false);
+      return next;
+    });
+  }
+  function setThinkingOverride(v: SetStateAction<string | null>) {
+    setThinkingOverrideRaw((prev) => {
+      const next = typeof v === "function" ? v(prev) : v;
+      if (isEditing) queueSave({ thinking_override: next }, false);
+      return next;
+    });
+  }
+
+  // Buffered entity links — works before and after save
+  const entityLinks = useBufferedEntityLinks("task", savedTaskId);
 
   // Labels state
   const [taskLabels, setTaskLabels] = useState<Label[]>(editingTask?.labels ?? []);
@@ -232,6 +347,7 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
   const handleSubmit = useCallback(async (opts?: { autoSave?: boolean }) => {
     if (!title.trim()) return;
 
+    // Series recurrence scope dialog — still uses explicit save
     if (savedTaskId && editingSeriesId && recurrence.enabled && !opts?.autoSave) {
       setScopeDialogOpen(true);
       return;
@@ -265,41 +381,36 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
     }
 
     if (savedTaskId) {
-      const { error } = await supabase.from("tasks").update(payload).eq("id", savedTaskId);
-      if (error) {
-        toast.error("Failed to save task", { description: error.message });
-        setSaving(false);
-        return;
-      }
-      logAudit(supabase, {
-        module: "tasks",
-        entity_type: "task",
-        entity_id: savedTaskId,
-        action: "updated",
-        summary: `Updated task '${payload.title}'`,
-      });
-    } else {
-      const { data: inserted, error } = await supabase
-        .from("tasks")
-        .insert(payload)
-        .select("id")
-        .single();
-      if (error || !inserted) {
-        toast.error("Failed to create task", { description: error?.message });
-        setSaving(false);
-        return;
-      }
-      setSavedTaskId(inserted.id);
-      logAudit(supabase, {
-        module: "tasks",
-        entity_type: "task",
-        entity_id: inserted.id,
-        action: "created",
-        summary: `Created task '${payload.title}'`,
-      });
-      if (payload.assignee_agent_id) {
-        completeItem("taskAssigned");
-      }
+      // Existing task — auto-save handles field updates; just close
+      setSaving(false);
+      if (!opts?.autoSave) onSave();
+      return;
+    }
+
+    // New task — insert
+    const { data: inserted, error } = await supabase
+      .from("tasks")
+      .insert(payload)
+      .select("id")
+      .single();
+    if (error || !inserted) {
+      toast.error("Failed to create task", { description: error?.message });
+      setSaving(false);
+      return;
+    }
+    setSavedTaskId(inserted.id);
+    if (entityLinks.dirty) {
+      await entityLinks.actions.flush(inserted.id);
+    }
+    logAudit(supabase, {
+      module: "tasks",
+      entity_type: "task",
+      entity_id: inserted.id,
+      action: "created",
+      summary: `Created task '${payload.title}'`,
+    });
+    if (payload.assignee_agent_id) {
+      completeItem("taskAssigned");
     }
 
     setSaving(false);
@@ -340,16 +451,14 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
     onSave();
   }
 
-  async function handleAttachClick() {
-    if (!savedTaskId) {
-      await handleSubmit({ autoSave: true });
-    }
-  }
-
   function handleTitleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (title.trim()) handleSubmit();
+      if (isEditing) {
+        (e.target as HTMLElement).blur();
+      } else if (title.trim()) {
+        handleSubmit();
+      }
     }
   }
 
@@ -360,7 +469,7 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
   const deliverableCount = editingTask?.deliverable_count ?? 0;
 
   return (
-    <ResponsiveDialog open onOpenChange={(open) => !open && onCancel()}>
+    <ResponsiveDialog open onOpenChange={(open) => !open && handleClose()}>
       <ResponsiveDialogContent variant="fullscreen" className="sm:max-w-xl p-0 gap-0 max-h-[95dvh] sm:max-h-[85dvh] flex flex-col">
         <ResponsiveDialogTitle className="sr-only">
           {editingTask ? "Edit task" : "New task"}
@@ -581,16 +690,13 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
           </Tabs>
         ) : (
           <div className="flex-1 overflow-y-auto min-h-0">
-            <div className="border-t border-border/40 px-4 sm:px-5 py-2">
-              <button
-                type="button"
-                onClick={handleAttachClick}
-                disabled={saving || !title.trim()}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors disabled:opacity-50"
-              >
-                <Paperclip className="h-3 w-3" />
-                Attach link
-              </button>
+            <div className="border-t border-border/40 px-4 sm:px-5 py-2.5">
+              <EntityLinkList
+                links={entityLinks.links}
+                onAddLink={entityLinks.actions.addLink}
+                onRemoveLink={entityLinks.actions.removeLink}
+                searchTargets={entityLinks.actions.searchTargets}
+              />
             </div>
           </div>
         )}
@@ -605,25 +711,45 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
                 className="h-7 text-xs text-muted-foreground hover:text-foreground"
                 onClick={() => {
                   onArchive(editingTask.id);
-                  onCancel();
+                  handleClose();
                 }}
               >
                 <Archive className="h-3 w-3 mr-1" />
                 Archive
               </Button>
             )}
-            <p className="text-[10px] text-muted-foreground/40">
-              {savedTaskId ? "Press Save or ⏎" : "⏎ to create"}
-            </p>
+            {isEditing && saveStatus === "saving" && (
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
+                <Spinner className="h-2.5 w-2.5" /> Saving...
+              </span>
+            )}
+            {isEditing && saveStatus === "saved" && (
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
+                <Check className="h-2.5 w-2.5" /> Saved
+              </span>
+            )}
+            {!isEditing && (
+              <p className="text-[10px] text-muted-foreground/40">
+                ⏎ to create
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-1.5">
-            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancel}>
-              Cancel
-            </Button>
-            <Button size="sm" className="h-7 text-xs" onClick={() => handleSubmit()} disabled={saving || !title.trim()}>
-              {saving && <Spinner className="mr-1.5 h-3 w-3" />}
-              {saving ? "Saving..." : savedTaskId ? "Save" : "Create"}
-            </Button>
+            {isEditing ? (
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleClose}>
+                Close
+              </Button>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancel}>
+                  Cancel
+                </Button>
+                <Button size="sm" className="h-7 text-xs" onClick={() => handleSubmit()} disabled={saving || !title.trim()}>
+                  {saving && <Spinner className="mr-1.5 h-3 w-3" />}
+                  {saving ? "Creating..." : "Create"}
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </ResponsiveDialogContent>

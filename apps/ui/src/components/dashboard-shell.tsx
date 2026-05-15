@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Pin,
   Settings2,
+  Plus,
 } from "lucide-react";
 import { useUnreadNotificationCount } from "@/hooks/use-notifications";
 import { cn } from "@/lib/utils";
@@ -49,6 +50,7 @@ import { useAuthWatcher } from "@/hooks/use-auth-watcher";
 import { ModulesProvider } from "@/components/shared/modules-context";
 import { MissionPanel } from "@/components/onboarding/mission-panel";
 import { useSidebarCollections } from "@/hooks/use-sidebar-collections";
+import { CollectionCreateDialog } from "@/components/collections/collection-create-dialog";
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -137,6 +139,7 @@ function CollectionsSidebarGroup({
   showLabels,
   pathname,
   onLinkClick,
+  onAddCollection,
 }: {
   pinned: { id: string; name: string; slug: string; icon: string | null; color: string | null }[];
   unpinned: { id: string; name: string; slug: string; icon: string | null; color: string | null }[];
@@ -147,6 +150,7 @@ function CollectionsSidebarGroup({
   showLabels: boolean;
   pathname: string;
   onLinkClick?: () => void;
+  onAddCollection: () => void;
 }) {
   const isActive = (slug: string) =>
     pathname.startsWith(`/dashboard/collections/${slug}`);
@@ -214,6 +218,17 @@ function CollectionsSidebarGroup({
     return <div key={col.id}>{linkContent}</div>;
   }
 
+  const addLink = (
+    <button
+      type="button"
+      onClick={onAddCollection}
+      className="group relative flex h-7 w-full items-center gap-2.5 rounded-md px-2 text-[12px] transition-colors text-muted-foreground/60 hover:bg-accent/60 hover:text-foreground"
+    >
+      <Plus className="h-3.5 w-3.5 shrink-0" />
+      {showLabels && <span>Add Collection</span>}
+    </button>
+  );
+
   const manageLink = (
     <Link
       href="/dashboard/collections"
@@ -256,15 +271,24 @@ function CollectionsSidebarGroup({
           </div>
         </CollapsibleContent>
 
-        {/* Manage link */}
-        <div className="mt-0.5">
+        {/* Add + Manage links */}
+        <div className="mt-0.5 space-y-0.5">
           {!showLabels ? (
-            <Tooltip>
-              <TooltipTrigger asChild>{manageLink}</TooltipTrigger>
-              <TooltipContent side="right" className="text-xs">Manage collections</TooltipContent>
-            </Tooltip>
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>{addLink}</TooltipTrigger>
+                <TooltipContent side="right" className="text-xs">Add collection</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>{manageLink}</TooltipTrigger>
+                <TooltipContent side="right" className="text-xs">Manage collections</TooltipContent>
+              </Tooltip>
+            </>
           ) : (
-            manageLink
+            <>
+              {addLink}
+              {manageLink}
+            </>
           )}
         </div>
       </div>
@@ -401,42 +425,32 @@ function SidebarInner({
         {/* Collections — dynamic group */}
         {sc.collections.length === 0 && !sc.loading ? (
           <div>
-            {showLabels && (
+            {showLabels ? (
               <div className="mb-1 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
                 Collections
               </div>
-            )}
+            ) : null}
             <div className="space-y-0.5">
               {(() => {
-                const href = "/dashboard/collections";
-                const isActive = pathname === href;
-                const linkContent = (
-                  <Link
-                    href={href}
-                    onClick={onLinkClick}
-                    className={cn(
-                      "group relative flex h-8 items-center gap-2.5 rounded-md px-2 text-[13px] transition-colors",
-                      isActive
-                        ? "bg-accent text-foreground font-medium"
-                        : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-                    )}
+                const addBtn = (
+                  <button
+                    type="button"
+                    onClick={sc.openCreate}
+                    className="group relative flex h-7 w-full items-center gap-2.5 rounded-md px-2 text-[12px] transition-colors text-muted-foreground/60 hover:bg-accent/60 hover:text-foreground"
                   >
-                    {isActive && (
-                      <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-foreground" />
-                    )}
-                    <Database className={cn("h-4 w-4 shrink-0", isActive ? "text-foreground" : "text-muted-foreground group-hover:text-foreground")} />
-                    {showLabels && <span className="flex-1">Collections</span>}
-                  </Link>
+                    <Plus className="h-3.5 w-3.5 shrink-0" />
+                    {showLabels && <span>Add Collection</span>}
+                  </button>
                 );
                 if (!showLabels) {
                   return (
                     <Tooltip>
-                      <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
-                      <TooltipContent side="right" className="text-xs">Collections</TooltipContent>
+                      <TooltipTrigger asChild>{addBtn}</TooltipTrigger>
+                      <TooltipContent side="right" className="text-xs">Add collection</TooltipContent>
                     </Tooltip>
                   );
                 }
-                return linkContent;
+                return addBtn;
               })()}
             </div>
           </div>
@@ -451,9 +465,18 @@ function SidebarInner({
             showLabels={showLabels}
             pathname={pathname}
             onLinkClick={onLinkClick}
+            onAddCollection={sc.openCreate}
           />
         ) : null}
       </nav>
+
+      <CollectionCreateDialog
+        open={sc.showCreate}
+        onClose={sc.closeCreate}
+        templates={sc.templates}
+        onCreateBlank={sc.createCollection}
+        onInstallTemplate={sc.installTemplate}
+      />
 
       {/* Sidebar footer — keyboard shortcuts hint */}
       <div className="shrink-0 border-t border-border/60 px-2 py-2">

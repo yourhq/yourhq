@@ -193,24 +193,24 @@ export function CollectionCalendarView({
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between px-1">
-        <h2 className="text-heading text-base font-medium">
+    <div className="flex flex-col gap-3 px-3 pt-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-[15px] font-semibold tracking-tight">
           {format(currentMonth, "MMMM yyyy")}
         </h2>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           <Button
             variant="ghost"
             size="icon"
             className="h-7 w-7"
             onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-3.5 w-3.5" />
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 text-xs"
+            className="h-7 px-2.5 text-xs font-medium"
             onClick={() => setCurrentMonth(new Date())}
           >
             Today
@@ -221,17 +221,17 @@ export function CollectionCalendarView({
             className="h-7 w-7"
             onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
 
-      <div className="rounded-lg border border-border/50 overflow-hidden">
-        <div className="grid grid-cols-7 border-b border-border/30 bg-muted/30">
+      <div className="rounded-lg border border-border/40 overflow-hidden">
+        <div className="grid grid-cols-7 border-b border-border/30 bg-muted/20">
           {weekDays.map((day) => (
             <div
               key={day}
-              className="px-2 py-1.5 text-center text-[11px] font-medium text-muted-foreground"
+              className="px-2 py-2 text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70"
             >
               {day}
             </div>
@@ -249,16 +249,17 @@ export function CollectionCalendarView({
               <div
                 key={key}
                 className={cn(
-                  "group relative min-h-[100px] border-b border-r border-border/30 p-1 transition-colors hover:bg-muted/20",
-                  !inCurrentMonth && "bg-muted/10",
+                  "group relative min-h-[110px] border-b border-r border-border/20 p-1.5 transition-colors",
+                  !inCurrentMonth && "bg-muted/5",
+                  inCurrentMonth && "hover:bg-accent/20",
                 )}
               >
-                <div className="flex items-center justify-between px-1">
+                <div className="flex items-center justify-between mb-1">
                   <span
                     className={cn(
-                      "text-[11px] tabular-nums",
-                      !inCurrentMonth && "text-muted-foreground/50",
-                      inCurrentMonth && "text-muted-foreground",
+                      "text-[11px] tabular-nums leading-none",
+                      !inCurrentMonth && "text-muted-foreground/30",
+                      inCurrentMonth && "text-muted-foreground/70",
                       today &&
                         "flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground font-medium",
                     )}
@@ -270,27 +271,36 @@ export function CollectionCalendarView({
                     onClick={() =>
                       onAddRecord({ [dateFieldKey]: format(day, "yyyy-MM-dd") })
                     }
-                    className="flex h-4 w-4 items-center justify-center rounded opacity-0 transition-opacity group-hover:opacity-100 hover:bg-muted"
+                    className="flex h-4 w-4 items-center justify-center rounded opacity-0 transition-opacity group-hover:opacity-100 hover:bg-accent"
                   >
-                    <Plus className="h-3 w-3 text-muted-foreground" />
+                    <Plus className="h-2.5 w-2.5 text-muted-foreground" />
                   </button>
                 </div>
 
-                <div className="mt-0.5 space-y-0.5">
-                  {dayRecords.map((record) => (
+                <div className="space-y-0.5">
+                  {dayRecords.slice(0, 3).map((record) => (
                     <button
                       key={record.id}
                       type="button"
                       onClick={() => onRecordClick?.(record.id)}
                       className={cn(
-                        "w-full truncate rounded px-1.5 py-0.5 text-left text-[11px] leading-tight",
-                        "bg-primary/10 text-primary hover:bg-primary/20 transition-colors",
+                        "w-full truncate rounded-[4px] px-1.5 py-[3px] text-left text-[10px] font-medium leading-tight",
+                        "bg-primary/10 text-primary/90 hover:bg-primary/20 transition-colors",
                         onRecordClick && "cursor-pointer",
                       )}
                     >
                       {getTitle(record)}
                     </button>
                   ))}
+                  {dayRecords.length > 3 && (
+                    <button
+                      type="button"
+                      onClick={() => onRecordClick?.(dayRecords[3].id)}
+                      className="w-full text-left text-[10px] text-muted-foreground/60 px-1.5 hover:text-muted-foreground transition-colors"
+                    >
+                      +{dayRecords.length - 3} more
+                    </button>
+                  )}
                 </div>
               </div>
             );

@@ -1,7 +1,12 @@
 "use client";
 
 import { useEntityLinks } from "@/hooks/use-entity-links";
-import type { OwnerType, TargetType } from "@/lib/entity-links/types";
+import type {
+  EntityLink,
+  EntityLinkSearchResult,
+  OwnerType,
+  TargetType,
+} from "@/lib/entity-links/types";
 import { EntityLinkPicker } from "./entity-link-picker";
 import {
   FileText,
@@ -14,7 +19,6 @@ import {
   ListTodo,
 } from "lucide-react";
 import Link from "next/link";
-import type { EntityLink } from "@/lib/entity-links/types";
 
 const LINK_ROUTES: Record<string, string> = {
   knowledge_item: "/dashboard/knowledge",
@@ -82,30 +86,97 @@ function LinkName({ link }: { link: EntityLink }) {
   );
 }
 
-interface EntityLinkListProps {
+/* ── DB-backed mode (existing behavior) ──────────────────────────── */
+
+interface EntityLinkListDbProps {
   ownerType: OwnerType;
   ownerId: string;
   onUploadFile?: () => void;
   onCreatePage?: () => void;
+  links?: undefined;
+  onAddLink?: undefined;
+  onRemoveLink?: undefined;
+  searchTargets?: undefined;
 }
 
-export function EntityLinkList({
+/* ── Controlled / buffered mode ──────────────────────────────────── */
+
+interface EntityLinkListControlledProps {
+  links: EntityLink[];
+  onAddLink: (input: { target_type: TargetType; target_id?: string; url?: string; label?: string }) => void;
+  onRemoveLink: (id: string) => void;
+  searchTargets: (query: string, targetTypes?: TargetType[]) => Promise<EntityLinkSearchResult[]>;
+  onUploadFile?: () => void;
+  onCreatePage?: () => void;
+  ownerType?: undefined;
+  ownerId?: undefined;
+}
+
+type EntityLinkListProps = EntityLinkListDbProps | EntityLinkListControlledProps;
+
+export function EntityLinkList(props: EntityLinkListProps) {
+  if (props.links !== undefined) {
+    return <EntityLinkListInner {...props} />;
+  }
+  return <EntityLinkListDb {...props} />;
+}
+
+function EntityLinkListDb({
   ownerType,
   ownerId,
   onUploadFile,
   onCreatePage,
-}: EntityLinkListProps) {
+}: EntityLinkListDbProps) {
   const { links: allLinks, loading, actions } = useEntityLinks(ownerType, ownerId);
-
-  // Filter out deliverable links — they render in the Deliverables tab
   const links = allLinks.filter((l) => !l.is_deliverable);
 
+  return (
+    <EntityLinkListInner
+      links={links}
+      onAddLink={actions.addLink}
+      onRemoveLink={actions.removeLink}
+      searchTargets={actions.searchTargets}
+      onUploadFile={onUploadFile}
+      onCreatePage={onCreatePage}
+    />
+  );
+}
+
+function EntityLinkListInner({
+  links,
+  onAddLink,
+  onRemoveLink,
+  searchTargets,
+  onUploadFile,
+  onCreatePage,
+}: {
+  links: EntityLink[];
+  onAddLink: (input: { target_type: TargetType; target_id?: string; url?: string; label?: string }) => void;
+  onRemoveLink: (id: string) => void;
+  searchTargets: (query: string, targetTypes?: TargetType[]) => Promise<EntityLinkSearchResult[]>;
+  onUploadFile?: () => void;
+  onCreatePage?: () => void;
+}) {
   function handleLinkEntity(targetType: TargetType, targetId: string, label?: string) {
-    actions.addLink({ target_type: targetType, target_id: targetId, label });
+    onAddLink({ target_type: targetType, target_id: targetId, label });
   }
 
   function handleLinkUrl(url: string, label?: string) {
-    actions.addLink({ target_type: "url", url, label: label || url });
+    onAddLink({ target_type: "url", url, label: label || url });
+  }
+
+  if (links.length === 0) {
+    return (
+      <EntityLinkPicker
+        links={links}
+        onLinkEntity={handleLinkEntity}
+        onLinkUrl={handleLinkUrl}
+        onUploadFile={onUploadFile}
+        onCreatePage={onCreatePage}
+        searchTargets={searchTargets}
+        triggerVariant="subtle"
+      />
+    );
   }
 
   return (
@@ -115,11 +186,9 @@ export function EntityLinkList({
           <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-xs font-medium text-muted-foreground">
             Links
-            {links.length > 0 && (
-              <span className="ml-1 text-muted-foreground/60">
-                {links.length}
-              </span>
-            )}
+            <span className="ml-1 text-muted-foreground/60">
+              {links.length}
+            </span>
           </span>
         </div>
         <EntityLinkPicker
@@ -128,37 +197,35 @@ export function EntityLinkList({
           onLinkUrl={handleLinkUrl}
           onUploadFile={onUploadFile}
           onCreatePage={onCreatePage}
-          searchTargets={actions.searchTargets}
+          searchTargets={searchTargets}
         />
       </div>
 
-      {!loading && links.length > 0 && (
-        <div className="space-y-0.5">
-          {links.map((link) => (
-            <div
-              key={link.id}
-              className="group flex items-center gap-2 rounded px-2 py-1 hover:bg-accent/40 transition-colors"
-            >
-              <LinkIcon link={link} />
-              <div className="flex-1 min-w-0">
-                <LinkName link={link} />
-              </div>
-              {link.target_type === "knowledge_item" &&
-                typeof link.resolved_extra?.kind === "string" && (
-                  <span className="text-[10px] text-muted-foreground/50 shrink-0">
-                    {link.resolved_extra.kind}
-                  </span>
-                )}
-              <button
-                onClick={() => actions.removeLink(link.id)}
-                className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-accent"
-              >
-                <X className="h-3 w-3 text-muted-foreground" />
-              </button>
+      <div className="space-y-0.5">
+        {links.map((link) => (
+          <div
+            key={link.id}
+            className="group flex items-center gap-2 rounded px-2 py-1 hover:bg-accent/40 transition-colors"
+          >
+            <LinkIcon link={link} />
+            <div className="flex-1 min-w-0">
+              <LinkName link={link} />
             </div>
-          ))}
-        </div>
-      )}
+            {link.target_type === "knowledge_item" &&
+              typeof link.resolved_extra?.kind === "string" && (
+                <span className="text-[10px] text-muted-foreground/50 shrink-0">
+                  {link.resolved_extra.kind}
+                </span>
+              )}
+            <button
+              onClick={() => onRemoveLink(link.id)}
+              className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-accent"
+            >
+              <X className="h-3 w-3 text-muted-foreground" />
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

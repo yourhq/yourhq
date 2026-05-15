@@ -124,6 +124,20 @@ for _ in range(batch_size):
                 if links:
                     context["links"] = links
 
+            # Fetch linked entities for routine events
+            routine_id = context.get("routine_id")
+            if routine_id and item.get("event_type") in ("routine_schedule", "routine_event"):
+                routine_links = api_get(
+                    "entity_links",
+                    {
+                        "select": "id,target_type,target_id,url,label",
+                        "owner_type": "eq.routine",
+                        "owner_id": f"eq.{routine_id}",
+                    },
+                )
+                if routine_links:
+                    context["links"] = routine_links
+
             if item.get("comment_id"):
                 comments = api_get(
                     "comments",

@@ -27,6 +27,10 @@ interface UseRealtimeSyncOptions<T> {
   postProcess?: (row: T) => Promise<T>;
   /** Only subscribe when enabled (default: true) */
   enabled?: boolean;
+  /** Optional predicate to check if a row matches the current client-side filters.
+   *  When provided, UPDATEs that no longer match are removed from state,
+   *  and INSERTs that don't match are ignored. */
+  shouldInclude?: (row: T) => boolean;
 }
 
 /**
@@ -42,6 +46,7 @@ export function useRealtimeSync<T extends { id: string }>({
   event = "*",
   filter,
   postProcess,
+  shouldInclude,
   enabled = true,
 }: UseRealtimeSyncOptions<T>) {
   const supabase = useMemo(() => createClient(), []);
@@ -72,21 +77,32 @@ export function useRealtimeSync<T extends { id: string }>({
         row = await postProcess(row);
       }
 
+      const include = shouldInclude ? shouldInclude(row) : true;
+
       if (payload.eventType === "INSERT") {
         setItems((prev) => {
-          // Avoid duplicates (e.g., if we also did a manual fetchX after create)
           if (prev.some((item) => item.id === newId)) return prev;
-          return [row, ...prev];
+          return include ? [row, ...prev] : prev;
         });
       } else {
-        // UPDATE — replace in-place
-        setItems((prev) =>
-          prev.map((item) => (item.id === newId ? row : item))
-        );
+        // UPDATE — replace in-place if it still matches filters, otherwise remove
+        setItems((prev) => {
+          const existed = prev.some((item) => item.id === newId);
+          if (existed && include) {
+            return prev.map((item) => (item.id === newId ? row : item));
+          }
+          if (existed && !include) {
+            return prev.filter((item) => item.id !== newId);
+          }
+          if (!existed && include) {
+            return [row, ...prev];
+          }
+          return prev;
+        });
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [supabase, table, select, postProcess]
+    [supabase, table, select, postProcess, shouldInclude]
   );
 
   useRealtime({
