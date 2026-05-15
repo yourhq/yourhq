@@ -358,7 +358,7 @@ function SelectCell({
           <span className="text-muted-foreground/50">Select...</span>
         )}
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent position="popper" sideOffset={4}>
         <SelectItem value="__none__">
           <span className="text-muted-foreground">None</span>
         </SelectItem>
@@ -424,10 +424,16 @@ function MultiSelectCell({
             if (!value.includes(val)) onChange([...value, val]);
           }}
         >
-          <SelectTrigger className="h-5 border-0 bg-transparent px-1 text-muted-foreground/50 hover:text-muted-foreground [&>svg]:hidden">
-            <span className="text-[11px]">{value.length === 0 ? "Select..." : "+"}</span>
-          </SelectTrigger>
-          <SelectContent>
+          {value.length === 0 ? (
+            <SelectTrigger className="h-7 text-body border-0 bg-transparent hover:bg-accent/50 px-1.5 [&>svg]:text-muted-foreground/40">
+              <span className="text-muted-foreground/50">Select...</span>
+            </SelectTrigger>
+          ) : (
+            <SelectTrigger className="h-5 border-0 bg-transparent px-1 text-muted-foreground/50 hover:text-muted-foreground [&>svg]:hidden">
+              <span className="text-[11px]">+</span>
+            </SelectTrigger>
+          )}
+          <SelectContent position="popper" sideOffset={4}>
             {remaining.map((opt) => (
               <SelectItem key={opt.value} value={opt.value}>
                 <span className="flex items-center gap-1.5">

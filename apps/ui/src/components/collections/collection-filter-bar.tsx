@@ -217,7 +217,7 @@ export function CollectionFilterBar({
                     <SelectTrigger className="h-7 text-[11px] w-24 shrink-0">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper" sideOffset={4}>
                       {operators.map((op) => (
                         <SelectItem key={op.label} value={op.label}>
                           {op.label}
@@ -234,7 +234,7 @@ export function CollectionFilterBar({
                         <SelectTrigger className="h-7 text-[11px] flex-1 min-w-0">
                           <SelectValue placeholder="Pick..." />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent position="popper" sideOffset={4}>
                           <SelectItem value="__pick__" disabled>
                             <span className="text-muted-foreground">Pick...</span>
                           </SelectItem>
@@ -365,7 +365,7 @@ function AddFilterRow({
         <SelectTrigger className="h-7 text-[11px]" autoFocus>
           <SelectValue placeholder="Choose field..." />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent position="popper" sideOffset={4}>
           {fields.map((f) => (
             <SelectItem key={f.field_key} value={f.field_key}>
               <span className="flex items-center gap-2">
