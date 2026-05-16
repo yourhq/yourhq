@@ -39,7 +39,7 @@ export interface Routine {
   value: string | null;
   meta: Record<string, unknown>;
   archived_at: string | null;
-  agent?: { id: string; name: string; slug: string } | null;
+  agent?: { id: string; name: string; slug: string; meta?: Record<string, unknown> } | null;
 }
 
 export const TRIGGER_TYPE_LABELS: Record<TriggerType, string> = {

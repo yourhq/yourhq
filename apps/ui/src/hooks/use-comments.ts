@@ -23,7 +23,7 @@ export function useComments(taskId: string) {
     if (!didInitialFetch.current) setLoading(true);
     const { data, error } = await supabase
       .from("comments")
-      .select("*, actor_agent:agents!comments_actor_agent_id_fkey(id, name, slug, avatar_url)")
+      .select("*, actor_agent:agents!comments_actor_agent_id_fkey(id, name, slug, avatar_url, meta)")
       .eq("entity_type", "task")
       .eq("entity_id", taskId)
       .order("created_at", { ascending: true });

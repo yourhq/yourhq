@@ -16,7 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Repeat, Search } from "lucide-react";
+import { Plus, Repeat, Search, Zap } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { FirstVisitHint } from "@/components/onboarding/first-visit-hint";
 import type { TriggerType } from "@/lib/routines/types";
 
@@ -27,7 +28,7 @@ function RoutinesContent() {
   return (
     <div className="flex h-full flex-col">
       <PageHeader
-        icon={<Repeat className="h-4 w-4" />}
+        icon={<Zap className="h-4 w-4" />}
         title="Routines"
         description="Scheduled checks and event-driven agent behaviors."
         primaryAction={
@@ -47,30 +48,38 @@ function RoutinesContent() {
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-5 py-2 border-b border-border/30">
-        <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            value={filters.search}
-            onChange={(e) => filters.setSearch(e.target.value)}
-            placeholder="Search routines..."
-            className="h-7 pl-8 text-xs"
-          />
-        </div>
+      <div className="shrink-0 border-b border-border/60 px-5 py-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[180px] max-w-[280px]">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={filters.search}
+              onChange={(e) => filters.setSearch(e.target.value)}
+              placeholder="Search routines..."
+              className="h-8 pl-8 text-[13px]"
+            />
+          </div>
 
-        <Select
-          value={filters.triggerFilter}
-          onValueChange={(v) => filters.setTriggerFilter(v as "all" | TriggerType)}
-        >
-          <SelectTrigger className="h-7 w-auto min-w-[100px] text-xs">
-            <SelectValue placeholder="All types" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All types</SelectItem>
-            <SelectItem value="schedule">Schedule</SelectItem>
-            <SelectItem value="event">Event</SelectItem>
-          </SelectContent>
-        </Select>
+          <Select
+            value={filters.triggerFilter}
+            onValueChange={(v) => filters.setTriggerFilter(v as "all" | TriggerType)}
+          >
+            <SelectTrigger
+              size="sm"
+              className={cn(
+                "min-w-[110px] text-[12px]",
+                filters.triggerFilter !== "all" && "border-foreground/30 bg-accent/50"
+              )}
+            >
+              <SelectValue placeholder="All types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All types</SelectItem>
+              <SelectItem value="schedule">Schedule</SelectItem>
+              <SelectItem value="event">Event</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="flex-1 overflow-auto p-5">

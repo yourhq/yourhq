@@ -159,7 +159,9 @@ function DeliverableCard({
           </div>
           {deliverable.submitted_by_agent && (
             <div className="flex items-center gap-1 mt-0.5">
-              <Bot className="h-3 w-3 text-muted-foreground/50" />
+              {deliverable.submitted_by_agent.meta?.emoji
+                ? <span className="text-xs">{deliverable.submitted_by_agent.meta.emoji as string}</span>
+                : <Bot className="h-3 w-3 text-muted-foreground/50" />}
               <span className="text-[11px] text-muted-foreground/60">
                 {deliverable.submitted_by_agent.name}
               </span>

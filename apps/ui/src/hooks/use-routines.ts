@@ -10,7 +10,7 @@ import { useRealtime } from "./use-realtime";
 import { toast } from "sonner";
 
 const ROUTINE_SELECT =
-  "*, agent:agents!routines_agent_id_fkey(id, name, slug)";
+  "*, agent:agents!routines_agent_id_fkey(id, name, slug, meta)";
 
 function updateUrl(params: Record<string, string | null>) {
   const url = new URL(window.location.href);

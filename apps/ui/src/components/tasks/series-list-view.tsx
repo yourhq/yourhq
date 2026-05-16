@@ -123,7 +123,7 @@ export function SeriesListView({
             {/* Assignee */}
             {s.assignee_agent ? (
               <span className="hidden shrink-0 items-center gap-1 text-[11px] text-muted-foreground md:inline-flex">
-                <Bot className="h-3 w-3" />
+                {(s.assignee_agent.meta?.emoji as string) ? <span>{s.assignee_agent.meta!.emoji as string}</span> : <Bot className="h-3 w-3" />}
                 {s.assignee_agent.name}
               </span>
             ) : s.assignee_type === "human" ? (

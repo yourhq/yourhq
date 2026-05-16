@@ -53,12 +53,20 @@ const ATTACHMENT_ICONS: Record<string, typeof FileText> = {
 
 function ActorAvatar({ comment }: { comment: Comment }) {
   const isAgent = comment.actor_type === "agent";
+  const emoji = isAgent ? (comment.actor_agent?.meta?.emoji as string | undefined) : undefined;
   if (isAgent && comment.actor_agent?.avatar_url) {
     return (
       <Avatar size="sm">
         <AvatarImage src={comment.actor_agent.avatar_url} alt={comment.actor_agent.name} />
-        <AvatarFallback><Bot className="h-3 w-3" /></AvatarFallback>
+        <AvatarFallback>{emoji || <Bot className="h-3 w-3" />}</AvatarFallback>
       </Avatar>
+    );
+  }
+  if (isAgent && emoji) {
+    return (
+      <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0 text-sm">
+        {emoji}
+      </div>
     );
   }
   return (
@@ -230,14 +238,15 @@ function TimelineComment({
 function ActivityEntry({ entry }: { entry: AuditLogEntry }) {
   const Icon = ACTION_ICONS[entry.action] || Pencil;
   const isAgent = entry.actor_type === "agent";
+  const emoji = isAgent ? (entry.actor_agent?.meta?.emoji as string | undefined) : undefined;
 
   return (
     <div className="flex items-start gap-2 py-1 pl-1">
       <div className={cn(
-        "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
+        "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px]",
         isAgent ? "bg-accent-emerald/10 text-accent-emerald" : "bg-muted text-muted-foreground"
       )}>
-        {isAgent ? <Bot className="h-2.5 w-2.5" /> : <Icon className="h-2.5 w-2.5" />}
+        {isAgent ? (emoji || <Bot className="h-2.5 w-2.5" />) : <Icon className="h-2.5 w-2.5" />}
       </div>
       <p className="flex-1 min-w-0 text-[11px] text-muted-foreground/70 leading-relaxed">
         {entry.summary || entry.action}

@@ -18,7 +18,7 @@ export function useDeliverables(taskId: string | null) {
 
     const { data: rows, error } = await supabase
       .from("entity_links")
-      .select("*, submitted_by_agent:agents!entity_links_submitted_by_agent_id_fkey(id, name, slug)")
+      .select("*, submitted_by_agent:agents!entity_links_submitted_by_agent_id_fkey(id, name, slug, meta)")
       .eq("owner_type", "task")
       .eq("owner_id", taskId)
       .eq("is_deliverable", true)

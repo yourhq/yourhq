@@ -89,15 +89,22 @@ function CommentAttachments({
 
 function ActorAvatar({ comment }: { comment: Comment }) {
   const isAgent = comment.actor_type === "agent";
+  const emoji = isAgent ? (comment.actor_agent?.meta?.emoji as string | undefined) : undefined;
 
   if (isAgent && comment.actor_agent?.avatar_url) {
     return (
       <Avatar size="sm">
         <AvatarImage src={comment.actor_agent.avatar_url} alt={comment.actor_agent.name} />
-        <AvatarFallback>
-          <Bot className="h-3 w-3" />
-        </AvatarFallback>
+        <AvatarFallback>{emoji || <Bot className="h-3 w-3" />}</AvatarFallback>
       </Avatar>
+    );
+  }
+
+  if (isAgent && emoji) {
+    return (
+      <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0 text-sm">
+        {emoji}
+      </div>
     );
   }
 

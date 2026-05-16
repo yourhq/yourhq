@@ -153,7 +153,9 @@ function AuditRow({ entry }: { entry: AuditLogEntry }) {
     <div className="border-b border-border/50 last:border-0">
       <div className="flex items-center gap-2.5 w-full px-3 py-2.5">
         {entry.actor_type === "agent" ? (
-          <Bot className="h-3 w-3 text-muted-foreground shrink-0" />
+          (entry.actor_agent?.meta?.emoji as string)
+            ? <span className="shrink-0 text-xs">{entry.actor_agent!.meta!.emoji as string}</span>
+            : <Bot className="h-3 w-3 text-muted-foreground shrink-0" />
         ) : entry.actor_type === "system" ? (
           <Cpu className="h-3 w-3 text-muted-foreground shrink-0" />
         ) : (

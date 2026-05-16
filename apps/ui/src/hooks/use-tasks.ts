@@ -99,7 +99,7 @@ export function useTasks() {
     setLoading(true);
     let query = supabase
       .from("tasks")
-      .select("*, stream:streams(id, name, color, icon), assignee_agent:agents!tasks_assignee_agent_id_fkey(id, name, slug, avatar_url), series:task_series(id, cadence_type, interval_n, days_of_week, day_of_month, time_of_day, timezone)")
+      .select("*, stream:streams(id, name, color, icon), assignee_agent:agents!tasks_assignee_agent_id_fkey(id, name, slug, avatar_url, meta), series:task_series(id, cadence_type, interval_n, days_of_week, day_of_month, time_of_day, timezone)")
       .is("parent_id", null) // only top-level tasks
       .order("created_at", { ascending: false });
 
@@ -286,7 +286,7 @@ export function useTasks() {
 
   useRealtimeSync<Task>({
     table: "tasks",
-    select: "*, stream:streams(id, name, color, icon), assignee_agent:agents!tasks_assignee_agent_id_fkey(id, name, slug, avatar_url), series:task_series(id, cadence_type, interval_n, days_of_week, day_of_month, time_of_day, timezone)",
+    select: "*, stream:streams(id, name, color, icon), assignee_agent:agents!tasks_assignee_agent_id_fkey(id, name, slug, avatar_url, meta), series:task_series(id, cadence_type, interval_n, days_of_week, day_of_month, time_of_day, timezone)",
     items: tasks,
     setItems: setTasks,
     filter: "parent_id=is.null",
@@ -480,7 +480,7 @@ export function useTasks() {
       const { data } = await supabase
         .from("tasks")
         .select(
-          "*, stream:streams(id, name, color, icon), assignee_agent:agents!tasks_assignee_agent_id_fkey(id, name, slug, avatar_url), series:task_series(id, cadence_type, interval_n, days_of_week, day_of_month, time_of_day, timezone)"
+          "*, stream:streams(id, name, color, icon), assignee_agent:agents!tasks_assignee_agent_id_fkey(id, name, slug, avatar_url, meta), series:task_series(id, cadence_type, interval_n, days_of_week, day_of_month, time_of_day, timezone)"
         )
         .eq("id", id)
         .maybeSingle();

@@ -38,7 +38,7 @@ export interface AuditLogEntry {
   changes: Record<string, { old: unknown; new: unknown }> | null;
   meta: Record<string, unknown>;
   // Joined
-  actor_agent?: { id: string; name: string; slug: string; avatar_url: string | null } | null;
+  actor_agent?: { id: string; name: string; slug: string; avatar_url: string | null; meta?: Record<string, unknown> } | null;
 }
 
 // Constants

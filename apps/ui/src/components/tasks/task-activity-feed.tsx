@@ -18,14 +18,15 @@ const actionIcons: Record<string, typeof ArrowRight> = {
 function EntryRow({ entry }: { entry: AuditLogEntry }) {
   const Icon = actionIcons[entry.action] || Pencil;
   const isAgent = entry.actor_type === "agent";
+  const emoji = isAgent ? (entry.actor_agent?.meta?.emoji as string | undefined) : undefined;
 
   return (
     <div className="flex items-start gap-2 py-1.5">
       <div className={cn(
-        "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
+        "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px]",
         isAgent ? "bg-accent-emerald/10 text-accent-emerald" : "bg-muted text-muted-foreground"
       )}>
-        {isAgent ? <Bot className="h-2.5 w-2.5" /> : <Icon className="h-2.5 w-2.5" />}
+        {isAgent ? (emoji || <Bot className="h-2.5 w-2.5" />) : <Icon className="h-2.5 w-2.5" />}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-[11px] text-foreground/80 leading-relaxed">

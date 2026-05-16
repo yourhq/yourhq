@@ -18,6 +18,7 @@ export interface MentionItem {
   slug: string;
   name: string;
   isMe: boolean;
+  emoji?: string;
 }
 
 interface MentionAutocompleteProps {
@@ -36,7 +37,7 @@ export function useMentionItems(filter: string): MentionItem[] {
   return useMemo(() => {
     const all: MentionItem[] = [
       { slug: "me", name: "You", isMe: true },
-      ...agents.map((a) => ({ slug: a.slug, name: a.name, isMe: false })),
+      ...agents.map((a) => ({ slug: a.slug, name: a.name, isMe: false, emoji: a.meta?.emoji as string | undefined })),
     ];
     return all.filter(
       (item) =>
@@ -89,9 +90,11 @@ export function MentionAutocomplete({
                     : "text-foreground hover:bg-accent/50"
                 )}
               >
-                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-muted shrink-0">
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-muted shrink-0 text-sm">
                   {item.isMe ? (
                     <User className="h-3 w-3" />
+                  ) : item.emoji ? (
+                    <span>{item.emoji}</span>
                   ) : (
                     <Bot className="h-3 w-3" />
                   )}

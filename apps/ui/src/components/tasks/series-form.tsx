@@ -116,7 +116,7 @@ export function SeriesForm({ seriesId, onClose }: SeriesFormProps) {
     if (!seriesId) return;
     supabase
       .from("tasks")
-      .select("*, assignee_agent:agents!tasks_assignee_agent_id_fkey(id, name, slug, avatar_url)")
+      .select("*, assignee_agent:agents!tasks_assignee_agent_id_fkey(id, name, slug, avatar_url, meta)")
       .eq("series_id", seriesId)
       .order("series_occurrence_at", { ascending: false })
       .limit(100)
@@ -398,10 +398,13 @@ export function SeriesForm({ seriesId, onClose }: SeriesFormProps) {
                       Me
                     </>
                   ) : assigneeValue !== "none" ? (
-                    <>
-                      <Bot className="h-3 w-3" />
-                      {agents.find((a) => a.id === assigneeValue)?.name ?? "Agent"}
-                    </>
+                    (() => {
+                      const ag = agents.find((a) => a.id === assigneeValue);
+                      return <>
+                        {(ag?.meta?.emoji as string) ? <span>{ag!.meta!.emoji as string}</span> : <Bot className="h-3 w-3" />}
+                        {ag?.name ?? "Agent"}
+                      </>;
+                    })()
                   ) : (
                     <span className="text-muted-foreground">Unassigned</span>
                   )}

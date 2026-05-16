@@ -458,11 +458,16 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
   const isAgentAssigned = assignee !== "none" && assignee !== "me";
   const deliverableCount = editingTask?.deliverable_count ?? 0;
 
+  const assigneeAgent = assignee !== "none" && assignee !== "me"
+    ? agents.find((a) => a.id === assignee)
+    : undefined;
   const assigneeLabel = assignee === "none"
     ? "Unassigned"
     : assignee === "me"
       ? "Me"
-      : agents.find((a) => a.id === assignee)?.name ?? "Agent";
+      : assigneeAgent
+        ? `${assigneeAgent.meta?.emoji ? `${assigneeAgent.meta.emoji} ` : ""}${assigneeAgent.name}`
+        : "Agent";
 
   return (
     <ResponsiveDialog open onOpenChange={(open) => !open && handleClose()}>
@@ -568,7 +573,9 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
                   <SelectItem value="none">Unassigned</SelectItem>
                   <SelectItem value="me">Me</SelectItem>
                   {agents.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.meta?.emoji ? `${a.meta.emoji} ` : ""}{a.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
