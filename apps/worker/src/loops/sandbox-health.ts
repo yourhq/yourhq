@@ -129,7 +129,7 @@ export function startSandboxHealthLoop(provider: SandboxProvider): NodeJS.Timeou
             GATEWAY_ID: "default",
             GATEWAY_LABEL: ws.label,
             TENANT_ID: "00000000-0000-0000-0000-000000000000",
-            NETWORKING_MODE: "e2b",
+            NETWORKING_MODE: "hosted",
           },
         });
 

@@ -30,19 +30,13 @@ set -euo pipefail
 # RUNTIME_MODE controls which subsystems the entrypoint starts.
 #   docker   — default. Runs inside docker-compose; daemons are separate containers.
 #   systemd  — bare-metal / VM installs where systemd manages the process.
-#   e2b      — E2B sandbox. Daemons run in-process; no Docker socket; no registry polling.
+#   hosted   — cloud sandbox. Daemons run in-process; platform hooks handle URL discovery.
 RUNTIME_MODE="${RUNTIME_MODE:-docker}"
 
-# E2B runs start_cmd as "user" (HOME=/home/user) regardless of the
-# Dockerfile USER directive. Repoint HOME to the openclaw home dir
-# where the image's files actually live.
-if [ "$RUNTIME_MODE" = "e2b" ] && [ -d /home/openclaw ]; then
-  export HOME=/home/openclaw
-  export NETWORKING_MODE=e2b
-  chmod -R o+rwX /home/openclaw 2>/dev/null || true
-  exec > >(tee -a /tmp/entrypoint.log) 2>&1
-  set -x
-  trap 'echo "[entrypoint] FATAL: exiting due to error on line $LINENO (exit $?)" | tee -a /tmp/entrypoint.log; kill -TERM $(jobs -p) 2>/dev/null || true; exit 1' ERR
+# Source platform-specific init hook if present (handles HOME fixup,
+# permission quirks, debug logging, etc. for the hosting provider).
+if [ -f /opt/yourhq/hooks/init.sh ]; then
+  source /opt/yourhq/hooks/init.sh
 fi
 
 # Forward SIGTERM from tini to children
@@ -138,9 +132,9 @@ fi
 REGISTRY_HELPER="/opt/yourhq/registry_config.py"
 [ -f "$REGISTRY_HELPER" ] || REGISTRY_HELPER="/app/registry_config.py"
 
-if [ "$RUNTIME_MODE" = "e2b" ]; then
+if [ "$RUNTIME_MODE" = "hosted" ]; then
   if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
-    log "RUNTIME_MODE=e2b but SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set. Aborting."
+    log "RUNTIME_MODE=hosted but SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set. Aborting."
     exit 1
   fi
 elif [ ! -f "$REGISTRY_HELPER" ]; then
@@ -544,34 +538,22 @@ if [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
     export REG_VNC_PW
   fi
 
-  # SANDBOX_HOST: in E2B mode, the worker writes /tmp/sandbox-host with
-  # the sandbox's public base URL after creation. The entrypoint waits
-  # for this file since the sandbox ID isn't known at spawn time.
-  if [ "$RUNTIME_MODE" = "e2b" ] && [ -z "${SANDBOX_HOST:-}" ]; then
-    log "Waiting for /tmp/sandbox-host (written by E2B provider) ..."
-    for _i in $(seq 1 60); do
-      [ -f /tmp/sandbox-host ] && break
-      sleep 1
-    done
-    if [ -f /tmp/sandbox-host ]; then
-      SANDBOX_HOST="$(cat /tmp/sandbox-host)"
-      export SANDBOX_HOST
-    fi
+  # Source platform-specific URL resolution hook if present.
+  # The hook sets REACHABLE_BASE, REACHABLE_FILES_API, REACHABLE_NOVNC.
+  if [ -f /opt/yourhq/hooks/resolve-urls.sh ]; then
+    source /opt/yourhq/hooks/resolve-urls.sh
   fi
 
   REACHABLE_JSON=$(python3 - <<'PYEOF'
 import json, os
-sandbox_host = os.environ.get("SANDBOX_HOST", "").strip()
-if sandbox_host:
-    base = sandbox_host.rstrip("/")
-    if not base.startswith("http"):
-        base = f"https://{base}"
+reachable_base = os.environ.get("REACHABLE_BASE", "").strip()
+if reachable_base:
     meta_urls = {
-        "base": base,
-        "files_api": base.replace("https://", "https://18790-", 1),
-        "novnc": base.replace("https://", "https://6901-", 1) + "/vnc.html?autoconnect=1&resize=remote",
+        "base": reachable_base,
+        "files_api": os.environ.get("REACHABLE_FILES_API", ""),
+        "novnc": os.environ.get("REACHABLE_NOVNC", ""),
     }
-    networking_mode = "e2b"
+    networking_mode = "hosted"
 else:
     base = os.environ.get("HOST_REACHABLE_URL", "http://localhost").rstrip("/")
     files_port = os.environ.get("FILES_API_PORT", "18790")
@@ -661,33 +643,43 @@ log "Clearing stale Chrome Singleton* locks in all agent profiles ..."
 find "$HOME/.openclaw/browser" -maxdepth 3 -name "Singleton*" -delete 2>/dev/null || true
 
 # ─────────────────────────────────────────────────────────────
-# 12. In e2b mode, start daemons in-process.
+# 12. In hosted mode, start daemons in-process.
 #     In docker mode they run as separate containers (dispatcher,
-#     runner in docker-compose.yml). In e2b there's one sandbox
+#     runner in docker-compose.yml). In hosted mode there's one
 #     process tree — everything runs here.
 # ─────────────────────────────────────────────────────────────
 
-if [ "$RUNTIME_MODE" = "e2b" ]; then
+if [ "$RUNTIME_MODE" = "hosted" ]; then
   DAEMON_DIR="/opt/yourhq/daemons"
   [ -d "$DAEMON_DIR" ] || DAEMON_DIR="$(dirname "$(readlink -f "$0")")/daemons"
 
+  if [ -f "$DAEMON_DIR/embedder.py" ] && [ -z "${EMBEDDER_URL:-}" ]; then
+    export EMBEDDER_URL="http://localhost:18801"
+  fi
+
+  if [ -f "$DAEMON_DIR/embedder.py" ]; then
+    log "Starting embedder (in-process, hosted mode) ..."
+    EMBEDDER_CACHE_DIR="${EMBEDDER_CACHE_DIR:-/opt/yourhq/models}" \
+    python3 "$DAEMON_DIR/embedder.py" > "$HOME/embedder.log" 2>&1 &
+  fi
+
   if [ -f "$DAEMON_DIR/inbox_dispatcher.py" ]; then
-    log "Starting inbox_dispatcher (in-process, e2b mode) ..."
+    log "Starting inbox_dispatcher (in-process, hosted mode) ..."
     python3 "$DAEMON_DIR/inbox_dispatcher.py" > "$HOME/inbox-dispatcher.log" 2>&1 &
   fi
 
   if [ -f "$DAEMON_DIR/command_runner.py" ]; then
-    log "Starting command_runner (in-process, e2b mode) ..."
+    log "Starting command_runner (in-process, hosted mode) ..."
     python3 "$DAEMON_DIR/command_runner.py" > "$HOME/command-runner.log" 2>&1 &
   fi
 
   if [ -f "$DAEMON_DIR/file_processor.py" ]; then
-    log "Starting file_processor (in-process, e2b mode) ..."
+    log "Starting file_processor (in-process, hosted mode) ..."
     python3 "$DAEMON_DIR/file_processor.py" > "$HOME/file-processor.log" 2>&1 &
   fi
 
   if [ -f "$DAEMON_DIR/source_sync.py" ]; then
-    log "Starting source_sync (in-process, e2b mode) ..."
+    log "Starting source_sync (in-process, hosted mode) ..."
     python3 "$DAEMON_DIR/source_sync.py" > "$HOME/source-sync.log" 2>&1 &
   fi
 fi

@@ -1,8 +1,8 @@
 import { Template, defaultBuildLogger } from "e2b";
 import { readFileSync } from "node:fs";
 
-console.log("[e2b] Reading gateway/Dockerfile...");
-const dockerfile = readFileSync("gateway/Dockerfile", "utf-8");
+console.log("[e2b] Reading gateway/Dockerfile.e2b...");
+const dockerfile = readFileSync("gateway/Dockerfile.e2b", "utf-8");
 console.log(`[e2b] Dockerfile loaded (${dockerfile.split("\n").length} lines)`);
 
 console.log("[e2b] Parsing Dockerfile into template definition...");

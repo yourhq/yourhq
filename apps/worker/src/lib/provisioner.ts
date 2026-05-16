@@ -255,7 +255,7 @@ async function doProvision(
           GATEWAY_ID: "default",
           GATEWAY_LABEL: workspace.label,
           TENANT_ID: "00000000-0000-0000-0000-000000000000",
-          NETWORKING_MODE: "e2b",
+          NETWORKING_MODE: "hosted",
         },
       });
 

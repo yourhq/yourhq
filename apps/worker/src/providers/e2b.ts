@@ -20,7 +20,7 @@ export class E2BSandboxProvider implements SandboxProvider {
     const sandbox = await Sandbox.create(templateName, {
       envs: {
         ...opts.envs,
-        RUNTIME_MODE: "e2b",
+        RUNTIME_MODE: "hosted",
       },
       timeoutMs: DEFAULT_TIMEOUT_MS,
       metadata: { workspaceId: opts.workspaceId },

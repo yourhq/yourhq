@@ -1,0 +1,21 @@
+ARG BASE_IMAGE=ghcr.io/yourhq/yourhq-gateway:latest
+FROM ${BASE_IMAGE}
+
+USER root
+
+COPY gateway/embedder/requirements.txt /tmp/embedder-requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/embedder-requirements.txt
+
+RUN python3 -c "from fastembed import TextEmbedding; TextEmbedding(model_name='BAAI/bge-small-en-v1.5', cache_dir='/opt/yourhq/models')"
+
+COPY --chown=openclaw:openclaw gateway/embedder/embedder.py /opt/yourhq/daemons/embedder.py
+
+COPY --chown=openclaw:openclaw gateway/hosted/e2b/init.sh /opt/yourhq/hooks/init.sh
+COPY --chown=openclaw:openclaw gateway/hosted/e2b/resolve-urls.sh /opt/yourhq/hooks/resolve-urls.sh
+RUN chmod +x /opt/yourhq/hooks/init.sh /opt/yourhq/hooks/resolve-urls.sh
+
+ENV RUNTIME_MODE=hosted
+
+USER openclaw
+WORKDIR /home/openclaw
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
