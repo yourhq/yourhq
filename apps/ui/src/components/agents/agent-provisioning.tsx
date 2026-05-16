@@ -164,6 +164,7 @@ export function AgentProvisioning({ agent }: AgentProvisioningProps) {
   return (
     <div>
       <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+        <Terminal className="mr-1.5 inline h-3 w-3" />
         Operations
       </h2>
 

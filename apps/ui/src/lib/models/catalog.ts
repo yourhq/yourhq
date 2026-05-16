@@ -234,3 +234,7 @@ export const AGGREGATOR_PROVIDERS = new Set([
 ]);
 
 export const LOCAL_PROVIDERS = new Set(["ollama", "lmstudio", "vllm", "sglang"]);
+
+export const ALL_KNOWN_PROVIDERS = [
+  ...new Set(CURATED_MODELS.map((m) => m.provider)),
+];

@@ -10,6 +10,7 @@ import {
   Trash2,
   ExternalLink,
   FileText,
+  FolderOpen,
   MoreHorizontal,
   Terminal,
   Users,
@@ -17,7 +18,7 @@ import {
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import type { Agent, AgentMeta } from "@/lib/agents/types";
-import { AGENT_STATUSES, DOMAIN_LABELS } from "@/lib/agents/types";
+import { AGENT_STATUSES } from "@/lib/agents/types";
 import { KNOWLEDGE_KIND_COLORS } from "@/lib/knowledge/types";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -171,6 +172,23 @@ export function AgentDetailTabs({
             />
           </DetailSidebarMobile>
         }
+        identityDescription={
+          <InlineEdit
+            value={agent.description ?? ""}
+            type="textarea"
+            placeholder="Add a description — what does this agent do?"
+            onSave={async (v) => {
+              try {
+                await updateAgent({ agentId: agent.id, description: v || null });
+                onAgentUpdated?.();
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Failed to update");
+              }
+            }}
+            className="text-[12px] text-muted-foreground -ml-1.5"
+            inputClassName="text-[12px] text-muted-foreground"
+          />
+        }
         overflow={
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -191,94 +209,78 @@ export function AgentDetailTabs({
         }
       />
 
-      <div className="flex min-h-0 flex-1">
-        <main className="flex min-w-0 flex-1 flex-col">
-          <Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col">
-            <div className="border-b border-border/60 px-5">
-              <TabsList variant="line" className="h-9">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="secrets">Secrets</TabsTrigger>
-                <TabsTrigger value="files">Files</TabsTrigger>
-                {agent.gateway_id && (
-                  <TabsTrigger value="browser">Browser</TabsTrigger>
-                )}
-                <TabsTrigger value="activity">Activity</TabsTrigger>
-              </TabsList>
-            </div>
-
-            <TabsContent value="overview" className="min-h-0 flex-1 overflow-auto">
-              <div className="mx-auto max-w-3xl space-y-6 px-5 py-5">
-                <AgentChannelCard agent={agent} onAgentUpdated={onAgentUpdated} />
-                <InlineEdit
-                  value={agent.description ?? ""}
-                  type="textarea"
-                  placeholder="Add a description — what does this agent do?"
-                  onSave={async (v) => {
-                    try {
-                      await updateAgent({ agentId: agent.id, description: v || null });
-                      onAgentUpdated?.();
-                    } catch (e) {
-                      toast.error(e instanceof Error ? e.message : "Failed to update");
-                    }
-                  }}
-                  className="text-sm text-muted-foreground -ml-1.5"
-                  inputClassName="text-sm text-muted-foreground"
-                />
-                <DirectReportsSection agent={agent} allAgents={allAgents} />
-                <AgentKnowledgeSection agentId={agent.id} agentSlug={agent.slug} />
-                <ContextKnowledgeSection agent={agent} contextKnowledge={contextKnowledge} />
-                <div className="border-t border-border/50 pt-6">
-                  <RoutinesSection agent={agent} onAgentUpdated={onAgentUpdated} />
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="secrets" className="min-h-0 flex-1 overflow-auto">
-              <AgentSecretsTab
-                agentId={agent.id}
-                agentName={agent.name}
-                gatewayId={agent.gateway_id}
-              />
-            </TabsContent>
-
-            <TabsContent value="files" className="min-h-0 flex-1 overflow-auto">
-              <div className="mx-auto max-w-5xl px-5 py-5">
-                <AgentFileBrowser slug={agent.slug} />
-              </div>
-            </TabsContent>
-
+      <Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col">
+        <div className="border-b border-border/60 px-5">
+          <TabsList variant="line" className="h-9">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="secrets">Secrets</TabsTrigger>
+            <TabsTrigger value="files">Files</TabsTrigger>
             {agent.gateway_id && (
-              <TabsContent value="browser" className="min-h-0 flex-1">
-                <AgentBrowserTab slug={agent.slug} />
-              </TabsContent>
+              <TabsTrigger value="browser">Browser</TabsTrigger>
             )}
+            <TabsTrigger value="activity">Activity</TabsTrigger>
+          </TabsList>
+        </div>
 
-            <TabsContent
-              value="activity"
-              className="min-h-0 flex-1 overflow-auto"
-            >
-              <div className="mx-auto max-w-3xl space-y-6 px-5 py-5">
-                <InboxSection agentId={agent.id} />
-                <div className="border-t border-border/50 pt-6">
-                  <AgentProvisioning agent={agent} />
+        <div className="min-h-0 flex-1 overflow-auto">
+          <div className="flex min-h-full">
+            <main className="min-w-0 flex-1">
+              <TabsContent value="overview" className="mt-0">
+                <div className="mx-auto max-w-3xl space-y-6 px-5 py-5">
+                  <AgentChannelCard agent={agent} onAgentUpdated={onAgentUpdated} />
+                  <DirectReportsSection agent={agent} allAgents={allAgents} />
+                  <AgentKnowledgeSection agentId={agent.id} agentSlug={agent.slug} />
+                  <ContextKnowledgeSection agent={agent} contextKnowledge={contextKnowledge} />
+                  <div className="border-t border-border/50 pt-6">
+                    <RoutinesSection agent={agent} onAgentUpdated={onAgentUpdated} />
+                  </div>
                 </div>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </main>
+              </TabsContent>
 
-        <DetailSidebar>
-          <AgentRailContent
-            agent={agent}
-            allAgents={allAgents}
-            contextKnowledge={contextKnowledge}
-            statusLabel={statusLabel}
-            statusColor={statusColor}
-            onOpenDesktop={openDesktop}
-            onAgentUpdated={onAgentUpdated}
-          />
-        </DetailSidebar>
-      </div>
+              <TabsContent value="secrets" className="mt-0">
+                <AgentSecretsTab
+                  agentId={agent.id}
+                  agentName={agent.name}
+                  gatewayId={agent.gateway_id}
+                />
+              </TabsContent>
+
+              <TabsContent value="files" className="mt-0">
+                <div className="mx-auto max-w-5xl px-5 py-5">
+                  <AgentFileBrowser slug={agent.slug} />
+                </div>
+              </TabsContent>
+
+              {agent.gateway_id && (
+                <TabsContent value="browser" className="mt-0">
+                  <AgentBrowserTab slug={agent.slug} />
+                </TabsContent>
+              )}
+
+              <TabsContent value="activity" className="mt-0">
+                <div className="mx-auto max-w-3xl space-y-6 px-5 py-5">
+                  <InboxSection agentId={agent.id} />
+                  <div className="border-t border-border/50 pt-6">
+                    <AgentProvisioning agent={agent} />
+                  </div>
+                </div>
+              </TabsContent>
+            </main>
+
+            <DetailSidebar>
+              <AgentRailContent
+                agent={agent}
+                allAgents={allAgents}
+                contextKnowledge={contextKnowledge}
+                statusLabel={statusLabel}
+                statusColor={statusColor}
+                onOpenDesktop={openDesktop}
+                onAgentUpdated={onAgentUpdated}
+              />
+            </DetailSidebar>
+          </div>
+        </div>
+      </Tabs>
 
       <OpenDesktopModal
         open={desktop.open}
@@ -410,55 +412,6 @@ function AgentRailContent({
         </DetailSidebarSection>
       )}
 
-      <DetailSidebarSection title="Properties">
-        <DetailSidebarPropertyGrid>
-          <DetailSidebarProperty label="Slug">
-            <span className="font-mono text-foreground/80">@{agent.slug}</span>
-          </DetailSidebarProperty>
-          <DetailSidebarProperty label="Domains">
-            {agent.domains.length > 0 ? (
-              <span className="flex flex-wrap gap-1">
-                {agent.domains.map((d) => (
-                  <span
-                    key={d}
-                    className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
-                  >
-                    {DOMAIN_LABELS[d] || d}
-                  </span>
-                ))}
-              </span>
-            ) : (
-              <span className="text-[11px] text-muted-foreground/50 italic">
-                None
-              </span>
-            )}
-          </DetailSidebarProperty>
-          <DetailSidebarProperty label="Capabilities">
-            {agent.capabilities && agent.capabilities.length > 0 ? (
-              <span className="flex flex-wrap gap-1">
-                {agent.capabilities.map((c) => (
-                  <span
-                    key={c}
-                    className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
-                  >
-                    {c}
-                  </span>
-                ))}
-              </span>
-            ) : (
-              <span className="text-[11px] text-muted-foreground/50 italic">
-                None
-              </span>
-            )}
-          </DetailSidebarProperty>
-          <DetailSidebarProperty label="Created">
-            <span className="text-muted-foreground">
-              {format(new Date(agent.created_at), "MMM d, yyyy")}
-            </span>
-          </DetailSidebarProperty>
-        </DetailSidebarPropertyGrid>
-      </DetailSidebarSection>
-
       {agent.gateway_id && (
         <>
           <DetailSidebarSection title="Quick actions">
@@ -500,25 +453,13 @@ function AgentRailContent({
             </p>
           </DetailSidebarSection>
 
-          <DetailSidebarSection title="Gateway">
-            <Link
-              href={`/dashboard/settings/gateways/${agent.gateway_id}`}
-              className="flex items-center justify-between gap-2 text-[12px] text-foreground hover:underline"
-            >
-              <span className="truncate">View gateway</span>
-              <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
-            </Link>
-            <p className="mt-1 text-[11px] text-muted-foreground/70">
-              Restart or inspect commands for the host machine.
-            </p>
-          </DetailSidebarSection>
-
           <DetailSidebarSection title="Model">
             <AgentModelSection
               agentId={agent.id}
               gatewayId={agent.gateway_id}
               currentModel={agent.model}
               currentThinking={agent.thinking}
+              onModelChange={() => onAgentUpdated?.()}
             />
           </DetailSidebarSection>
         </>
@@ -550,6 +491,34 @@ function AgentRailContent({
           </div>
         </DetailSidebarSection>
       )}
+
+      {agent.gateway_id && (
+        <DetailSidebarSection title="Gateway">
+          <Link
+            href={`/dashboard/settings/gateways/${agent.gateway_id}`}
+            className="flex items-center justify-between gap-2 text-[12px] text-foreground hover:underline"
+          >
+            <span className="truncate">View gateway</span>
+            <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+          </Link>
+          <p className="mt-1 text-[11px] text-muted-foreground/70">
+            Restart or inspect commands for the host machine.
+          </p>
+        </DetailSidebarSection>
+      )}
+
+      <DetailSidebarSection title="Properties">
+        <DetailSidebarPropertyGrid>
+          <DetailSidebarProperty label="Slug">
+            <span className="font-mono text-foreground/80">@{agent.slug}</span>
+          </DetailSidebarProperty>
+          <DetailSidebarProperty label="Created">
+            <span className="text-muted-foreground">
+              {format(new Date(agent.created_at), "MMM d, yyyy")}
+            </span>
+          </DetailSidebarProperty>
+        </DetailSidebarPropertyGrid>
+      </DetailSidebarSection>
 
       <DetailSidebarSection title="History">
         <Link
@@ -668,6 +637,7 @@ function ContextKnowledgeSection({
   return (
     <div>
       <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <FolderOpen className="mr-1.5 inline h-3 w-3" />
         Knowledge
       </h2>
       {contextKnowledge.length === 0 ? (

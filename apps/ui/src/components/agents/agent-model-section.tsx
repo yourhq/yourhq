@@ -16,8 +16,10 @@ import {
   getModelDisplayName,
   getModelProvider,
   getCanonicalProvider,
+  makeCustomModelEntry,
   AGGREGATOR_PROVIDERS,
   LOCAL_PROVIDERS,
+  ALL_KNOWN_PROVIDERS,
 } from "@/lib/models/catalog";
 import type { ModelEntry, ThinkingLevel } from "@/lib/models/types";
 import { THINKING_LEVELS, THINKING_LEVEL_LABELS } from "@/lib/models/types";
@@ -40,8 +42,10 @@ export function AgentModelSection({
   onModelChange,
 }: Props) {
   const [connections, setConnections] = useState<Connection[] | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
   const [thinkingOpen, setThinkingOpen] = useState(false);
+  const [customInput, setCustomInput] = useState("");
   const [saving, startTransition] = useTransition();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -60,10 +64,13 @@ export function AgentModelSection({
     void readConnectionsForGateway(gatewayId).then((r) => {
       if (r.ok && r.data) {
         setConnections(r.data.connections);
-        if (r.data.connections.length === 0 && !r.data.lastCheckedAt) {
-          void refreshConnectionsAction(gatewayId).then((fresh) => {
-            if (fresh.ok && fresh.data) setConnections(fresh.data.connections);
-          });
+        if (r.data.connections.length === 0) {
+          setRefreshing(true);
+          void refreshConnectionsAction(gatewayId)
+            .then((fresh) => {
+              if (fresh.ok && fresh.data) setConnections(fresh.data.connections);
+            })
+            .finally(() => setRefreshing(false));
         }
       }
     });
@@ -71,12 +78,35 @@ export function AgentModelSection({
 
   useEffect(() => { load(); }, [load]);
 
-  const healthy = (connections ?? []).filter((c) => c.status === "ok");
-  const connectedProviders = [...new Set(healthy.map((c) => c.provider))];
+  const usable = (connections ?? []).filter(
+    (c) => c.status !== "expired" && c.status !== "invalid" && c.status !== "missing_credential",
+  );
+  const connectedProviders = [...new Set(usable.map((c) => c.provider))];
 
-  const modelGroups = getCuratedModelsForProviders(connectedProviders);
-  const dynamicProviders = connectedProviders.filter(
-    (p) => AGGREGATOR_PROVIDERS.has(p) || LOCAL_PROVIDERS.has(p),
+  // If the agent already has a model set, ensure its provider is included.
+  if (currentModel) {
+    const activeProvider = getModelProvider(currentModel);
+    const canonical = getCanonicalProvider(activeProvider);
+    if (!connectedProviders.includes(activeProvider)) connectedProviders.push(activeProvider);
+    if (canonical !== activeProvider && !connectedProviders.includes(canonical)) connectedProviders.push(canonical);
+  }
+
+  // When no connections are detected (probe failed, gateway unreachable, or
+  // just not configured yet), show all curated models so the user can still
+  // pick. The gateway will reject at runtime if the provider isn't actually set up.
+  const hasConnectionData = usable.length > 0 || currentModel !== null;
+  const modelGroups = hasConnectionData
+    ? getCuratedModelsForProviders(connectedProviders)
+    : getCuratedModelsForProviders(ALL_KNOWN_PROVIDERS);
+  const dynamicProviders = hasConnectionData
+    ? connectedProviders.filter(
+        (p) => AGGREGATOR_PROVIDERS.has(p) || LOCAL_PROVIDERS.has(p),
+      )
+    : [...AGGREGATOR_PROVIDERS];
+
+  // If the current model isn't in any curated group, show it as a standalone entry
+  const currentModelInGroups = modelGroups.some((g) =>
+    g.models.some((m) => m.id === currentModel),
   );
 
   const handleModelChange = useCallback(
@@ -106,9 +136,10 @@ export function AgentModelSection({
         }
         const label = level ? THINKING_LEVEL_LABELS[level as ThinkingLevel] ?? level : "Off";
         toast.success(`Thinking set to ${label}`);
+        onModelChange?.(currentModel);
       });
     },
-    [agentId, currentModel],
+    [agentId, currentModel, onModelChange],
   );
 
   const displayModel = currentModel ? getModelDisplayName(currentModel) : null;
@@ -138,9 +169,9 @@ export function AgentModelSection({
             />
           )}
           <span className="min-w-0 flex-1 truncate text-foreground">
-            {saving ? "Saving..." : displayModel ?? "No model selected"}
+            {saving ? "Saving..." : displayModel ?? (refreshing ? "Checking providers…" : "No model selected")}
           </span>
-          {saving ? (
+          {saving || refreshing ? (
             <Loader2 className="h-3 w-3 shrink-0 animate-spin text-muted-foreground" />
           ) : (
             <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
@@ -173,14 +204,54 @@ export function AgentModelSection({
                 ))}
               </div>
             ))}
-            {dynamicProviders.length > 0 && (
-              <div className="border-t px-2 py-1.5 text-[10px] text-muted-foreground/70">
-                {dynamicProviders.map((p) => p).join(", ")} — type any model ID
+            {currentModel && !currentModelInGroups && (
+              <div>
+                <div className="px-2 pb-0.5 pt-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                  Current
+                </div>
+                <ModelOption
+                  model={makeCustomModelEntry(currentModel)}
+                  selected
+                  onSelect={() => {}}
+                />
               </div>
             )}
-            {healthy.length === 0 && connections !== null && (
+            {dynamicProviders.length > 0 && (
+              <div className="border-t px-1.5 py-1.5">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const value = customInput.trim();
+                    if (!value) return;
+                    const modelId = value.includes("/")
+                      ? value
+                      : `${dynamicProviders[0]}/${value}`;
+                    handleModelChange(modelId);
+                    setCustomInput("");
+                  }}
+                >
+                  <input
+                    type="text"
+                    value={customInput}
+                    onChange={(e) => setCustomInput(e.target.value)}
+                    placeholder={`${dynamicProviders[0]}/model-name`}
+                    className="w-full rounded border border-border/60 bg-background px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                  <p className="mt-1 text-[10px] text-muted-foreground/60">
+                    Enter to select custom model
+                  </p>
+                </form>
+              </div>
+            )}
+            {usable.length === 0 && connections !== null && !currentModel && !refreshing && (
               <p className="px-2 py-2 text-[11px] text-muted-foreground">
                 Connect a provider first
+              </p>
+            )}
+            {refreshing && (
+              <p className="flex items-center gap-1.5 px-2 py-2 text-[11px] text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Checking providers…
               </p>
             )}
           </div>

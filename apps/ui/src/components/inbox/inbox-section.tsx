@@ -82,6 +82,7 @@ export function InboxSection({ agentId }: InboxSectionProps) {
     <div>
       <div className="flex items-center gap-2 mb-3">
         <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          <Inbox className="mr-1.5 inline h-3 w-3" />
           Inbox
         </h2>
         {pendingCount > 0 && (

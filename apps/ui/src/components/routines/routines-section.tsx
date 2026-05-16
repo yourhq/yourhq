@@ -59,6 +59,7 @@ export function RoutinesSection({ agent }: RoutinesSectionProps) {
   return (
     <div>
       <h2 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <Zap className="mr-1.5 inline h-3 w-3" />
         Routines
       </h2>
       <p className="mb-4 text-[12px] text-muted-foreground/80">
