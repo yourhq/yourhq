@@ -66,7 +66,7 @@ export function TaskDeliverables({ taskId }: TaskDeliverablesProps) {
 
   if (deliverables.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
+      <div className="flex flex-col items-center justify-center py-6 text-center">
         <FileText className="h-8 w-8 text-muted-foreground/30 mb-2" />
         <p className="text-sm text-muted-foreground/60">No deliverables yet</p>
         <p className="text-xs text-muted-foreground/40 mt-1">

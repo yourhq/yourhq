@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Comment } from "@/lib/tasks/types";
 import { logAudit } from "@/lib/audit/log";
@@ -15,11 +15,12 @@ function parseMentions(body: string): string[] {
 export function useComments(taskId: string) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
+  const didInitialFetch = useRef(false);
 
   const supabase = useMemo(() => createClient(), []);
 
   const fetchComments = useCallback(async () => {
-    setLoading(true);
+    if (!didInitialFetch.current) setLoading(true);
     const { data, error } = await supabase
       .from("comments")
       .select("*, actor_agent:agents!comments_actor_agent_id_fkey(id, name, slug, avatar_url)")
@@ -50,6 +51,7 @@ export function useComments(taskId: string) {
       setComments(topLevel);
     }
     setLoading(false);
+    didInitialFetch.current = true;
   }, [supabase, taskId]);
 
   useEffect(() => {
@@ -68,6 +70,34 @@ export function useComments(taskId: string) {
 
   async function addComment(body: string, parentId?: string, agentId?: string) {
     const mentions = parseMentions(body);
+    const now = new Date().toISOString();
+    const optimisticId = `optimistic-${Date.now()}`;
+    const optimistic: Comment = {
+      id: optimisticId,
+      entity_type: "task",
+      entity_id: taskId,
+      parent_id: parentId || null,
+      actor_type: agentId ? "agent" : "human",
+      actor_agent_id: agentId || null,
+      body,
+      mentions,
+      created_at: now,
+      updated_at: now,
+      meta: {},
+      replies: [],
+    } as Comment;
+
+    setComments((prev) => {
+      if (parentId) {
+        return prev.map((c) =>
+          c.id === parentId
+            ? { ...c, replies: [...(c.replies || []), optimistic] }
+            : c
+        );
+      }
+      return [...prev, optimistic];
+    });
+
     const { data: inserted, error } = await supabase.from("comments").insert({
       entity_type: "task",
       entity_id: taskId,
@@ -86,6 +116,8 @@ export function useComments(taskId: string) {
         summary: `Added comment on task`,
         actor_agent_id: agentId,
       });
+      fetchComments();
+    } else {
       fetchComments();
     }
   }

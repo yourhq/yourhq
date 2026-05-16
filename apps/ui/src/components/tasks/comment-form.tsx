@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { MentionAutocomplete } from "./mention-autocomplete";
+import { MentionAutocomplete, useMentionItems } from "./mention-autocomplete";
 import type { CommentAttachmentRef } from "@/lib/tasks/types";
 import { Send, Paperclip, X, FileText, Package, ExternalLink } from "lucide-react";
 
@@ -23,6 +23,8 @@ interface CommentFormProps {
   enableAttachments?: boolean;
   /** Pass false when inside a Dialog */
   portal?: boolean;
+  /** Show @agent hint when user has typed content */
+  showMentionHint?: boolean;
 }
 
 /** Extract mention trigger info from cursor position */
@@ -64,6 +66,7 @@ export function CommentForm({
   submitLabel,
   enableAttachments,
   portal = true,
+  showMentionHint,
 }: CommentFormProps) {
   const [body, setBody] = useState(initialBody);
   const [submitting, setSubmitting] = useState(false);
@@ -71,7 +74,9 @@ export function CommentForm({
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionFilter, setMentionFilter] = useState("");
   const [mentionStart, setMentionStart] = useState(-1);
+  const [mentionIndex, setMentionIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const mentionItems = useMentionItems(mentionFilter);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -84,6 +89,7 @@ export function CommentForm({
         setMentionOpen(true);
         setMentionFilter(ctx.filter);
         setMentionStart(ctx.start);
+        setMentionIndex(0);
       } else {
         setMentionOpen(false);
       }
@@ -127,118 +133,144 @@ export function CommentForm({
   }
 
   const isEdit = !!onCancel;
+  const hasContent = body.trim().length > 0;
 
   return (
     <div className="space-y-1.5">
-      {/* Attachments pills */}
-      {attachments.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {attachments.map((att, idx) => {
-            const Icon = ATTACHMENT_ICONS[att.entity_type] ?? FileText;
-            return (
-              <span
-                key={idx}
-                className="inline-flex items-center gap-1 rounded bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground"
-              >
-                <Icon className="h-2.5 w-2.5" />
-                <span className="max-w-[120px] truncate">{att.label}</span>
-                <button
-                  onClick={() => removeAttachment(idx)}
-                  className="ml-0.5 rounded hover:bg-accent p-0.5"
+      {/* Unified input container */}
+      <div className="rounded-lg bg-muted/30 transition-all focus-within:bg-muted/50">
+        {/* Attachments pills */}
+        {attachments.length > 0 && (
+          <div className="flex flex-wrap gap-1 px-3 pt-2">
+            {attachments.map((att, idx) => {
+              const Icon = ATTACHMENT_ICONS[att.entity_type] ?? FileText;
+              return (
+                <span
+                  key={idx}
+                  className="inline-flex items-center gap-1 rounded-md bg-muted/50 px-1.5 py-0.5 text-[11px] text-muted-foreground"
                 >
-                  <X className="h-2.5 w-2.5" />
-                </button>
-              </span>
-            );
-          })}
-        </div>
-      )}
+                  <Icon className="h-2.5 w-2.5" />
+                  <span className="max-w-[120px] truncate">{att.label}</span>
+                  <button
+                    onClick={() => removeAttachment(idx)}
+                    className="ml-0.5 rounded hover:bg-accent p-0.5"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        )}
 
-      {/* Input row */}
-      <div className="relative">
-        <Textarea
-          ref={textareaRef}
-          value={body}
-          onChange={handleChange}
-          placeholder={placeholder}
-          rows={compact ? 1 : 1}
-          className="min-h-0 text-xs resize-none pr-16"
-          onKeyDown={(e) => {
-            if (mentionOpen) {
-              if (e.key === "Escape") {
-                e.preventDefault();
-                setMentionOpen(false);
-                return;
-              }
-            }
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-              e.preventDefault();
-              handleSubmit();
-            }
-          }}
-        />
-        <MentionAutocomplete
-          open={mentionOpen}
-          filter={mentionFilter}
-          onSelect={handleMentionSelect}
-          onClose={() => setMentionOpen(false)}
-          anchorRef={textareaRef}
-          portal={portal}
-        />
-        <div className="absolute right-1.5 bottom-1.5 flex items-center gap-0.5">
-          {enableAttachments && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
-              onClick={() => {
-                const url = window.prompt("Enter URL to attach:");
-                if (url?.trim()) {
-                  setAttachments((prev) => [
-                    ...prev,
-                    { entity_type: "url", url: url.trim(), label: url.trim() },
-                  ]);
+        {/* Textarea */}
+        <div className="relative">
+          <Textarea
+            ref={textareaRef}
+            value={body}
+            onChange={handleChange}
+            placeholder={placeholder}
+            rows={1}
+            className="min-h-0 border-0 bg-transparent dark:bg-transparent shadow-none text-xs resize-none focus-visible:ring-0 placeholder:text-muted-foreground/60"
+            onKeyDown={(e) => {
+              if (mentionOpen && mentionItems.length > 0) {
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setMentionIndex((i) => (i + 1) % mentionItems.length);
+                  return;
                 }
-              }}
+                if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setMentionIndex((i) => (i - 1 + mentionItems.length) % mentionItems.length);
+                  return;
+                }
+                if (e.key === "Enter" || e.key === "Tab") {
+                  e.preventDefault();
+                  handleMentionSelect(mentionItems[mentionIndex].slug);
+                  return;
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  setMentionOpen(false);
+                  return;
+                }
+              }
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                handleSubmit();
+              }
+            }}
+          />
+          <MentionAutocomplete
+            open={mentionOpen}
+            filter={mentionFilter}
+            onSelect={handleMentionSelect}
+            onClose={() => setMentionOpen(false)}
+            anchorRef={textareaRef}
+            portal={portal}
+            activeIndex={mentionIndex}
+          />
+        </div>
+
+        {/* Action bar */}
+        <div className="flex items-center justify-between px-2 pb-1.5">
+          <div className="flex items-center gap-0.5">
+            {enableAttachments && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 shrink-0 text-muted-foreground/50 hover:text-foreground"
+                onClick={() => {
+                  const url = window.prompt("Enter URL to attach:");
+                  if (url?.trim()) {
+                    setAttachments((prev) => [
+                      ...prev,
+                      { entity_type: "url", url: url.trim(), label: url.trim() },
+                    ]);
+                  }
+                }}
+              >
+                <Paperclip className="h-3 w-3" />
+              </Button>
+            )}
+            {!isEdit && hasContent && (
+              <span className="text-[10px] text-muted-foreground/30 pl-1 select-none">
+                {showMentionHint && <><kbd className="rounded bg-muted px-1 py-0.5 text-[9px] font-mono">@</kbd> to notify an agent · </>}
+                {navigator.platform?.includes("Mac") ? "⌘" : "Ctrl"}+Enter to send
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            {isEdit && (
+              <>
+                <span className="text-[10px] text-muted-foreground/40 mr-1">
+                  {navigator.platform?.includes("Mac") ? "⌘" : "Ctrl"}+Enter
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-[11px] px-2"
+                  onClick={onCancel}
+                >
+                  Cancel
+                </Button>
+              </>
+            )}
+            <Button
+              variant={hasContent ? "default" : "ghost"}
+              size="icon"
+              className={hasContent
+                ? "h-6 w-6 shrink-0"
+                : "h-6 w-6 shrink-0 text-muted-foreground/40"
+              }
+              onClick={handleSubmit}
+              disabled={submitting || !hasContent}
             >
-              <Paperclip className="h-3 w-3" />
+              <Send className="h-3 w-3" />
             </Button>
-          )}
-          <Button
-            size="icon"
-            className="h-6 w-6 shrink-0"
-            onClick={handleSubmit}
-            disabled={submitting || !body.trim()}
-          >
-            <Send className="h-3 w-3" />
-          </Button>
+          </div>
         </div>
       </div>
-
-      {/* Edit mode actions */}
-      {isEdit && (
-        <div className="flex items-center justify-end gap-1.5">
-          <span className="text-[10px] text-muted-foreground/50 mr-auto">
-            {navigator.platform?.includes("Mac") ? "⌘" : "Ctrl"}+Enter to {submitLabel ?? "save"}
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 text-[11px] px-2"
-            onClick={onCancel}
-          >
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            className="h-6 text-[11px] px-2"
-            onClick={handleSubmit}
-            disabled={submitting || !body.trim()}
-          >
-            {submitLabel ?? "Save"}
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

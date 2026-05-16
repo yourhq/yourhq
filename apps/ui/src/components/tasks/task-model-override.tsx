@@ -39,7 +39,7 @@ export function TaskModelOverride({
         value={thinkingOverride ?? "__default__"}
         onValueChange={(v) => onThinkingChange(v === "__default__" ? null : v)}
       >
-        <SelectTrigger className="h-8 sm:h-6 w-auto gap-1 border-border/50 bg-transparent px-2.5 sm:px-2 text-xs font-normal hover:bg-accent rounded-md">
+        <SelectTrigger className="h-7 w-auto gap-1.5 border-transparent bg-transparent shadow-none dark:bg-transparent px-2 text-xs font-normal hover:bg-accent rounded-md justify-start">
           <Brain className="h-3 w-3 text-muted-foreground" />
           <span className="text-muted-foreground">{thinkingLabel}</span>
         </SelectTrigger>

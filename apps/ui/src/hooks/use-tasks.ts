@@ -458,21 +458,23 @@ export function useTasks() {
     updateUrl({ task: null });
   }
 
-  function onFormSaved() {
+  function onFormSaved(createdTaskId?: string) {
     closeForm();
-    fetchTasks();
+    fetchTasks().then(() => {
+      if (createdTaskId) openTaskById(createdTaskId);
+    });
   }
 
   // Resolve an id → task (hydrating joins) and open the modal.
   // Used by deep-link handling when the page reads `?task=<id>`.
   const openTaskById = useCallback(
     async (id: string) => {
-      // Try the already-fetched list first
       const local = tasks.find((t) => t.id === id);
       if (local) {
         setEditingTask(local);
         setShowForm(true);
         setSelectedTask(null);
+        updateUrl({ task: id });
         return;
       }
       const { data } = await supabase
@@ -486,6 +488,7 @@ export function useTasks() {
         setEditingTask(data as unknown as Task);
         setShowForm(true);
         setSelectedTask(null);
+        updateUrl({ task: id });
       }
     },
     [supabase, tasks]

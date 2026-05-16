@@ -24,18 +24,20 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { EntityLinkList } from "@/components/shared/entity-link-list";
 import { useBufferedEntityLinks } from "@/hooks/use-buffered-entity-links";
-import { CommentThread } from "./comment-thread";
-import { useComments } from "@/hooks/use-comments";
 import { useLabels } from "@/hooks/use-labels";
-import { Archive, AlertTriangle, Tag, Check } from "lucide-react";
-import { TaskActivityFeed } from "./task-activity-feed";
+import {
+  Archive,
+  AlertTriangle,
+  Tag,
+  Check,
+} from "lucide-react";
 import { TaskRelations } from "./task-relations";
 import { TaskLabelsPicker } from "./task-labels-picker";
 import { TaskDeliverables } from "./task-deliverables";
+import { TaskTimeline } from "./task-timeline";
 import {
   RecurrencePicker,
   DEFAULT_RECURRENCE,
@@ -52,6 +54,9 @@ import { shortCadenceLabel } from "@/lib/tasks/cadence";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
+const PROP_TRIGGER =
+  "h-7 w-auto gap-1.5 border-transparent bg-transparent shadow-none dark:bg-transparent px-2 text-xs font-normal hover:bg-accent rounded-md justify-start";
+
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: "bg-priority-urgent",
   high: "bg-priority-high",
@@ -67,25 +72,10 @@ const STATUS_ICONS: Record<string, string> = {
   cancelled: "⊘",
 };
 
-/** Sub-component to avoid conditional useComments hook call */
-function TaskFormComments({ taskId }: { taskId: string }) {
-  const { comments, loading, actions } = useComments(taskId);
-  return (
-    <CommentThread
-      comments={comments}
-      loading={loading}
-      onAddComment={actions.addComment}
-      onEditComment={actions.editComment}
-      onDeleteComment={actions.deleteComment}
-      portal={false}
-    />
-  );
-}
-
 interface TaskFormProps {
   streams: Stream[];
   editingTask: Task | null;
-  onSave: () => void;
+  onSave: (createdTaskId?: string) => void;
   onCancel: () => void;
   onArchive?: (id: string) => void;
   defaultTitle?: string;
@@ -414,7 +404,7 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
     }
 
     setSaving(false);
-    if (!opts?.autoSave) onSave();
+    if (!opts?.autoSave) onSave(inserted.id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, status, priority, streamId, assignee, dueDate, modelOverride, thinkingOverride, savedTaskId, editingSeriesId, recurrence]);
 
@@ -468,9 +458,15 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
   const isAgentAssigned = assignee !== "none" && assignee !== "me";
   const deliverableCount = editingTask?.deliverable_count ?? 0;
 
+  const assigneeLabel = assignee === "none"
+    ? "Unassigned"
+    : assignee === "me"
+      ? "Me"
+      : agents.find((a) => a.id === assignee)?.name ?? "Agent";
+
   return (
     <ResponsiveDialog open onOpenChange={(open) => !open && handleClose()}>
-      <ResponsiveDialogContent variant="fullscreen" className="sm:max-w-xl p-0 gap-0 max-h-[95dvh] sm:max-h-[85dvh] flex flex-col">
+      <ResponsiveDialogContent variant="fullscreen" className="sm:max-w-2xl p-0 gap-0 max-h-[95dvh] sm:max-h-[85dvh] flex flex-col">
         <ResponsiveDialogTitle className="sr-only">
           {editingTask ? "Edit task" : "New task"}
         </ResponsiveDialogTitle>
@@ -483,213 +479,206 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
           <div className="flex items-center gap-2 bg-status-warning/10 border-b border-status-warning/20 px-4 sm:px-5 py-2 text-xs text-status-warning shrink-0">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             <span>This task missed its deadline on {editingTask.due_date}.</span>
-            <div className="flex items-center gap-1 ml-auto">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-5 text-[11px] text-status-warning hover:text-status-warning px-1.5"
-                onClick={() => setStatus("todo")}
-              >
-                Reopen
-              </Button>
-            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto h-5 text-[11px] text-status-warning hover:text-status-warning px-1.5"
+              onClick={() => setStatus("todo")}
+            >
+              Reopen
+            </Button>
           </div>
         )}
 
-        {/* Title + description — non-scrollable */}
+        {/* Title + description + save status */}
         <div className="px-4 sm:px-5 pt-4 sm:pt-5 pb-1 shrink-0">
-          <textarea
-            ref={titleRef}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={handleTitleKeyDown}
-            placeholder={editingTask ? "Task title" : "What needs to be done?"}
-            autoFocus
-            rows={1}
-            className="w-full resize-none overflow-hidden border-0 bg-transparent text-[15px] font-semibold text-foreground outline-none placeholder:text-muted-foreground/40"
-          />
+          <div className="flex items-start gap-2">
+            <textarea
+              ref={titleRef}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={handleTitleKeyDown}
+              placeholder={editingTask ? "Task title" : "What needs to be done?"}
+              autoFocus
+              rows={1}
+              className="flex-1 resize-none overflow-hidden border-0 bg-transparent text-lg font-semibold text-foreground outline-none placeholder:text-muted-foreground/40"
+            />
+            {isEditing && saveStatus !== "idle" && (
+              <span className="shrink-0 mt-1.5 flex items-center gap-1 text-[10px] text-muted-foreground/50">
+                {saveStatus === "saving" && <><Spinner className="h-2.5 w-2.5" /> Saving</>}
+                {saveStatus === "saved" && <><Check className="h-2.5 w-2.5" /> Saved</>}
+              </span>
+            )}
+          </div>
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Add a description..."
             rows={2}
-            className="mt-1 min-h-[2.5rem] border-0 bg-transparent px-0 text-[13px] text-muted-foreground shadow-none resize-none focus-visible:ring-0 placeholder:text-muted-foreground/30"
+            className="mt-1 min-h-[2.5rem] border-0 bg-transparent dark:bg-transparent px-0 text-sm text-foreground/70 shadow-none resize-none focus-visible:ring-0 placeholder:text-muted-foreground/40"
           />
         </div>
 
-        {/* Property bar — non-scrollable, dropdowns can overflow */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-1.5 border-t border-border/40 px-4 sm:px-5 py-2.5 shrink-0">
-          {/* Status */}
-          <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
-            <SelectTrigger className="h-8 sm:h-6 w-auto gap-1 border-border/50 bg-transparent px-2.5 sm:px-2 text-xs font-normal hover:bg-accent rounded-md">
-              <span className="text-muted-foreground">{STATUS_ICONS[status]}</span>
-              <span>{TASK_STATUSES.find((s) => s.value === status)?.label}</span>
-            </SelectTrigger>
-            <SelectContent portal={false}>
-              {TASK_STATUSES.map((s) => (
-                <SelectItem key={s.value} value={s.value}>
-                  <span className="mr-1.5 text-muted-foreground">{STATUS_ICONS[s.value]}</span>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Priority */}
-          <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
-            <SelectTrigger className="h-8 sm:h-6 w-auto gap-1 border-border/50 bg-transparent px-2.5 sm:px-2 text-xs font-normal hover:bg-accent rounded-md">
-              <span className={cn("h-2 w-2 rounded-full", PRIORITY_COLORS[priority])} />
-              <span>{selectedPriority?.label}</span>
-            </SelectTrigger>
-            <SelectContent portal={false}>
-              {TASK_PRIORITIES.map((p) => (
-                <SelectItem key={p.value} value={p.value}>
-                  <span className={cn("mr-1.5 inline-block h-2 w-2 rounded-full", PRIORITY_COLORS[p.value])} />
-                  {p.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Stream */}
-          <Select value={streamId} onValueChange={setStreamId}>
-            <SelectTrigger className="h-8 sm:h-6 w-auto gap-1 border-border/50 bg-transparent px-2.5 sm:px-2 text-xs font-normal hover:bg-accent rounded-md">
-              {selectedStream ? (
-                <>
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: selectedStream.color }} />
-                  <span>{selectedStream.name}</span>
-                </>
-              ) : (
-                <span className="text-muted-foreground">No stream</span>
-              )}
-            </SelectTrigger>
-            <SelectContent portal={false}>
-              <SelectItem value="none">No stream</SelectItem>
-              {streams.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  <span className="mr-1.5 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
-                  {s.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Labels */}
-          {savedTaskId ? (
-            <TaskLabelsPicker
-              taskId={savedTaskId}
-              selectedLabels={taskLabels}
-              onLabelsChange={setTaskLabels}
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => { if (title.trim()) handleSubmit({ autoSave: true }); }}
-              disabled={!title.trim() || saving}
-              className="h-8 sm:h-6 flex items-center gap-1 border border-border/50 bg-transparent px-2.5 sm:px-2 text-xs font-normal hover:bg-accent rounded-md transition-colors text-muted-foreground disabled:opacity-50"
-            >
-              <Tag className="h-3 w-3" />
-              Labels
-            </button>
-          )}
-
-          {/* Assignee */}
-          <MicroTip tipKey="task-assignee" content="Assign to an agent and it starts working immediately." position="bottom">
-            <Select value={assignee} onValueChange={setAssignee}>
-              <SelectTrigger className="h-8 sm:h-6 w-auto gap-1 border-border/50 bg-transparent px-2.5 sm:px-2 text-xs font-normal hover:bg-accent rounded-md">
-                <span className="text-muted-foreground">
-                  {assignee === "none" ? "Unassigned" : assignee === "me" ? "Me" : agents.find((a) => a.id === assignee)?.name ?? "Agent"}
-                </span>
+        {/* Scrollable body: properties + sections + timeline */}
+        <div className="flex-1 overflow-y-auto min-h-0 border-t border-border/40">
+          {/* Property grid */}
+          <div className="grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_auto_1fr] items-center gap-x-3 gap-y-1 px-4 sm:px-5 py-3">
+            {/* ── Status ── */}
+            <span className="text-xs text-muted-foreground/70 py-1">Status</span>
+            <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
+              <SelectTrigger className={PROP_TRIGGER}>
+                <span className="text-muted-foreground">{STATUS_ICONS[status]}</span>
+                <span>{TASK_STATUSES.find((s) => s.value === status)?.label}</span>
               </SelectTrigger>
               <SelectContent portal={false}>
-                <SelectItem value="none">Unassigned</SelectItem>
-                <SelectItem value="me">Me</SelectItem>
-                {agents.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                {TASK_STATUSES.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>
+                    <span className="mr-1.5 text-muted-foreground">{STATUS_ICONS[s.value]}</span>
+                    {s.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </MicroTip>
 
-          {/* Due date */}
-          <DatePickerButton
-            value={dueDate}
-            onChange={setDueDate}
-            placeholder="No due date"
-            portal={false}
-            className="h-8 sm:h-6 w-auto border-border/50 bg-transparent px-2.5 sm:px-2 text-xs font-normal hover:bg-accent rounded-md"
-          />
+            {/* ── Priority ── */}
+            <span className="text-xs text-muted-foreground/70 py-1">Priority</span>
+            <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
+              <SelectTrigger className={PROP_TRIGGER}>
+                <span className={cn("h-2 w-2 rounded-full", PRIORITY_COLORS[priority])} />
+                <span>{selectedPriority?.label}</span>
+              </SelectTrigger>
+              <SelectContent portal={false}>
+                {TASK_PRIORITIES.map((p) => (
+                  <SelectItem key={p.value} value={p.value}>
+                    <span className={cn("mr-1.5 inline-block h-2 w-2 rounded-full", PRIORITY_COLORS[p.value])} />
+                    {p.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          {/* Recurrence */}
-          <RecurrencePicker value={recurrence} onChange={setRecurrence} timezone={tz} />
+            {/* ── Assignee ── */}
+            <span className="text-xs text-muted-foreground/70 py-1">Assignee</span>
+            <MicroTip tipKey="task-assignee" content="Assign to an agent and it starts working immediately." position="bottom">
+              <Select value={assignee} onValueChange={setAssignee}>
+                <SelectTrigger className={PROP_TRIGGER}>
+                  <span>{assigneeLabel}</span>
+                </SelectTrigger>
+                <SelectContent portal={false}>
+                  <SelectItem value="none">Unassigned</SelectItem>
+                  <SelectItem value="me">Me</SelectItem>
+                  {agents.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </MicroTip>
 
-          {/* Model override — only show when assigned to an agent */}
-          {assignee !== "none" && assignee !== "me" && (
-            <TaskModelOverride
-              modelOverride={modelOverride}
-              thinkingOverride={thinkingOverride}
-              onModelChange={setModelOverride}
-              onThinkingChange={setThinkingOverride}
-              agentId={assignee}
-              agents={agents}
+            {/* ── Thinking level — next to Assignee since it's agent-related ── */}
+            {isAgentAssigned && (
+              <>
+                <span className="text-xs text-muted-foreground/70 py-1">Thinking</span>
+                <div>
+                  <TaskModelOverride
+                    modelOverride={modelOverride}
+                    thinkingOverride={thinkingOverride}
+                    onModelChange={setModelOverride}
+                    onThinkingChange={setThinkingOverride}
+                    agentId={assignee}
+                    agents={agents}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* ── Due date ── */}
+            <span className="text-xs text-muted-foreground/70 py-1">Due date</span>
+            <DatePickerButton
+              value={dueDate}
+              onChange={setDueDate}
+              placeholder="None"
+              portal={false}
+              className="h-7 !w-auto !border-0 bg-transparent shadow-none dark:!bg-transparent px-2 text-xs font-normal hover:bg-accent rounded-md justify-start"
             />
-          )}
-        </div>
 
-        {/* Tabbed content area */}
-        {savedTaskId ? (
-          <Tabs defaultValue="details" className="flex-1 min-h-0 flex flex-col gap-0">
-            <TabsList variant="line" className="w-full justify-start border-t border-b border-border/40 px-4 sm:px-5 rounded-none h-9">
-              <TabsTrigger value="details" className="text-xs px-3">
-                Details
-              </TabsTrigger>
-              {(isAgentAssigned || deliverableCount > 0) && (
-                <TabsTrigger value="deliverables" className="text-xs px-3">
-                  Deliverables
-                  {deliverableCount > 0 && (
-                    <span className="ml-1 text-[10px] text-muted-foreground/60">
-                      {deliverableCount}
-                    </span>
-                  )}
-                </TabsTrigger>
+            {/* ── Recurrence — next to Due date since they're related ── */}
+            <span className="text-xs text-muted-foreground/70 py-1">Repeat</span>
+            <div>
+              <RecurrencePicker value={recurrence} onChange={setRecurrence} timezone={tz} />
+            </div>
+
+            {/* ── Divider ── */}
+            <div className="col-span-full border-t border-border/20 -my-0.5" />
+
+            {/* ── Stream ── */}
+            <span className="text-xs text-muted-foreground/70 py-1">Stream</span>
+            <Select value={streamId} onValueChange={setStreamId}>
+              <SelectTrigger className={PROP_TRIGGER}>
+                {selectedStream ? (
+                  <>
+                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: selectedStream.color }} />
+                    <span>{selectedStream.name}</span>
+                  </>
+                ) : (
+                  <span className="text-muted-foreground/60">None</span>
+                )}
+              </SelectTrigger>
+              <SelectContent portal={false}>
+                <SelectItem value="none">None</SelectItem>
+                {streams.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    <span className="mr-1.5 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* ── Labels ── */}
+            <span className="text-xs text-muted-foreground/70 py-1">Labels</span>
+            <div>
+              {savedTaskId ? (
+                <TaskLabelsPicker
+                  taskId={savedTaskId}
+                  selectedLabels={taskLabels}
+                  onLabelsChange={setTaskLabels}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { if (title.trim()) handleSubmit({ autoSave: true }); }}
+                  disabled={!title.trim() || saving}
+                  className="h-7 flex items-center gap-1.5 bg-transparent px-2 text-xs font-normal hover:bg-accent rounded-md transition-colors text-muted-foreground/60 disabled:opacity-50"
+                >
+                  <Tag className="h-3 w-3" />
+                  Add labels
+                </button>
               )}
-              <TabsTrigger value="activity" className="text-xs px-3">
-                Activity
-              </TabsTrigger>
-            </TabsList>
+            </div>
+          </div>
 
-            {/* Details tab */}
-            <TabsContent value="details" className="flex-1 overflow-y-auto min-h-0 m-0">
-              {/* Relations */}
-              <div className="border-b border-border/40 px-4 sm:px-5 py-2.5">
+          {/* ── Content sections ── */}
+          {savedTaskId ? (
+            <>
+              <div className="border-t border-border/40 px-4 sm:px-5 py-2.5">
                 <TaskRelations taskId={savedTaskId} />
               </div>
 
-              {/* Links */}
-              <div className="border-b border-border/40 px-4 sm:px-5 py-2.5">
+              <div className="border-t border-border/40 px-4 sm:px-5 py-2.5">
                 <EntityLinkList ownerType="task" ownerId={savedTaskId} />
               </div>
 
-              {/* Comments */}
-              <div className="px-4 sm:px-5 py-3">
-                <TaskFormComments taskId={savedTaskId} />
+              {deliverableCount > 0 && (
+                <div className="border-t border-border/40 px-4 sm:px-5 py-2.5">
+                  <TaskDeliverables taskId={savedTaskId} />
+                </div>
+              )}
+
+              <div className="border-t border-border/40 px-4 sm:px-5 py-3">
+                <TaskTimeline taskId={savedTaskId} />
               </div>
-            </TabsContent>
-
-            {/* Deliverables tab */}
-            {(isAgentAssigned || deliverableCount > 0) && (
-              <TabsContent value="deliverables" className="flex-1 overflow-y-auto min-h-0 m-0 px-4 sm:px-5 py-3">
-                <TaskDeliverables taskId={savedTaskId} />
-              </TabsContent>
-            )}
-
-            {/* Activity tab */}
-            <TabsContent value="activity" className="flex-1 overflow-y-auto min-h-0 m-0 px-4 sm:px-5 py-3">
-              <TaskActivityFeed taskId={savedTaskId} />
-            </TabsContent>
-          </Tabs>
-        ) : (
-          <div className="flex-1 overflow-y-auto min-h-0">
+            </>
+          ) : (
             <div className="border-t border-border/40 px-4 sm:px-5 py-2.5">
               <EntityLinkList
                 links={entityLinks.links}
@@ -698,35 +687,22 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
                 searchTargets={entityLinks.actions.searchTargets}
               />
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* Footer bar */}
-        <div className="flex items-center justify-between border-t border-border/40 px-4 sm:px-5 py-2.5 sm:py-2.5 shrink-0 bg-card/50">
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t border-border/40 px-4 sm:px-5 py-2 shrink-0 bg-card/50">
           <div className="flex items-center gap-2">
-            {editingTask && onArchive && (
+            {isEditing && editingTask && onArchive && (
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => {
-                  onArchive(editingTask.id);
-                  handleClose();
-                }}
+                className="h-7 text-xs text-muted-foreground/60 hover:text-foreground"
+                onClick={() => { onArchive(editingTask.id); handleClose(); }}
               >
                 <Archive className="h-3 w-3 mr-1" />
                 Archive
               </Button>
-            )}
-            {isEditing && saveStatus === "saving" && (
-              <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
-                <Spinner className="h-2.5 w-2.5" /> Saving...
-              </span>
-            )}
-            {isEditing && saveStatus === "saved" && (
-              <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
-                <Check className="h-2.5 w-2.5" /> Saved
-              </span>
             )}
             {!isEditing && (
               <p className="text-[10px] text-muted-foreground/40">
@@ -744,7 +720,7 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
                 <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancel}>
                   Cancel
                 </Button>
-                <Button size="sm" className="h-7 text-xs" onClick={() => handleSubmit()} disabled={saving || !title.trim()}>
+                <Button size="sm" className="h-7 text-xs px-4" onClick={() => handleSubmit()} disabled={saving || !title.trim()}>
                   {saving && <Spinner className="mr-1.5 h-3 w-3" />}
                   {saving ? "Creating..." : "Create"}
                 </Button>
