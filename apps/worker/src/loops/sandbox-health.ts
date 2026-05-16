@@ -147,7 +147,30 @@ export function startSandboxHealthLoop(provider: SandboxProvider): NodeJS.Timeou
         });
 
         const gwReady = await waitForGateway(ws.supabase_url, serviceRoleKey);
-        if (!gwReady) {
+        if (gwReady) {
+          // Patch gateway meta with correct URLs — entrypoint may have
+          // lost the race with /tmp/sandbox-host resolution.
+          const { createClient } = await import("@supabase/supabase-js");
+          const tenantClient = createClient(ws.supabase_url, serviceRoleKey, {
+            auth: { autoRefreshToken: false, persistSession: false },
+          });
+          const filesApiHost = result.sandboxHost.replace(/^https:\/\//, "https://18790-");
+          await tenantClient
+            .from("gateways")
+            .update({
+              meta: {
+                reachable_urls: {
+                  base: result.sandboxHost,
+                  files_api: filesApiHost,
+                  novnc: result.novncUrl,
+                },
+                networking_mode: "hosted",
+                vnc_password: vncPassword,
+                files_api_token: result.accessToken,
+              },
+            })
+            .eq("slug", "default");
+        } else {
           console.warn(`[sandbox-health] Gateway did not register after respawn for ${ws.id}`);
           await logSandboxEvent(ws.id, "respawn_gateway_timeout", {
             sandbox_id: result.sandboxId,

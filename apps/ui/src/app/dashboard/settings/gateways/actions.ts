@@ -90,6 +90,16 @@ export async function getGatewayDesktopUrlAction(
   let novncUrl: string | null = meta.reachable_urls?.novnc ?? null;
   const overrideBase = meta.reachable_urls_override?.base?.trim();
 
+  // Hosted gateways that registered before URL resolution completed will
+  // have a localhost URL — discard it so the UI shows "not ready yet".
+  if (
+    novncUrl &&
+    (meta.networking_mode ?? "local") !== "local" &&
+    /^https?:\/\/(localhost|127\.0\.0\.1)/.test(novncUrl)
+  ) {
+    novncUrl = null;
+  }
+
   if (overrideBase && novncUrl) {
     try {
       const u = new URL(novncUrl);

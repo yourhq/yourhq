@@ -242,9 +242,12 @@ async function doProvision(
     // ── 6. Spawn E2B sandbox ──
     await setStage(workspaceId, "starting_sandbox");
 
+    let spawnResult: { sandboxId: string; novncUrl: string; accessToken: string; sandboxHost: string } | null = null;
+    let vncPassword: string | null = null;
+
     const freshWs = await getWorkspace(workspaceId);
     if (!freshWs?.e2b_sandbox_id) {
-      const vncPassword = randomBytes(12).toString("base64url").slice(0, 12);
+      vncPassword = randomBytes(12).toString("base64url").slice(0, 12);
 
       const sandbox = await sandboxProvider.spawn({
         workspaceId,
@@ -258,6 +261,8 @@ async function doProvision(
           NETWORKING_MODE: "hosted",
         },
       });
+
+      spawnResult = sandbox;
 
       await updateWorkspace(workspaceId, {
         e2b_sandbox_id: sandbox.sandboxId,
@@ -284,6 +289,28 @@ async function doProvision(
       await new Promise((r) => setTimeout(r, 3000));
     }
     if (!gatewayReady) throw new Error("Gateway did not register in time");
+
+    // ── 7b. Patch gateway meta with correct URLs ──
+    // The entrypoint may have lost the race with /tmp/sandbox-host,
+    // so we overwrite reachable_urls from the known-good spawn result.
+    if (spawnResult) {
+      const filesApiHost = spawnResult.sandboxHost.replace(/^https:\/\//, "https://18790-");
+      await tenantClient
+        .from("gateways")
+        .update({
+          meta: {
+            reachable_urls: {
+              base: spawnResult.sandboxHost,
+              files_api: filesApiHost,
+              novnc: spawnResult.novncUrl,
+            },
+            networking_mode: "hosted",
+            vnc_password: vncPassword,
+            files_api_token: spawnResult.accessToken,
+          },
+        })
+        .eq("slug", "default");
+    }
 
     // ── 8. Done ──
     await updateWorkspace(workspaceId, {

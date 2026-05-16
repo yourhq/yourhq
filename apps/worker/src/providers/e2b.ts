@@ -1,4 +1,5 @@
 import { Sandbox } from "e2b";
+import { randomBytes } from "node:crypto";
 import type { SandboxProvider, SandboxStatus, SpawnResult } from "./types.js";
 
 const DEFAULT_TEMPLATE_NAME = "yourhq-gateway";
@@ -17,10 +18,12 @@ export class E2BSandboxProvider implements SandboxProvider {
     envs: Record<string, string>;
   }): Promise<SpawnResult> {
     const templateName = process.env.E2B_TEMPLATE_NAME ?? DEFAULT_TEMPLATE_NAME;
+    const gatewayAuthToken = randomBytes(32).toString("hex");
     const sandbox = await Sandbox.create(templateName, {
       envs: {
         ...opts.envs,
         RUNTIME_MODE: "hosted",
+        GATEWAY_AUTH_TOKEN: gatewayAuthToken,
       },
       timeoutMs: DEFAULT_TIMEOUT_MS,
       metadata: { workspaceId: opts.workspaceId },
@@ -65,7 +68,7 @@ export class E2BSandboxProvider implements SandboxProvider {
     return {
       sandboxId,
       novncUrl,
-      accessToken: "",
+      accessToken: gatewayAuthToken,
       sandboxHost,
     };
   }

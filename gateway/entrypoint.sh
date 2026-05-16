@@ -544,6 +544,21 @@ if [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
     source /opt/yourhq/hooks/resolve-urls.sh
   fi
 
+  # In hosted mode, if the hook didn't resolve URLs, retry up to 30s.
+  if [ "${RUNTIME_MODE:-}" = "hosted" ] && [ -z "${REACHABLE_BASE:-}" ]; then
+    log "  hosted mode but REACHABLE_BASE not set — waiting for URL resolution..."
+    for _retry in $(seq 1 30); do
+      sleep 1
+      [ -f /opt/yourhq/hooks/resolve-urls.sh ] && source /opt/yourhq/hooks/resolve-urls.sh
+      [ -n "${REACHABLE_BASE:-}" ] && break
+    done
+    if [ -n "${REACHABLE_BASE:-}" ]; then
+      log "  resolved REACHABLE_BASE=$REACHABLE_BASE"
+    else
+      log "  WARNING: REACHABLE_BASE still not set after 30s"
+    fi
+  fi
+
   REACHABLE_JSON=$(python3 - <<'PYEOF'
 import json, os
 reachable_base = os.environ.get("REACHABLE_BASE", "").strip()
@@ -562,7 +577,7 @@ else:
         "files_api": f"{base}:{files_port}",
         "novnc": f"{base}:6901/vnc.html?autoconnect=1&resize=remote",
     }
-    networking_mode = os.environ.get("NETWORKING_MODE", "local")
+    networking_mode = "local"
 vnc_pw = os.environ.get("REG_VNC_PW", "")
 meta = {
     "reachable_urls": meta_urls,
@@ -571,6 +586,9 @@ meta = {
 }
 if vnc_pw:
     meta["vnc_password"] = vnc_pw
+gw_auth = os.environ.get("GATEWAY_AUTH_TOKEN", "").strip()
+if gw_auth:
+    meta["files_api_token"] = gw_auth
 print(json.dumps(meta))
 PYEOF
   )

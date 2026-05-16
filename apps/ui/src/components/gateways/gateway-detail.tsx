@@ -815,6 +815,16 @@ function InlineAlert({ children }: { children: React.ReactNode }) {
 function resolveNovncUrl(gateway: Gateway): string | null {
   const novnc = gateway.meta.reachable_urls?.novnc ?? null;
   if (!novnc) return null;
+
+  // Hosted gateways that registered before URL resolution completed will
+  // have a localhost URL — discard it.
+  if (
+    (gateway.meta.networking_mode ?? "local") !== "local" &&
+    /^https?:\/\/(localhost|127\.0\.0\.1)/.test(novnc)
+  ) {
+    return null;
+  }
+
   const overrideBase = gateway.meta.reachable_urls_override?.base?.trim();
   const vncPw = (gateway.meta as Record<string, unknown>).vnc_password as string | undefined;
 
