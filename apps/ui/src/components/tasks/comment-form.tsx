@@ -59,11 +59,11 @@ const ATTACHMENT_ICONS: Record<string, typeof FileText> = {
 export function CommentForm({
   onSubmit,
   placeholder = "Add a comment... Use @ to mention agents",
-  compact,
+  compact: _compact,
   initialBody = "",
   initialAttachments,
   onCancel,
-  submitLabel,
+  submitLabel: _submitLabel,
   enableAttachments,
   portal = true,
   showMentionHint,

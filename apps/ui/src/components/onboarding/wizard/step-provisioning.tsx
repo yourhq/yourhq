@@ -153,6 +153,7 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
 
   useEffect(() => {
     if (pollStartRef.current === 0) pollStartRef.current = Date.now();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     poll();
     const interval = setInterval(() => {
       if (Date.now() - pollStartRef.current > MAX_POLL_MS) {

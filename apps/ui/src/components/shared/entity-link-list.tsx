@@ -127,7 +127,7 @@ function EntityLinkListDb({
   onUploadFile,
   onCreatePage,
 }: EntityLinkListDbProps) {
-  const { links: allLinks, loading, actions } = useEntityLinks(ownerType, ownerId);
+  const { links: allLinks, actions } = useEntityLinks(ownerType, ownerId);
   const links = allLinks.filter((l) => !l.is_deliverable);
 
   return (

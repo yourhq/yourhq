@@ -83,6 +83,7 @@ export function useBufferedEntityLinks(
   }, [supabase, ownerType, ownerId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (ownerId) hydrate();
   }, [ownerId, hydrate]);
 

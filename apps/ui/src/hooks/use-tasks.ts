@@ -491,7 +491,7 @@ export function useTasks() {
         updateUrl({ task: id });
       }
     },
-    [supabase, tasks]
+    [supabase, tasks, updateUrl]
   );
 
   const hasActiveFilters =

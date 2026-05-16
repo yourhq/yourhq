@@ -12,7 +12,7 @@ import {
 } from "@/lib/theme/derive";
 
 export function ThemeApplier() {
-  const { setTheme, resolvedTheme } = useTheme();
+  const { setTheme } = useTheme();
   const [config, setConfig] = useState<ThemeConfig | null>(null);
 
   useEffect(() => {

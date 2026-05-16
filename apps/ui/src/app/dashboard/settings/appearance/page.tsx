@@ -14,7 +14,6 @@ import type { ThemeConfig, OklchColor, ThemeTokens } from "@/lib/theme/types";
 import {
   DEFAULT_BRAND,
   DEFAULT_WARMTH,
-  DEFAULT_THEME,
   ADVANCED_TOKEN_GROUPS,
 } from "@/lib/theme/types";
 import {

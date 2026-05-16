@@ -150,7 +150,6 @@ export function useSidebarCollections() {
       let finalSlug = slug;
       if (existing) {
         let counter = 2;
-        // eslint-disable-next-line no-constant-condition
         while (true) {
           const candidate = `${slug}-${counter}`;
           const { data: check } = await supabase

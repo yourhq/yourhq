@@ -357,7 +357,7 @@ function DraggableRecordCard({
     data: { record },
   });
 
-  const statusColor = useMemo(() => {
+  const _statusColor = useMemo(() => {
     if (!groupField) return undefined;
     const val = record.values[groupField.field_key];
     return groupField.options?.choices?.find((c) => c.value === val)?.color;

@@ -125,17 +125,13 @@ export function oklchToHex(color: OklchColor): string {
   const a = c * Math.cos(hRad);
   const b = c * Math.sin(hRad);
 
-  let L = l;
-  let A = a;
-  let B = b;
+  const L = l;
+  const A = a;
+  const B = b;
 
-  let l_ = L + 0.3963377774 * A + 0.2158037573 * B;
-  let m_ = L - 0.1055613458 * A - 0.0638541728 * B;
-  let s_ = L - 0.0894841775 * A - 1.2914855480 * B;
-
-  l_ = l_ * l_ * l_;
-  m_ = m_ * m_ * m_;
-  s_ = s_ * s_ * s_;
+  const l_ = (L + 0.3963377774 * A + 0.2158037573 * B) ** 3;
+  const m_ = (L - 0.1055613458 * A - 0.0638541728 * B) ** 3;
+  const s_ = (L - 0.0894841775 * A - 1.2914855480 * B) ** 3;
 
   let r = +4.0767416621 * l_ - 3.3077115913 * m_ + 0.2309699292 * s_;
   let g = -1.2684380046 * l_ + 2.6097574011 * m_ - 0.3413193965 * s_;
@@ -162,9 +158,9 @@ export function hexToOklch(hex: string): OklchColor {
   const gl = toLinear(g);
   const bl = toLinear(b);
 
-  let l_ = Math.cbrt(0.4122214708 * rl + 0.5363325363 * gl + 0.0514459929 * bl);
-  let m_ = Math.cbrt(0.2119034982 * rl + 0.6806995451 * gl + 0.1073969566 * bl);
-  let s_ = Math.cbrt(0.0883024619 * rl + 0.2817188376 * gl + 0.6299787005 * bl);
+  const l_ = Math.cbrt(0.4122214708 * rl + 0.5363325363 * gl + 0.0514459929 * bl);
+  const m_ = Math.cbrt(0.2119034982 * rl + 0.6806995451 * gl + 0.1073969566 * bl);
+  const s_ = Math.cbrt(0.0883024619 * rl + 0.2817188376 * gl + 0.6299787005 * bl);
 
   const L = 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_;
   const A = 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_;
