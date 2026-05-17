@@ -45,6 +45,7 @@ export interface StepProviderProps {
   validated: boolean;
   validationError?: string | null;
   isHosted?: boolean;
+  collectOnly?: boolean;
 }
 
 type OAuthPhase =
@@ -66,6 +67,7 @@ export function StepProvider({
   validated,
   validationError,
   isHosted,
+  collectOnly,
 }: StepProviderProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState("");
@@ -89,12 +91,13 @@ export function StepProvider({
   const isLocal = selectedEntry?.authShape === "local_url";
   const isOAuth = selectedEntry && OAUTH_PROVIDERS.has(selectedEntry.id);
 
-  const canSubmit =
-    selected &&
-    !isOAuth &&
-    (isLocal || apiKey.trim().length > 5) &&
-    !validating &&
-    !pending;
+  const canSubmit = collectOnly
+    ? selected && (isOAuth || isLocal || apiKey.trim().length > 5) && !pending
+    : selected &&
+      !isOAuth &&
+      (isLocal || apiKey.trim().length > 5) &&
+      !validating &&
+      !pending;
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -273,12 +276,12 @@ export function StepProvider({
                 Get an API key →
               </a>
             )}
-            {validationError && (
+            {!collectOnly && validationError && (
               <p className="text-[12px] text-destructive animate-in fade-in duration-150">
                 {validationError}
               </p>
             )}
-            {validated && (
+            {!collectOnly && validated && (
               <p className="flex items-center gap-1.5 text-[12px] text-status-success animate-in fade-in duration-200">
                 <Check className="h-3 w-3" />
                 Connected
@@ -301,8 +304,17 @@ export function StepProvider({
           </div>
         )}
 
+        {/* OAuth provider — collect-only deferred message */}
+        {isSelected && providerIsOAuth && collectOnly && (
+          <div className="px-4 pb-3 pt-2.5 animate-in fade-in slide-in-from-top-1 duration-150">
+            <p className="text-[12px] text-muted-foreground">
+              You&apos;ll sign in with {p.displayName} once your workspace is set up.
+            </p>
+          </div>
+        )}
+
         {/* OAuth provider — inline interactive flow */}
-        {isSelected && providerIsOAuth && (
+        {isSelected && providerIsOAuth && !collectOnly && (
           <div className="px-4 pb-3 pt-2.5 animate-in fade-in slide-in-from-top-1 duration-150">
             {oauthPhase.kind === "idle" && (
               <div className="space-y-3">
@@ -483,10 +495,12 @@ export function StepProvider({
         <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight">
           Connect an AI provider
         </h1>
-        <p className="max-w-[44ch] text-[14px] leading-relaxed text-muted-foreground">
-          {isHosted
-            ? "Your API key is stored securely in your private workspace. You can connect more providers later in Settings."
-            : "Your API key stays on your gateway. HQ never sees or stores it. You can connect more providers later in Settings."}
+        <p className="max-w-[48ch] text-[14px] leading-relaxed text-muted-foreground">
+          Your employees need an AI brain to think with. Pick a provider and
+          add your key — {isHosted
+            ? "it’s stored securely in your private workspace."
+            : "it stays on your gateway and HQ never sees it."}{" "}
+          You can connect more later in Settings.
         </p>
       </div>
 
@@ -529,7 +543,7 @@ export function StepProvider({
       </div>
 
       <div className="flex items-center gap-3 pt-2">
-        {oauthPhase.kind === "done" ? (
+        {!collectOnly && oauthPhase.kind === "done" ? (
           <button
             type="button"
             onClick={handleOAuthContinue}

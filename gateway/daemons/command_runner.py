@@ -2289,6 +2289,7 @@ def heartbeat_once():
                     "label": GATEWAY_LABEL,
                     "status": "ready",
                     "last_seen_at": now_iso(),
+                    "last_heartbeat_at": now_iso(),
                     "tenant_id": TENANT_ID,
                 },
                 on_conflict="tenant_id,slug",

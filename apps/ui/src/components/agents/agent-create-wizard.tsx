@@ -24,6 +24,7 @@ import { completeItem, loadProgress } from "@/lib/onboarding/progress";
 import { createAgentWithBranch, enqueueAgentCommand } from "@/app/dashboard/agents/actions";
 import { createSecret } from "@/app/dashboard/settings/secrets/actions";
 import type { AgentChannel, AgentTemplate } from "@/lib/agents/types";
+import { AGENT_EMOJIS } from "@/lib/agents/emoji-grid";
 import { useAgentCommands } from "@/hooks/use-agent-commands";
 
 type Step = "template" | "identity" | "channel" | "provisioning" | "pairing" | "ready";
@@ -43,14 +44,6 @@ const STEP_LABELS: Record<Step, string> = {
 };
 
 const STEP_ORDER: Step[] = ["template", "identity", "channel", "provisioning", "pairing", "ready"];
-
-const EMOJI_GRID = [
-  "🤖","✨","🌟","⚡","🔥","💡","🧠","🪄","🛠️","📎",
-  "📚","📝","📬","📨","💬","🗂️","📊","📈","🧭","🧪",
-  "🧩","🎯","🎨","🎧","🎬","📸","🌙","🌊","🌱","🍀",
-  "🦊","🦉","🐙","🐝","🐳","🦄","🐢","🐈","🐕","🪶",
-  "🚀","🛰️","⚙️","🔧","🔮","🧿","💎","🏷️","🗝️","📌",
-];
 
 const BOTFATHER_TOKEN_RE = /^\d+:[A-Za-z0-9_-]{30,}$/;
 
@@ -670,12 +663,12 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
                     </button>
                   </PopoverTrigger>
                   <PopoverContent
-                    className="w-64 p-2"
+                    className="w-[304px] p-2"
                     align="start"
                     portal={false}
                   >
-                    <div className="grid grid-cols-10 gap-0.5">
-                      {EMOJI_GRID.map((e) => (
+                    <div className="grid grid-cols-8 gap-0.5">
+                      {AGENT_EMOJIS.map((e) => (
                         <button
                           key={e}
                           type="button"
@@ -683,7 +676,7 @@ export function AgentCreateWizard({ onClose, onCreated }: AgentCreateWizardProps
                             setEmoji(e);
                             setEmojiOpen(false);
                           }}
-                          className="flex h-6 w-6 items-center justify-center rounded text-base hover:bg-muted/60 transition-colors"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-[16px] hover:bg-muted/60 transition-colors"
                         >
                           {e}
                         </button>

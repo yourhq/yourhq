@@ -121,7 +121,7 @@ export function StepIntent({
                     "text-[13px] transition-colors duration-200",
                     isSelected
                       ? "text-muted-foreground"
-                      : "text-muted-foreground/40 group-hover:text-muted-foreground/60",
+                      : "text-muted-foreground/60 group-hover:text-muted-foreground/80",
                   )}
                 >
                   {option.detail}
@@ -138,7 +138,7 @@ export function StepIntent({
           onClick={() => handleSelect("explore")}
           disabled={pending || confirming}
           className={cn(
-            "text-[13px] text-muted-foreground/40 transition-colors hover:text-foreground",
+            "text-[13px] text-muted-foreground/60 transition-colors hover:text-foreground",
             (pending || confirming) && "pointer-events-none opacity-20",
           )}
         >

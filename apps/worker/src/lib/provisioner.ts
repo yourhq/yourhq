@@ -273,14 +273,18 @@ async function doProvision(
       } as any);
     }
 
-    // ── 7. Wait for gateway to register ──
+    // ── 7. Wait for command runner to come online ──
+    // The schema seeds a default gateway row so we can't just check for existence.
+    // The entrypoint sets `last_seen_at` at step 9 but daemons start at step 12.
+    // Poll for `last_heartbeat_at` which the command_runner sets on its first tick.
     await setStage(workspaceId, "waiting_for_gateway");
     const gwStart = Date.now();
     let gatewayReady = false;
-    while (Date.now() - gwStart < 120_000) {
+    while (Date.now() - gwStart < 180_000) {
       const { data } = await tenantClient
         .from("gateways")
-        .select("id")
+        .select("id, last_heartbeat_at")
+        .not("last_heartbeat_at", "is", null)
         .limit(1);
       if (data && data.length > 0) {
         gatewayReady = true;
@@ -288,7 +292,7 @@ async function doProvision(
       }
       await new Promise((r) => setTimeout(r, 3000));
     }
-    if (!gatewayReady) throw new Error("Gateway did not register in time");
+    if (!gatewayReady) throw new Error("Gateway command runner did not come online in time");
 
     // ── 7b. Patch gateway meta with correct URLs ──
     // The entrypoint may have lost the race with /tmp/sandbox-host,
