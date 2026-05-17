@@ -142,6 +142,7 @@ elif [ ! -f "$REGISTRY_HELPER" ]; then
 elif [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
   log "Supabase env not set; waiting for project registry at /config ..."
   wait_start=$(date +%s)
+  REGISTRY_TIMEOUT=${REGISTRY_TIMEOUT:-600}
   while true; do
     # shellcheck disable=SC1090
     eval "$(python3 "$REGISTRY_HELPER" export 2>/dev/null || true)"
@@ -150,7 +151,11 @@ elif [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
       break
     fi
     elapsed=$(($(date +%s) - wait_start))
-    # Log a status line every 30s so users see we're alive
+    if [ "$elapsed" -ge "$REGISTRY_TIMEOUT" ]; then
+      log "ERROR: timed out after ${REGISTRY_TIMEOUT}s waiting for onboarding."
+      log "       Complete setup in the UI, then restart this container."
+      exit 1
+    fi
     if [ $((elapsed % 30)) -eq 0 ]; then
       log "  still waiting for onboarding (${elapsed}s) — complete it in the UI"
     fi

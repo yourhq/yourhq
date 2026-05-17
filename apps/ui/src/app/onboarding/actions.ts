@@ -338,7 +338,7 @@ export interface PrepareSchemaInstallResult extends ActionResult {
 export async function prepareSchemaInstallAction(
   input: z.infer<typeof credsSchema>,
 ): Promise<PrepareSchemaInstallResult> {
-  console.log("[prepareSchemaInstallAction] called");
+
   const parsed = credsSchema.safeParse(input);
   if (!parsed.success) {
     console.error(
@@ -403,7 +403,7 @@ export async function runOneClickMigrationAction(
     try {
       const result = await runMigrations({
         connectionString,
-        onProgress: (msg) => console.log(`[one-click] ${msg}`),
+        onProgress: () => {},
       });
 
       if (result.errors.length > 0) {
@@ -455,7 +455,7 @@ export async function runOneClickMigrationAction(
 export async function confirmSchemaInstalledAction(
   input: z.infer<typeof credsSchema>,
 ): Promise<ActionResult> {
-  console.log("[confirmSchemaInstalledAction] called");
+
   const parsed = credsSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Missing creds." };
   const ok = await verifySchemaInstalled({
@@ -463,7 +463,6 @@ export async function confirmSchemaInstalledAction(
     serviceRoleKey: parsed.data.serviceRoleKey,
   });
   if (ok) {
-    console.log("[confirmSchemaInstalledAction] schema verified");
     return { ok: true };
   }
   console.warn("[confirmSchemaInstalledAction] workspace table not found yet");
@@ -496,7 +495,7 @@ export interface CreateUserResult extends ActionResult {
 export async function createAuthUserAction(
   input: z.infer<typeof createUserInputSchema>,
 ): Promise<CreateUserResult> {
-  console.log("[createAuthUserAction] called");
+
   const parsed = createUserInputSchema.safeParse(input);
   if (!parsed.success) {
     console.error(

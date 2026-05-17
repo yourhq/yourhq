@@ -39,5 +39,8 @@ venv/
 # Test output
 .nyc_output/
 
+# Generated reports
+*-setup-report.md
+
 # Local Docker state (only when using bind-mount dev overrides)
 data/

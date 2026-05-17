@@ -237,7 +237,7 @@ jobs:
     needs: [changes, manifest]
     if: >-
       needs.changes.outputs.has-changes == 'true' &&
-      github.ref == 'refs/heads/main' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) &&
       contains(toJSON(fromJSON(needs.changes.outputs.manifest-matrix).include.*.name), 'yourhq-worker')
     runs-on: ubuntu-latest
     permissions:
@@ -273,3 +273,9 @@ jobs:
           docker tag "${GHCR_IMAGE}" "${ECR_IMAGE}:${SHORT_SHA}"
           docker push "${ECR_IMAGE}:latest"
           docker push "${ECR_IMAGE}:${SHORT_SHA}"
+
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            SEMVER="${GITHUB_REF#refs/tags/v}"
+            docker tag "${GHCR_IMAGE}" "${ECR_IMAGE}:${SEMVER}"
+            docker push "${ECR_IMAGE}:${SEMVER}"
+          fi
