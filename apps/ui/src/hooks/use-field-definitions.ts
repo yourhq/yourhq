@@ -122,7 +122,7 @@ export function useFieldDefinitions(
   const reorderFields = useCallback(
     async (orderedIds: string[]) => {
       const reordered = orderedIds
-        .map((id, i) => fields.find((f) => f.id === id))
+        .map((id) => fields.find((f) => f.id === id))
         .filter(Boolean) as FieldDefinition[];
       setFields(reordered.map((f, i) => ({ ...f, sort_order: i })));
 

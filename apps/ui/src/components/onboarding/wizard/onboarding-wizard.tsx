@@ -566,7 +566,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
     if (suggestion) params.set("title", suggestion.title);
     if (data.agentId) params.set("agent", data.agentId as string);
     router.push(`/dashboard/tasks?${params.toString()}`);
-  }, [data.intentKey, data.agentId, router]);
+  }, [data.intentKey, data.agentId, router, isHosted]);
 
   const handleAgentDone = useCallback(() => {
     // OSS: advance to account step

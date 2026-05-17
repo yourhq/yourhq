@@ -59,7 +59,7 @@ export function StepIntent({
   const [selected, setSelected] = useState<string | null>(initialKey ?? null);
   const [confirming, setConfirming] = useState(false);
 
-  const firstName = ownerName.split(" ")[0] || "there";
+  const _firstName = ownerName.split(" ")[0] || "there";
 
   const handleSelect = useCallback(
     (key: string) => {

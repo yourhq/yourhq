@@ -53,7 +53,6 @@ import {
   Trash2,
   EyeOff,
   Asterisk,
-  FolderOpen,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -399,7 +398,6 @@ function AddPropertyPopover({
 
 function EmptyPropertyState({
   entityType,
-  existingKeys,
   onAdd,
 }: {
   entityType: string;

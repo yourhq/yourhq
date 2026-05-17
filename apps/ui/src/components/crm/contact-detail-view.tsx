@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -333,7 +333,7 @@ export function ContactDetailView({ contact: initialContact }: { contact: Contac
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const { stages, getStageColor } = usePipelineStages("contact");
-  const { fields, groupedFields, addField, updateField, deleteField, reorderFields } = useFieldDefinitions("contact");
+  const { fields, addField, updateField, deleteField, reorderFields } = useFieldDefinitions("contact");
 
   const supabase = useMemo(() => createClient(), []);
 

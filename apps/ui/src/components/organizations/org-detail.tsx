@@ -47,7 +47,7 @@ export function OrgDetail({ organization: initial }: OrgDetailProps) {
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const { fields, groupedFields, addField, updateField, deleteField, reorderFields } = useFieldDefinitions("organization");
+  const { fields, addField, updateField, deleteField, reorderFields } = useFieldDefinitions("organization");
 
   const fetchPeople = useCallback(async () => {
     const { data } = await supabase
