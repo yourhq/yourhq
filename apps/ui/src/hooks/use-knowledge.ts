@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { trackEvent } from "@/lib/analytics";
 import type {
   KnowledgeItem,
   KnowledgeFolder,
@@ -296,6 +297,7 @@ export function useKnowledge() {
         action: "created",
         summary: `Created ${input.kind} '${input.title}'`,
       });
+      trackEvent("knowledge_created", { kind: input.kind, scope: input.scope ?? "workspace" });
       completeItem("knowledgeCreated");
       fetchItems();
       return data as unknown as KnowledgeItem;

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { trackEvent } from "@/lib/analytics";
 import type { CollectionDefinition, CollectionTemplate } from "@/lib/collections/types";
 import { logAudit } from "@/lib/audit/log";
 import { useRealtime } from "./use-realtime";
@@ -142,6 +143,7 @@ export function useCollections() {
         action: "created",
         summary: `Created collection '${input.name}'`,
       });
+      trackEvent("collection_created");
 
       toast.success("Collection created");
       fetchCollections();

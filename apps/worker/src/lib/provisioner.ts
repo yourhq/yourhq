@@ -12,11 +12,18 @@ import { decryptSecret, encryptSecret } from "./secret-crypto.js";
 import { getPublicSiteUrl } from "./env.js";
 import type { SandboxProvider } from "../providers/types.js";
 import { randomBytes } from "node:crypto";
+import { trackWorkerEvent } from "./analytics.js";
 
 const provisionLocks = new Map<string, Promise<void>>();
 
-async function setStage(workspaceId: string, stage: string) {
+async function setStage(workspaceId: string, stage: string, email?: string) {
   await updateWorkspace(workspaceId, { provision_stage: stage } as any);
+  trackWorkerEvent(
+    email ?? `workspace:${workspaceId}`,
+    "provisioning_stage_reached",
+    { stage, workspace_id: workspaceId },
+    { workspace: workspaceId },
+  );
 }
 
 async function setError(workspaceId: string, error: string) {
@@ -67,7 +74,7 @@ async function doProvision(
     } as any);
 
     // ── 1. Create Supabase project ──
-    await setStage(workspaceId, "creating_project");
+    await setStage(workspaceId, "creating_project", email);
 
     const orgId = process.env.SUPABASE_ORG_ID;
     if (!orgId) throw new Error("SUPABASE_ORG_ID required");
@@ -105,7 +112,7 @@ async function doProvision(
     }
 
     // ── 2. Poll until project is ready ──
-    await setStage(workspaceId, "waiting_for_project");
+    await setStage(workspaceId, "waiting_for_project", email);
     const startPoll = Date.now();
     let projectReady = false;
     while (Date.now() - startPoll < 120_000) {
@@ -124,7 +131,7 @@ async function doProvision(
     if (!projectReady) throw new Error("Supabase project did not become ready in time");
 
     // ── 3. Fetch API keys ──
-    await setStage(workspaceId, "fetching_keys");
+    await setStage(workspaceId, "fetching_keys", email);
     let anonKey = workspace.supabase_anon_key;
     let serviceRoleKey = decryptSecret(workspace.supabase_service_role_key_enc);
     if (!anonKey || !serviceRoleKey) {
@@ -164,11 +171,11 @@ async function doProvision(
     if (!authConfigRes.ok) throw new Error("Failed to configure tenant auth settings");
 
     // ── 4. Apply schema migrations ──
-    await setStage(workspaceId, "applying_schema");
+    await setStage(workspaceId, "applying_schema", email);
     await applyMigrations(projectRef);
 
     // ── 5. Create auth user in tenant Supabase ──
-    await setStage(workspaceId, "creating_user");
+    await setStage(workspaceId, "creating_user", email);
     const tenantClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
@@ -240,7 +247,7 @@ async function doProvision(
     }
 
     // ── 6. Spawn E2B sandbox ──
-    await setStage(workspaceId, "starting_sandbox");
+    await setStage(workspaceId, "starting_sandbox", email);
 
     let spawnResult: { sandboxId: string; novncUrl: string; accessToken: string; sandboxHost: string } | null = null;
     let vncPassword: string | null = null;
@@ -277,7 +284,7 @@ async function doProvision(
     // The schema seeds a default gateway row so we can't just check for existence.
     // The entrypoint sets `last_seen_at` at step 9 but daemons start at step 12.
     // Poll for `last_heartbeat_at` which the command_runner sets on its first tick.
-    await setStage(workspaceId, "waiting_for_gateway");
+    await setStage(workspaceId, "waiting_for_gateway", email);
     const gwStart = Date.now();
     let gatewayReady = false;
     while (Date.now() - gwStart < 180_000) {
@@ -327,6 +334,13 @@ async function doProvision(
       provision_stage: "complete",
     });
 
+    trackWorkerEvent(
+      email,
+      "provisioning_completed",
+      { workspace_id: workspaceId },
+      { workspace: workspaceId },
+    );
+
     sendProvisioningComplete(email, workspace.label, `${publicSiteUrl}/login`).catch(
       () => console.error("[provisioner] Failed to send provisioning email"),
     );
@@ -335,6 +349,12 @@ async function doProvision(
     console.error("[provisioner] Workspace provisioning failed");
     await setError(workspaceId, message);
     await logSandboxEvent(workspaceId, "error", { provision_stage: "error" });
+    trackWorkerEvent(
+      email,
+      "provisioning_failed",
+      { workspace_id: workspaceId, error: message.slice(0, 200) },
+      { workspace: workspaceId },
+    );
     throw err;
   }
 }

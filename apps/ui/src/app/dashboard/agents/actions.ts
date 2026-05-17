@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BUNDLED_TEMPLATES } from "@/generated/templates";
 import type { AgentChannel, AgentMeta, CommandAction } from "@/lib/agents/types";
 import { AGENT_COMMAND_ACTIONS, SYSTEM_COMMAND_ACTIONS } from "@/lib/agents/types";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 export interface CreateAgentInput {
   name: string;
@@ -142,6 +143,17 @@ export async function createAgentWithBranch(
     summary: `Registered agent '${name}' from ${input.templateBranch ?? "custom"}`,
   });
 
+  getPostHogClient()?.capture({
+    distinctId: user.id,
+    event: "agent_created",
+    properties: {
+      agent_id: inserted.id,
+      agent_slug: slug,
+      template_branch: input.templateBranch ?? "custom",
+      channel,
+    },
+  });
+
   // Stash the owner profile on the result so the wizard can pass it into
   // the provision command payload.
   return {
@@ -182,6 +194,12 @@ export async function deleteAgentAction(agentId: string): Promise<void> {
     entity_id: agentId,
     action: "deleted",
     summary: `Deleted agent '${agent.name}'`,
+  });
+
+  getPostHogClient()?.capture({
+    distinctId: user.id,
+    event: "agent_deleted",
+    properties: { agent_id: agentId, agent_slug: agent.slug },
   });
 }
 
@@ -265,6 +283,17 @@ export async function enqueueAgentCommand(
     entity_id: inserted.id,
     action: "created",
     summary: `Enqueued ${input.action}${input.agentSlug ? ` for agent '${input.agentSlug}'` : ""}`,
+  });
+
+  getPostHogClient()?.capture({
+    distinctId: user.id,
+    event: "agent_command_enqueued",
+    properties: {
+      command_id: inserted.id,
+      action: input.action,
+      agent_id: input.agentId ?? null,
+      agent_slug: input.agentSlug ?? null,
+    },
   });
 
   return { commandId: inserted.id };
@@ -644,6 +673,12 @@ export async function connectAgentChannel(input: {
     action: "restart_gateway",
     payload: {},
     requested_by: user.id,
+  });
+
+  getPostHogClient()?.capture({
+    distinctId: user.id,
+    event: "agent_channel_connected",
+    properties: { agent_id: input.agentId, agent_slug: input.agentSlug, channel: input.channel },
   });
 
   return { ok: true, provisionCommandId: cmd.id };

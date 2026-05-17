@@ -37,6 +37,7 @@ import {
   markOnboardingComplete,
 } from "./actions";
 import { createHostedCheckout, getHostedEmail, verifyAutoLogin, sendFreshLoginLink } from "./hosted-actions";
+import { trackEvent, identifyUser } from "@/lib/analytics";
 
 interface AgentCapability {
   label: string;
@@ -313,11 +314,12 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
       startTransition(async () => {
         const r = await saveIntentStep(intentKey);
         if (!r.ok) return setError(r.error ?? "Something went wrong");
+        trackEvent("onboarding_intent_selected", { intent_key: intentKey, is_hosted: isHosted });
         patch({ intentKey, contextPresetKey: intentKey });
         advance();
       });
     },
-    [startTransition, patch, advance, setError],
+    [startTransition, patch, advance, setError, isHosted],
   );
 
   // ─── Infrastructure (OSS) ───
@@ -343,6 +345,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
           });
           setInfraStatus((s) => ({ ...s, db: "schema-needed" }));
         } else {
+          trackEvent("onboarding_db_connected", { schema_needed: false });
           setInfraStatus((s) => ({ ...s, db: "connected" }));
         }
       });
@@ -365,6 +368,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
         const r = await runOneClickMigrationAction({ projectRef, region, dbPassword });
         if (r.ok) {
           await saveWorkspaceToRegistry(creds);
+          trackEvent("onboarding_db_connected", { schema_needed: true, method: "one_click" });
           setSchemaInstall({ phase: "idle" });
           setInfraStatus((s) => ({ ...s, db: "connected" }));
         } else {
@@ -383,6 +387,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
       const r = await confirmSchemaInstalledAction(creds);
       if (r.ok) {
         await saveWorkspaceToRegistry(creds);
+        trackEvent("onboarding_db_connected", { schema_needed: true, method: "sql_editor" });
         setSchemaInstall({ phase: "idle" });
         setInfraStatus((s) => ({ ...s, db: "connected" }));
       } else {
@@ -444,6 +449,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
     (provider: string, apiKey: string) => {
       if (isHosted) {
         // Collect-only: store choice and advance
+        trackEvent("onboarding_provider_connected", { provider, is_hosted: true });
         patch({ providerId: provider, providerApiKey: apiKey });
         advance();
         return;
@@ -454,6 +460,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
         const r = await connectProvider(provider, apiKey);
         setValidating(false);
         if (r.ok) {
+          trackEvent("onboarding_provider_connected", { provider, is_hosted: isHosted });
           setValidated(true);
           patch({ providerId: provider });
           setTimeout(() => advance(), 600);
@@ -493,6 +500,11 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
       }
 
       const { agentId, provisionCommandId } = r.data;
+      trackEvent("onboarding_agent_created", {
+        agent_id: agentId,
+        agent_name: agentData.name,
+        template_branch: agentData.templateBranch,
+      });
       patch({ agentId, agentName: agentData.name, agentEmoji: agentData.emoji });
       setProvisionStatus("provisioning");
 
@@ -534,6 +546,11 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
   const navigateToTasks = useCallback(() => {
     clearWizardSession();
     markOnboardingComplete().catch(() => {});
+    trackEvent("onboarding_completed", {
+      intent_key: (data.intentKey as string) ?? null,
+      is_hosted: isHosted,
+      agent_id: (data.agentId as string) ?? null,
+    });
 
     const progress = localStorage.getItem("hq_onboarding_progress");
     const parsed = progress ? JSON.parse(progress) : {};
@@ -643,6 +660,8 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
         } catch {
           // If sign-in fails the user can sign in manually from /login
         }
+
+        identifyUser(creds.email, { email: creds.email });
 
         setShowCelebration(true);
       });

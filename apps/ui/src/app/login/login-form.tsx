@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Sparkles, AlertCircle, Check, ArrowRight, Mail } from "lucide-react";
 import { hostedLoginAction } from "./actions";
 import { cn } from "@/lib/utils";
+import { trackEvent, identifyUser } from "@/lib/analytics";
 
 export function LoginForm({ mode }: { mode: "oss" | "hosted" }) {
   const [email, setEmail] = useState("");
@@ -26,6 +27,7 @@ export function LoginForm({ mode }: { mode: "oss" | "hosted" }) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    trackEvent("login_submitted", { mode: "oss" });
 
     let supabase;
     try {
@@ -41,11 +43,14 @@ export function LoginForm({ mode }: { mode: "oss" | "hosted" }) {
     });
 
     if (error) {
+      trackEvent("login_failed", { mode: "oss", error: error.message });
       setError(error.message);
       setLoading(false);
       return;
     }
 
+    identifyUser(email, { email });
+    trackEvent("login_succeeded", { mode: "oss" });
     router.push("/dashboard");
     router.refresh();
   }
@@ -54,14 +59,17 @@ export function LoginForm({ mode }: { mode: "oss" | "hosted" }) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    trackEvent("login_submitted", { mode: "hosted" });
 
     const result = await hostedLoginAction(email);
     if (!result.ok) {
+      trackEvent("login_failed", { mode: "hosted", error: result.error });
       setError(result.error ?? "Something went wrong.");
       setLoading(false);
       return;
     }
 
+    trackEvent("magic_link_sent", { email });
     setMagicLinkSent(true);
     setLoading(false);
   }

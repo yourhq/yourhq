@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { trackEvent } from "@/lib/analytics";
 import type { SortingState } from "@tanstack/react-table";
 import type { Task, TaskStatus } from "@/lib/tasks/types";
 import { TaskForm } from "@/components/tasks/task-form";
@@ -419,6 +420,7 @@ export function useTasks() {
       action: "created",
       summary: `Created task '${trimmed}'`,
     });
+    trackEvent("task_created", { status });
     fetchTasks();
   }
 

@@ -6,6 +6,7 @@ import { ThemeApplier } from "@/components/theme-applier";
 import { HqConfigProvider } from "@/lib/workspaces/hq-config-provider";
 import { readActiveWorkspacePublic } from "@/lib/workspaces/server";
 import { getOrCreateGatewayAuthToken } from "@/lib/workspaces/gateway-auth-token";
+import { PostHogPageview } from "./posthog-pageview";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -77,6 +78,7 @@ export default async function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
+            <PostHogPageview />
             <ThemeApplier />
             {children}
             <Toaster />

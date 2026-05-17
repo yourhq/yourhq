@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { trackEvent } from "@/lib/analytics";
 import type { Routine, TriggerType } from "@/lib/routines/types";
 import { logAudit } from "@/lib/audit/log";
 import { completeItem } from "@/lib/onboarding/progress";
@@ -135,6 +136,7 @@ export function useRoutines() {
       action: "created",
       summary: `Created routine "${routine.name}"`,
     });
+    trackEvent("routine_created", { trigger_type: input.trigger_type });
     completeItem("routineCreated");
 
     fetchRoutines();
