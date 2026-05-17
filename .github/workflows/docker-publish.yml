@@ -2,13 +2,8 @@ name: Publish images
 
 on:
   push:
-    branches:
-      - main
     tags:
       - "v*"
-    paths-ignore:
-      - "**.md"
-      - "docs-site/**"
   workflow_dispatch:
     inputs:
       tag:
@@ -205,7 +200,7 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}
           tags: |
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest
             type=sha,format=short
             type=semver,pattern={{version}}
             type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
@@ -237,7 +232,6 @@ jobs:
     needs: [changes, manifest]
     if: >-
       needs.changes.outputs.has-changes == 'true' &&
-      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) &&
       contains(toJSON(fromJSON(needs.changes.outputs.manifest-matrix).include.*.name), 'yourhq-worker')
     runs-on: ubuntu-latest
     permissions:
