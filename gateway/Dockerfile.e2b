@@ -1,5 +1,4 @@
-ARG BASE_IMAGE=ghcr.io/yourhq/yourhq-gateway:latest
-FROM ${BASE_IMAGE}
+FROM ghcr.io/yourhq/yourhq-gateway:latest
 
 USER root
 
