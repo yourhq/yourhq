@@ -16,7 +16,6 @@ import {
   Settings,
   Search,
   Keyboard,
-  CreditCard,
   Database,
   ChevronRight,
   Pin,
@@ -78,9 +77,6 @@ function buildNavGroups(
     { href: "/dashboard/notifications", label: "Notifications", icon: Bell },
     { href: "/dashboard/settings", label: "Settings", icon: Settings },
   ];
-  if (isHosted) {
-    systemItems.push({ href: "/dashboard/account", label: "Account", icon: CreditCard });
-  }
 
   const groups: NavGroup[] = [
     {
