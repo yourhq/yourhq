@@ -16,7 +16,7 @@
     "hono": "^4.7.0",
     "posthog-node": "^4.0.0",
     "resend": "^4.2.0",
-    "stripe": "^17.7.0"
+    "stripe": "^22.1.1"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
