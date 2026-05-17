@@ -42,7 +42,14 @@ export async function updateSession(request: NextRequest) {
     }
     const url = request.nextUrl.clone();
     url.pathname = isHosted ? AUTH_PATH : ONBOARDING_PATH;
-    return NextResponse.redirect(url);
+    const redirect = NextResponse.redirect(url);
+    if (isHosted && request.cookies.has("hq_workspace_session")) {
+      redirect.cookies.delete("hq_workspace_session");
+    }
+    if (!isHosted && request.cookies.has(ACTIVE_WORKSPACE_COOKIE)) {
+      redirect.cookies.delete(ACTIVE_WORKSPACE_COOKIE);
+    }
+    return redirect;
   }
 
   if (!isHosted && activeIdHint && activeIdHint !== workspace.id) {

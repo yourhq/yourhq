@@ -12,7 +12,7 @@ import {
 } from "@/lib/organizations/types";
 import { Contact } from "@/lib/crm/types";
 import { useFieldDefinitions } from "@/hooks/use-field-definitions";
-import { DynamicFieldGroups } from "@/components/shared/dynamic-field-group";
+import { PropertyList } from "@/components/shared/property-list";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -47,7 +47,7 @@ export function OrgDetail({ organization: initial }: OrgDetailProps) {
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const { groupedFields } = useFieldDefinitions("organization");
+  const { fields, groupedFields, addField, updateField, deleteField, reorderFields } = useFieldDefinitions("organization");
 
   const fetchPeople = useCallback(async () => {
     const { data } = await supabase
@@ -124,6 +124,25 @@ export function OrgDetail({ organization: initial }: OrgDetailProps) {
       .eq("id", organization.id)
       .single();
     if (data) setOrganization(data as Organization);
+  }
+
+  async function saveExtended(next: Record<string, unknown>) {
+    const { error } = await supabase
+      .from("organizations")
+      .update({ extended: next })
+      .eq("id", organization.id);
+    if (error) {
+      toast.error("Failed to update properties");
+      return;
+    }
+    logAudit(supabase, {
+      module: "crm",
+      entity_type: "organization",
+      entity_id: organization.id,
+      action: "updated",
+      summary: `Updated properties on '${organization.name}'`,
+    });
+    setOrganization((o) => ({ ...o, extended: next }));
   }
 
   const typeLabel = organization.type
@@ -255,30 +274,20 @@ export function OrgDetail({ organization: initial }: OrgDetailProps) {
               </div>
 
               {/* Properties (custom fields) */}
-              {groupedFields.length > 0 ? (
-                <div className="space-y-2">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Properties
-                  </h3>
-                  <DynamicFieldGroups
-                    groupedFields={groupedFields}
-                    values={organization.extended ?? {}}
-                    onChange={() => {
-                      /* readonly here — editing happens via form */
-                    }}
-                    openByDefault={groupedFields.map((g) => g.group)}
-                  />
-                </div>
-              ) : (
-                <div className="py-1">
-                  <Link
-                    href="/dashboard/settings/fields"
-                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    + Add custom properties in Settings
-                  </Link>
-                </div>
-              )}
+              <PropertyList
+                fields={fields}
+                values={organization.extended ?? {}}
+                onValueChange={(key, value) => {
+                  const next = { ...organization.extended, [key]: value };
+                  if (value === null || value === undefined || value === "") delete next[key];
+                  saveExtended(next);
+                }}
+                onAddField={addField}
+                onUpdateField={updateField}
+                onDeleteField={deleteField}
+                onReorderFields={reorderFields}
+                entityType="organization"
+              />
 
               {/* Notes */}
               {organization.notes && (

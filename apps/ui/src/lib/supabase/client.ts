@@ -19,11 +19,7 @@ export function createClient() {
 
   const config = getHqConfig();
   if (!config) {
-    throw new Error(
-      "HQ config is not available. " +
-        "The active workspace cookie may be missing, or the registry is empty. " +
-        "Navigate to /onboarding to set up a workspace.",
-    );
+    return createBrowserClient(SSR_PLACEHOLDER_URL, SSR_PLACEHOLDER_KEY);
   }
 
   return createBrowserClient(config.url, config.anonKey, {

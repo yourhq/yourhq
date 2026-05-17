@@ -12,7 +12,7 @@ import {
 import type { Organization } from "@/lib/organizations/types";
 import { usePipelineStages } from "@/hooks/use-pipeline-stages";
 import { useFieldDefinitions } from "@/hooks/use-field-definitions";
-import { DynamicFieldGroups } from "@/components/shared/dynamic-field-group";
+import { PropertyList } from "@/components/shared/property-list";
 import { PipelineStagePicker } from "@/components/shared/pipeline-stage-picker";
 import { logAudit } from "@/lib/audit/log";
 import { SidePanel } from "@/components/shared/side-panel";
@@ -81,7 +81,7 @@ export function ContactForm({
   onSaved: () => void;
 }) {
   const { defaultStage } = usePipelineStages("contact");
-  const { groupedFields } = useFieldDefinitions("contact");
+  const { fields, groupedFields, addField, updateField, deleteField, reorderFields } = useFieldDefinitions("contact");
 
   const [saving, setSaving] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
@@ -553,16 +553,25 @@ export function ContactForm({
         </div>
 
         {/* Dynamic fields from field_definitions */}
-        {groupedFields.length > 0 && (
-          <div className="border-t border-border/50 px-4 py-3">
-            <DynamicFieldGroups
-              groupedFields={groupedFields}
-              values={extended}
-              onChange={setExtended}
-              inDialog
-            />
-          </div>
-        )}
+        <div className="border-t border-border/50 px-4 py-3">
+          <PropertyList
+            fields={fields}
+            values={extended}
+            onValueChange={(key, value) => {
+              setExtended((prev) => {
+                const next = { ...prev };
+                if (value === null || value === undefined || value === "") delete next[key];
+                else next[key] = value;
+                return next;
+              });
+            }}
+            onAddField={addField}
+            onUpdateField={updateField}
+            onDeleteField={deleteField}
+            onReorderFields={reorderFields}
+            entityType="contact"
+          />
+        </div>
 
         {/* Notes & How we met */}
         <div className="border-t border-border/50 px-4 py-3 space-y-3">

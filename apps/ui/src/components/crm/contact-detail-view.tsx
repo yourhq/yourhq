@@ -13,7 +13,7 @@ import {
 import { usePipelineStages } from "@/hooks/use-pipeline-stages";
 import { useFieldDefinitions } from "@/hooks/use-field-definitions";
 import { DEFAULT_STAGE_COLOR } from "@/lib/fields/types";
-import { DynamicFieldGroups } from "@/components/shared/dynamic-field-group";
+import { PropertyList } from "@/components/shared/property-list";
 import { PipelineStagePicker } from "@/components/shared/pipeline-stage-picker";
 import {
   Breadcrumb,
@@ -333,7 +333,7 @@ export function ContactDetailView({ contact: initialContact }: { contact: Contac
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const { stages, getStageColor } = usePipelineStages("contact");
-  const { groupedFields } = useFieldDefinitions("contact");
+  const { fields, groupedFields, addField, updateField, deleteField, reorderFields } = useFieldDefinitions("contact");
 
   const supabase = useMemo(() => createClient(), []);
 
@@ -613,28 +613,20 @@ export function ContactDetailView({ contact: initialContact }: { contact: Contac
 
             {/* Properties (custom fields) */}
             <Separator className="bg-border/50" />
-            {groupedFields.length > 0 ? (
-              <div>
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                  Properties
-                </h3>
-                <DynamicFieldGroups
-                  groupedFields={groupedFields}
-                  values={contact.extended ?? {}}
-                  onChange={saveExtended}
-                  openByDefault={groupedFields.map((g) => g.group)}
-                />
-              </div>
-            ) : (
-              <div className="py-1">
-                <Link
-                  href="/dashboard/settings/fields"
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  + Add custom properties in Settings
-                </Link>
-              </div>
-            )}
+            <PropertyList
+              fields={fields}
+              values={contact.extended ?? {}}
+              onValueChange={(key, value) => {
+                const next = { ...contact.extended, [key]: value };
+                if (value === null || value === undefined || value === "") delete next[key];
+                saveExtended(next);
+              }}
+              onAddField={addField}
+              onUpdateField={updateField}
+              onDeleteField={deleteField}
+              onReorderFields={reorderFields}
+              entityType="contact"
+            />
 
             {/* Notes */}
             <Separator className="bg-border/50" />
