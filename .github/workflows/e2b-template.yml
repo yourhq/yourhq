@@ -2,11 +2,8 @@ name: Build E2B gateway template
 
 on:
   push:
-    branches: [main, hosted]
-    paths:
-      - "gateway/**"
-      - "templates/**"
-      - ".github/workflows/e2b-template.yml"
+    tags:
+      - "v*"
   workflow_dispatch:
 
 concurrency:
