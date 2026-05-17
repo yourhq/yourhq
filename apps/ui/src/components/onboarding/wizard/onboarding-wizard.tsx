@@ -38,11 +38,12 @@ import {
 import { createHostedCheckout, getHostedEmail, verifyAutoLogin, sendFreshLoginLink } from "./hosted-actions";
 
 const INTENT_TO_TEMPLATE: Record<string, { branch: string; name: string; emoji: string; role: string; description: string }> = {
-  reach: { branch: "template/crm-researcher", name: "Scout", emoji: "🦅", role: "Research & Outreach", description: "Researches people, verifies info, and helps you craft personalized outreach." },
-  deals: { branch: "template/crm-researcher", name: "Scout", emoji: "🦅", role: "Sales Research", description: "Finds decision-makers, researches companies, and preps you for every conversation." },
-  hire: { branch: "template/crm-researcher", name: "Scout", emoji: "🦅", role: "Talent Sourcing", description: "Sources candidates, screens profiles, and helps you build a strong pipeline." },
+  reach: { branch: "template/crm-researcher", name: "Scout", emoji: "🦅", role: "Sales & Outreach", description: "Finds prospects, researches companies, and helps you build pipeline." },
   publish: { branch: "template/ghostwriter", name: "Ghost", emoji: "🦎", role: "Content Writer", description: "Writes in your voice across any format — newsletters, posts, threads, and more." },
   run: { branch: "template/chief-of-staff", name: "Chief", emoji: "🦫", role: "Operations", description: "Coordinates tasks, tracks clients, and keeps everything moving forward." },
+  hire: { branch: "template/crm-researcher", name: "Scout", emoji: "🦅", role: "Talent Sourcing", description: "Sources candidates, screens profiles, and helps you build a strong pipeline." },
+  research: { branch: "template/assistant", name: "Researcher", emoji: "🦉", role: "Research & Analysis", description: "Digs into topics, synthesizes information, and organizes what it finds." },
+  organized: { branch: "template/assistant", name: "Assistant", emoji: "🐕", role: "General Assistant", description: "Routes work, tracks moving parts, and helps you stay organized." },
   explore: { branch: "template/assistant", name: "Assistant", emoji: "🐕", role: "General Assistant", description: "Routes work, tracks moving parts, and helps you stay organized." },
 };
 
@@ -341,8 +342,8 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
 
   // ─── Agent ───
   const getRecommendation = (): AgentRecommendation => {
-    const intentKey = (data.intentKey as string) ?? "explore";
-    const rec = INTENT_TO_TEMPLATE[intentKey] ?? INTENT_TO_TEMPLATE.explore;
+    const intentKey = (data.intentKey as string) ?? "organized";
+    const rec = INTENT_TO_TEMPLATE[intentKey] ?? INTENT_TO_TEMPLATE.organized;
     return {
       templateBranch: rec.branch,
       name: rec.name,
@@ -411,7 +412,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
 
     completeItem("agentCreated");
 
-    const intentKey = (data.intentKey as string) ?? "explore";
+    const intentKey = (data.intentKey as string) ?? "organized";
     const suggestion = FIRST_TASK_SUGGESTIONS[intentKey];
     const params = new URLSearchParams({ onboarding: "first-task" });
     if (suggestion) params.set("title", suggestion.title);
@@ -511,7 +512,19 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-background to-background/95">
       {/* Header */}
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-border/40 px-5 lg:h-16 lg:px-8">
-        <HqLogo size={24} className="text-foreground" />
+        <div className="flex items-center gap-2">
+          {!isFirst && step !== "provisioning" && !(isHosted && step === "provider") && (
+            <button
+              type="button"
+              onClick={goBack}
+              aria-label="Go back"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+            </button>
+          )}
+          <HqLogo size={24} className="text-foreground" />
+        </div>
         <div className="hidden md:flex flex-1 justify-center px-8">
           <WizardProgress steps={progressSteps} currentStep={progressStep} />
         </div>
@@ -563,19 +576,6 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
               layout === "wide" && "pt-8",
             )}
           >
-            {/* Back button — hidden during provisioning and at gates the user can't reverse */}
-            {!isFirst && step !== "provisioning" && !(isHosted && step === "provider") && (
-              <button
-                type="button"
-                onClick={goBack}
-                aria-label="Go back"
-                className="mb-4 flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
-              >
-                <ArrowLeft className="h-3 w-3" />
-                <span className="hidden sm:inline">Back</span>
-              </button>
-            )}
-
             {error && (
               <div className="mb-5 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-[12px] text-destructive animate-in fade-in duration-200">
                 <span className="flex-1">{error}</span>
