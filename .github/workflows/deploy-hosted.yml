@@ -1,9 +1,9 @@
 name: Deploy hosted
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_run:
+    workflows: ["Publish images"]
+    types: [completed]
   workflow_dispatch:
 
 concurrency:
@@ -13,7 +13,9 @@ concurrency:
 jobs:
   deploy-worker:
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     permissions:
       id-token: write
       contents: read
@@ -29,8 +31,9 @@ jobs:
       - name: Resolve image tag
         id: tag
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            echo "image_tag=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          REF="${{ github.event.workflow_run.head_branch || 'latest' }}"
+          if [[ "$REF" == v* ]]; then
+            echo "image_tag=${REF#v}" >> "$GITHUB_OUTPUT"
           else
             echo "image_tag=latest" >> "$GITHUB_OUTPUT"
           fi
