@@ -12,7 +12,7 @@
   "dependencies": {
     "@hono/node-server": "^2.0.1",
     "@supabase/supabase-js": "^2.49.0",
-    "e2b": "^1.4.0",
+    "e2b": "^2.20.1",
     "hono": "^4.7.0",
     "posthog-node": "^4.0.0",
     "resend": "^4.2.0",
