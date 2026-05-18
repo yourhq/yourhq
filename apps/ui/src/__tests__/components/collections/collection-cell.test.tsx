@@ -43,7 +43,7 @@ describe("CollectionCell", () => {
       expect(screen.getByText("Hello World")).toBeInTheDocument();
     });
 
-    it("shows dash for null value", () => {
+    it("shows Empty placeholder for null value", () => {
       render(
         <CollectionCell
           field={buildField({ field_type: "text" })}
@@ -51,7 +51,7 @@ describe("CollectionCell", () => {
           onChange={onChange}
         />
       );
-      expect(screen.getByText("—")).toBeInTheDocument();
+      expect(screen.getByText("Empty")).toBeInTheDocument();
     });
 
     it("enters edit mode on click and commits on Enter", async () => {
@@ -115,7 +115,7 @@ describe("CollectionCell", () => {
       expect(screen.getByText("42")).toBeInTheDocument();
     });
 
-    it("shows dash for null value", () => {
+    it("shows Empty placeholder for null value", () => {
       render(
         <CollectionCell
           field={buildField({ field_type: "number" })}
@@ -123,7 +123,7 @@ describe("CollectionCell", () => {
           onChange={onChange}
         />
       );
-      expect(screen.getByText("—")).toBeInTheDocument();
+      expect(screen.getByText("Empty")).toBeInTheDocument();
     });
 
     it("renders zero value", () => {
@@ -312,7 +312,7 @@ describe("CollectionCell", () => {
       expect(screen.getByText("Blue")).toBeInTheDocument();
     });
 
-    it("shows dash for empty array", () => {
+    it("shows Select placeholder for empty array", () => {
       render(
         <CollectionCell
           field={multiField}
@@ -320,7 +320,7 @@ describe("CollectionCell", () => {
           onChange={onChange}
         />
       );
-      expect(screen.getByText("—")).toBeInTheDocument();
+      expect(screen.getByText("Select...")).toBeInTheDocument();
     });
 
     it("removes a tag when clicked", async () => {

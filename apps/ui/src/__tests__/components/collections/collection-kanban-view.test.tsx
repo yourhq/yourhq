@@ -157,16 +157,16 @@ describe("CollectionKanbanView", () => {
     expect(screen.getByText("No Status")).toBeInTheDocument();
   });
 
-  it("renders Add button per column", () => {
+  it("renders New button per column", () => {
     renderKanban();
-    const addButtons = screen.getAllByText("Add");
+    const addButtons = screen.getAllByText("New");
     expect(addButtons.length).toBe(3);
   });
 
   it("calls onAddRecord with defaults when column add is clicked", async () => {
     const user = userEvent.setup();
     renderKanban();
-    const addButtons = screen.getAllByText("Add");
+    const addButtons = screen.getAllByText("New");
     await user.click(addButtons[0]);
     expect(onAddRecord).toHaveBeenCalledWith({ status: "todo" });
   });

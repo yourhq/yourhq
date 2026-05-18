@@ -64,15 +64,17 @@ beforeEach(() => {
 describe("AgentChannelCard", () => {
   it("renders channel selection phase when no channel connected", () => {
     render(<AgentChannelCard agent={makeAgent()} />);
-    expect(screen.getByText("Messaging channel")).toBeInTheDocument();
+    expect(screen.getByText("Messaging Channel")).toBeInTheDocument();
     expect(screen.getByText("Telegram")).toBeInTheDocument();
     expect(screen.getByText("Discord")).toBeInTheDocument();
     expect(screen.getByText("Slack")).toBeInTheDocument();
   });
 
-  it("shows Recommended tag on Telegram", () => {
-    render(<AgentChannelCard agent={makeAgent()} />);
-    expect(screen.getByText("Recommended")).toBeInTheDocument();
+  it("shows star icon on Telegram (recommended)", () => {
+    const { container } = render(<AgentChannelCard agent={makeAgent()} />);
+    const telegramButton = screen.getByText("Telegram").closest("button");
+    const starIcon = telegramButton?.querySelector(".lucide-star");
+    expect(starIcon).toBeInTheDocument();
   });
 
   it("renders connected state when agent has a channel", () => {
@@ -145,13 +147,11 @@ describe("AgentChannelCard", () => {
     expect(screen.getByText("Follow the prompts")).toBeInTheDocument();
   });
 
-  it("shows description with agent name", () => {
+  it("renders channel option labels", () => {
     render(<AgentChannelCard agent={makeAgent()} />);
-    expect(
-      screen.getByText(
-        /Connect a channel to chat with Scout on Telegram, Discord, or Slack/
-      )
-    ).toBeInTheDocument();
+    expect(screen.getByText("Telegram")).toBeInTheDocument();
+    expect(screen.getByText("Discord")).toBeInTheDocument();
+    expect(screen.getByText("Slack")).toBeInTheDocument();
   });
 
   it("resets to channel select when Change is clicked in connected state", async () => {

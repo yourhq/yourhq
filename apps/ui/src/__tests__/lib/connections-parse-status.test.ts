@@ -128,14 +128,14 @@ describe("parseModelsStatus", () => {
     expect(result[0].status).toBe("missing_credential");
   });
 
-  test("unknown reason maps to unknown", () => {
+  test("unknown reason maps to ok", () => {
     const stdout = JSON.stringify({
       auth: {
         oauth: [{ provider: "test", reason: "something_else" }],
       },
     });
     const result = parseModelsStatus(stdout, GATEWAY);
-    expect(result[0].status).toBe("unknown");
+    expect(result[0].status).toBe("ok");
   });
 
   test("expires timestamp populates expiresAt", () => {

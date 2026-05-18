@@ -246,9 +246,9 @@ describe("ContactDetailView", () => {
     expect(screen.getByTestId("inbox-history")).toBeInTheDocument();
   });
 
-  it("shows settings link when no custom fields defined", () => {
+  it("shows empty property state when no custom fields defined", () => {
     render(<ContactDetailView contact={buildContact()} />);
-    expect(screen.getByText("+ Add custom properties in Settings")).toBeInTheDocument();
+    expect(screen.getByText("No properties yet. Add one to track custom data.")).toBeInTheDocument();
   });
 
   it("shows archive confirm dialog when archive button is clicked", async () => {

@@ -78,9 +78,9 @@ describe("CollectionCreateDialog", () => {
     expect(screen.getByText("New Collection")).toBeInTheDocument();
   });
 
-  it("renders template tab with templates", () => {
+  it("renders pick step with template cards", () => {
     renderDialog();
-    expect(screen.getByText("Templates")).toBeInTheDocument();
+    expect(screen.getByText("Start from scratch")).toBeInTheDocument();
     expect(screen.getByText("Project Tracker")).toBeInTheDocument();
     expect(screen.getByText("Bug Tracker")).toBeInTheDocument();
   });
@@ -90,66 +90,66 @@ describe("CollectionCreateDialog", () => {
     expect(screen.getByText("Track your projects")).toBeInTheDocument();
   });
 
-  it("renders template icons", () => {
+  it("renders pick step description", () => {
     renderDialog();
-    const icons = screen.getAllByText("📋");
-    expect(icons.length).toBe(2);
+    expect(screen.getByText("Track anything with custom fields and views.")).toBeInTheDocument();
   });
 
-  it("renders Blank tab", () => {
+  it("renders blank card on pick step", () => {
     renderDialog();
-    expect(screen.getByText("Blank")).toBeInTheDocument();
+    expect(screen.getByText("Start from scratch")).toBeInTheDocument();
+    expect(screen.getByText("Empty collection with custom fields")).toBeInTheDocument();
   });
 
-  it("calls onInstallTemplate when a template is clicked", async () => {
+  it("navigates to name step and calls onInstallTemplate when template is picked", async () => {
     const user = userEvent.setup();
     renderDialog();
     await user.click(screen.getByText("Project Tracker"));
+    const input = screen.getByPlaceholderText("Project Tracker");
+    expect(input).toHaveValue("Project Tracker");
+    await user.click(screen.getByText("Create"));
     expect(onInstallTemplate).toHaveBeenCalledWith(templates[0]);
   });
 
-  it("renders blank form fields when Blank tab is selected", async () => {
+  it("navigates to name step when blank card is clicked", async () => {
     const user = userEvent.setup();
     renderDialog();
-    await user.click(screen.getByText("Blank"));
-    expect(screen.getByText("Name")).toBeInTheDocument();
-    expect(screen.getByText("Slug")).toBeInTheDocument();
-    expect(screen.getByText("Description")).toBeInTheDocument();
+    await user.click(screen.getByText("Start from scratch"));
+    expect(screen.getByPlaceholderText("e.g. Job Applications")).toBeInTheDocument();
+    expect(screen.getByText("Create")).toBeInTheDocument();
   });
 
-  it("auto-generates slug from name", async () => {
+  it("shows back button on name step that returns to pick step", async () => {
     const user = userEvent.setup();
     renderDialog();
-    await user.click(screen.getByText("Blank"));
-    const nameInput = screen.getByPlaceholderText("e.g. Job Applications");
-    await user.type(nameInput, "My Collection");
-    const slugInput = screen.getByPlaceholderText("job-applications");
-    expect(slugInput).toHaveValue("my-collection");
+    await user.click(screen.getByText("Start from scratch"));
+    expect(screen.getByText("Blank Collection")).toBeInTheDocument();
+    await user.click(screen.getByText("Blank Collection"));
+    expect(screen.getByText("New Collection")).toBeInTheDocument();
   });
 
   it("Create button is disabled when name is empty", async () => {
     const user = userEvent.setup();
     renderDialog();
-    await user.click(screen.getByText("Blank"));
-    expect(screen.getByText("Create Collection")).toBeDisabled();
+    await user.click(screen.getByText("Start from scratch"));
+    expect(screen.getByText("Create")).toBeDisabled();
   });
 
   it("calls onCreateBlank with form data", async () => {
     const user = userEvent.setup();
     renderDialog();
-    await user.click(screen.getByText("Blank"));
+    await user.click(screen.getByText("Start from scratch"));
     await user.type(screen.getByPlaceholderText("e.g. Job Applications"), "Deals");
-    await user.click(screen.getByText("Create Collection"));
+    await user.click(screen.getByText("Create"));
     expect(onCreateBlank).toHaveBeenCalledWith({
       name: "Deals",
       slug: "deals",
-      description: undefined,
     });
   });
 
-  it("defaults to blank tab when no templates provided", () => {
+  it("renders pick step even with no templates", () => {
     renderDialog(true, []);
-    expect(screen.queryByText("Templates")).not.toBeInTheDocument();
-    expect(screen.getByText("Name")).toBeInTheDocument();
+    expect(screen.getByText("New Collection")).toBeInTheDocument();
+    expect(screen.getByText("Start from scratch")).toBeInTheDocument();
   });
 });

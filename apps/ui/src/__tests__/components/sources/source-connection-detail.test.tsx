@@ -87,8 +87,8 @@ vi.mock("@/components/shared/detail-sidebar", () => ({
   DetailSidebar: ({ children }: any) => (
     <div data-testid="detail-sidebar">{children}</div>
   ),
-  DetailSidebarMobile: ({ children }: any) => (
-    <div data-testid="detail-sidebar-mobile">{children}</div>
+  DetailSidebarInline: ({ children }: any) => (
+    <div data-testid="detail-sidebar-inline">{children}</div>
   ),
   DetailSidebarSection: ({ title, children }: any) => (
     <div data-testid={`sidebar-section-${title}`}>
@@ -156,7 +156,8 @@ describe("SourceConnectionDetail", () => {
 
   it("renders the provider name in the sidebar", () => {
     render(<SourceConnectionDetail connection={makeConnection()} />);
-    expect(screen.getByText("Notion")).toBeInTheDocument();
+    const matches = screen.getAllByText("Notion");
+    expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders the status badge", () => {
@@ -177,12 +178,14 @@ describe("SourceConnectionDetail", () => {
 
   it("renders Sync now button in sidebar", () => {
     render(<SourceConnectionDetail connection={makeConnection()} />);
-    expect(screen.getByText("Sync now")).toBeInTheDocument();
+    const matches = screen.getAllByText("Sync now");
+    expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders Disconnect button in sidebar", () => {
     render(<SourceConnectionDetail connection={makeConnection()} />);
-    expect(screen.getByText("Disconnect")).toBeInTheDocument();
+    const matches = screen.getAllByText("Disconnect");
+    expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
   it("fetches items and sync runs on mount", () => {
@@ -202,8 +205,8 @@ describe("SourceConnectionDetail", () => {
   it("shows delete confirmation when Disconnect is clicked", async () => {
     const user = userEvent.setup();
     render(<SourceConnectionDetail connection={makeConnection()} />);
-    const disconnectBtn = screen.getByText("Disconnect");
-    await user.click(disconnectBtn);
+    const disconnectBtns = screen.getAllByText("Disconnect");
+    await user.click(disconnectBtns[0]);
 
     expect(screen.getByTestId("confirm-delete")).toBeInTheDocument();
     expect(screen.getByText("Disconnect source?")).toBeInTheDocument();
@@ -212,7 +215,7 @@ describe("SourceConnectionDetail", () => {
   it("calls deleteConnection and navigates on disconnect confirm", async () => {
     const user = userEvent.setup();
     render(<SourceConnectionDetail connection={makeConnection()} />);
-    await user.click(screen.getByText("Disconnect"));
+    await user.click(screen.getAllByText("Disconnect")[0]);
     await user.click(screen.getByText("Confirm"));
 
     await waitFor(() => {
@@ -235,14 +238,18 @@ describe("SourceConnectionDetail", () => {
 
   it("renders the Connection sidebar section with label", () => {
     render(<SourceConnectionDetail connection={makeConnection()} />);
-    expect(screen.getByTestId("sidebar-section-Connection")).toBeInTheDocument();
-    expect(screen.getByTestId("property-Label")).toBeInTheDocument();
+    const sections = screen.getAllByTestId("sidebar-section-Connection");
+    expect(sections.length).toBeGreaterThanOrEqual(1);
+    const labels = screen.getAllByTestId("property-Label");
+    expect(labels.length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders the Settings sidebar section", () => {
     render(<SourceConnectionDetail connection={makeConnection()} />);
-    expect(screen.getByTestId("sidebar-section-Settings")).toBeInTheDocument();
-    expect(screen.getByTestId("property-Sync every")).toBeInTheDocument();
+    const sections = screen.getAllByTestId("sidebar-section-Settings");
+    expect(sections.length).toBeGreaterThanOrEqual(1);
+    const syncEvery = screen.getAllByTestId("property-Sync every");
+    expect(syncEvery.length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders masked token display", () => {

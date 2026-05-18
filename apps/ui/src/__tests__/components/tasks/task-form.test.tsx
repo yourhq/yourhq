@@ -18,16 +18,17 @@ vi.mock("@/lib/onboarding/progress", () => ({
   completeItem: vi.fn(),
 }));
 
-vi.mock("@/hooks/use-comments", () => ({
-  useComments: () => ({
-    comments: [],
+vi.mock("@/hooks/use-buffered-entity-links", () => ({
+  useBufferedEntityLinks: () => ({
+    links: [],
     loading: false,
+    dirty: false,
     actions: {
-      addComment: vi.fn(),
-      editComment: vi.fn(),
-      deleteComment: vi.fn(),
+      addLink: vi.fn(),
+      removeLink: vi.fn(),
+      searchTargets: vi.fn(),
+      flush: vi.fn(),
     },
-    parseMentions: vi.fn().mockReturnValue([]),
   }),
 }));
 
@@ -57,12 +58,12 @@ vi.mock("@/lib/workspace/timezone", () => ({
   getWorkspaceTimezone: vi.fn().mockResolvedValue("America/New_York"),
 }));
 
-vi.mock("@/components/tasks/comment-thread", () => ({
-  CommentThread: () => <div data-testid="comment-thread" />,
+vi.mock("@/components/tasks/task-timeline", () => ({
+  TaskTimeline: () => <div data-testid="task-timeline" />,
 }));
 
-vi.mock("@/components/tasks/task-activity-feed", () => ({
-  TaskActivityFeed: () => <div data-testid="activity-feed" />,
+vi.mock("@/lib/tasks/cadence", () => ({
+  shortCadenceLabel: () => "Daily",
 }));
 
 vi.mock("@/components/tasks/task-relations", () => ({
@@ -212,10 +213,10 @@ describe("TaskForm", () => {
     expect((titleInput as HTMLTextAreaElement).value).toBe("Existing task");
   });
 
-  it("renders Save button in edit mode", () => {
+  it("renders Close button in edit mode", () => {
     const task = buildTask({ title: "Existing", id: "edit-1" });
     render(<TaskForm {...defaultProps} editingTask={task as any} />);
-    expect(screen.getByText("Save")).toBeDefined();
+    expect(screen.getByText("Close")).toBeDefined();
   });
 
   it("renders Edit task dialog title in edit mode", () => {
@@ -244,9 +245,9 @@ describe("TaskForm", () => {
     expect(screen.getByText("Medium")).toBeDefined();
   });
 
-  it("shows stream selector with No stream default", () => {
+  it("shows stream selector with None default", () => {
     render(<TaskForm {...defaultProps} />);
-    expect(screen.getByText("No stream")).toBeDefined();
+    expect(screen.getAllByText("None").length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows assignee selector with Unassigned default", () => {
@@ -256,7 +257,8 @@ describe("TaskForm", () => {
 
   it("shows date picker with placeholder", () => {
     render(<TaskForm {...defaultProps} />);
-    expect(screen.getByText("No due date")).toBeDefined();
+    expect(screen.getByTestId("date-picker")).toBeDefined();
+    expect(screen.getByTestId("date-picker").textContent).toBe("None");
   });
 
   it("disables Create button when title is empty", () => {
@@ -282,16 +284,15 @@ describe("TaskForm", () => {
     expect(onCancel).toHaveBeenCalled();
   });
 
-  it("shows Attach link button in create mode", () => {
+  it("shows entity link list in create mode", () => {
     render(<TaskForm {...defaultProps} />);
-    expect(screen.getByText("Attach link")).toBeDefined();
+    expect(screen.getByTestId("entity-links")).toBeDefined();
   });
 
-  it("shows tabs (Details, Activity) when editing a saved task", () => {
+  it("shows timeline when editing a saved task", () => {
     const task = buildTask({ title: "Saved", id: "saved-1" });
     render(<TaskForm {...defaultProps} editingTask={task as any} />);
-    expect(screen.getByText("Details")).toBeDefined();
-    expect(screen.getByText("Activity")).toBeDefined();
+    expect(screen.getByTestId("task-timeline")).toBeDefined();
   });
 
   it("shows Archive button in edit mode when onArchive provided", () => {
@@ -320,17 +321,16 @@ describe("TaskForm", () => {
     expect(screen.getByText("Reopen")).toBeDefined();
   });
 
-  it("shows Deliverables tab when agent is assigned", async () => {
+  it("shows deliverables section when task has deliverables", () => {
     const task = buildTask({
       title: "Agent task",
       id: "agent-task-1",
       assignee_type: "agent",
       assignee_agent_id: "agent-1",
+      deliverable_count: 2,
     });
     render(<TaskForm {...defaultProps} editingTask={task as any} />);
-    await waitFor(() => {
-      expect(screen.getByText("Deliverables")).toBeDefined();
-    });
+    expect(screen.getByTestId("task-deliverables")).toBeDefined();
   });
 
   it("pre-fills description in edit mode", () => {

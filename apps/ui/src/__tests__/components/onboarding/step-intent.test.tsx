@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -6,160 +6,159 @@ vi.mock("@/lib/utils", () => ({
   cn: (...args: unknown[]) => args.filter(Boolean).join(" "),
 }));
 
-vi.mock("@/lib/setup/templates", () => ({
-  CONTEXT_PRESETS: [
-    {
-      key: "reach",
-      label: "Find & reach people",
-      description: "Cold outreach, content partnerships.",
-      emoji: "🚀",
-      pipelineKey: "outreach",
-      fieldKey: "creator-outreach",
-      streamNames: [],
-      modules: { crm: true },
-      collectionTemplateSlugs: [],
-    },
-    {
-      key: "deals",
-      label: "Close deals",
-      description: "Deal flow, follow-ups.",
-      emoji: "💸",
-      pipelineKey: "sales",
-      fieldKey: "sales",
-      streamNames: [],
-      modules: { crm: true },
-      collectionTemplateSlugs: [],
-    },
-    {
-      key: "explore",
-      label: "Something else",
-      description: "Start blank.",
-      emoji: "✏️",
-      pipelineKey: "custom",
-      fieldKey: "blank",
-      streamNames: [],
-      modules: { crm: true },
-      collectionTemplateSlugs: [],
-    },
-  ],
+vi.mock("@/components/onboarding/wizard/staggered-entrance", () => ({
+  StaggeredEntrance: ({
+    children,
+    className,
+  }: {
+    children: React.ReactNode;
+    className?: string;
+  }) => <div className={className}>{children}</div>,
 }));
 
 import { StepIntent } from "@/components/onboarding/wizard/step-intent";
+
+const LABELS = [
+  "Sales & outreach",
+  "Creating content",
+  "Managing clients",
+  "Hiring people",
+  "Doing research",
+  "Staying organized",
+];
+
+const DETAILS = [
+  "Prospects, deals, partnerships, networking",
+  "Newsletters, posts, threads, publishing",
+  "Accounts, deliverables, projects",
+  "Sourcing, screening, interviews",
+  "Markets, companies, trends, analysis",
+  "Tasks, contacts, notes, a bit of everything",
+];
 
 describe("StepIntent", () => {
   const onSubmit = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
   });
 
-  it("renders heading with first name", () => {
-    render(
-      <StepIntent ownerName="Alice Smith" onSubmit={onSubmit} pending={false} />,
-    );
-    expect(
-      screen.getByText(/What do you need help with, Alice\?/),
-    ).toBeInTheDocument();
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
-  it("falls back to 'there' when name is empty", () => {
-    render(
-      <StepIntent ownerName="" onSubmit={onSubmit} pending={false} />,
-    );
-    expect(
-      screen.getByText(/What do you need help with, there\?/),
-    ).toBeInTheDocument();
-  });
-
-  it("renders intent cards", () => {
-    render(
-      <StepIntent ownerName="Bob" onSubmit={onSubmit} pending={false} />,
-    );
-    expect(screen.getByText("Find & reach people")).toBeInTheDocument();
-    expect(screen.getByText("Close deals")).toBeInTheDocument();
-    expect(screen.getByText("Something else")).toBeInTheDocument();
-  });
-
-  it("disables continue button when nothing is selected", () => {
-    render(
-      <StepIntent ownerName="Bob" onSubmit={onSubmit} pending={false} />,
-    );
-    const btn = screen.getByRole("button", { name: /continue/i });
-    expect(btn).toBeDisabled();
-  });
-
-  it("enables continue button after selecting an intent", async () => {
-    const user = userEvent.setup();
-    render(
-      <StepIntent ownerName="Bob" onSubmit={onSubmit} pending={false} />,
-    );
-    await user.click(screen.getByText("Close deals"));
-    const btn = screen.getByRole("button", { name: /continue/i });
-    expect(btn).not.toBeDisabled();
-  });
-
-  it("calls onSubmit with selected key when continue is clicked", async () => {
-    const user = userEvent.setup();
-    render(
-      <StepIntent ownerName="Bob" onSubmit={onSubmit} pending={false} />,
-    );
-    await user.click(screen.getByText("Find & reach people"));
-    await user.click(screen.getByRole("button", { name: /continue/i }));
-    expect(onSubmit).toHaveBeenCalledWith("reach");
-  });
-
-  it("pre-selects an intent from initialKey", () => {
+  it("renders heading and subtitle", () => {
     render(
       <StepIntent
-        ownerName="Bob"
-        initialKey="deals"
+        ownerName="Alice Smith"
         onSubmit={onSubmit}
         pending={false}
       />,
     );
-    const radios = screen.getAllByRole("radio");
-    const dealsRadio = radios.find((r) => r.getAttribute("aria-checked") === "true");
-    expect(dealsRadio).toBeInTheDocument();
+    expect(
+      screen.getByText("What best describes your work?"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "We'll tailor your workspace and recommend the right agent.",
+      ),
+    ).toBeInTheDocument();
   });
 
-  it("shows Setting up text when pending", () => {
-    render(
-      <StepIntent
-        ownerName="Bob"
-        initialKey="reach"
-        onSubmit={onSubmit}
-        pending={true}
-      />,
-    );
-    expect(screen.getByText("Setting up…")).toBeInTheDocument();
-  });
-
-  it("disables button when pending", () => {
-    render(
-      <StepIntent
-        ownerName="Bob"
-        initialKey="reach"
-        onSubmit={onSubmit}
-        pending={true}
-      />,
-    );
-    const btn = screen.getByRole("button", { name: /setting up/i });
-    expect(btn).toBeDisabled();
-  });
-
-  it("shows the helper text about changing later", () => {
+  it("shows all 6 intent options with labels", () => {
     render(
       <StepIntent ownerName="Bob" onSubmit={onSubmit} pending={false} />,
     );
-    expect(screen.getByText("You can change this anytime.")).toBeInTheDocument();
+    for (const label of LABELS) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
   });
 
-  it("does not call onSubmit when nothing is selected and button is clicked", async () => {
-    const user = userEvent.setup();
+  it("shows detail text for each option", () => {
     render(
       <StepIntent ownerName="Bob" onSubmit={onSubmit} pending={false} />,
     );
-    await user.click(screen.getByRole("button", { name: /continue/i }));
+    for (const detail of DETAILS) {
+      expect(screen.getByText(detail)).toBeInTheDocument();
+    }
+  });
+
+  it("clicking an option calls onSubmit with correct key after 350ms", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(
+      <StepIntent ownerName="Bob" onSubmit={onSubmit} pending={false} />,
+    );
+    await user.click(screen.getByText("Sales & outreach"));
     expect(onSubmit).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(350);
+    expect(onSubmit).toHaveBeenCalledWith("reach");
+  });
+
+  it("after selection, unselected options become dimmed", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(
+      <StepIntent ownerName="Bob" onSubmit={onSubmit} pending={false} />,
+    );
+    await user.click(screen.getByText("Sales & outreach"));
+    const unselected = screen.getByRole("radio", { name: /Creating content/i });
+    expect(unselected.className).toContain("opacity-20");
+  });
+
+  it("selected option gets highlighted bg", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(
+      <StepIntent ownerName="Bob" onSubmit={onSubmit} pending={false} />,
+    );
+    await user.click(screen.getByText("Creating content"));
+    const selected = screen.getByRole("radio", {
+      name: /Creating content/i,
+    });
+    expect(selected.className).toContain("bg-foreground/[0.08]");
+  });
+
+  it("skip button calls onSubmit with 'explore'", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(
+      <StepIntent ownerName="Bob" onSubmit={onSubmit} pending={false} />,
+    );
+    const skipBtn = screen.getByRole("button", {
+      name: /skip.*set things up myself/i,
+    });
+    await user.click(skipBtn);
+    vi.advanceTimersByTime(350);
+    expect(onSubmit).toHaveBeenCalledWith("explore");
+  });
+
+  it("skip button disabled when pending", () => {
+    render(
+      <StepIntent ownerName="Bob" onSubmit={onSubmit} pending={true} />,
+    );
+    const skipBtn = screen.getByRole("button", {
+      name: /skip.*set things up myself/i,
+    });
+    expect(skipBtn).toBeDisabled();
+  });
+
+  it("initialKey pre-selects an option", () => {
+    render(
+      <StepIntent
+        ownerName="Bob"
+        initialKey="hire"
+        onSubmit={onSubmit}
+        pending={false}
+      />,
+    );
+    const hireRadio = screen.getByRole("radio", { name: /Hiring people/i });
+    expect(hireRadio).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("radio buttons have correct roles", () => {
+    render(
+      <StepIntent ownerName="Bob" onSubmit={onSubmit} pending={false} />,
+    );
+    expect(screen.getByRole("radiogroup")).toBeInTheDocument();
+    const radios = screen.getAllByRole("radio");
+    expect(radios).toHaveLength(6);
   });
 });
