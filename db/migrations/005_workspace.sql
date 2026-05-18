@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS workspace (
   settings                    jsonb NOT NULL DEFAULT '{}',
   default_agent_budget_usd    numeric(10,2),
   default_soft_threshold_pct  integer NOT NULL DEFAULT 80,
-  default_hard_cutoff         boolean NOT NULL DEFAULT true
+  default_hard_cutoff         boolean NOT NULL DEFAULT true,
+  CHECK (default_soft_threshold_pct >= 0 AND default_soft_threshold_pct <= 100)
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS workspace_tenant_singleton ON workspace(tenant_id);
@@ -71,6 +72,8 @@ CREATE TABLE IF NOT EXISTS pipeline_stages (
 
 CREATE INDEX IF NOT EXISTS idx_pipeline_stages_entity ON pipeline_stages(entity_type, sort_order);
 CREATE INDEX IF NOT EXISTS idx_pipeline_stages_tenant ON pipeline_stages(tenant_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pipeline_stages_one_default
+  ON pipeline_stages (tenant_id, entity_type) WHERE is_default = true;
 
 -- RLS
 ALTER TABLE pipeline_stages ENABLE ROW LEVEL SECURITY;

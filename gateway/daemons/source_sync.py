@@ -244,34 +244,42 @@ def _load_gateway_secrets() -> dict:
     return pairs
 
 
-def _resolve_credentials(provider: str, connection_id: str, creds: dict) -> dict:
-    """Merge secrets from gateway.env into the credential dict.
+def _resolve_credentials(provider: str, connection_id: str, creds: dict | None = None) -> dict:
+    """Load credentials exclusively from gateway.env (written by secrets_sync daemon).
 
-    Supports two naming conventions written by the secrets_sync daemon:
+    Supports two naming conventions:
       - Single-key:  {PROVIDER}_SOURCE_{ID_PREFIX}        → injected as ``api_key``
       - Multi-key:   {PROVIDER}_SOURCE_{ID_PREFIX}__{FIELD} → injected as ``{field}`` (lowercase)
+
+    Raises RuntimeError if no secret is found for the connection.
     """
+    resolved: dict = {}
     secrets = _load_gateway_secrets()
     prefix = f"{provider.upper()}_SOURCE_{connection_id[:8].upper()}"
 
-    if prefix in secrets and not creds.get("api_key"):
-        creds["api_key"] = secrets[prefix]
+    if prefix in secrets:
+        resolved["api_key"] = secrets[prefix]
 
     multi_prefix = prefix + "__"
     for key, value in secrets.items():
         if key.startswith(multi_prefix):
             field_name = key[len(multi_prefix) :].lower()
-            if field_name not in creds:
-                creds[field_name] = value
+            resolved[field_name] = value
 
-    return creds
+    if not resolved:
+        raise RuntimeError(
+            f"No secret found for {provider} connection {connection_id[:8]}. "
+            "Ensure a secret exists in the secrets table and secrets_sync has written gateway.env."
+        )
+
+    return resolved
 
 
 def sync_connection(connection: dict) -> None:
     provider = connection["provider"]
     connection_id = connection["id"]
     interval = connection.get("sync_interval_hours", 6)
-    creds = _resolve_credentials(provider, connection_id, dict(connection.get("credentials", {})))
+    creds = _resolve_credentials(provider, connection_id)
 
     log(f"Syncing {provider} connection")
 
@@ -382,6 +390,7 @@ def resolve_config() -> bool:
 def main() -> None:
     try:
         from sentry_init import init_sentry
+
         init_sentry("source_sync")
     except ImportError:
         pass
@@ -402,6 +411,7 @@ def main() -> None:
             log(f"Poll cycle error: {traceback.format_exc()}")
             try:
                 from sentry_init import capture
+
                 capture(e)
             except ImportError:
                 pass

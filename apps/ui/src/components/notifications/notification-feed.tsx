@@ -109,7 +109,7 @@ export function NotificationFeed({
   }
 
   function handleClick(n: Notification) {
-    if (!n.is_read) onMarkRead(n.id);
+    if (!n.read_at) onMarkRead(n.id);
     const href = entityHref(n.entity_type, n.entity_id);
     if (href) router.push(href);
   }
@@ -142,10 +142,10 @@ export function NotificationFeed({
               key={n.id}
               role="button"
               tabIndex={0}
-              aria-label={`${n.title}${!n.is_read ? " (unread)" : ""}`}
+              aria-label={`${n.title}${!n.read_at ? " (unread)" : ""}`}
               className={cn(
                 "group flex items-start gap-3 rounded-md border border-border/50 px-3 py-2.5 cursor-pointer transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                !n.is_read && "bg-accent/20"
+                !n.read_at && "bg-accent/20"
               )}
               onClick={() => handleClick(n)}
               onKeyDown={(e) => {
@@ -158,7 +158,7 @@ export function NotificationFeed({
               <div
                 className={cn(
                   "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md",
-                  !n.is_read ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                  !n.read_at ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                 )}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -167,7 +167,7 @@ export function NotificationFeed({
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium truncate">{n.title}</span>
-                  {!n.is_read && (
+                  {!n.read_at && (
                     <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" aria-hidden="true" />
                   )}
                 </div>

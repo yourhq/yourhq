@@ -44,7 +44,8 @@ CREATE POLICY "Service role full access" ON agent_usage
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 -- Grants
-GRANT ALL ON agent_usage TO authenticated, service_role;
+GRANT SELECT ON agent_usage TO authenticated;
+GRANT ALL ON agent_usage TO service_role;
 
 -- ── agent_budgets (rollup cache + budget config) ──────────────────
 
@@ -248,6 +249,11 @@ DECLARE
 BEGIN
   SELECT tenant_id, period_anchor_tz INTO v_tenant_id, v_anchor_tz
     FROM public.agent_budgets WHERE agent_id = p_agent_id;
+
+  IF v_tenant_id IS NOT NULL AND v_tenant_id != current_tenant_id() THEN
+    RAISE EXCEPTION 'tenant mismatch';
+  END IF;
+
   IF v_anchor_tz IS NULL THEN
     SELECT coalesce(nullif(owner_timezone, ''), 'UTC') INTO v_anchor_tz
       FROM public.workspace WHERE tenant_id = COALESCE(v_tenant_id, '00000000-0000-0000-0000-000000000000'::uuid) LIMIT 1;

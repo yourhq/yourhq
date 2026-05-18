@@ -97,8 +97,7 @@ export async function GET(
     (getNestedValue(tokenData, oauth.response_mapping.account_label ?? "") as string) ??
     manifest.name;
 
-  const meta: Record<string, unknown> = {};
-  const credentials: Record<string, unknown> = { oauth: true };
+  const meta: Record<string, unknown> = { oauth: true };
 
   for (const [target, sourcePath] of Object.entries(oauth.response_mapping)) {
     if (target === "account_label") continue;
@@ -107,8 +106,6 @@ export async function GET(
 
     if (target.startsWith("meta.")) {
       meta[target.slice(5)] = value;
-    } else if (target.startsWith("credentials.")) {
-      credentials[target.slice(12)] = value;
     }
   }
 
@@ -126,7 +123,6 @@ export async function GET(
     .insert({
       provider,
       account_label: accountLabel,
-      credentials,
       sync_interval_hours: 6,
       next_sync_at: new Date().toISOString(),
       last_verified_at: new Date().toISOString(),
@@ -140,41 +136,38 @@ export async function GET(
     return redirectWithError(req, provider, "Failed to save connection");
   }
 
-  if (gatewayId) {
-    try {
-      const secretKey = `${provider.toUpperCase()}_SOURCE_${connection.id.slice(0, 8).toUpperCase()}`;
-      const encrypted = await encryptSecret(accessToken);
-      const { data: secret } = await supabase
-        .from("secrets")
-        .insert({
-          gateway_id: gatewayId,
-          key: secretKey,
-          name: `${manifest.name} (${accountLabel})`,
-          encrypted_value: encrypted,
-          category: "integration",
-          note: `Auto-created by ${manifest.name} OAuth. Used for source sync.`,
-        })
-        .select("id")
-        .single();
+  if (!gatewayId) {
+    console.error(`[${provider}-oauth] No gateway found — cannot store encrypted secret`);
+    await supabase.from("source_connections").delete().eq("id", connection.id);
+    return redirectWithError(req, provider, "No gateway registered — cannot securely store credentials");
+  }
 
-      if (secret) {
-        await supabase
-          .from("source_connections")
-          .update({ secret_id: secret.id })
-          .eq("id", connection.id);
-      }
-    } catch (e) {
-      console.error(`[${provider}-oauth] Failed to store encrypted secret, falling back to credentials:`, e);
+  try {
+    const secretKey = `${provider.toUpperCase()}_SOURCE_${connection.id.slice(0, 8).toUpperCase()}`;
+    const encrypted = await encryptSecret(accessToken);
+    const { data: secret } = await supabase
+      .from("secrets")
+      .insert({
+        gateway_id: gatewayId,
+        key: secretKey,
+        name: `${manifest.name} (${accountLabel})`,
+        encrypted_value: encrypted,
+        category: "integration",
+        note: `Auto-created by ${manifest.name} OAuth. Used for source sync.`,
+      })
+      .select("id")
+      .single();
+
+    if (secret) {
       await supabase
         .from("source_connections")
-        .update({ credentials: { ...credentials, api_key: accessToken } })
+        .update({ secret_id: secret.id })
         .eq("id", connection.id);
     }
-  } else {
-    await supabase
-      .from("source_connections")
-      .update({ credentials: { ...credentials, api_key: accessToken } })
-      .eq("id", connection.id);
+  } catch (e) {
+    console.error(`[${provider}-oauth] Failed to store encrypted secret:`, e);
+    await supabase.from("source_connections").delete().eq("id", connection.id);
+    return redirectWithError(req, provider, "Failed to securely store credentials — please try again");
   }
 
   return NextResponse.redirect(

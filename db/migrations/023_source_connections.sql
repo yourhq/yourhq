@@ -14,11 +14,10 @@ CREATE TABLE IF NOT EXISTS source_connections (
                         REFERENCES tenants(id) ON DELETE CASCADE,
   provider            text NOT NULL CHECK (provider IN ('notion', 'google_drive')),
   account_label       text NOT NULL,
-  credentials         jsonb NOT NULL DEFAULT '{}',
   status              text NOT NULL DEFAULT 'active'
                         CHECK (status IN ('active', 'expired', 'revoked', 'error')),
   last_verified_at    timestamptz,
-  sync_interval_hours integer NOT NULL DEFAULT 6,
+  sync_interval_hours integer NOT NULL DEFAULT 6 CHECK (sync_interval_hours >= 1),
   next_sync_at        timestamptz,
   error_message       text,
   meta                jsonb NOT NULL DEFAULT '{}'
@@ -26,7 +25,8 @@ CREATE TABLE IF NOT EXISTS source_connections (
 
 CREATE INDEX IF NOT EXISTS idx_source_connections_tenant ON source_connections(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_source_connections_next_sync
-  ON source_connections(next_sync_at) WHERE status = 'active';
+  ON source_connections (tenant_id, next_sync_at ASC)
+  WHERE status = 'active';
 
 DROP TRIGGER IF EXISTS source_connections_updated_at ON source_connections;
 CREATE TRIGGER source_connections_updated_at

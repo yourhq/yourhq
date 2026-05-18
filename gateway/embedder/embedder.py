@@ -514,6 +514,7 @@ class Handler(BaseHTTPRequestHandler):
 def main() -> int:
     try:
         from sentry_init import init_sentry
+
         init_sentry("embedder")
     except ImportError:
         pass

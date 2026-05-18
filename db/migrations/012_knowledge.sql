@@ -97,6 +97,14 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_items_processing
 CREATE INDEX IF NOT EXISTS idx_knowledge_items_source_conn
   ON knowledge_items(source_connection_id) WHERE source_connection_id IS NOT NULL;
 
+CREATE INDEX IF NOT EXISTS idx_knowledge_items_embedding_hnsw
+  ON knowledge_items USING hnsw (embedding vector_cosine_ops)
+  WITH (m = 16, ef_construction = 64);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_items_browse
+  ON knowledge_items (tenant_id, kind, pinned DESC, updated_at DESC)
+  WHERE archived_at IS NULL;
+
 DROP TRIGGER IF EXISTS knowledge_items_updated_at ON knowledge_items;
 CREATE TRIGGER knowledge_items_updated_at
   BEFORE UPDATE ON knowledge_items FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -213,7 +221,7 @@ CREATE TABLE IF NOT EXISTS knowledge_chunks (
   updated_at          timestamptz NOT NULL DEFAULT now(),
   tenant_id           uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES tenants(id) ON DELETE CASCADE,
   knowledge_item_id   uuid NOT NULL REFERENCES knowledge_items(id) ON DELETE CASCADE,
-  chunk_index         integer NOT NULL,
+  chunk_index         integer NOT NULL CHECK (chunk_index >= 0),
   content             text NOT NULL,
   content_hash        text NOT NULL,
   char_start          integer,
@@ -239,6 +247,10 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_item ON knowledge_chunks(knowled
 CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_search_vector ON knowledge_chunks USING gin(search_vector);
 CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_embedding_status
   ON knowledge_chunks(embedding_status, embedding_leased_until);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_embedding_hnsw
+  ON knowledge_chunks USING hnsw (embedding vector_cosine_ops)
+  WITH (m = 16, ef_construction = 64);
 
 DROP TRIGGER IF EXISTS knowledge_chunks_updated_at ON knowledge_chunks;
 CREATE TRIGGER knowledge_chunks_updated_at
@@ -298,6 +310,7 @@ BEGIN
   FROM public.knowledge_items ki
   WHERE ki.embedding IS NOT NULL
     AND ki.archived_at IS NULL
+    AND ki.tenant_id = current_tenant_id()
     AND (filter_tags IS NULL OR ki.tags && filter_tags)
     AND (filter_folder_id IS NULL OR ki.folder_id = filter_folder_id)
     AND (filter_kind IS NULL OR ki.kind = filter_kind)
@@ -334,6 +347,7 @@ BEGIN
       0::float AS similarity
     FROM public.knowledge_items ki
     WHERE ki.archived_at IS NULL
+      AND ki.tenant_id = current_tenant_id()
       AND (filter_tags IS NULL OR ki.tags && filter_tags)
       AND (filter_folder_id IS NULL OR ki.folder_id = filter_folder_id)
       AND (filter_kind IS NULL OR ki.kind = filter_kind)
@@ -354,6 +368,7 @@ BEGIN
   FROM public.knowledge_items ki
   CROSS JOIN query
   WHERE ki.archived_at IS NULL
+    AND ki.tenant_id = current_tenant_id()
     AND (filter_tags IS NULL OR ki.tags && filter_tags)
     AND (filter_folder_id IS NULL OR ki.folder_id = filter_folder_id)
     AND (filter_kind IS NULL OR ki.kind = filter_kind)
@@ -487,6 +502,7 @@ BEGIN
   WHERE kc.embedding IS NOT NULL
     AND kc.embedding_status = 'indexed'
     AND ki.archived_at IS NULL
+    AND ki.tenant_id = current_tenant_id()
     AND (filter_tags IS NULL OR ki.tags && filter_tags)
     AND (filter_folder_id IS NULL OR ki.folder_id = filter_folder_id)
     AND (filter_source_type IS NULL OR ki.kind = filter_source_type)
@@ -527,6 +543,7 @@ BEGIN
     FROM public.knowledge_chunks kc
     JOIN public.knowledge_items ki ON ki.id = kc.knowledge_item_id
     WHERE ki.archived_at IS NULL
+      AND ki.tenant_id = current_tenant_id()
       AND (filter_tags IS NULL OR ki.tags && filter_tags)
       AND (filter_folder_id IS NULL OR ki.folder_id = filter_folder_id)
       AND (filter_source_type IS NULL OR ki.kind = filter_source_type)
@@ -550,6 +567,7 @@ BEGIN
   JOIN public.knowledge_items ki ON ki.id = kc.knowledge_item_id
   CROSS JOIN query
   WHERE ki.archived_at IS NULL
+    AND ki.tenant_id = current_tenant_id()
     AND (filter_tags IS NULL OR ki.tags && filter_tags)
     AND (filter_folder_id IS NULL OR ki.folder_id = filter_folder_id)
     AND (filter_source_type IS NULL OR ki.kind = filter_source_type)

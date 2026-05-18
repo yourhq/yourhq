@@ -61,11 +61,11 @@ RETURNS TABLE (depth int, agent_id uuid, slug text, name text)
 LANGUAGE sql STABLE AS $$
   WITH RECURSIVE chain AS (
     SELECT 0 AS depth, a.id AS agent_id, a.slug, a.name, a.reports_to_id
-    FROM agents a WHERE a.id = p_agent_id
+    FROM agents a WHERE a.id = p_agent_id AND a.tenant_id = current_tenant_id()
     UNION ALL
     SELECT c.depth + 1, a.id, a.slug, a.name, a.reports_to_id
     FROM chain c
-    JOIN agents a ON a.id = c.reports_to_id
+    JOIN agents a ON a.id = c.reports_to_id AND a.tenant_id = current_tenant_id()
     WHERE c.depth < p_max_depth AND c.reports_to_id IS NOT NULL
   )
   SELECT chain.depth, chain.agent_id, chain.slug, chain.name FROM chain;

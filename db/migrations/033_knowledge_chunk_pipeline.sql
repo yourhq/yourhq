@@ -1,6 +1,7 @@
 -- 033_knowledge_chunk_pipeline.sql — Wire up chunk creation, embedding, and fix source item indexing.
 
 -- ── Fix: mark_knowledge_item_indexed should NOT touch chunk_status ────────────
+-- Called by service_role only (embedder daemon). Not intended for authenticated users.
 
 CREATE OR REPLACE FUNCTION mark_knowledge_item_indexed(
   p_item_id uuid,
@@ -33,6 +34,7 @@ $$;
 GRANT EXECUTE ON FUNCTION mark_knowledge_item_indexed(uuid, extensions.vector, text, integer, text) TO authenticated, service_role;
 
 -- ── Fix: mark_knowledge_item_failed should NOT touch chunk_status ─────────────
+-- Called by service_role only (embedder daemon). Not intended for authenticated users.
 
 CREATE OR REPLACE FUNCTION mark_knowledge_item_failed(
   p_item_id uuid,
@@ -57,6 +59,7 @@ $$;
 GRANT EXECUTE ON FUNCTION mark_knowledge_item_failed(uuid, text) TO authenticated, service_role;
 
 -- ── Fix: lease_knowledge_items_for_indexing must include source items ──────────
+-- Called by service_role only (embedder daemon). Not intended for authenticated users.
 
 CREATE OR REPLACE FUNCTION lease_knowledge_items_for_indexing(
   p_gateway_slug text,
@@ -109,7 +112,8 @@ $$;
 GRANT EXECUTE ON FUNCTION lease_knowledge_items_for_indexing(text, integer, integer) TO authenticated, service_role;
 
 -- ── New: upsert_knowledge_chunks — replace chunks for an item ─────────────────
--- Called by the embedder after chunking. Deletes stale chunks, inserts fresh ones,
+-- Called by service_role only (embedder daemon). Not intended for authenticated users.
+-- Deletes stale chunks, inserts fresh ones,
 -- returns (id, chunk_index) so the caller can match IDs to embeddings.
 
 CREATE OR REPLACE FUNCTION upsert_knowledge_chunks(
@@ -127,6 +131,10 @@ BEGIN
   SELECT ki.tenant_id INTO v_tenant_id
   FROM public.knowledge_items ki
   WHERE ki.id = p_item_id;
+
+  IF v_tenant_id IS NULL THEN
+    RAISE EXCEPTION 'knowledge item not found or has no tenant: %', p_item_id;
+  END IF;
 
   DELETE FROM public.knowledge_chunks WHERE knowledge_item_id = p_item_id;
 

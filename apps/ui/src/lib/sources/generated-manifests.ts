@@ -77,8 +77,8 @@ export const PROVIDER_MANIFESTS: Record<string, ProviderManifest> = {
           "meta.workspace_icon": "workspace_icon",
           "meta.owner_type": "owner.type",
           "meta.owner_name": "owner.user.name",
-          "credentials.bot_id": "bot_id",
-          "credentials.workspace_id": "workspace_id"
+          "meta.bot_id": "bot_id",
+          "meta.workspace_id": "workspace_id"
         }
       },
       "setup_steps": [

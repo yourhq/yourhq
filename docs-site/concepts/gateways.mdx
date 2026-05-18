@@ -3,32 +3,114 @@ title: "Gateways"
 description: "Docker hosts that run your agents, browsers, and daemons."
 ---
 
-A gateway is a Docker host that runs agents on infrastructure you control. Each gateway is a self-contained runtime environment — agents, browsers, files, and daemons all live inside it.
+A gateway is a Docker host that runs agents on infrastructure you control. Each gateway is a self-contained runtime environment — agents, browsers, files, and daemons all live inside it. The gateway has no direct network link to the UI; all coordination happens through Supabase.
+
+## What's inside a gateway
+
+A gateway deployment is a set of Docker containers that work together:
 
 <CardGroup cols={2}>
   <Card title="Gateway container" icon="server">
-    Runs OpenClaw (agent runtime), Chrome/Chromium, XFCE desktop, noVNC (remote desktop), and the files API.
+    Runs OpenClaw (agent runtime), Chrome/Chromium, XFCE desktop, noVNC (remote desktop), and the files API. This is where agents actually execute.
   </Card>
   <Card title="Dispatcher daemon" icon="inbox">
-    Watches for background work (task assignments, comment mentions, routines) and wakes the right agent.
+    Subscribes to `agent_inbox_items` via Supabase Realtime. When new work arrives (task assignments, comment mentions, routines), it wakes the right agent on this gateway.
   </Card>
   <Card title="Runner daemon" icon="terminal">
-    Executes lifecycle commands: provision, update, remove, provider auth, gateway operations.
+    Subscribes to `agent_commands` via Supabase Realtime. Leases and executes lifecycle commands: provision, update, remove, provider auth, shell commands, gateway operations. Also runs heartbeat (every 30s) and secrets sync.
+  </Card>
+  <Card title="Embedder" icon="microchip">
+    Runs a local embedding model (default: `BAAI/bge-small-en-v1.5`). Leases knowledge items pending indexing, generates vector embeddings, and creates chunks. HTTP server at `:9100`.
+  </Card>
+  <Card title="File processor" icon="file">
+    Leases knowledge items with `kind='file'` and `processing_status='ready'`, downloads from Supabase Storage, extracts text (PDF, DOCX, XLSX, CSV, PPTX, TXT), and triggers embedding.
   </Card>
   <Card title="Shared state volume" icon="hard-drive">
-    Holds OpenClaw config, the git repo, agent worktrees, browser profiles, desktop files, and auth state.
+    Holds OpenClaw config, the local bare git repo with per-agent branches, browser profiles, desktop files, auth tokens, and secrets.
   </Card>
 </CardGroup>
 
+## How gateways communicate
+
+Gateways are **pull-based** — they don't receive inbound connections from the UI. All coordination flows through Supabase:
+
+```
+UI → writes to Supabase tables (agent_commands, agent_inbox_items, etc.)
+         ↓ Supabase Realtime
+Gateway daemons ← subscribe and process
+         ↓
+Gateway daemons → write results back to Supabase
+         ↓
+UI ← reads updated state
+```
+
+This means a gateway can run behind NAT, a firewall, or a VPN with no inbound ports open. The only requirement is outbound HTTPS to your Supabase project.
+
+The one exception is **noVNC**: when you open an agent's remote desktop, the UI proxies WebSocket traffic to the gateway container over Docker's internal network (or Tailscale, if configured). This is the only direct connection between the UI and the gateway.
+
+## Gateway lifecycle
+
+### Boot sequence
+
+When a gateway container starts, `entrypoint.sh` runs a 10-step boot sequence:
+
+1. Seed the local bare git repo from `/opt/templates/` (or `$TEMPLATES_SOURCE`)
+2. Optionally attach to `$GIT_REMOTE_URL` for branch backup
+3. Optionally bring up Tailscale (`$TAILSCALE_AUTH_KEY`)
+4. Run `openclaw onboard` (first boot only)
+5. Patch `openclaw.json` with browser, channel, and plugin paths
+6. Install the hq-bootstrap plugin
+7. Start Xtigervnc + XFCE desktop
+8. Start websockify → noVNC
+9. Upsert this gateway's row in the `gateways` table with reachable URLs
+10. Exec `openclaw gateway start` as the main process
+
+See [Gateway boot](/self-host/gateway-boot) for the detailed walkthrough.
+
+### Heartbeat
+
+The runner daemon writes `last_heartbeat_at` to the `gateways` table every 30 seconds. The UI uses this to show gateway health:
+
+- **Healthy** (green) — heartbeat within 90 seconds
+- **Stale** (amber) — status is `ready` but heartbeat is old
+- **No signal** — gateway has never reported
+
+If a gateway goes stale, its agents can still have pending work queued — it will be processed when the gateway comes back online.
+
+### Registration
+
+Gateways register with Supabase via a one-time token exchange. The UI generates a token (Settings → Gateways → Add Gateway), the gateway installer calls `consume_gateway_token()` to atomically convert the token into a `gateways` row, and the gateway stores its `GATEWAY_ID` in `.env` for all future operations.
+
 ## One workspace, many gateways
 
-A single HQ workspace can have multiple gateways on different hosts. Each gateway registers itself in the `gateways` table with its reachable URLs, so the UI knows how to reach each one.
+A single HQ workspace can have multiple gateways on different hosts — different machines, different data centers, different continents. Each gateway registers itself in the `gateways` table with its reachable URLs, so the UI knows how to reach each one.
 
-Agents are bound to a specific gateway via `gateway_id`. The dispatcher and runner only process work for agents on their own gateway — no gateway ever picks up another gateway's work.
+Agents are bound to a specific gateway via `gateway_id`. The dispatcher and runner filter their Supabase subscriptions by `GATEWAY_ID` — no gateway ever picks up another gateway's work.
+
+Common multi-gateway patterns:
+
+| Pattern | Example |
+|---|---|
+| **Geo-distributed** | US gateway for US agents, EU gateway for EU agents |
+| **Capability-split** | GPU gateway for heavy tasks, lightweight gateway for messaging agents |
+| **Dev / prod** | Staging gateway for testing, production gateway for live agents |
+| **Team isolation** | Marketing team gateway, engineering team gateway |
 
 <Tip>
   Start with one gateway. You can add more later from Settings → Gateways without reconfiguring anything.
 </Tip>
+
+## Gateway state and persistence
+
+Each gateway owns a Docker volume (`gateway-state`) that holds:
+
+- **Git repo** — a bare repo with one branch per agent. Agent files, skills, memory, and identity all live here.
+- **Browser profiles** — Chrome profiles persist cookies, logins, and localStorage across agent sessions.
+- **Auth tokens** — model provider credentials (OpenAI, Anthropic, etc.) stored by OpenClaw.
+- **Secrets** — decrypted `.env` files written by the secrets sync daemon (plaintext on disk, `chmod 0600`).
+- **Desktop state** — XFCE config, wallpapers, shortcuts.
+
+If you lose the `gateway-state` volume, agents can be reprovisioned from the database, but accumulated browser sessions, local files, and auth tokens are gone. Use `GIT_REMOTE_URL` to continuously back up agent branches to GitHub/Gitea. See [Operations → Backing up](/self-host/operations#backing-up).
 
 ## Adding a gateway
 

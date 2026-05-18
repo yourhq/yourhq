@@ -84,7 +84,6 @@ export function useSourceConnections() {
     async (input: {
       provider: SourceProvider;
       account_label: string;
-      credentials: Record<string, unknown>;
       sync_interval_hours?: number;
     }): Promise<SourceConnection | null> => {
       const { data, error } = await supabase
@@ -92,7 +91,6 @@ export function useSourceConnections() {
         .insert({
           provider: input.provider,
           account_label: input.account_label,
-          credentials: input.credentials,
           sync_interval_hours: input.sync_interval_hours ?? 6,
           next_sync_at: new Date().toISOString(),
           last_verified_at: new Date().toISOString(),
@@ -152,7 +150,7 @@ export function useSourceConnections() {
   const updateConnection = useCallback(
     async (
       id: string,
-      updates: Partial<Pick<SourceConnection, "account_label" | "sync_interval_hours" | "status" | "credentials" | "writable">>,
+      updates: Partial<Pick<SourceConnection, "account_label" | "sync_interval_hours" | "status" | "writable">>,
     ) => {
       const { error } = await supabase
         .from("source_connections")

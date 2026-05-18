@@ -322,6 +322,7 @@ def resolve_config() -> bool:
 def main() -> None:
     try:
         from sentry_init import init_sentry
+
         init_sentry("file_processor")
     except ImportError:
         pass
@@ -344,6 +345,7 @@ def main() -> None:
             log(f"Poll cycle error: {traceback.format_exc()}")
             try:
                 from sentry_init import capture
+
                 capture(e)
             except ImportError:
                 pass

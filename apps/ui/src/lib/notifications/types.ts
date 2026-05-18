@@ -25,7 +25,6 @@ export interface Notification {
   entity_id: string | null;
   actor_type: "human" | "agent" | "system";
   actor_agent_id: string | null;
-  is_read: boolean;
   read_at: string | null;
   dismissed_at: string | null;
   meta: Record<string, unknown>;

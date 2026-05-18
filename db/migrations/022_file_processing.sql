@@ -5,6 +5,7 @@
 -- embedding pipeline can pick them up.
 
 -- ── lease_knowledge_items_for_processing ───────────────────────────
+-- Called by service_role only (file_processor daemon). Not intended for authenticated users.
 
 DROP FUNCTION IF EXISTS lease_knowledge_items_for_processing(text, integer, integer);
 CREATE OR REPLACE FUNCTION lease_knowledge_items_for_processing(

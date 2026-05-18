@@ -3,31 +3,88 @@ title: "Workspaces"
 description: "How one UI manages multiple Supabase-backed workspaces."
 ---
 
-An HQ workspace is a Supabase-backed unit — your agents, tasks, CRM, knowledge, and settings all live in one Supabase project that you own.
+An HQ workspace is a Supabase project that you own. Your agents, tasks, CRM, knowledge, routines, collections, and settings all live in that one database. The HQ UI connects to it at runtime — you can point a single UI at multiple Supabase projects and switch between them.
 
-## How it works
+## What a workspace contains
+
+Each workspace is a complete, independent HQ environment:
+
+| Layer | What lives here |
+|---|---|
+| **Database** | Agents, tasks, contacts, organizations, knowledge items, routines, collections, usage history, audit log, secrets, plugins, gateway registrations |
+| **Auth** | Supabase Auth — user accounts, sessions, JWTs |
+| **Storage** | Supabase Storage — uploaded files, agent screenshots |
+| **Realtime** | Supabase Realtime — live subscriptions for daemons and the dashboard |
+| **Gateways** | One or more gateway hosts bound to this workspace |
+
+Nothing in a workspace references or depends on any other workspace. Deleting a Supabase project deletes everything in that workspace.
+
+## The workspace registry
+
+The UI stores workspace metadata in two files on the `ui-config` Docker volume:
+
+- **`workspaces.json`** — array of workspace entries: label, emoji, Supabase URL, anon key, and a `default` flag
+- **`secrets.json`** — encrypted service-role keys for each workspace
+
+When the UI container starts, it reads the registry and connects to the default workspace. The browser receives the workspace's Supabase URL and anon key — it connects directly to your Supabase project, not through the UI server.
 
 <CardGroup cols={2}>
   <Card title="Workspace registry" icon="folder-open">
-    The UI stores workspace metadata in `/config/workspaces.json` and secrets in `/config/secrets.json` on the `ui-config` Docker volume.
+    Stored on the `ui-config` Docker volume. Survives container restarts and image updates. Back this up.
   </Card>
   <Card title="Runtime injection" icon="bolt">
-    The active workspace is selected at runtime and injected into the browser — no image rebuild needed when switching workspaces.
+    The active workspace is selected at runtime and injected into the browser — no image rebuild needed when switching.
   </Card>
 </CardGroup>
 
+## Switching workspaces
+
+Use the workspace switcher in Settings → Database. When you switch:
+
+1. The UI server updates the active workspace in the registry
+2. The browser reloads with the new Supabase URL and anon key
+3. You re-authenticate against the new workspace's Supabase Auth
+
+Each workspace has its own user accounts. Signing into workspace A doesn't sign you into workspace B — they're separate Supabase projects with separate auth.
+
 ## Multi-workspace support
 
-One UI install can manage multiple Supabase projects. Each workspace is fully isolated with its own database, auth, and realtime. Within each database, every table enforces tenant-scoped RLS via `tenant_id`. The multi-workspace registry adds a second isolation layer on top — each workspace gets its own Supabase project entirely.
+One UI install can manage multiple Supabase projects. This is useful for:
 
-<Tip>
-  Use the workspace switcher in Settings → Database to move between workspaces. Each workspace has its own agents, gateways, tasks, and CRM data.
-</Tip>
+| Use case | Example |
+|---|---|
+| **Staging + production** | Test agent configs in a staging workspace before deploying to production |
+| **Client separation** | Agency managing multiple client workspaces from one dashboard |
+| **Regional isolation** | EU data in an EU Supabase project, US data in a US project |
+| **Team boundaries** | Separate workspaces for separate teams that shouldn't share data |
+
+### Adding a workspace
+
+Settings → Database → **Add workspace**. You'll need:
+
+- The Supabase project URL (`https://xyz.supabase.co`)
+- The anon key (public, safe for browsers)
+- The service-role key (secret, stored encrypted)
+
+The UI validates credentials before saving. You can also add workspaces via the `/api/workspaces` endpoint.
 
 ## Isolation model
 
-| Boundary | Scope |
-|---|---|
-| **Supabase project** | Full isolation — separate database, auth, and realtime |
-| **Gateway** | Bound to one workspace via Supabase credentials |
-| **UI** | Can switch between workspaces at runtime |
+HQ enforces isolation at two levels:
+
+| Boundary | Scope | Enforced by |
+|---|---|---|
+| **Supabase project** | Full isolation — separate database, auth, storage, and realtime | Supabase infrastructure |
+| **Tenant ID (within a project)** | Row-level isolation — every table filters by `tenant_id` | Postgres RLS policies |
+| **Gateway binding** | Each gateway connects to exactly one workspace via its Supabase credentials | `.env` on the gateway host |
+| **UI registry** | Each workspace entry is independent — switching reloads the entire context | Workspace registry files |
+
+### Single-tenant default
+
+Self-hosted installs use a single default tenant ID (`00000000-0000-0000-0000-000000000000`). All authenticated users in a workspace see the same data. This is by design — HQ is workspace-level admin software, not a multi-user SaaS with per-user permissions.
+
+If you need per-user access control within a workspace, restrict who can sign up for your Supabase project (disable email signup, use invite-only). See [Security model](/concepts/security-model).
+
+<Tip>
+  For most teams, one workspace is enough. Add a second when you genuinely need data isolation — not just organizational separation. Use streams, labels, and agent hierarchy within a workspace to organize work.
+</Tip>

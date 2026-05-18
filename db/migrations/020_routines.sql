@@ -60,7 +60,10 @@ CREATE INDEX IF NOT EXISTS idx_routines_tenant    ON routines (tenant_id);
 CREATE INDEX IF NOT EXISTS idx_routines_agent     ON routines (agent_id);
 CREATE INDEX IF NOT EXISTS idx_routines_agent_active ON routines (agent_id, is_active) WHERE is_active;
 CREATE INDEX IF NOT EXISTS idx_routines_next_run  ON routines (next_run_at) WHERE is_active AND trigger_type = 'schedule';
-CREATE INDEX IF NOT EXISTS idx_routines_entity    ON routines (entity_type, condition) WHERE is_active AND trigger_type = 'event';
+DROP INDEX IF EXISTS idx_routines_entity;
+CREATE INDEX IF NOT EXISTS idx_routines_entity
+  ON routines (tenant_id, entity_type, condition)
+  WHERE is_active AND trigger_type = 'event' AND archived_at IS NULL;
 
 DROP TRIGGER IF EXISTS set_routines_updated_at ON routines;
 CREATE TRIGGER set_routines_updated_at
@@ -222,7 +225,7 @@ BEGIN
       ),
       'routine:' || v_routine.id || ':' || to_char(now(), 'YYYY-MM-DD-HH24-MI')
     )
-    ON CONFLICT (dedup_key) DO NOTHING;
+    ON CONFLICT ON CONSTRAINT uq_inbox_dedup DO NOTHING;
 
     v_next := public.routine_next_occurrence(
       v_routine.cadence_type, v_routine.interval_n,
@@ -331,7 +334,7 @@ BEGIN
         ),
         'routine_event:' || v_routine.id || ':' || NEW.id || ':' || to_char(now(), 'YYYY-MM-DD-HH24-MI')
       )
-      ON CONFLICT (dedup_key) DO NOTHING;
+      ON CONFLICT ON CONSTRAINT uq_inbox_dedup DO NOTHING;
 
       UPDATE public.routines
       SET last_run_at = now(),

@@ -39,7 +39,6 @@ interface ProviderPickerDialogProps {
   createConnection: (input: {
     provider: string;
     account_label: string;
-    credentials: Record<string, unknown>;
     sync_interval_hours?: number;
   }) => Promise<SourceConnection | null>;
   isHosted?: boolean;
@@ -158,11 +157,9 @@ export function ProviderPickerDialog({
     if (!provider || !label.trim()) return;
     setSaving(true);
 
-    const creds = buildCredentials();
     const conn = await createConnection({
       provider,
       account_label: label.trim(),
-      credentials: creds,
       sync_interval_hours: parseInt(syncInterval) || 6,
     });
 

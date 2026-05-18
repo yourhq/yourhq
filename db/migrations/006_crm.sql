@@ -217,7 +217,8 @@ CREATE TABLE IF NOT EXISTS contact_organizations (
   is_current  boolean DEFAULT true,
   started_at  date,
   ended_at    date,
-  UNIQUE (tenant_id, contact_id, org_id, role)
+  UNIQUE (tenant_id, contact_id, org_id, role),
+  CHECK ((is_current = true AND ended_at IS NULL) OR (is_current = false))
 );
 
 CREATE INDEX IF NOT EXISTS idx_contact_organizations_tenant ON contact_organizations(tenant_id);

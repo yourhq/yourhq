@@ -1585,7 +1585,7 @@ def handle_source_write(cmd_id, payload):
         if not action_provider:
             raise ValueError(f"Provider '{provider}' does not support write actions")
 
-        creds = _resolve_credentials(provider, connection_id, {})
+        creds = _resolve_credentials(provider, connection_id)
         result = action_provider.execute(action_name, action_params, creds)
 
         api_rpc(
@@ -2118,6 +2118,7 @@ def start_poll_loop():
                 log(f"Poll error: {e}")
                 try:
                     from sentry_init import capture
+
                     capture(e)
                 except ImportError:
                     pass
@@ -2399,6 +2400,7 @@ def wait_for_supabase_config():
 def main():
     try:
         from sentry_init import init_sentry
+
         init_sentry("command_runner")
     except ImportError:
         pass
