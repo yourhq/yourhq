@@ -112,6 +112,7 @@
       {
         "group": "Reference",
         "pages": [
+          "reference/api",
           "reference/configuration",
           "reference/database-schema",
           "reference/migrations",
@@ -139,6 +140,7 @@
         "group": "Security and troubleshooting",
         "pages": [
           "security/security-policy",
+          "security/privacy",
           "troubleshooting/common-issues"
         ]
       }

@@ -23,6 +23,80 @@ The UI's Supabase config lives in the workspace registry (runtime, not baked int
 
 ---
 
+## Upgrading across versions
+
+When a new HQ version ships with database schema changes, you need to run the new migrations before (or immediately after) pulling the new images. Here's the full process.
+
+### 1. Check what changed
+
+Read the [release notes](https://github.com/yourhq/yourhq/releases) for the version you're upgrading to. Each release lists any new migration files.
+
+You can also diff migration files directly:
+
+```bash
+# See what migrations were added since your current version
+git log v0.1.0..v0.2.0 --oneline -- db/migrations/
+```
+
+### 2. Back up before upgrading
+
+Always back up before applying new migrations. At minimum:
+
+```bash
+# Database
+pg_dump \
+  "postgresql://postgres:<db-password>@db.<project-ref>.supabase.co:5432/postgres" \
+  -Fc -f pre-upgrade-$(date +%Y%m%d).dump
+
+# Gateway state volume
+docker run --rm \
+  -v yourhq-gateway-state:/src \
+  -v $(pwd):/dst \
+  alpine tar -czf /dst/gateway-state-pre-upgrade.tar.gz -C /src .
+```
+
+### 3. Apply new migrations
+
+Open your Supabase project's **SQL Editor** and run each new migration file in filename order. All HQ migrations are idempotent (`IF NOT EXISTS`, `CREATE OR REPLACE`), so re-running an already-applied migration is safe.
+
+<Tip>
+  You can check which migrations have been applied by querying the schema version table:
+  ```sql
+  SELECT * FROM _schema_version ORDER BY applied_at;
+  ```
+  If this table doesn't exist, you're on a pre-v0.1.0 install — apply all migrations from `001` onward.
+</Tip>
+
+### 4. Pull and restart
+
+```bash
+cd ~/.yourhq
+docker compose pull
+docker compose up -d
+```
+
+### 5. Verify
+
+After restarting:
+
+- The UI should load without a "schema out of date" banner
+- Settings → System should show all services as healthy
+- Settings → Gateways should show your gateway(s) with a green heartbeat
+
+### Downgrading
+
+HQ migrations are forward-only. There are no down migrations. If an upgrade breaks something:
+
+1. Restore your database from the pre-upgrade `pg_dump`
+2. Pin your images to the previous version tag (see [Pinning image versions](#pinning-image-versions))
+3. Open an issue on [GitHub](https://github.com/yourhq/yourhq/issues) with the error
+
+### Version compatibility
+
+All images in a running stack should be from the same release. Don't mix a v0.2.0 UI with v0.1.0 gateway images — the UI may reference database columns or RPCs that don't exist yet. Pin all images to the same tag when you pin any of them.
+
+---
+
 ## Backing up
 
 Three things to back up. Don't skip any of them. ([HQ hosted](/hosted/getting-started) handles backups and updates automatically.)

@@ -1,0 +1,90 @@
+---
+title: "Privacy and Telemetry"
+description: "What HQ collects, what it doesn't, and how your data stays yours."
+---
+
+## Self-hosted: zero telemetry
+
+The self-hosted HQ stack **does not phone home**. There is no analytics endpoint, no crash reporter, no usage beacon, and no license check server. Your install never contacts a YourHQ-operated server.
+
+The only network calls your HQ instance makes are:
+
+| Destination | When | Why |
+|---|---|---|
+| Your Supabase project | Always | Required — all data lives here |
+| Tailscale control plane | If you enable Tailscale | Managed by Tailscale, not HQ |
+| OpenClaw services | Agent model auth, plugin updates | Managed by OpenClaw |
+| GHCR (`ghcr.io`) | `docker compose pull` | Image downloads |
+| `get.docker.com` | Installer only | Docker install script (upstream) |
+| `tailscale.com/install.sh` | Installer only | Tailscale install script (upstream) |
+| npm, PyPI, apt | Build/dev only | Dependency resolution |
+
+No user data, workspace content, agent activity, or usage metrics flow to YourHQ or any third party.
+
+## Hosted: what we collect
+
+If you use the hosted offering at [app.yourhq.ai](https://app.yourhq.ai), the control plane stores operational data needed to provision and manage your workspace. See the [hosted trust model](/security/security-policy#hosted-trust-model) for full details.
+
+**Stored in the control-plane database:**
+- Your email address and display name
+- Stripe customer and subscription IDs
+- Your workspace's Supabase project reference, URL, and anon key (not secret — same data your browser uses)
+- Encrypted service-role key and database password (ChaCha20-Poly1305)
+- E2B sandbox ID, status, and access URLs
+- Provisioning progress and setup metadata
+
+**Not stored or accessed:**
+- Your Supabase data (contacts, tasks, knowledge, agent data)
+- Agent session content or outputs
+- noVNC/remote desktop session data
+- LLM prompts or responses
+
+**Observability (hosted only):**
+- **Sentry** — error tracking for the UI (client/server/edge), worker, and Python gateway daemons. Captures stack traces and error metadata. Never active in self-hosted installs.
+- **PostHog** — product analytics for the hosted dashboard. Captures page views and UI interactions. Never active in self-hosted installs.
+
+Both are gated on `RUNTIME_MODE=hosted` — self-hosted installs have no Sentry DSN and no PostHog key, so these SDKs are inert.
+
+## Data residency
+
+**Self-hosted:** your data lives wherever you put it. Your Supabase project, your gateway host, your choice of region.
+
+**Hosted:** each workspace gets a dedicated Supabase project (currently US regions via Supabase Cloud). Gateway sandboxes run on E2B infrastructure. We do not currently offer region selection for hosted workspaces — if this matters to you, self-host.
+
+## Data retention and deletion
+
+**Self-hosted:** you control retention. HQ doesn't auto-delete anything. The database grows with your usage. Back up regularly (see [Operations](/self-host/operations#backing-up)).
+
+**Hosted:** when you cancel a workspace, the sandbox is paused immediately (no compute charges). After 30 days:
+
+1. The E2B sandbox is permanently destroyed
+2. The Supabase project is permanently deleted
+3. All encrypted credentials are cleared from the control-plane database
+
+Both deletions must succeed before the workspace is marked as fully canceled. If either fails, a cleanup loop retries every 6 hours.
+
+To request immediate deletion of your account and all associated data, email **privacy@yourhq.ai**.
+
+## Cookies and local storage
+
+The HQ dashboard uses:
+
+| Item | Purpose | Scope |
+|---|---|---|
+| Supabase auth cookies (`sb-*`) | Session authentication | Your Supabase project domain |
+| `workspace` (localStorage) | Active workspace ID | Your HQ domain |
+| Theme preferences (localStorage) | UI appearance settings | Your HQ domain |
+
+No third-party tracking cookies. No advertising pixels. No cross-site tracking.
+
+## GDPR and data subject rights
+
+HQ is infrastructure software — *you* are the data controller for any personal data stored in your workspace (contacts, CRM records, etc.). HQ is the processor only in the hosted offering.
+
+**Self-hosted:** you have full database access. Export, modify, or delete any data directly in Supabase.
+
+**Hosted:** to exercise data subject rights (access, rectification, erasure, portability), email **privacy@yourhq.ai** with your workspace ID. We'll respond within 30 days.
+
+## Questions
+
+For privacy questions, contact **privacy@yourhq.ai**. For security vulnerabilities, see [Security policy](/security/security-policy).

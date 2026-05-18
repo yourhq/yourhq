@@ -1,0 +1,556 @@
+---
+title: "API Reference"
+description: "UI HTTP endpoints, Supabase RPCs, key table schemas, and authentication."
+---
+
+HQ exposes two API surfaces: **HTTP endpoints** served by the Next.js UI, and **Supabase RPCs** you call directly against your Supabase project. Most day-to-day interaction happens through the dashboard, but both surfaces are available for scripting, integrations, and custom tooling.
+
+## Authentication
+
+All requests require authentication. The method depends on which surface you're calling.
+
+| Surface | Auth method | Header |
+|---|---|---|
+| UI HTTP endpoints | Supabase session cookie (browser) | Automatic via `sb-*` cookies |
+| Supabase client queries | Supabase anon key + JWT | `apikey` + `Authorization: Bearer <jwt>` |
+| Service-role operations | Supabase service-role key | `apikey` + `Authorization: Bearer <service-role-key>` |
+| Agent skill endpoints | Service-role key | `Authorization: Bearer <service-role-key>` |
+
+<Warning>
+  The service-role key bypasses all RLS policies. Never expose it to browsers or client-side code. Use it only in server-side scripts and gateway daemons.
+</Warning>
+
+---
+
+## UI HTTP Endpoints
+
+These are served by the Next.js app at your HQ URL (default `http://localhost:3000`).
+
+### Health and configuration
+
+<ParamField path="GET /api/health" type="endpoint">
+  Returns server health status. No authentication required.
+</ParamField>
+
+```json
+{ "ok": true, "ts": "2026-05-18T12:00:00.000Z" }
+```
+
+<ParamField path="GET /api/config" type="endpoint">
+  Returns the active workspace's public-safe configuration. No authentication required.
+</ParamField>
+
+```json
+{
+  "workspace": {
+    "workspaceId": "abc123",
+    "label": "My HQ",
+    "emoji": "🏢",
+    "url": "https://xyz.supabase.co",
+    "anonKey": "eyJ..."
+  }
+}
+```
+
+### Workspaces
+
+All workspace endpoints require an authenticated session.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/workspaces` | List all workspaces in the registry |
+| `POST` | `/api/workspaces` | Add a workspace to the registry |
+| `GET` | `/api/workspaces/switch` | Switch the active workspace |
+| `POST` | `/api/workspaces/validate` | Validate Supabase credentials before adding |
+
+**POST /api/workspaces** body:
+```json
+{
+  "label": "Production",
+  "emoji": "🚀",
+  "url": "https://xyz.supabase.co",
+  "anonKey": "eyJ...",
+  "serviceRoleKey": "eyJ...",
+  "makeDefault": true
+}
+```
+
+### Agent operations
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/agents/templates` | Session | List available agent templates |
+| `GET` | `/api/agents/[slug]/skills` | Service-role | Get agent's skills |
+| `POST` | `/api/agents/[slug]/skills` | Service-role | Create or update a skill |
+| `GET` | `/api/agents/[slug]/browser/screenshot` | Session | JPEG screenshot of agent's browser |
+| `GET` | `/api/agents/[slug]/browser/state` | Session | Agent browser state |
+| `GET` | `/api/agents/[slug]/files/[...path]` | Session | Read a file from the agent's sandbox |
+| `POST` | `/api/agents/[slug]/files` | Session | Upload a file to the agent's sandbox |
+
+**POST /api/agents/[slug]/skills** body:
+```json
+{
+  "title": "Research competitors",
+  "content": "# Steps\n1. Search for...",
+  "action": "create",
+  "reason": "Learned from user feedback"
+}
+```
+
+For updates, include `action: "update"` and `knowledge_item_id` of the existing skill.
+
+**GET /api/agents/[slug]/browser/screenshot** query params:
+- `quality` — JPEG quality, 1–100 (default: `50`)
+- `maxWidth` — Max pixel width (default: `1280`)
+
+### Data sources
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/sources/browse` | Browse items in a connected source |
+| `POST` | `/api/sources/validate` | Validate source connection credentials |
+| `GET` | `/api/sources/oauth/[provider]/start` | Start OAuth flow for a source provider |
+| `GET` | `/api/sources/oauth/[provider]/callback` | OAuth callback handler |
+
+### Embedding
+
+<ParamField path="POST /api/embed" type="endpoint">
+  Generate an embedding vector for a text input. Proxies to the embedder service.
+</ParamField>
+
+```json
+// Request
+{ "input": "quarterly revenue report" }
+
+// Response
+{ "embedding": [0.012, -0.034, ...] }
+```
+
+---
+
+## Supabase RPCs
+
+Call these directly against your Supabase project using the [Supabase client](https://supabase.com/docs/reference/javascript/rpc) or any Postgres client. All RPCs respect RLS unless marked `SECURITY DEFINER`.
+
+### Knowledge search
+
+The primary way to query the knowledge base programmatically.
+
+#### `search_knowledge_items`
+
+Vector similarity search across knowledge items.
+
+```typescript
+const { data } = await supabase.rpc('search_knowledge_items', {
+  query_embedding: embedding,  // vector(384)
+  match_count: 5,
+  filter_tags: ['sales'],      // optional
+  filter_folder_id: null,      // optional
+  filter_kind: 'page'          // optional: page, skill, file, source
+})
+```
+
+Returns: `id`, `title`, `kind`, `content`, `tags`, `folder_id`, `scope`, `updated_at`, `meta`, `source_connection_id`, `source_external_id`, `similarity`.
+
+#### `search_knowledge_items_text`
+
+Full-text search (no embedding needed).
+
+```typescript
+const { data } = await supabase.rpc('search_knowledge_items_text', {
+  query_text: 'quarterly report',
+  match_count: 10,
+  filter_tags: null,
+  filter_folder_id: null,
+  filter_kind: null
+})
+```
+
+#### `search_knowledge_chunks`
+
+Vector similarity search at the chunk level — useful for long documents where you want the most relevant passage.
+
+```typescript
+const { data } = await supabase.rpc('search_knowledge_chunks', {
+  query_embedding: embedding,
+  match_count: 10,
+  filter_tags: null,
+  filter_folder_id: null,
+  filter_source_type: null,
+  filter_source_id: null
+})
+```
+
+Returns: `knowledge_item_id`, `kind`, `title`, `tags`, `chunk_id`, `chunk_index`, `content`, `char_start`, `char_end`, `page_number`, `section_path`, `meta`, `similarity`.
+
+#### `search_knowledge_chunks_text`
+
+Full-text search at the chunk level.
+
+```typescript
+const { data } = await supabase.rpc('search_knowledge_chunks_text', {
+  query_text: 'revenue forecast',
+  match_count: 10
+})
+```
+
+### Command queue
+
+Used by the runner daemon. You can also use these to script agent operations.
+
+#### `lease_command`
+
+Atomically lease the next pending command for a gateway.
+
+```typescript
+const { data } = await supabase.rpc('lease_command', {
+  p_lease_seconds: 300,
+  p_gateway_slug: 'my-gateway'
+})
+```
+
+Returns the leased `agent_commands` row, or empty if no work is pending.
+
+#### `start_command` / `complete_command` / `fail_command`
+
+Transition a command through its lifecycle.
+
+```typescript
+await supabase.rpc('start_command', { p_command_id: id })
+
+await supabase.rpc('complete_command', {
+  p_command_id: id,
+  p_exit_code: 0,
+  p_stdout: 'Agent provisioned',
+  p_stderr: null
+})
+
+await supabase.rpc('fail_command', {
+  p_command_id: id,
+  p_exit_code: 1,
+  p_error: 'Template not found'
+})
+```
+
+### Agent inbox
+
+Used by the dispatcher daemon. These manage the work queue that wakes agents.
+
+#### `lease_inbox_item`
+
+Lease the next pending inbox item for an agent.
+
+```typescript
+const { data } = await supabase.rpc('lease_inbox_item', {
+  p_agent_id: agentId,
+  p_lease_seconds: 120
+})
+```
+
+#### `complete_inbox_item` / `fail_inbox_item`
+
+```typescript
+await supabase.rpc('complete_inbox_item', { p_item_id: id })
+
+await supabase.rpc('fail_inbox_item', {
+  p_item_id: id,
+  p_reason: 'Agent not responding'
+})
+```
+
+Failed items retry up to `max_attempts` (default 3), then move to `dead_letter`.
+
+### Routines
+
+#### `routine_next_occurrence`
+
+Compute the next fire time for a routine schedule.
+
+```typescript
+const { data } = await supabase.rpc('routine_next_occurrence', {
+  p_cadence_type: 'daily',
+  p_interval_n: 1,
+  p_days_of_week: [],
+  p_day_of_month: null,
+  p_time_of_day: '09:00',
+  p_timezone: 'America/New_York',
+  p_from: new Date().toISOString()
+})
+```
+
+#### `spawn_routine_schedule_items`
+
+Called by pg_cron every minute. Creates inbox items for routines that are due. You generally don't call this manually.
+
+### Agent hierarchy
+
+#### `agent_reports_chain`
+
+Walk the reporting chain for an agent.
+
+```typescript
+const { data } = await supabase.rpc('agent_reports_chain', {
+  p_agent_id: agentId,
+  p_max_depth: 5
+})
+// Returns: [{ depth, agent_id, slug, name }, ...]
+```
+
+### Gateway registration
+
+#### `consume_gateway_token`
+
+Atomic token exchange during gateway registration. `SECURITY DEFINER` — bypasses RLS.
+
+```typescript
+const { data } = await supabase.rpc('consume_gateway_token', {
+  p_token: 'abc123...',
+  p_label: 'US-East Gateway',
+  p_slug_hint: 'us-east',
+  p_tenant_id: '00000000-0000-0000-0000-000000000000'
+})
+// Returns: { gateway_id, gateway_slug }
+```
+
+### Task management
+
+#### `get_task_relations`
+
+Get all relations for a task (blockers, children, related tasks).
+
+```typescript
+const { data } = await supabase.rpc('get_task_relations', {
+  p_task_id: taskId
+})
+```
+
+#### `get_agent_daily_usage`
+
+Get an agent's LLM usage for a date range.
+
+```typescript
+const { data } = await supabase.rpc('get_agent_daily_usage', {
+  p_agent_id: agentId,
+  p_start_date: '2026-05-01',
+  p_end_date: '2026-05-18'
+})
+```
+
+### Embedding pipeline
+
+These are used internally by the embedder daemon.
+
+| RPC | Purpose |
+|---|---|
+| `lease_knowledge_items_for_indexing(p_gateway_slug, p_limit, p_lease_seconds)` | Lease items pending embedding |
+| `mark_knowledge_item_indexed(p_item_id, p_embedding, p_model, p_dimensions, p_source_hash)` | Mark item as indexed |
+| `mark_knowledge_item_failed(p_item_id, p_error)` | Mark item as failed |
+
+---
+
+## Key Table Schemas
+
+These are the tables you'll query most often when building integrations. Full schema is in [Database schema](/reference/database-schema); migration source is in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations).
+
+### agents
+
+```sql
+agents (
+  id             uuid PRIMARY KEY,
+  tenant_id      uuid NOT NULL,
+  gateway_id     uuid,
+  name           text NOT NULL,
+  slug           text NOT NULL UNIQUE(tenant_id, slug),
+  description    text,
+  avatar_url     text,
+  status         agent_status,    -- ready, paused, error, provisioning, hibernating
+  last_seen_at   timestamptz,
+  model          text,
+  thinking       text,
+  reports_to_id  uuid,            -- org-chart parent
+  domains        text[],
+  capabilities   text[],
+  config         jsonb,
+  meta           jsonb
+)
+```
+
+### tasks
+
+```sql
+tasks (
+  id                 uuid PRIMARY KEY,
+  tenant_id          uuid NOT NULL,
+  title              text NOT NULL,
+  description        text,
+  status             task_status,   -- todo, in_progress, blocked, done, cancelled, missed
+  priority           task_priority, -- low, medium, high, urgent
+  stream_id          uuid,
+  parent_id          uuid,
+  assignee_type      actor_type,    -- human, agent, system
+  assignee_agent_id  uuid,
+  due_date           timestamptz,
+  due_at             timestamptz,
+  completed_at       timestamptz,
+  contact_id         uuid,
+  org_id             uuid,
+  tags               text[],
+  sort_order         integer,
+  archived_at        timestamptz
+)
+```
+
+### knowledge_items
+
+```sql
+knowledge_items (
+  id                   uuid PRIMARY KEY,
+  tenant_id            uuid NOT NULL,
+  folder_id            uuid,
+  kind                 text,          -- page, skill, file, source
+  title                text NOT NULL,
+  content              jsonb,
+  plain_text           text,
+  scope                text,          -- workspace, agent
+  tags                 text[],
+  pinned               boolean,
+  embedding            vector(384),
+  embedding_status     text,          -- pending, indexed, failed
+  chunk_status         text,          -- pending, indexed, failed
+  processing_status    text,          -- ready, processing, done, failed
+  source_connection_id uuid,
+  source_external_id   text,
+  source_sync_status   text           -- synced, stale, error, source_deleted
+)
+```
+
+### agent_commands
+
+```sql
+agent_commands (
+  id            uuid PRIMARY KEY,
+  tenant_id     uuid NOT NULL,
+  agent_id      uuid,
+  agent_slug    text,
+  gateway_id    uuid NOT NULL,
+  action        command_action,  -- provision, update, remove, start_session, ...
+  payload       jsonb,
+  status        command_status,  -- pending, leased, running, done, failed, cancelled
+  exit_code     integer,
+  stdout        text,
+  stderr        text,
+  error_message text,
+  requested_by  uuid
+)
+```
+
+### routines
+
+```sql
+routines (
+  id            uuid PRIMARY KEY,
+  tenant_id     uuid NOT NULL,
+  agent_id      uuid NOT NULL,
+  agent_slug    text NOT NULL,
+  name          text NOT NULL,
+  instruction   text,
+  trigger_type  text,            -- schedule, event
+  is_active     boolean,
+  cadence_type  text,            -- every_n_minutes, daily, weekdays, weekly, monthly, ...
+  interval_n    integer,
+  days_of_week  smallint[],
+  time_of_day   time,
+  timezone      text,
+  next_run_at   timestamptz,
+  entity_type   text,            -- contact, collection_record, knowledge_item, task
+  field         text,
+  condition     text,            -- created, changed_to, changed_from, any_change
+  value         text
+)
+```
+
+---
+
+## Enum Reference
+
+Enums used across the schema. Useful when filtering queries or building integrations.
+
+| Enum | Values |
+|---|---|
+| `agent_status` | `ready`, `paused`, `error`, `provisioning`, `hibernating` |
+| `task_status` | `todo`, `in_progress`, `blocked`, `done`, `cancelled`, `missed` |
+| `task_priority` | `low`, `medium`, `high`, `urgent` |
+| `command_status` | `pending`, `leased`, `running`, `done`, `failed`, `cancelled` |
+| `command_action` | `provision`, `update`, `remove`, `start_session`, `end_session`, `restart_session`, `execute_prompt`, `send_message`, `run_shell`, `upload_file`, `auth_set_api_key`, `auth_start`, `auth_paste`, `set_agent_model`, `source_write`, and [others](/reference/command-actions) |
+| `inbox_event_type` | `task_assignment`, `task_reassignment`, `task_comment_mention`, `routine_schedule`, `routine_event`, `heartbeat`, `deliverable_review`, `blocker_resolved` |
+| `inbox_item_status` | `pending`, `leased`, `done`, `dead_letter`, `failed` |
+| `task_relation_type` | `blocks`, `blocked_by`, `relates_to`, `parent_of`, `child_of` |
+| `work_product_status` | `draft`, `in_review`, `approved`, `revision_requested`, `rejected` |
+| `actor_type` | `human`, `agent`, `system` |
+| `gateway_status` | `provisioning`, `ready`, `error`, `hibernating` |
+| `plugin_source` | `builtin`, `local`, `webhook`, `marketplace` |
+
+---
+
+## Common Query Patterns
+
+### List all agents on a gateway
+
+```typescript
+const { data } = await supabase
+  .from('agents')
+  .select('id, name, slug, status, last_seen_at, model')
+  .eq('gateway_id', gatewayId)
+  .order('name')
+```
+
+### Get open tasks for an agent
+
+```typescript
+const { data } = await supabase
+  .from('tasks')
+  .select('id, title, status, priority, due_date')
+  .eq('assignee_agent_id', agentId)
+  .in('status', ['todo', 'in_progress', 'blocked'])
+  .order('priority', { ascending: false })
+```
+
+### Create a command (trigger an agent action)
+
+```typescript
+const { data } = await supabase
+  .from('agent_commands')
+  .insert({
+    agent_id: agentId,
+    agent_slug: 'my-agent',
+    gateway_id: gatewayId,
+    action: 'execute_prompt',
+    payload: { prompt: 'Summarize today\'s news' },
+    status: 'pending'
+  })
+  .select()
+  .single()
+```
+
+The runner daemon will pick this up, execute it, and update `status`, `stdout`, and `exit_code`.
+
+### Search knowledge by text
+
+```typescript
+const { data } = await supabase.rpc('search_knowledge_items_text', {
+  query_text: 'onboarding checklist',
+  match_count: 5,
+  filter_kind: 'page'
+})
+```
+
+### Get an agent's usage this month
+
+```typescript
+const { data } = await supabase
+  .from('agent_usage')
+  .select('model, input_tokens, output_tokens, cost_usd, created_at')
+  .eq('agent_id', agentId)
+  .gte('created_at', '2026-05-01')
+  .order('created_at', { ascending: false })
+```
