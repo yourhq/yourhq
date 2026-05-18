@@ -132,7 +132,6 @@ function makeConnection(
     updated_at: "2025-01-01T00:00:00Z",
     provider: "notion",
     account_label: "My Notion",
-    credentials: {},
     status: "active",
     last_verified_at: "2025-01-01T00:00:00Z",
     sync_interval_hours: 6,

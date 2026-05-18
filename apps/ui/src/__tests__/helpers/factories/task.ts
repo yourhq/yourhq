@@ -19,7 +19,6 @@ export function buildTask(overrides: Record<string, unknown> = {}) {
     stream: null as { id: string; name: string; color: string } | null,
     parent_id: null,
     due_date: null as string | null,
-    due_at: null,
     completed_at: null,
     sort_order: 0,
     tags: [] as string[],

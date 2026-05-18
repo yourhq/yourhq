@@ -9,7 +9,6 @@ export function buildSourceConnection(overrides: Record<string, unknown> = {}) {
     updated_at: new Date().toISOString(),
     provider: "notion",
     account_label: `My Source ${connCounter}`,
-    credentials: {},
     status: "active" as const,
     last_verified_at: new Date().toISOString(),
     sync_interval_hours: 6,

@@ -118,7 +118,6 @@ describe("useSourceConnections", () => {
       created = await result.current.actions.createConnection({
         provider: "notion" as never,
         account_label: "My Notion",
-        credentials: { token: "secret" },
       });
     });
 

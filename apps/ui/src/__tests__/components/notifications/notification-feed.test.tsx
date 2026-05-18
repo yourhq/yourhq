@@ -28,7 +28,6 @@ function buildNotification(overrides: Partial<Notification> = {}): Notification 
     entity_id: "task-1",
     actor_type: "system",
     actor_agent_id: null,
-    is_read: false,
     read_at: null,
     dismissed_at: null,
     meta: {},
@@ -56,7 +55,7 @@ describe("NotificationFeed", () => {
       <NotificationFeed
         notifications={notifications}
         loading={opts.loading ?? false}
-        unreadCount={opts.unreadCount ?? notifications.filter((n) => !n.is_read).length}
+        unreadCount={opts.unreadCount ?? notifications.filter((n) => !n.read_at).length}
         onMarkRead={onMarkRead}
         onMarkAllRead={onMarkAllRead}
         onDismiss={onDismiss}
@@ -86,13 +85,13 @@ describe("NotificationFeed", () => {
   });
 
   it("renders unread indicator dot for unread notifications", () => {
-    renderFeed([buildNotification({ is_read: false })]);
+    renderFeed([buildNotification({ read_at: null })]);
     const dot = document.querySelector('[aria-hidden="true"]');
     expect(dot).toBeInTheDocument();
   });
 
   it("does not render unread dot for read notifications", () => {
-    renderFeed([buildNotification({ is_read: true, id: "n-read" })]);
+    renderFeed([buildNotification({ read_at: "2024-01-01T00:00:00Z", id: "n-read" })]);
     const item = screen.getByText("New task assigned").closest("[role='button']");
     const dot = item?.querySelector("span.rounded-full.bg-primary");
     expect(dot).toBeNull();
@@ -114,7 +113,7 @@ describe("NotificationFeed", () => {
   });
 
   it("shows All read when no unread", () => {
-    renderFeed([buildNotification({ is_read: true })], { unreadCount: 0 });
+    renderFeed([buildNotification({ read_at: "2024-01-01T00:00:00Z" })], { unreadCount: 0 });
     expect(screen.getByText("All read")).toBeInTheDocument();
   });
 
@@ -124,7 +123,7 @@ describe("NotificationFeed", () => {
   });
 
   it("does not show Mark all read when all are read", () => {
-    renderFeed([buildNotification({ is_read: true })], { unreadCount: 0 });
+    renderFeed([buildNotification({ read_at: "2024-01-01T00:00:00Z" })], { unreadCount: 0 });
     expect(screen.queryByText("Mark all read")).not.toBeInTheDocument();
   });
 
@@ -145,7 +144,7 @@ describe("NotificationFeed", () => {
 
   it("does not call onMarkRead when clicking a read notification", async () => {
     const user = userEvent.setup();
-    renderFeed([buildNotification({ is_read: true })]);
+    renderFeed([buildNotification({ read_at: "2024-01-01T00:00:00Z" })]);
     await user.click(screen.getByText("New task assigned"));
     expect(onMarkRead).not.toHaveBeenCalled();
     expect(mockPush).toHaveBeenCalled();
@@ -173,7 +172,7 @@ describe("NotificationFeed", () => {
   it("navigates to contact page for contact entity type", async () => {
     const user = userEvent.setup();
     renderFeed([
-      buildNotification({ entity_type: "contact", entity_id: "c-1", is_read: true }),
+      buildNotification({ entity_type: "contact", entity_id: "c-1", read_at: "2024-01-01T00:00:00Z" }),
     ]);
     await user.click(screen.getByText("New task assigned"));
     expect(mockPush).toHaveBeenCalledWith("/dashboard/contacts/c-1");
@@ -182,7 +181,7 @@ describe("NotificationFeed", () => {
   it("handles notifications without entity navigation", async () => {
     const user = userEvent.setup();
     renderFeed([
-      buildNotification({ entity_type: null, entity_id: null, is_read: true }),
+      buildNotification({ entity_type: null, entity_id: null, read_at: "2024-01-01T00:00:00Z" }),
     ]);
     await user.click(screen.getByText("New task assigned"));
     expect(mockPush).not.toHaveBeenCalled();

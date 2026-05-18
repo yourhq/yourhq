@@ -353,7 +353,6 @@ describe("ProviderPickerDialog", () => {
       updated_at: "2025-01-01",
       provider: "notion",
       account_label: "WS",
-      credentials: {},
       status: "active",
       last_verified_at: null,
       sync_interval_hours: 6,
