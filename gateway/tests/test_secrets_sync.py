@@ -1,10 +1,7 @@
 import base64
-import hashlib
-import hmac
 import os
-import struct
+
 import pytest
-from pathlib import Path
 
 
 @pytest.fixture(autouse=True)
@@ -83,7 +80,7 @@ def test_derive_key_different_inputs():
 
 
 def test_derive_key_uses_correct_salt_and_info():
-    from secrets_sync import _derive_key, _hkdf_extract, _hkdf_expand, HKDF_SALT, HKDF_INFO
+    from secrets_sync import HKDF_INFO, HKDF_SALT, _derive_key, _hkdf_expand, _hkdf_extract
 
     service_key = "test-key-123"
     expected_prk = _hkdf_extract(HKDF_SALT, service_key.encode())
@@ -338,8 +335,20 @@ def test_sync_secrets_writes_gateway_and_agent_files(monkeypatch, tmp_path):
             return [{"id": "gw-uuid"}]
         if "secrets" in table:
             return [
-                {"id": "s1", "agent_id": None, "key": "GW_TOKEN", "encrypted_value": "encrypted:gw-token-value", "sync_status": "pending"},
-                {"id": "s2", "agent_id": "agent-uuid-1", "key": "AGENT_KEY", "encrypted_value": "encrypted:agent-key-value", "sync_status": "pending"},
+                {
+                    "id": "s1",
+                    "agent_id": None,
+                    "key": "GW_TOKEN",
+                    "encrypted_value": "encrypted:gw-token-value",
+                    "sync_status": "pending",
+                },
+                {
+                    "id": "s2",
+                    "agent_id": "agent-uuid-1",
+                    "key": "AGENT_KEY",
+                    "encrypted_value": "encrypted:agent-key-value",
+                    "sync_status": "pending",
+                },
             ]
         if "agents" in table:
             return [{"id": "agent-uuid-1", "slug": "my-agent"}]
@@ -458,7 +467,13 @@ def test_sync_secrets_agent_inherits_gateway_defaults(monkeypatch, tmp_path):
             return [
                 {"id": "s1", "agent_id": None, "key": "SHARED", "encrypted_value": "shared", "sync_status": "pending"},
                 {"id": "s2", "agent_id": None, "key": "GW_ONLY", "encrypted_value": "gw", "sync_status": "pending"},
-                {"id": "s3", "agent_id": "a1", "key": "SHARED", "encrypted_value": "override", "sync_status": "pending"},
+                {
+                    "id": "s3",
+                    "agent_id": "a1",
+                    "key": "SHARED",
+                    "encrypted_value": "override",
+                    "sync_status": "pending",
+                },
             ]
         if "agents" in table:
             return [{"id": "a1", "slug": "my-agent"}]

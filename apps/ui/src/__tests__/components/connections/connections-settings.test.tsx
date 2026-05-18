@@ -32,7 +32,7 @@ vi.mock("sonner", () => ({
 }));
 
 vi.mock("@/components/shared/page-header", () => ({
-  PageHeader: ({ title, description, primaryAction }: any) => (
+  PageHeader: ({ title, description, primaryAction }: { title: string; description: string; primaryAction: React.ReactNode }) => (
     <div data-testid="page-header">
       <h1>{title}</h1>
       <p>{description}</p>
@@ -42,7 +42,7 @@ vi.mock("@/components/shared/page-header", () => ({
 }));
 
 vi.mock("@/components/shared/empty-state", () => ({
-  EmptyState: ({ title, description }: any) => (
+  EmptyState: ({ title, description }: { title: string; description: string }) => (
     <div data-testid="empty-state">
       <span>{title}</span>
       <span>{description}</span>
@@ -51,7 +51,7 @@ vi.mock("@/components/shared/empty-state", () => ({
 }));
 
 vi.mock("@/components/shared/confirm-dialog", () => ({
-  ConfirmDialog: ({ open, title, onConfirm, onCancel }: any) =>
+  ConfirmDialog: ({ open, title, onConfirm, onCancel }: { open: boolean; title: string; onConfirm: () => void; onCancel: () => void }) =>
     open ? (
       <div data-testid="confirm-dialog">
         <span>{title}</span>
@@ -62,7 +62,7 @@ vi.mock("@/components/shared/confirm-dialog", () => ({
 }));
 
 vi.mock("@/components/connections/add-connection-dialog", () => ({
-  AddConnectionDialog: ({ open }: any) =>
+  AddConnectionDialog: ({ open }: { open: boolean }) =>
     open ? <div data-testid="add-dialog">Add Dialog</div> : null,
 }));
 

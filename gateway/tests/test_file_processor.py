@@ -1,6 +1,3 @@
-import pytest
-
-
 def test_extract_text_markdown_returns_content():
     from file_processor import extract_text
 

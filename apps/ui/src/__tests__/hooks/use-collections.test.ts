@@ -37,6 +37,7 @@ import { logAudit } from "@/lib/audit/log";
 import { trackEvent } from "@/lib/analytics";
 import { toast } from "sonner";
 import { useCollections } from "@/hooks/use-collections";
+import type { CollectionTemplate } from "@/lib/collections/types";
 
 let supabase: ReturnType<typeof createMockSupabaseClient>;
 
@@ -78,7 +79,7 @@ function setup(overrides?: { collections?: unknown[]; templates?: unknown[] }) {
       ["collection_templates", { select: { data: overrides?.templates ?? makeTemplates(), error: null } }],
     ]),
   });
-  vi.mocked(createClient).mockReturnValue(supabase as any);
+  vi.mocked(createClient).mockReturnValue(supabase as unknown as ReturnType<typeof createClient>);
 }
 
 describe("useCollections", () => {
@@ -178,7 +179,7 @@ describe("useCollections", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
-      await result.current.actions.installTemplate(makeTemplates()[0] as any);
+      await result.current.actions.installTemplate(makeTemplates()[0] as unknown as CollectionTemplate);
     });
 
     expect(logAudit).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({

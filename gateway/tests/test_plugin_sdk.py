@@ -1,6 +1,6 @@
 import json
 import logging
-import os
+
 import pytest
 
 
@@ -440,7 +440,7 @@ def test_supabase_client_respects_custom_tenant_filter(monkeypatch):
 
 
 def test_plugin_context_construction():
-    from gateway.plugins.sdk import PluginContext, StateClient, SecretsClient, SupabaseClient
+    from gateway.plugins.sdk import PluginContext, SecretsClient, StateClient, SupabaseClient
 
     state = StateClient("p", "t", "https://sb.co", "k")
     secrets = SecretsClient("t", "gw")
@@ -463,15 +463,22 @@ def test_plugin_context_construction():
 
 
 def test_base_plugin_abstract():
-    from gateway.plugins.sdk import BasePlugin, PluginContext, StateClient, SecretsClient, SupabaseClient
+    from gateway.plugins.sdk import BasePlugin
 
     with pytest.raises(TypeError):
         BasePlugin(None)
 
 
 def test_base_plugin_subclass():
-    from gateway.plugins.sdk import BasePlugin, PluginContext, PluginEvent, PluginResponse
-    from gateway.plugins.sdk import StateClient, SecretsClient, SupabaseClient
+    from gateway.plugins.sdk import (
+        BasePlugin,
+        PluginContext,
+        PluginEvent,
+        PluginResponse,
+        SecretsClient,
+        StateClient,
+        SupabaseClient,
+    )
 
     class MyPlugin(BasePlugin):
         def on_event(self, event):
@@ -493,8 +500,13 @@ def test_base_plugin_subclass():
 
 
 def test_base_plugin_on_configure():
-    from gateway.plugins.sdk import BasePlugin, PluginContext, PluginEvent, PluginResponse
-    from gateway.plugins.sdk import StateClient, SecretsClient, SupabaseClient
+    from gateway.plugins.sdk import (
+        BasePlugin,
+        PluginContext,
+        SecretsClient,
+        StateClient,
+        SupabaseClient,
+    )
 
     class MyPlugin(BasePlugin):
         def on_event(self, event):
@@ -516,8 +528,7 @@ def test_base_plugin_on_configure():
 
 
 def test_base_plugin_health():
-    from gateway.plugins.sdk import BasePlugin, PluginContext
-    from gateway.plugins.sdk import StateClient, SecretsClient, SupabaseClient
+    from gateway.plugins.sdk import BasePlugin, PluginContext, SecretsClient, StateClient, SupabaseClient
 
     class MyPlugin(BasePlugin):
         def on_event(self, event):
@@ -536,8 +547,7 @@ def test_base_plugin_health():
 
 
 def test_base_plugin_on_shutdown():
-    from gateway.plugins.sdk import BasePlugin, PluginContext
-    from gateway.plugins.sdk import StateClient, SecretsClient, SupabaseClient
+    from gateway.plugins.sdk import BasePlugin, PluginContext, SecretsClient, StateClient, SupabaseClient
 
     class MyPlugin(BasePlugin):
         def __init__(self, ctx):

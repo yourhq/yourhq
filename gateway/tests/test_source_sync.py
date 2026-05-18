@@ -1,6 +1,3 @@
-import pytest
-
-
 def test_unknown_provider_marks_connection_error(monkeypatch):
     import source_sync
 
@@ -20,7 +17,6 @@ def test_unknown_provider_marks_connection_error(monkeypatch):
     monkeypatch.setattr(source_sync, "supabase_request", fake_request)
     monkeypatch.setattr(source_sync, "supabase_rpc", lambda fn, params: None)
 
-    from connectors.registry import CONNECTORS
     monkeypatch.setattr("connectors.registry.CONNECTORS", {})
     monkeypatch.setattr("connectors.registry._discovered", True)
 
@@ -28,10 +24,9 @@ def test_unknown_provider_marks_connection_error(monkeypatch):
         "id": "conn-123",
         "provider": "nonexistent_provider",
         "sync_interval_hours": 6,
-        "credentials": {},
     }
 
-    monkeypatch.setattr(source_sync, "_load_gateway_secrets", lambda: {})
+    monkeypatch.setattr(source_sync, "_resolve_credentials", lambda p, c: {})
 
     source_sync.sync_connection(connection)
 

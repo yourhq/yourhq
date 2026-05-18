@@ -3,6 +3,7 @@ import { render, screen, cleanup, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { buildTask, resetTaskCounter } from "@/__tests__/helpers/factories/task";
 import { createMockSupabaseClient } from "@/__tests__/helpers/supabase-mock";
+import type { Task } from "@/lib/tasks/types";
 
 let mockSupabase: ReturnType<typeof createMockSupabaseClient>;
 
@@ -208,20 +209,20 @@ describe("TaskForm", () => {
 
   it("renders in edit mode with pre-filled title", () => {
     const task = buildTask({ title: "Existing task", id: "edit-1" });
-    render(<TaskForm {...defaultProps} editingTask={task as any} />);
+    render(<TaskForm {...defaultProps} editingTask={task as unknown as Task} />);
     const titleInput = screen.getByPlaceholderText("Task title");
     expect((titleInput as HTMLTextAreaElement).value).toBe("Existing task");
   });
 
   it("renders Close button in edit mode", () => {
     const task = buildTask({ title: "Existing", id: "edit-1" });
-    render(<TaskForm {...defaultProps} editingTask={task as any} />);
+    render(<TaskForm {...defaultProps} editingTask={task as unknown as Task} />);
     expect(screen.getByText("Close")).toBeDefined();
   });
 
   it("renders Edit task dialog title in edit mode", () => {
     const task = buildTask({ title: "Existing", id: "edit-1" });
-    render(<TaskForm {...defaultProps} editingTask={task as any} />);
+    render(<TaskForm {...defaultProps} editingTask={task as unknown as Task} />);
     expect(screen.getByText("Edit task")).toBeDefined();
   });
 
@@ -291,7 +292,7 @@ describe("TaskForm", () => {
 
   it("shows timeline when editing a saved task", () => {
     const task = buildTask({ title: "Saved", id: "saved-1" });
-    render(<TaskForm {...defaultProps} editingTask={task as any} />);
+    render(<TaskForm {...defaultProps} editingTask={task as unknown as Task} />);
     expect(screen.getByTestId("task-timeline")).toBeDefined();
   });
 
@@ -300,7 +301,7 @@ describe("TaskForm", () => {
     render(
       <TaskForm
         {...defaultProps}
-        editingTask={task as any}
+        editingTask={task as unknown as Task}
         onArchive={vi.fn()}
       />
     );
@@ -314,7 +315,7 @@ describe("TaskForm", () => {
       status: "missed",
       due_date: "2025-01-01",
     });
-    render(<TaskForm {...defaultProps} editingTask={task as any} />);
+    render(<TaskForm {...defaultProps} editingTask={task as unknown as Task} />);
     expect(
       screen.getByText(/This task missed its deadline/)
     ).toBeDefined();
@@ -329,7 +330,7 @@ describe("TaskForm", () => {
       assignee_agent_id: "agent-1",
       deliverable_count: 2,
     });
-    render(<TaskForm {...defaultProps} editingTask={task as any} />);
+    render(<TaskForm {...defaultProps} editingTask={task as unknown as Task} />);
     expect(screen.getByTestId("task-deliverables")).toBeDefined();
   });
 
@@ -339,7 +340,7 @@ describe("TaskForm", () => {
       id: "desc-1",
       description: "Some description text",
     });
-    render(<TaskForm {...defaultProps} editingTask={task as any} />);
+    render(<TaskForm {...defaultProps} editingTask={task as unknown as Task} />);
     const descInput = screen.getByPlaceholderText("Add a description...");
     expect((descInput as HTMLTextAreaElement).value).toBe(
       "Some description text"

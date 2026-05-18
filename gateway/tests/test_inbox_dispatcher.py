@@ -1,6 +1,6 @@
 import subprocess
-import pytest
 
+import pytest
 from tests.helpers.subprocess_stubs import FakePopen
 
 
@@ -77,7 +77,6 @@ def test_should_wake_returns_false_when_budget_hard_exceeded(tracker, monkeypatc
 
 def test_should_wake_returns_false_during_cooldown(tracker, monkeypatch):
     import time
-    import inbox_dispatcher as mod
 
     with tracker.lock:
         tracker.last_wake["agent-1"] = time.time()
@@ -88,7 +87,6 @@ def test_should_wake_returns_false_during_cooldown(tracker, monkeypatch):
 
 
 def test_should_wake_returns_false_when_wake_in_flight(tracker, monkeypatch):
-    import inbox_dispatcher as mod
 
     with tracker.lock:
         tracker.wake_in_flight["agent-1"] = True
@@ -194,8 +192,6 @@ def test_handle_new_item_enriches_task_assignment_with_blockers(monkeypatch):
     with mod.LOCAL_AGENT_IDS_LOCK:
         mod.LOCAL_AGENT_IDS.clear()
         mod.LOCAL_AGENT_IDS.add("uuid-1")
-
-    wake_reasons = []
 
     def fake_api_get(table, params):
         if "task_relations" in table:
@@ -453,7 +449,6 @@ def test_should_wake_returns_false_when_active_lease(monkeypatch):
 
 
 def test_wake_tracker_record_wake_done_success():
-    import time
     from inbox_dispatcher import WakeTracker
 
     tracker = WakeTracker(cooldown_seconds=30)

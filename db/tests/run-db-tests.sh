@@ -244,6 +244,7 @@ test_table_existence() {
 test_column_contracts() {
   echo "── Column contracts ─────────────────────────────────────────"
 
+  # shellcheck disable=SC2034
   local check_column
   check_column() {
     local table="$1" column="$2" expected_type="$3"
@@ -386,6 +387,7 @@ test_default_tenant_row() {
 test_enum_types() {
   echo "── Enum types ───────────────────────────────────────────────"
 
+  # shellcheck disable=SC2034
   local check_enum_values
   check_enum_values() {
     local enum_name="$1"
@@ -422,10 +424,10 @@ test_enum_types() {
     run_shell provision source_write
 
   check_enum_values command_status \
-    pending leased running done failed cancelled
+    pending leased running "done" failed cancelled
 
   check_enum_values task_status \
-    todo in_progress blocked done cancelled missed
+    todo in_progress blocked "done" cancelled missed
 
   check_enum_values task_priority \
     low medium high urgent
@@ -459,6 +461,7 @@ test_enum_types() {
 test_foreign_keys() {
   echo "── Foreign keys ─────────────────────────────────────────────"
 
+  # shellcheck disable=SC2034
   local check_fk
   check_fk() {
     local from_table="$1" from_col="$2" to_table="$3" to_col="$4"
@@ -655,6 +658,7 @@ test_get_task_relations_rpc() {
 test_triggers_exist() {
   echo "── Triggers ─────────────────────────────────────────────────"
 
+  # shellcheck disable=SC2034
   local check_trigger
   check_trigger() {
     local table="$1" trigger_name="$2"

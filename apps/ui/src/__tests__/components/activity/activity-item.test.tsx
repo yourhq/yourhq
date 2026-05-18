@@ -62,7 +62,7 @@ describe("ActivityItem", () => {
 
   it("shows 'System' for system actor type", () => {
     render(
-      <ActivityItem entry={makeEntry({ actor_type: "system" as any })} />,
+      <ActivityItem entry={makeEntry({ actor_type: "system" })} />,
     );
     expect(screen.getByText("System")).toBeInTheDocument();
   });

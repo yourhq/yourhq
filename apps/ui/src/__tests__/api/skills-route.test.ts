@@ -110,7 +110,7 @@ describe("GET /api/agents/[slug]/skills", () => {
       return b;
     })();
 
-    let fromCallCount = 0;
+    const fromCallCount = 0;
     const mockClient = {
       from: vi.fn().mockImplementation((table: string) => {
         if (table === "agents") return agentQueryBuilder;

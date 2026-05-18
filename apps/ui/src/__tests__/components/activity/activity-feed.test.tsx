@@ -12,7 +12,7 @@ vi.mock("@/components/shared/loading-skeleton", () => ({
 }));
 
 vi.mock("@/components/shared/empty-state", () => ({
-  EmptyState: ({ title, description }: any) => (
+  EmptyState: ({ title, description }: { title: string; description: string }) => (
     <div data-testid="empty-state">
       <span>{title}</span>
       <span>{description}</span>

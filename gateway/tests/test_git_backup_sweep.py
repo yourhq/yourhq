@@ -1,8 +1,6 @@
 import subprocess
 from pathlib import Path
 
-import pytest
-
 
 def test_run_handles_subprocess_timeout(monkeypatch):
     from git_backup_sweep import _run
@@ -34,9 +32,7 @@ def test_run_returns_normal_output(monkeypatch):
     from git_backup_sweep import _run
 
     def fake_run(cmd, **kwargs):
-        return subprocess.CompletedProcess(
-            args=cmd, returncode=0, stdout="OK\n", stderr=""
-        )
+        return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="OK\n", stderr="")
 
     monkeypatch.setattr(subprocess, "run", fake_run)
 
@@ -86,9 +82,7 @@ def test_has_remote_true_when_origin_present(monkeypatch):
     import git_backup_sweep as mod
 
     def fake_run(cmd, **kwargs):
-        return subprocess.CompletedProcess(
-            args=cmd, returncode=0, stdout="origin\n", stderr=""
-        )
+        return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="origin\n", stderr="")
 
     monkeypatch.setattr(subprocess, "run", fake_run)
 

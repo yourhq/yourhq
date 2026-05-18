@@ -46,7 +46,7 @@ const COLLECTION_ID = "col-1";
 function getFromCalls(table: string) {
   const calls = mockSupabase.from.mock.calls;
   const results = mockSupabase.from.mock.results;
-  const builders: any[] = [];
+  const builders: unknown[] = [];
   for (let i = 0; i < calls.length; i++) {
     if (calls[i][0] === table) {
       builders.push(results[i].value);

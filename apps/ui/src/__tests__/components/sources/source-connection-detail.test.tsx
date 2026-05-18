@@ -75,7 +75,7 @@ vi.mock("@/lib/sources/types", async () => {
 });
 
 vi.mock("@/components/shared/detail-header", () => ({
-  DetailHeader: ({ identityTitle, identityMeta }: any) => (
+  DetailHeader: ({ identityTitle, identityMeta }: { identityTitle: string; identityMeta: React.ReactNode }) => (
     <div data-testid="detail-header">
       <span>{identityTitle}</span>
       {identityMeta}
@@ -84,20 +84,20 @@ vi.mock("@/components/shared/detail-header", () => ({
 }));
 
 vi.mock("@/components/shared/detail-sidebar", () => ({
-  DetailSidebar: ({ children }: any) => (
+  DetailSidebar: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="detail-sidebar">{children}</div>
   ),
-  DetailSidebarInline: ({ children }: any) => (
+  DetailSidebarInline: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="detail-sidebar-inline">{children}</div>
   ),
-  DetailSidebarSection: ({ title, children }: any) => (
+  DetailSidebarSection: ({ title, children }: { title: string; children: React.ReactNode }) => (
     <div data-testid={`sidebar-section-${title}`}>
       <span>{title}</span>
       {children}
     </div>
   ),
-  DetailSidebarPropertyGrid: ({ children }: any) => <div>{children}</div>,
-  DetailSidebarProperty: ({ label, children }: any) => (
+  DetailSidebarPropertyGrid: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DetailSidebarProperty: ({ label, children }: { label: string; children: React.ReactNode }) => (
     <div data-testid={`property-${label}`}>
       <span>{label}</span>
       <span>{children}</span>
@@ -106,7 +106,7 @@ vi.mock("@/components/shared/detail-sidebar", () => ({
 }));
 
 vi.mock("@/components/shared/confirm-delete-dialog", () => ({
-  ConfirmDeleteDialog: ({ open, title, onConfirm, onCancel }: any) =>
+  ConfirmDeleteDialog: ({ open, title, onConfirm, onCancel }: { open: boolean; title: string; onConfirm: () => void; onCancel: () => void }) =>
     open ? (
       <div data-testid="confirm-delete">
         <span>{title}</span>
@@ -117,7 +117,7 @@ vi.mock("@/components/shared/confirm-delete-dialog", () => ({
 }));
 
 vi.mock("@/components/sources/source-content-picker", () => ({
-  SourceContentPicker: ({ open }: any) =>
+  SourceContentPicker: ({ open }: { open: boolean }) =>
     open ? <div data-testid="content-picker">Picker</div> : null,
 }));
 

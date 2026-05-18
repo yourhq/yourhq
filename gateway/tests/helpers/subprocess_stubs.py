@@ -1,6 +1,7 @@
 """Stubs for subprocess.run / subprocess.Popen used by daemon modules."""
 
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 

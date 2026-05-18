@@ -24,9 +24,9 @@ const mockEnqueueCommand = vi.fn();
 const mockWaitForCommand = vi.fn();
 
 vi.mock("@/app/dashboard/settings/connections/actions", () => ({
-  readConnectionsForGateway: (...args: any[]) => mockReadConnections(...args),
-  enqueueConnectionCommand: (...args: any[]) => mockEnqueueCommand(...args),
-  waitForCommand: (...args: any[]) => mockWaitForCommand(...args),
+  readConnectionsForGateway: (...args: unknown[]) => mockReadConnections(...args),
+  enqueueConnectionCommand: (...args: unknown[]) => mockEnqueueCommand(...args),
+  waitForCommand: (...args: unknown[]) => mockWaitForCommand(...args),
 }));
 
 vi.mock("sonner", () => ({

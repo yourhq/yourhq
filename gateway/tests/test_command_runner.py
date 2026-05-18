@@ -1,4 +1,5 @@
-import os
+import json
+
 import pytest
 
 
@@ -273,6 +274,7 @@ def test_heartbeat_once_handles_api_failure(monkeypatch):
 
 def test_execute_command_timeout(monkeypatch):
     import subprocess
+
     import command_runner as cr
 
     rpc_calls = []
@@ -287,12 +289,14 @@ def test_execute_command_timeout(monkeypatch):
     monkeypatch.setattr(cr, "api_rpc", fake_rpc)
     monkeypatch.setattr(subprocess, "run", fake_run)
 
-    cr.execute_command({
-        "id": "cmd-1",
-        "action": "update",
-        "agent_slug": "my-agent",
-        "payload": {},
-    })
+    cr.execute_command(
+        {
+            "id": "cmd-1",
+            "action": "update",
+            "agent_slug": "my-agent",
+            "payload": {},
+        }
+    )
 
     fail_calls = [(fn, p) for fn, p in rpc_calls if fn == "fail_command"]
     assert len(fail_calls) == 1
@@ -301,6 +305,7 @@ def test_execute_command_timeout(monkeypatch):
 
 def test_execute_command_subprocess_error(monkeypatch):
     import subprocess
+
     import command_runner as cr
 
     rpc_calls = []
@@ -315,12 +320,14 @@ def test_execute_command_subprocess_error(monkeypatch):
     monkeypatch.setattr(cr, "api_rpc", fake_rpc)
     monkeypatch.setattr(subprocess, "run", fake_run)
 
-    cr.execute_command({
-        "id": "cmd-2",
-        "action": "update",
-        "agent_slug": "my-agent",
-        "payload": {},
-    })
+    cr.execute_command(
+        {
+            "id": "cmd-2",
+            "action": "update",
+            "agent_slug": "my-agent",
+            "payload": {},
+        }
+    )
 
     fail_calls = [(fn, p) for fn, p in rpc_calls if fn == "fail_command"]
     assert len(fail_calls) == 1
@@ -338,12 +345,14 @@ def test_execute_command_validation_failure(monkeypatch):
 
     monkeypatch.setattr(cr, "api_rpc", fake_rpc)
 
-    cr.execute_command({
-        "id": "cmd-3",
-        "action": "nonexistent_action",
-        "agent_slug": "my-agent",
-        "payload": {},
-    })
+    cr.execute_command(
+        {
+            "id": "cmd-3",
+            "action": "nonexistent_action",
+            "agent_slug": "my-agent",
+            "payload": {},
+        }
+    )
 
     fail_calls = [(fn, p) for fn, p in rpc_calls if fn == "fail_command"]
     assert len(fail_calls) == 1
@@ -391,46 +400,53 @@ def test_command_listener_next_ref_increments():
 
 
 def test_command_listener_on_message_triggers_processing(monkeypatch):
-    import command_runner as cr
     import json
+
+    import command_runner as cr
 
     processed = []
     monkeypatch.setattr(cr, "process_pending", lambda: (processed.append(True), 1)[1])
 
     listener = cr.CommandListener()
-    raw = json.dumps({
-        "event": "postgres_changes",
-        "payload": {
-            "data": {
-                "table": "agent_commands",
-                "type": "INSERT",
-                "record": {"action": "update", "agent_slug": "test"},
-            }
-        },
-    })
+    raw = json.dumps(
+        {
+            "event": "postgres_changes",
+            "payload": {
+                "data": {
+                    "table": "agent_commands",
+                    "type": "INSERT",
+                    "record": {"action": "update", "agent_slug": "test"},
+                }
+            },
+        }
+    )
     listener._on_message(None, raw)
     assert len(processed) == 1
 
 
 def test_command_listener_on_message_secrets_change(monkeypatch):
-    import command_runner as cr
     import json
+
+    import command_runner as cr
 
     sync_called = []
 
     import secrets_sync
+
     monkeypatch.setattr(secrets_sync, "sync_secrets", lambda: sync_called.append(True))
 
     listener = cr.CommandListener()
-    raw = json.dumps({
-        "event": "postgres_changes",
-        "payload": {
-            "data": {
-                "table": "secrets",
-                "type": "UPDATE",
-            }
-        },
-    })
+    raw = json.dumps(
+        {
+            "event": "postgres_changes",
+            "payload": {
+                "data": {
+                    "table": "secrets",
+                    "type": "UPDATE",
+                }
+            },
+        }
+    )
     listener._on_message(None, raw)
     assert len(sync_called) == 1
 
@@ -469,6 +485,3 @@ def test_strip_ansi_removes_escape_sequences():
 
     assert strip_ansi("\x1b[32mhello\x1b[0m") == "hello"
     assert strip_ansi("\x1b[?25lhidden\x1b[?25h") == "hidden"
-
-
-import json

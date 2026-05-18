@@ -1,8 +1,8 @@
 import hashlib
 import json
-import os
 import sys
 import types
+
 import pytest
 
 _fastembed_stub = types.ModuleType("fastembed")
@@ -12,12 +12,11 @@ sys.modules.setdefault("fastembed", _fastembed_stub)
 
 @pytest.fixture(autouse=True)
 def _patch_embedder_globals(monkeypatch):
-    fake_model = type("FakeModel", (), {
-        "embed": staticmethod(lambda texts: [
-            type("V", (), {"tolist": lambda self: [0.1] * 384})()
-            for _ in texts
-        ])
-    })()
+    fake_model = type(
+        "FakeModel",
+        (),
+        {"embed": staticmethod(lambda texts: [type("V", (), {"tolist": lambda self: [0.1] * 384})() for _ in texts])},
+    )()
 
     import embedder as emb
 
@@ -158,11 +157,13 @@ def test_extract_text_dict_with_text_key():
 def test_extract_text_nested_dict():
     from embedder import extract_text
 
-    result = extract_text({
-        "title": "My Doc",
-        "content": {"text": "Body text"},
-        "children": [{"text": "Child text"}],
-    })
+    result = extract_text(
+        {
+            "title": "My Doc",
+            "content": {"text": "Body text"},
+            "children": [{"text": "Child text"}],
+        }
+    )
     assert "My Doc" in result
     assert "Body text" in result
     assert "Child text" in result
@@ -386,8 +387,9 @@ def test_index_chunks_embed_failure_marks_failed(monkeypatch):
 
 
 def test_handler_healthz(monkeypatch):
-    import embedder as emb
     from io import BytesIO
+
+    import embedder as emb
 
     monkeypatch.setattr(emb, "MODEL_STATUS", "ready")
     monkeypatch.setattr(emb, "MODEL_READY_AT", "2025-01-01T00:00:00Z")
@@ -423,8 +425,9 @@ def test_handler_healthz(monkeypatch):
 
 
 def test_handler_healthz_404_wrong_path(monkeypatch):
-    import embedder as emb
     from io import BytesIO
+
+    import embedder as emb
 
     response_data = {}
 
@@ -453,8 +456,9 @@ def test_handler_healthz_404_wrong_path(monkeypatch):
 
 
 def test_handler_embed_endpoint(monkeypatch):
-    import embedder as emb
     from io import BytesIO
+
+    import embedder as emb
 
     response_data = {}
     payload = json.dumps({"input": "hello world"}).encode()
@@ -488,8 +492,9 @@ def test_handler_embed_endpoint(monkeypatch):
 
 
 def test_handler_embed_empty_input(monkeypatch):
-    import embedder as emb
     from io import BytesIO
+
+    import embedder as emb
 
     response_data = {}
     payload = json.dumps({"input": ""}).encode()
@@ -521,8 +526,9 @@ def test_handler_embed_empty_input(monkeypatch):
 
 
 def test_handler_embed_404_wrong_path(monkeypatch):
-    import embedder as emb
     from io import BytesIO
+
+    import embedder as emb
 
     response_data = {}
 

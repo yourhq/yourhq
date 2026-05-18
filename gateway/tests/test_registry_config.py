@@ -1,6 +1,4 @@
 import json
-import os
-import pytest
 
 
 def test_resolve_prefers_env_vars(monkeypatch):

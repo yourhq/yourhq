@@ -1,7 +1,5 @@
 import hashlib
 
-import pytest
-
 from connectors.base import (
     BrowseResult,
     ChangesResult,
@@ -60,7 +58,7 @@ def test_changes_result_defaults():
 
 
 def test_registry_returns_none_for_unknown_provider(monkeypatch):
-    from connectors.registry import get_connector, get_action_provider
+    from connectors.registry import get_action_provider, get_connector
 
     monkeypatch.setattr("connectors.registry._discovered", True)
     monkeypatch.setattr("connectors.registry.CONNECTORS", {})

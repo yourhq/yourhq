@@ -1,8 +1,7 @@
 import hashlib
 import hmac
 import json
-import os
-import sys
+
 import pytest
 
 
@@ -118,7 +117,9 @@ def test_dispatch_event_error_isolation(monkeypatch):
     }
 
     recorded = []
-    monkeypatch.setattr(pr, "record_plugin_event", lambda pid, ev, status, dur=None, **kw: recorded.append((pid, status)))
+    monkeypatch.setattr(
+        pr, "record_plugin_event", lambda pid, ev, status, dur=None, **kw: recorded.append((pid, status))
+    )
 
     pr.dispatch_event("task.created", "task", "t-1", {})
 
@@ -338,7 +339,6 @@ def test_process_event_queue_dispatches_and_marks_processed(monkeypatch):
         ],
     )
 
-    original_dispatch = pr.dispatch_event
     monkeypatch.setattr(
         pr,
         "dispatch_event",
@@ -488,15 +488,17 @@ def test_plugin_listener_on_message_plugin_config_change(monkeypatch):
     monkeypatch.setattr(pr, "load_plugins", lambda: reload_called.append(True))
 
     listener = pr.PluginListener()
-    raw = json.dumps({
-        "event": "postgres_changes",
-        "payload": {
-            "data": {
-                "table": "hq_plugins",
-                "type": "UPDATE",
-            }
-        },
-    })
+    raw = json.dumps(
+        {
+            "event": "postgres_changes",
+            "payload": {
+                "data": {
+                    "table": "hq_plugins",
+                    "type": "UPDATE",
+                }
+            },
+        }
+    )
     listener._on_message(None, raw)
     assert len(reload_called) == 1
 
@@ -508,15 +510,17 @@ def test_plugin_listener_on_message_event_queue_insert(monkeypatch):
     monkeypatch.setattr(pr, "process_event_queue", lambda: (processed.append(True), 1)[1])
 
     listener = pr.PluginListener()
-    raw = json.dumps({
-        "event": "postgres_changes",
-        "payload": {
-            "data": {
-                "table": "hq_plugin_event_queue",
-                "type": "INSERT",
-            }
-        },
-    })
+    raw = json.dumps(
+        {
+            "event": "postgres_changes",
+            "payload": {
+                "data": {
+                    "table": "hq_plugin_event_queue",
+                    "type": "INSERT",
+                }
+            },
+        }
+    )
     listener._on_message(None, raw)
     assert len(processed) == 1
 
