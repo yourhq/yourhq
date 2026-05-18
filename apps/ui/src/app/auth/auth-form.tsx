@@ -111,14 +111,13 @@ export function AuthForm() {
     setLoading(false);
   }
 
-  // ── Magic link sent state ──
   if (magicLinkSent) {
     return (
       <div className="flex min-h-svh items-center justify-center bg-background p-4">
         <div className="w-full max-w-sm">
           <div className="flex flex-col items-center text-center">
-            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-status-success/10 ring-1 ring-status-success/20">
-              <Mail className="h-6 w-6 text-status-success" />
+            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/20">
+              <Mail className="h-6 w-6 text-primary" />
             </div>
 
             <h1 className="text-xl font-semibold tracking-tight text-foreground">
@@ -160,22 +159,22 @@ export function AuthForm() {
     );
   }
 
-  // ── Main auth form ──
   return (
-    <div className="flex min-h-svh bg-background">
-      {/* Left panel */}
-      <div className="relative hidden lg:flex lg:w-[480px] xl:w-[520px] flex-col overflow-hidden">
-        {/* Gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-foreground/[0.03] via-transparent to-foreground/[0.06]" />
-        <div className="absolute bottom-0 left-0 right-0 h-[400px] bg-gradient-to-t from-foreground/[0.04] to-transparent" />
-        <div className="absolute right-0 top-0 bottom-0 w-px bg-border/40" />
+    <div className="flex min-h-svh">
+      {/* Left panel — brand showcase */}
+      <div className="relative hidden lg:flex lg:w-[480px] xl:w-[520px] flex-col overflow-hidden bg-card">
+        {/* Layered gradients for depth */}
+        <div className="absolute inset-0 bg-gradient-to-b from-primary/[0.04] via-transparent to-primary/[0.06]" />
+        <div className="absolute -left-32 -top-32 h-[500px] w-[500px] rounded-full bg-primary/[0.05] blur-3xl" />
+        <div className="absolute -bottom-24 -right-24 h-[400px] w-[400px] rounded-full bg-primary/[0.04] blur-3xl" />
+        <div className="absolute right-0 top-0 bottom-0 w-px bg-border/50" />
 
         <div className="relative flex flex-1 flex-col justify-between px-10 py-8 xl:px-12">
-          <HqLogo size={24} className="text-foreground/80" />
+          <HqLogo size={24} className="text-foreground" />
 
           <div className="space-y-12 py-8">
             <div className="space-y-4">
-              <p className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/60">
+              <p className="text-[11px] font-medium uppercase tracking-[0.15em] text-primary/70">
                 Agent operations platform
               </p>
               <h2 className="text-[28px] font-semibold leading-[1.2] tracking-tight text-foreground">
@@ -192,16 +191,16 @@ export function AuthForm() {
               {FEATURES.map((f) => (
                 <div
                   key={f.title}
-                  className="group flex items-start gap-4 rounded-xl px-4 py-3.5 transition-colors hover:bg-foreground/[0.03]"
+                  className="group flex items-start gap-4 rounded-xl px-4 py-3.5 transition-colors hover:bg-primary/[0.04]"
                 >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/40 bg-background/80 shadow-sm">
-                    <f.icon className="h-4 w-4 text-foreground/60" />
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/[0.06]">
+                    <f.icon className="h-4 w-4 text-primary" />
                   </div>
                   <div className="space-y-0.5 pt-0.5">
                     <p className="text-[13px] font-medium text-foreground">
                       {f.title}
                     </p>
-                    <p className="text-[12px] leading-relaxed text-muted-foreground/70">
+                    <p className="text-[12px] leading-relaxed text-muted-foreground">
                       {f.description}
                     </p>
                   </div>
@@ -210,16 +209,15 @@ export function AuthForm() {
             </div>
           </div>
 
-          <p className="text-[11px] text-muted-foreground/30">
+          <p className="text-[11px] text-muted-foreground/40">
             yourhq.ai
           </p>
         </div>
       </div>
 
-      {/* Right panel */}
-      <div className="flex flex-1 flex-col items-center justify-center px-6 py-10">
+      {/* Right panel — form */}
+      <div className="flex flex-1 flex-col items-center justify-center bg-background px-6 py-10">
         <div className="w-full max-w-[340px]">
-          {/* Mobile logo */}
           <HqLogo size={24} className="mb-8 text-foreground lg:hidden" />
 
           <div className="space-y-1.5">
@@ -242,9 +240,9 @@ export function AuthForm() {
               required
               autoComplete="email"
               className={cn(
-                "block h-11 w-full rounded-lg border border-border/50 bg-muted/20 px-4 text-sm text-foreground outline-none transition-all",
+                "block h-11 w-full rounded-lg border border-border bg-background px-4 text-sm text-foreground outline-none transition-all",
                 "placeholder:text-muted-foreground/40",
-                "focus:border-primary/40 focus:bg-muted/30 focus:ring-2 focus:ring-primary/10",
+                "focus:border-primary/50 focus:ring-2 focus:ring-primary/10",
                 "disabled:cursor-not-allowed disabled:opacity-50",
               )}
             />
@@ -261,8 +259,8 @@ export function AuthForm() {
               disabled={loading}
               className={cn(
                 "flex h-11 w-full items-center justify-center gap-2 rounded-lg text-sm font-medium transition-all",
-                "bg-primary text-primary-foreground",
-                "hover:opacity-90 active:scale-[0.98]",
+                "bg-primary text-primary-foreground shadow-sm",
+                "hover:brightness-110 active:scale-[0.98]",
                 loading && "cursor-wait opacity-60",
               )}
             >
@@ -278,7 +276,7 @@ export function AuthForm() {
                 key={f.title}
                 className="flex items-center gap-3 rounded-lg border border-border/30 bg-muted/10 px-4 py-3"
               >
-                <f.icon className="h-4 w-4 shrink-0 text-muted-foreground/60" />
+                <f.icon className="h-4 w-4 shrink-0 text-primary/60" />
                 <div>
                   <p className="text-xs font-medium text-foreground">
                     {f.title}
@@ -291,18 +289,18 @@ export function AuthForm() {
             ))}
           </div>
 
-          <p className="mt-8 text-[11px] leading-relaxed text-muted-foreground/30">
+          <p className="mt-8 text-[11px] leading-relaxed text-muted-foreground/40">
             By continuing, you agree to our{" "}
             <a
               href="#"
-              className="text-muted-foreground/50 transition-colors hover:text-foreground hover:underline underline-offset-4"
+              className="text-muted-foreground/60 transition-colors hover:text-foreground hover:underline underline-offset-4"
             >
               Terms
             </a>{" "}
             and{" "}
             <a
               href="#"
-              className="text-muted-foreground/50 transition-colors hover:text-foreground hover:underline underline-offset-4"
+              className="text-muted-foreground/60 transition-colors hover:text-foreground hover:underline underline-offset-4"
             >
               Privacy Policy
             </a>

@@ -131,7 +131,7 @@ export function LoginForm({ mode }: { mode: "oss" | "hosted" }) {
       <div className="w-full max-w-[400px]">
         {/* Header */}
         <div className="mb-8 flex flex-col items-center gap-4">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-foreground text-background shadow-sm">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
             <Sparkles className="h-[18px] w-[18px]" />
           </div>
           <div className="text-center space-y-1">
@@ -206,7 +206,7 @@ export function LoginForm({ mode }: { mode: "oss" | "hosted" }) {
               disabled={loading}
               className={cn(
                 "flex h-10 w-full items-center justify-center gap-2 rounded-lg text-[13px] font-medium transition-all",
-                "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.98]",
+                "bg-primary text-primary-foreground shadow-sm hover:brightness-110 active:scale-[0.98]",
                 loading && "opacity-70 cursor-wait",
               )}
             >
@@ -228,7 +228,7 @@ export function LoginForm({ mode }: { mode: "oss" | "hosted" }) {
             Don&apos;t have an account?{" "}
             <a
               href="/signup"
-              className="text-foreground underline underline-offset-4 hover:no-underline"
+              className="text-primary underline underline-offset-4 hover:no-underline"
             >
               Get started
             </a>
