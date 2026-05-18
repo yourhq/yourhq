@@ -13,6 +13,7 @@ import { getPublicSiteUrl } from "./env.js";
 import type { SandboxProvider } from "../providers/types.js";
 import { randomBytes } from "node:crypto";
 import { trackWorkerEvent } from "./analytics.js";
+import { captureWorkerException } from "./sentry.js";
 
 const provisionLocks = new Map<string, Promise<void>>();
 
@@ -266,6 +267,7 @@ async function doProvision(
           GATEWAY_LABEL: workspace.label,
           TENANT_ID: "00000000-0000-0000-0000-000000000000",
           NETWORKING_MODE: "hosted",
+          ...(process.env.SENTRY_DSN ? { SENTRY_DSN: process.env.SENTRY_DSN } : {}),
         },
       });
 
@@ -347,6 +349,7 @@ async function doProvision(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[provisioner] Workspace provisioning failed");
+    captureWorkerException(err, { workspace_id: workspaceId, stage: "provisioning" });
     await setError(workspaceId, message);
     await logSandboxEvent(workspaceId, "error", { provision_stage: "error" });
     trackWorkerEvent(

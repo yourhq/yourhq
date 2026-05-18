@@ -20,7 +20,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir --break-system-packages websocket-client==1.8.0
+RUN pip install --no-cache-dir --break-system-packages websocket-client==1.8.0 "sentry-sdk>=2.0,<3"
 
 RUN npm install -g openclaw@${OPENCLAW_VERSION}
 
@@ -29,6 +29,7 @@ RUN userdel -r ubuntu 2>/dev/null || true \
     && groupadd -g 1000 openclaw \
     && useradd -m -u 1000 -g 1000 -s /bin/bash openclaw
 
+COPY --chown=openclaw:openclaw gateway/daemons/sentry_init.py /app/sentry_init.py
 COPY --chown=openclaw:openclaw gateway/daemons/inbox_dispatcher.py /app/inbox_dispatcher.py
 COPY --chown=openclaw:openclaw gateway/daemons/registry_config.py /app/registry_config.py
 COPY --chown=openclaw:openclaw gateway/dispatcher/entrypoint.sh /app/entrypoint.sh

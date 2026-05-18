@@ -560,6 +560,12 @@ def wait_for_supabase_config():
 
 
 def main():
+    try:
+        from sentry_init import init_sentry
+        init_sentry("plugin_runner")
+    except ImportError:
+        pass
+
     wait_for_supabase_config()
 
     log(f"Starting plugin runner for gateway={GATEWAY_ID}")

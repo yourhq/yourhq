@@ -2116,6 +2116,11 @@ def start_poll_loop():
                     log(f"Poll: processed {count} command(s)")
             except Exception as e:
                 log(f"Poll error: {e}")
+                try:
+                    from sentry_init import capture
+                    capture(e)
+                except ImportError:
+                    pass
 
     t = threading.Thread(target=loop, daemon=True)
     t.start()
@@ -2392,6 +2397,12 @@ def wait_for_supabase_config():
 
 
 def main():
+    try:
+        from sentry_init import init_sentry
+        init_sentry("command_runner")
+    except ImportError:
+        pass
+
     wait_for_supabase_config()
 
     log(f"Starting command runner for gateway={GATEWAY_ID} ({GATEWAY_LABEL})")

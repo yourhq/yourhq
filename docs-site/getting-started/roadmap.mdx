@@ -81,6 +81,8 @@ Where HQ is now, what ships in v0.1, and what comes after.
 
 ### Observability and operations
 
+- Sentry error tracking across all runtimes (UI client/server/edge, worker, gateway daemons). **Hosted-only** — self-hosted installs never load the Sentry SDK, never send telemetry. Noise-filtered `beforeSend` to stay within free-tier budget
+- PostHog product analytics in the UI and worker. **Hosted-only** — self-hosted installs never load the PostHog SDK
 - System page with Commands, Inbox, and Audit Log tabs
 - Status, module, action, and actor filters across all log views
 - Realtime subscriptions and pagination on all log views
@@ -104,7 +106,6 @@ Small items to address before tagging. None are blockers, but they'd be good to 
 
 ## Next (post-v0.1)
 
-- **Sentry (env-gated)** — `sentry-sdk` in daemons, `@sentry/nextjs` in UI. Only active when `SENTRY_DSN` is set. Ships alongside other hosted integrations.
 - **Templates source UI** — switch between bundled templates and a custom git URL per workspace.
 - **Pretty tailnet URLs** — optional Tailscale Serve automation in the installer for `http://hq` instead of ported URLs.
 

@@ -512,6 +512,12 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> int:
+    try:
+        from sentry_init import init_sentry
+        init_sentry("embedder")
+    except ImportError:
+        pass
+
     os.makedirs(CACHE_DIR, exist_ok=True)
     threading.Thread(target=warm_model_loop, daemon=True).start()
     threading.Thread(target=indexing_loop, daemon=True).start()

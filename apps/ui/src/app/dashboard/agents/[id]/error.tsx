@@ -1,10 +1,21 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 import { Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export default function AgentDetailError() {
+export default function AgentDetailError({
+  error,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  useEffect(() => {
+    console.error("[agent-detail-error]", error);
+    Sentry.captureException(error);
+  }, [error]);
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
       <div className="rounded-full bg-muted/50 p-3">

@@ -1,4 +1,22 @@
+import * as Sentry from "@sentry/nextjs";
 import posthog from "posthog-js";
+import { sentryBeforeSend } from "@/lib/sentry-filters";
+
+const sentryDsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
+const isLocalhost =
+  typeof window !== "undefined" &&
+  (window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1");
+if (sentryDsn && !isLocalhost) {
+  Sentry.init({
+    dsn: sentryDsn,
+    environment: "ui-client",
+    tracesSampleRate: 0,
+    replaysSessionSampleRate: 0,
+    replaysOnErrorSampleRate: 0,
+    beforeSend: sentryBeforeSend,
+  });
+}
 
 const token = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
 
@@ -18,3 +36,5 @@ if (token) {
     debug: process.env.NODE_ENV === "development",
   });
 }
+
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
