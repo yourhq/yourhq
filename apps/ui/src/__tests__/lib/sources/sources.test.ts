@@ -59,9 +59,9 @@ describe("getSourceUrl", () => {
     const origTemplate = manifest.source_url_template;
 
     // Temporarily test the fallback path
-    (manifest as any).source_url_template = undefined;
+    (manifest as unknown as Record<string, unknown>).source_url_template = undefined;
     expect(getSourceUrl("notion", "123")).toBe("");
-    (manifest as any).source_url_template = origTemplate;
+    (manifest as unknown as Record<string, unknown>).source_url_template = origTemplate;
   });
 
   test("replaces {external_id} placeholder", () => {

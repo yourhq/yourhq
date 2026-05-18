@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { createMockSupabaseClient } from "@/__tests__/helpers/supabase-mock";
 import { buildRoutine } from "@/__tests__/helpers/factories";
+import type { Routine } from "@/lib/routines/types";
 
 let mockSupabase: ReturnType<typeof createMockSupabaseClient>;
 
@@ -42,7 +43,7 @@ import { toast } from "sonner";
 function getFromCalls(table: string) {
   const calls = mockSupabase.from.mock.calls;
   const results = mockSupabase.from.mock.results;
-  const builders: any[] = [];
+  const builders: unknown[] = [];
   for (let i = 0; i < calls.length; i++) {
     if (calls[i][0] === table) {
       builders.push(results[i].value);
@@ -188,7 +189,7 @@ describe("useRoutines", () => {
         cadence_type: "daily",
         timezone: "UTC",
         time_of_day: "09:00",
-      } as any);
+      } as unknown as Partial<Routine>);
     });
 
     expect(mockSupabase.rpc).toHaveBeenCalledWith(
@@ -230,7 +231,7 @@ describe("useRoutines", () => {
         name: "Updated standup",
         cadence_type: "weekly",
         timezone: "America/New_York",
-      } as any);
+      } as unknown as Partial<Routine>);
     });
 
     expect(mockSupabase.rpc).toHaveBeenCalledWith(
@@ -421,7 +422,7 @@ describe("useRoutines", () => {
 
     const routine = result.current.allRoutines[0];
     act(() => {
-      result.current.form.openEditForm(routine as any);
+      result.current.form.openEditForm(routine as unknown as Routine);
     });
     expect(result.current.form.showForm).toBe(true);
     expect(result.current.form.editingRoutine).toEqual(routine);
