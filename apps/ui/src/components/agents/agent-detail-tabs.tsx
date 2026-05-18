@@ -34,7 +34,7 @@ import {
 import { DetailHeader } from "@/components/shared/detail-header";
 import {
   DetailSidebar,
-  DetailSidebarMobile,
+  DetailSidebarInline,
   DetailSidebarSection,
   DetailSidebarPropertyGrid,
   DetailSidebarProperty,
@@ -159,19 +159,6 @@ export function AgentDetailTabs({
             <span className="font-mono">@{agent.slug}</span>
           </>
         }
-        secondaryActions={
-          <DetailSidebarMobile title={`${agent.name} details`}>
-            <AgentRailContent
-              agent={agent}
-              allAgents={allAgents}
-              contextKnowledge={contextKnowledge}
-              statusLabel={statusLabel}
-              statusColor={statusColor}
-              onOpenDesktop={openDesktop}
-              onAgentUpdated={onAgentUpdated}
-            />
-          </DetailSidebarMobile>
-        }
         identityDescription={
           <InlineEdit
             value={agent.description ?? ""}
@@ -265,6 +252,18 @@ export function AgentDetailTabs({
                   </div>
                 </div>
               </TabsContent>
+
+              <DetailSidebarInline>
+                <AgentRailContent
+                  agent={agent}
+                  allAgents={allAgents}
+                  contextKnowledge={contextKnowledge}
+                  statusLabel={statusLabel}
+                  statusColor={statusColor}
+                  onOpenDesktop={openDesktop}
+                  onAgentUpdated={onAgentUpdated}
+                />
+              </DetailSidebarInline>
             </main>
 
             <DetailSidebar>

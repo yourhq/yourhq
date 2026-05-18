@@ -59,7 +59,7 @@ export default function NotificationsPage() {
       {/* Filter tabs */}
       {notifications.length > 0 && (
         <div className="shrink-0 border-b border-border/60">
-          <div className="mx-auto flex w-full max-w-2xl items-center gap-0.5 px-5 py-1.5">
+          <div className="mx-auto flex w-full max-w-2xl items-center gap-0.5 overflow-x-auto px-5 py-1.5">
             <FilterTab
               label="All"
               active={activeFilter === "all"}

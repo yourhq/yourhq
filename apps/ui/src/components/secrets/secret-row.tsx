@@ -62,12 +62,12 @@ export function SecretRow({
         {secret.key}
       </span>
 
-      <span className="shrink-0 text-[11px] text-muted-foreground/70 transition-opacity group-hover:opacity-0">
+      <span className="shrink-0 text-[11px] text-muted-foreground/70 transition-opacity group-hover:opacity-0 max-lg:!opacity-100">
         {scopeLabel ?? categoryLabel}
         {secret.note && ` · "${secret.note}"`}
       </span>
 
-      <div className="absolute right-3 top-1/2 z-10 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100">
+      <div className="absolute right-3 top-1/2 z-10 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 max-lg:opacity-100 data-[state=open]:opacity-100">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon-sm" aria-label="Secret actions">

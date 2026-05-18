@@ -435,7 +435,7 @@ export default function AppearanceSettingsPage() {
 
           {/* Surface Warmth */}
           <PageSection title="Surface warmth" description="Controls the warm tint on neutral surfaces. Zero gives you cool grays.">
-            <div className="flex items-center gap-4 max-w-sm">
+            <div className="flex items-center gap-3 max-w-sm sm:gap-4">
               <span className="text-[11px] text-muted-foreground shrink-0">Cool</span>
               <Slider
                 value={[warmth * 1000]}
