@@ -12,6 +12,7 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    testTimeout: 15_000,
     setupFiles: ["src/__tests__/helpers/setup.ts"],
     include: ["src/__tests__/**/*.test.{ts,tsx}"],
     coverage: {
@@ -32,6 +33,12 @@ export default defineConfig({
         "src/app/**/page.tsx",
         "src/app/**/layout.tsx",
       ],
+      thresholds: {
+        lines: 40,
+        branches: 35,
+        functions: 35,
+        statements: 40,
+      },
     },
   },
 });

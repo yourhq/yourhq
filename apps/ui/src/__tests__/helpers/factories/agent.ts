@@ -1,23 +1,31 @@
+import type { Agent } from "@/lib/agents/types";
+
 let counter = 0;
 
-export function buildAgent(overrides: Record<string, unknown> = {}) {
+export function buildAgent(overrides: Partial<Agent> = {}): Agent {
   counter++;
   return {
     id: `agent-${counter}`,
     slug: `test-agent-${counter}`,
     name: `Test Agent ${counter}`,
     description: "A test agent",
-    status: "active" as const,
-    gateway_id: "default",
-    template_id: "general",
-    model_override: null,
-    thinking_override: null,
+    avatar_url: null,
+    status: "ready",
+    gateway_id: "gw-default",
     reports_to_id: null,
-    paused: false,
-    last_active_at: new Date().toISOString(),
+    last_seen_at: new Date().toISOString(),
+    domains: [],
+    capabilities: null,
+    model: null,
+    thinking: null,
+    config: {},
+    meta: {},
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    tenant_id: "00000000-0000-0000-0000-000000000000",
     ...overrides,
   };
+}
+
+export function resetAgentCounter() {
+  counter = 0;
 }

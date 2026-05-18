@@ -1,145 +1,97 @@
-# Testing
+# Testing Guide
 
-Staged test plan for validating the Docker stack. Each stage is independently testable; stop at the first failure, debug, retry that stage.
-
-## Environment
-
-Recommended: **GitHub Codespaces** on this repo's default branch.
-
-- Open the repo on GitHub → **Code → Codespaces → Create codespace**.
-- Wait ~3 min for the devcontainer to boot.
-- The `postCreateCommand` installs UI deps, copies `.env.example` → `.env`, and prints a quick-start banner.
-
-Ports forwarded automatically: `3000` (UI). noVNC is proxied through the UI — no separate port needed.
-
-You'll also need a **throwaway Supabase project** — do not point this at production while testing. Go to [supabase.com](https://supabase.com), create a free project, and run every SQL file in [`db/migrations/`](db/migrations/) in filename order. Then copy the URL, anon key, and service role key for browser onboarding.
-
-## Stage 1 — UI build and run
-
-Prove the UI Dockerfile is correct and the standalone build works in a container.
+## Quick start
 
 ```bash
-docker compose build ui
-docker compose up -d ui
-docker compose logs -f ui
+make test              # UI + Python + Shell (fast local gate)
+make test-ui           # Vitest only
+make test-coverage     # With coverage reports + thresholds
+make ci-fast           # Lint + tests (PR gate)
+make ci-main           # Everything including DB contracts
 ```
 
-Expected:
-- Build completes without errors (first build: 3–5 min — Next.js compile + optimize).
-- `ui` container shows "Ready on http://0.0.0.0:3000" in logs.
-- Codespaces shows a notification for port 3000; click to open the URL.
-- Browser loads the onboarding or login page. If the workspace registry is empty, onboarding is expected.
+Single file: `cd apps/ui && npx vitest run src/__tests__/hooks/use-tasks.test.ts`
 
-Common failures:
-- `ENOENT ./public/...` → a COPY path in the Dockerfile is wrong.
-- `Cannot find module ...` → a build-time dep didn't make it into the standalone bundle; check `next.config.ts` has `output: "standalone"`.
+## Test structure
 
-**Tear down:** `docker compose down ui`
+```
+apps/ui/src/__tests__/
+  helpers/
+    setup.ts              # Global mocks (next/headers, navigation, cache, DOM APIs)
+    supabase-mock.ts      # createMockSupabaseClient — chainable per-table/RPC responses
+    hook-harness.ts       # createHookHarness — shorthand for hook tests
+    route-harness.ts      # callRoute — creates mock NextRequest, parses response
+    server-only-stub.ts   # Empty module aliased for "server-only" imports
+    factories/            # buildAgent, buildTask, buildContact, buildKnowledgeItem, etc.
+  hooks/                  # Hook tests (renderHook + mock Supabase)
+  lib/                    # Pure logic tests (no DOM)
+  components/             # Component tests (React Testing Library)
 
-## Stage 2 — UI backed by your throwaway Supabase
-
-Prove the UI connects to Supabase and renders real data.
-
-1. Start the UI and complete browser onboarding with the throwaway Supabase URL, anon key, and service role key.
-2. Create or sign in with a Supabase auth user when prompted. You can also create one manually in Supabase → Authentication → Users → Add user.
-
-```bash
-docker compose up -d ui
+gateway/tests/            # Python daemon tests (pytest)
+gateway/scripts/tests/    # Shell script tests (bash)
+db/tests/                 # Database contract tests (postgres assertions)
 ```
 
-Expected:
-- Open the UI, log in with the user you just created.
-- Setup wizard appears (fresh workspace, `initialized=false`).
-- Complete the wizard. Workspace marked initialized.
-- Dashboard loads. Sidebar footer says "HQ". Browser tab says "HQ".
+## Patterns
 
-## Stage 3 — Gateway stack against the same Supabase
+### Mock at the boundary, not internal logic
 
-Bring up gateway + dispatcher + runner. UI stays off for this stage.
+Mock Supabase, `next/navigation`, `next/headers`, external APIs. Never mock internal helpers or domain logic — test those directly.
 
-```bash
-docker compose --profile gateway up -d
-docker compose logs -f gateway dispatcher runner embedder file-processor
+### Factories
+
+```ts
+import { buildTask, buildAgent } from "../helpers/factories";
+
+const task = buildTask({ status: "done", title: "Ship it" });
+const agent = buildAgent({ name: "Builder" });
 ```
 
-Expected sequence in `gateway` logs:
-1. `First boot — initializing bare repo at /home/openclaw/.openclaw/repo.git`
-2. `Seeding templates from /opt/templates ... ✓ seeded branch default`, then 15 more templates (16 total).
-3. `Starting Xtigervnc :1 ...`
-4. `Running openclaw onboard ...` (may take 30–60s).
-5. `Patching openclaw.json ...`
-6. `Starting VNC server on :1 ...`
-7. `Starting websockify on 127.0.0.1:6901 -> localhost:5901 ...`
-8. `Registering gateway default in Supabase ... ✓ registered`
-9. `Starting openclaw gateway ...`
+Factories auto-increment IDs. Pass overrides only for the fields you care about.
 
-Verify from the UI (bring UI up alongside):
-```bash
-docker compose up -d ui
-```
-- Navigate to Settings → System. You should see one gateway `default` with status `online` and `last_seen_at` recent.
+Available: `buildAgent`, `buildTask`, `buildContact`, `buildKnowledgeItem`, `buildCollectionDefinition`, `buildCollectionField`, `buildCollectionRecord`, `buildCollectionView`, `buildRoutine`, `buildSourceConnection`, `buildSyncRun`, `buildEntityLink`, `buildLabel`, `buildOrganization`.
 
-The `runner` container logs should show `Starting command runner for gateway=default (Primary gateway)`.
+### Hook tests
 
-Common failures:
-- Git clone failure on `GIT_REMOTE_URL` — expected if unset (templates seed locally instead).
-- `openclaw onboard` exits non-zero — check Node version inside container (`docker compose exec gateway node --version` → must be 24).
-- `Registering gateway ...` fails with 403 → `SUPABASE_SERVICE_ROLE_KEY` is wrong or the gateways table doesn't exist (re-run the migration).
+```ts
+import { createMockSupabaseClient } from "../helpers/supabase-mock";
 
-## Stage 4 — Codex OAuth
+const item = buildKnowledgeItem();
+const supabase = createMockSupabaseClient({
+  tables: new Map([["knowledge_items", { select: { data: [item], error: null } }]]),
+});
 
-One-time, writes the token into the `openclaw-state` volume shared by all agents on this gateway.
+vi.mock("@/lib/supabase/client", () => ({ createClient: () => supabase }));
 
-```bash
-docker compose exec gateway openclaw models auth login \
-  --provider openai-codex --set-default
+const { result } = renderHook(() => useKnowledge());
+await waitFor(() => expect(result.current.items).toHaveLength(1));
 ```
 
-Follow the prompts: paste URL in a browser, paste the redirect back.
+### Component tests
 
-Expected: `Auth profile saved`.
+Use `getAllBy*` when elements render in multiple viewports (sidebar + inline sidebar). Prefer `getByRole` and `getByText` over test IDs. Test user interactions with `userEvent.setup()`.
 
-## Stage 5 — Create an agent end-to-end
+### API route tests
 
-Through the UI: navigate to Agents → New Agent → pick the Cofounder template → give it a name/slug/Telegram token → click Create.
+```ts
+import { callRoute } from "../helpers/route-harness";
 
-Watch `docker compose logs -f runner`:
-- Command `provision` leased.
-- `add-agent.sh cofounder-xyz --token ...` runs.
-- Git worktree created at `/home/openclaw/.openclaw/workspace-.../`.
-- `openclaw.json` patched with the agent entry.
-- Gateway restarted.
-
-Agent should appear in the UI as `online` within a minute.
-
-Send a Telegram message to the bot. Expect a pairing code to reply. Paste the code back into the UI's "Pair Telegram" field. Command runner runs `openclaw pairing approve`. Next Telegram message triggers the agent.
-
-## Stage 6 — noVNC desktop view
-
-Open the UI and navigate to an agent's detail page → click the **Desktop** button (or Settings → Gateways → Desktop).
-
-Expected: the noVNC modal loads inside the UI. The XFCE desktop appears with (probably) the agent's Chrome window if an agent is running. The UI proxies noVNC through `/api/novnc` — no separate port needed.
-
-## Tear down
-
-```bash
-docker compose down           # stops containers, keeps volumes
-docker compose down -v        # stops + removes volumes (clean slate)
+const { status, data } = await callRoute(GET, { searchParams: { q: "test" } });
+expect(status).toBe(200);
 ```
 
-## What this does NOT test
+### Rules
 
-- Tailscale join — disabled in Codespaces (NET_ADMIN + tun device behavior differs in the devcontainer env).
-- Public HTTPS mode — needs a real domain + DNS record.
-- Multi-arch builds — CI/GHCR catches that separately.
-- The `curl | bash` installer flow — best tested on a fresh VPS (see below).
+- Don't mock internal functions — test them directly
+- Don't use `getByTestId` when `getByRole` or `getByText` works
+- Don't add `data-testid` to production code unless necessary
+- Don't test implementation details (state shape, effect timing)
+- Don't duplicate coverage — if a hook is tested, component tests mock it
 
-## After Codespaces: real-host validation
+## Coverage
 
-Once everything above passes, spin up a small VPS ($5/mo on Hetzner) or EC2 t3.small. SSH in and run:
+Thresholds enforced in `vitest.config.ts` — CI fails if coverage drops below the configured minimums. Run `make test-coverage` to check locally.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/yourhq/yourhq/main/installer/install.sh | bash
-```
+## Manual integration testing
 
-This exercises the real OSS install UX. Validates: Docker install prereq check, interactive prompts, `.env` generation, image pull from GHCR, first-boot on a host you didn't pre-configure. Tear down the VPS after.
+For Docker stack and E2E validation, see the staged test plan in [the original manual testing doc](docs-site/testing.mdx) (Codespaces, Supabase, gateway, noVNC, etc.).
