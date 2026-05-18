@@ -38,6 +38,9 @@ venv/
 
 # Test output
 .nyc_output/
+.coverage
+*.egg-info/
+htmlcov/
 
 # Generated reports
 *-setup-report.md
