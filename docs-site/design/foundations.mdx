@@ -24,24 +24,24 @@ All colors use the **OKLch** color space — perceptually uniform lightness, so 
 
 ### Base palette
 
-All neutral surfaces carry a subtle warm chroma (`0.002–0.006`) at hue 75, giving backgrounds a warm rather than clinical feel. The `--primary` token IS the brand color (coral by default), so all components using `bg-primary` automatically render in the brand color.
+All neutral surfaces carry a subtle warm chroma (`0.004–0.006`) at hue 75, giving backgrounds a warm paper quality rather than clinical gray. The `--primary` token IS the brand color (Pine teal `#1F7A6E` by default), so all components using `bg-primary` automatically render in the brand color. Workspace admins can customize the brand via Settings → Appearance.
 
 | Token | Light (`:root`) | Dark (`.dark`) | Used for |
 |---|---|---|---|
-| `--background` | `oklch(0.985 0.002 75)` | `oklch(0.13 0.005 75)` | Page background |
-| `--foreground` | `oklch(0.15 0.004 75)` | `oklch(0.93 0.003 75)` | Primary text |
-| `--card` | `oklch(1 0 0)` | `oklch(0.16 0.005 75)` | Card surface |
-| `--popover` | `oklch(1 0 0)` | `oklch(0.18 0.005 75)` | Floating surfaces (menus, tooltips) |
-| `--primary` | `oklch(0.63 0.145 35)` | `oklch(0.73 0.14 35)` | Brand color — buttons, links, active states |
-| `--primary-foreground` | `oklch(1 0 0)` | `oklch(0.13 0.005 75)` | Text on primary |
-| `--secondary` | `oklch(0.955 0.004 75)` | `oklch(0.2 0.005 75)` | Secondary action background |
-| `--muted` | `oklch(0.96 0.004 75)` | `oklch(0.19 0.005 75)` | Subdued surface |
-| `--muted-foreground` | `oklch(0.46 0.01 75)` | `oklch(0.6 0.008 75)` | Secondary text, labels |
-| `--accent` | `oklch(0.95 0.005 75)` | `oklch(0.21 0.006 75)` | Hover and selected fills on lists |
-| `--destructive` | `oklch(0.55 0.22 25)` | `oklch(0.65 0.2 25)` | Destructive actions |
+| `--background` | `oklch(0.98 0.003 75)` | `oklch(0.14 0.005 75)` | Page background — warm paper / warm charcoal |
+| `--foreground` | `oklch(0.15 0.004 75)` | `oklch(0.93 0.004 75)` | Primary text — warm near-black / warm off-white |
+| `--card` | `oklch(1 0 0)` | `oklch(0.17 0.005 75)` | Card surface |
+| `--popover` | `oklch(1 0 0)` | `oklch(0.19 0.005 75)` | Floating surfaces (menus, tooltips) |
+| `--primary` | `oklch(0.50 0.09 175)` | `oklch(0.72 0.085 175)` | Brand — Pine teal for buttons, links, active states |
+| `--primary-foreground` | `oklch(1 0 0)` | `oklch(0.14 0.005 75)` | Text on primary |
+| `--secondary` | `oklch(0.955 0.004 75)` | `oklch(0.21 0.005 75)` | Secondary action background |
+| `--muted` | `oklch(0.96 0.004 75)` | `oklch(0.20 0.005 75)` | Subdued surface |
+| `--muted-foreground` | `oklch(0.46 0.008 75)` | `oklch(0.60 0.008 75)` | Secondary text, labels |
+| `--accent` | `oklch(0.95 0.005 75)` | `oklch(0.22 0.006 75)` | Hover and selected fills on lists |
+| `--destructive` | `oklch(0.55 0.20 25)` | `oklch(0.65 0.18 25)` | Destructive actions |
 | `--border` | `oklch(0.91 0.004 75)` | `oklch(1 0 0 / 10%)` | Default 1px divider |
 | `--input` | `oklch(0.91 0.004 75)` | `oklch(1 0 0 / 10%)` | Input border |
-| `--ring` | `oklch(0.63 0.145 35)` | `oklch(0.73 0.14 35)` | Focus ring (matches brand) |
+| `--ring` | `oklch(0.50 0.09 175)` | `oklch(0.72 0.085 175)` | Focus ring (matches brand) |
 
 ### Surface ladder
 
@@ -60,10 +60,10 @@ Applied via Tailwind utilities: `bg-surface-hover`, `bg-surface-selected`, `bord
 
 | Token | Light | Dark | Role |
 |---|---|---|---|
-| `--foreground` | `oklch(0.15 0.004 75)` | `oklch(0.93 0.003 75)` | Primary text |
-| `--muted-foreground` | `oklch(0.46 0.01 75)` | `oklch(0.6 0.008 75)` | Secondary text, labels |
-| `--text-secondary` | `oklch(0.46 0.01 75)` | `oklch(0.6 0.008 75)` | Same role as muted-foreground; available where you need a non-mapped utility |
-| `--text-tertiary` | `oklch(0.6 0.008 75)` | `oklch(0.44 0.006 75)` | Tertiary text — timestamps, helper hints, low-emphasis metadata |
+| `--foreground` | `oklch(0.15 0.004 75)` | `oklch(0.93 0.004 75)` | Primary text |
+| `--muted-foreground` | `oklch(0.46 0.008 75)` | `oklch(0.60 0.008 75)` | Secondary text, labels |
+| `--text-secondary` | `oklch(0.46 0.008 75)` | `oklch(0.60 0.008 75)` | Same role as muted-foreground; available where you need a non-mapped utility |
+| `--text-tertiary` | `oklch(0.60 0.006 75)` | `oklch(0.44 0.006 75)` | Tertiary text — timestamps, helper hints, low-emphasis metadata |
 
 Note the inversion: in light mode `--text-tertiary` is *lighter* than `--text-secondary` (closer to background = lower contrast); in dark mode it is *darker* (also closer to background). The visual hierarchy is the same — the OKLch numbers move opposite directions because the background does.
 
@@ -75,12 +75,12 @@ Reserved for state, never decoration. Use these tokens for any badge, dot, or ic
 
 | Token | Light | Dark | Use for |
 |---|---|---|---|
-| `--status-success` | `oklch(0.52 0.14 162)` | `oklch(0.68 0.15 162)` | Completed, ready, healthy |
-| `--status-warning` | `oklch(0.6 0.15 70)` | `oklch(0.74 0.15 70)` | Pending, blocked, attention needed |
-| `--status-error` | `oklch(0.52 0.19 25)` | `oklch(0.66 0.18 25)` | Failed, errored, missed |
-| `--status-info` | `oklch(0.5 0.16 250)` | `oklch(0.65 0.15 250)` | Queued, informational |
-| `--status-progress` | `oklch(0.5 0.16 290)` | `oklch(0.65 0.15 290)` | Actively executing, in flight |
-| `--status-neutral` | `oklch(0.46 0.01 75)` | `oklch(0.58 0.008 75)` | Inactive, archived, idle |
+| `--status-success` | `oklch(0.52 0.14 145)` | `oklch(0.68 0.13 145)` | Completed, ready, healthy (hue 145, distinct from brand 175) |
+| `--status-warning` | `oklch(0.60 0.15 70)` | `oklch(0.74 0.13 70)` | Pending, blocked, attention needed |
+| `--status-error` | `oklch(0.52 0.19 25)` | `oklch(0.66 0.17 25)` | Failed, errored, missed |
+| `--status-info` | `oklch(0.50 0.14 250)` | `oklch(0.65 0.13 250)` | Queued, informational |
+| `--status-progress` | `oklch(0.50 0.14 290)` | `oklch(0.65 0.13 290)` | Actively executing, in flight |
+| `--status-neutral` | `oklch(0.46 0.008 75)` | `oklch(0.58 0.008 75)` | Inactive, archived, idle |
 
 `--status-info` and `--status-progress` are intentionally distinct hues (blue and purple). The lifecycle of a daemon-driven record — agent commands, inbox items, source syncs — passes through queued (info) → claimed (warning) → executing (progress) → terminal (success or error). Collapsing queued and executing into one color erases meaningful information at a glance.
 
@@ -92,10 +92,10 @@ Used by tasks and any other module that ranks records by urgency. Aligned with s
 
 | Token | Light | Dark | Level |
 |---|---|---|---|
-| `--priority-urgent` | `oklch(0.52 0.19 25)` | `oklch(0.66 0.18 25)` | Urgent |
-| `--priority-high` | `oklch(0.58 0.15 55)` | `oklch(0.72 0.15 55)` | High |
-| `--priority-medium` | `oklch(0.62 0.14 90)` | `oklch(0.76 0.14 90)` | Medium |
-| `--priority-low` | `oklch(0.5 0.12 240)` | `oklch(0.65 0.12 240)` | Low |
+| `--priority-urgent` | `oklch(0.52 0.19 25)` | `oklch(0.66 0.17 25)` | Urgent |
+| `--priority-high` | `oklch(0.58 0.15 55)` | `oklch(0.72 0.13 55)` | High |
+| `--priority-medium` | `oklch(0.62 0.14 90)` | `oklch(0.76 0.12 90)` | Medium |
+| `--priority-low` | `oklch(0.50 0.12 240)` | `oklch(0.65 0.11 240)` | Low |
 
 Tailwind utilities: `text-priority-urgent`, `bg-priority-high/15`, etc.
 
@@ -105,11 +105,11 @@ Five distinct hues, OKLch-balanced so adjacent series stay readable side by side
 
 | Token | Light | Dark |
 |---|---|---|
-| `--chart-1` | `oklch(0.63 0.145 35)` | `oklch(0.73 0.14 35)` |
-| `--chart-2` | `oklch(0.55 0.14 162)` | `oklch(0.65 0.13 162)` |
-| `--chart-3` | `oklch(0.5 0.16 250)` | `oklch(0.62 0.14 250)` |
-| `--chart-4` | `oklch(0.6 0.16 70)` | `oklch(0.7 0.14 70)` |
-| `--chart-5` | `oklch(0.5 0.16 290)` | `oklch(0.62 0.14 290)` |
+| `--chart-1` | `oklch(0.50 0.09 175)` | `oklch(0.72 0.085 175)` |
+| `--chart-2` | `oklch(0.55 0.12 145)` | `oklch(0.65 0.11 145)` |
+| `--chart-3` | `oklch(0.50 0.14 250)` | `oklch(0.62 0.12 250)` |
+| `--chart-4` | `oklch(0.60 0.14 70)` | `oklch(0.70 0.12 70)` |
+| `--chart-5` | `oklch(0.50 0.14 290)` | `oklch(0.62 0.12 290)` |
 
 Recharts wrapper at [`components/ui/chart.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/chart.tsx) consumes these.
 
@@ -119,18 +119,18 @@ Twelve identity colors for category/tagging purposes — module badges, label do
 
 | Token | Light | Dark |
 |---|---|---|
-| `--accent-blue` | `oklch(0.5 0.16 250)` | `oklch(0.67 0.14 250)` |
-| `--accent-purple` | `oklch(0.5 0.16 300)` | `oklch(0.68 0.14 300)` |
-| `--accent-emerald` | `oklch(0.5 0.13 162)` | `oklch(0.67 0.13 162)` |
-| `--accent-cyan` | `oklch(0.5 0.11 220)` | `oklch(0.68 0.1 220)` |
-| `--accent-violet` | `oklch(0.5 0.16 290)` | `oklch(0.67 0.14 290)` |
-| `--accent-amber` | `oklch(0.58 0.14 70)` | `oklch(0.74 0.14 70)` |
-| `--accent-teal` | `oklch(0.5 0.11 195)` | `oklch(0.67 0.1 195)` |
-| `--accent-orange` | `oklch(0.56 0.14 45)` | `oklch(0.7 0.13 45)` |
-| `--accent-pink` | `oklch(0.52 0.16 350)` | `oklch(0.68 0.14 350)` |
+| `--accent-blue` | `oklch(0.50 0.14 250)` | `oklch(0.67 0.12 250)` |
+| `--accent-purple` | `oklch(0.50 0.14 300)` | `oklch(0.68 0.12 300)` |
+| `--accent-emerald` | `oklch(0.50 0.12 145)` | `oklch(0.67 0.11 145)` |
+| `--accent-cyan` | `oklch(0.50 0.10 220)` | `oklch(0.68 0.09 220)` |
+| `--accent-violet` | `oklch(0.50 0.14 290)` | `oklch(0.67 0.12 290)` |
+| `--accent-amber` | `oklch(0.58 0.13 70)` | `oklch(0.74 0.12 70)` |
+| `--accent-teal` | `oklch(0.50 0.10 195)` | `oklch(0.67 0.09 195)` |
+| `--accent-orange` | `oklch(0.56 0.13 45)` | `oklch(0.70 0.12 45)` |
+| `--accent-pink` | `oklch(0.52 0.14 350)` | `oklch(0.68 0.12 350)` |
 | `--accent-slate` | `oklch(0.44 0.01 260)` | `oklch(0.58 0.01 260)` |
-| `--accent-indigo` | `oklch(0.48 0.16 275)` | `oklch(0.65 0.14 275)` |
-| `--accent-sky` | `oklch(0.5 0.13 235)` | `oklch(0.68 0.12 235)` |
+| `--accent-indigo` | `oklch(0.48 0.14 275)` | `oklch(0.65 0.12 275)` |
+| `--accent-sky` | `oklch(0.50 0.12 235)` | `oklch(0.68 0.10 235)` |
 
 ### Sidebar
 

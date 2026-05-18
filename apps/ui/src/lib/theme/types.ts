@@ -51,7 +51,7 @@ export interface ThemeTokens {
   "accent-sky": string;
 }
 
-export const DEFAULT_BRAND: OklchColor = { l: 0.63, c: 0.145, h: 35 };
+export const DEFAULT_BRAND: OklchColor = { l: 0.50, c: 0.09, h: 175 };
 export const DEFAULT_WARMTH = 0.004;
 
 export const DEFAULT_THEME: ThemeConfig = {

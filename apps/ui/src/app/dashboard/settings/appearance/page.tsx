@@ -26,14 +26,14 @@ import {
 } from "@/lib/theme/derive";
 
 const BRAND_PRESETS: { label: string; color: OklchColor }[] = [
-  { label: "Coral", color: { l: 0.63, c: 0.145, h: 35 } },
-  { label: "Blue", color: { l: 0.55, c: 0.16, h: 250 } },
-  { label: "Violet", color: { l: 0.55, c: 0.16, h: 290 } },
-  { label: "Emerald", color: { l: 0.55, c: 0.14, h: 162 } },
-  { label: "Amber", color: { l: 0.6, c: 0.15, h: 70 } },
-  { label: "Rose", color: { l: 0.55, c: 0.18, h: 350 } },
-  { label: "Indigo", color: { l: 0.5, c: 0.16, h: 275 } },
-  { label: "Teal", color: { l: 0.55, c: 0.12, h: 195 } },
+  { label: "Pine", color: { l: 0.50, c: 0.09, h: 175 } },
+  { label: "Blue", color: { l: 0.50, c: 0.14, h: 250 } },
+  { label: "Violet", color: { l: 0.50, c: 0.14, h: 290 } },
+  { label: "Coral", color: { l: 0.58, c: 0.13, h: 35 } },
+  { label: "Amber", color: { l: 0.58, c: 0.13, h: 70 } },
+  { label: "Rose", color: { l: 0.52, c: 0.16, h: 350 } },
+  { label: "Indigo", color: { l: 0.48, c: 0.14, h: 275 } },
+  { label: "Slate", color: { l: 0.44, c: 0.01, h: 260 } },
 ];
 
 const MODE_OPTIONS = [
