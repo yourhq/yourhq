@@ -39,7 +39,28 @@ HOSTED_SECRETS_KEY=<random-hex-64>
 
 # Public site URL (used for auth redirects, email links)
 PUBLIC_SITE_URL=https://app.yourhq.ai
+
+# Sentry (error tracking — hosted only, never self-hosted)
+SENTRY_DSN=https://<key>@o<id>.ingest.us.sentry.io/<id>
 ```
+
+### Required environment variables (Vercel — UI)
+
+In addition to the existing Vercel env vars, set these for Sentry and PostHog:
+
+```bash
+# Sentry (error tracking — hosted only)
+NEXT_PUBLIC_SENTRY_DSN=https://<key>@o<id>.ingest.us.sentry.io/<id>
+SENTRY_AUTH_TOKEN=sntrys_...          # personal API token, project:releases + org:read
+SENTRY_ORG=<your-org-slug>
+SENTRY_PROJECT=<your-project-slug>
+
+# PostHog (product analytics — hosted only)
+NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=phc_...
+NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
+```
+
+`SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` are build-time only (source map uploads). `NEXT_PUBLIC_SENTRY_DSN` is both build-time and runtime.
 
 Generate secrets:
 
@@ -342,6 +363,7 @@ VALUES ('<workspace-id>', 'reactivated', '{"reason": "manual_payment_recovery"}'
 
 Things to check regularly:
 
+- **Sentry**: check [sentry.io](https://sentry.io) for new/regressed issues. Environments: `ui-client`, `ui-server`, `ui-edge`, `worker`, `gateway-command_runner`, `gateway-inbox_dispatcher`, `gateway-source_sync`, `gateway-file_processor`, `gateway-plugin_runner`, `gateway-embedder`. Free tier is 5K errors/month — configure rate limit at Project Settings → Client Keys → Rate Limiting (~150 events/day)
 - **Provisioning retry loop**: are there workspaces stuck at `provision_attempts >= 3`?
 - **Cleanup loop**: are there workspaces in `canceling` past their `cancel_at` with partial cleanup?
 - **Sandbox health**: are there workspaces with `e2b_sandbox_status = 'error'`?

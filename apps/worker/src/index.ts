@@ -1,3 +1,6 @@
+import { initSentry, captureWorkerException, shutdownSentry } from "./lib/sentry.js";
+initSentry();
+
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import healthRoutes from "./routes/health.js";
@@ -13,6 +16,12 @@ import { shutdownAnalytics } from "./lib/analytics.js";
 
 validateWorkerEnv();
 const app = new Hono();
+
+app.onError((err, c) => {
+  captureWorkerException(err, { path: c.req.path, method: c.req.method });
+  console.error(`[worker] Unhandled error on ${c.req.method} ${c.req.path}:`, err);
+  return c.json({ error: "Internal server error" }, 500);
+});
 
 app.route("/", healthRoutes);
 app.route("/", stripeWebhookRoutes);
@@ -41,10 +50,10 @@ serve({ fetch: app.fetch, port }, () => {
 });
 
 process.on("SIGTERM", async () => {
-  await shutdownAnalytics();
+  await Promise.all([shutdownAnalytics(), shutdownSentry()]);
   process.exit(0);
 });
 process.on("SIGINT", async () => {
-  await shutdownAnalytics();
+  await Promise.all([shutdownAnalytics(), shutdownSentry()]);
   process.exit(0);
 });

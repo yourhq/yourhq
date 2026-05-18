@@ -320,6 +320,12 @@ def resolve_config() -> bool:
 
 
 def main() -> None:
+    try:
+        from sentry_init import init_sentry
+        init_sentry("file_processor")
+    except ImportError:
+        pass
+
     log("Starting file processor daemon")
     log(f"  poll interval: {POLL_INTERVAL}s, batch: {BATCH_SIZE}, lease: {LEASE_SECONDS}s")
 
@@ -334,8 +340,13 @@ def main() -> None:
             processed = poll_cycle()
             if processed > 0:
                 log(f"Processed {processed} item(s)")
-        except Exception:
+        except Exception as e:
             log(f"Poll cycle error: {traceback.format_exc()}")
+            try:
+                from sentry_init import capture
+                capture(e)
+            except ImportError:
+                pass
 
         time.sleep(POLL_INTERVAL)
 

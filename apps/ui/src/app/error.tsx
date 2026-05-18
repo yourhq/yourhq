@@ -12,6 +12,7 @@
 //   - Supabase unreachable: DNS issue, project paused.
 
 import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
 
@@ -24,6 +25,7 @@ export default function RootError({
 }) {
   useEffect(() => {
     console.error("[root-error]", error);
+    Sentry.captureException(error);
   }, [error]);
 
   // Detect the stale-project case so we can offer project-specific recovery.

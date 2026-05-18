@@ -203,6 +203,28 @@ These variables control how user-managed secrets (channel tokens, API keys, OAut
 
 Self-hosted deployments do not need `HOSTED_SECRETS_KEY` — the encryption key is automatically derived from `SUPABASE_SERVICE_ROLE_KEY` via HKDF-SHA256 (salt: `yourhq-secrets-v1`, info: `aes-256-gcm`, 32 bytes). This means rotating your service role key requires re-encrypting all secrets.
 
+### 2.12 Hosted-only observability (Sentry + PostHog)
+
+These services are **only active in the hosted offering** (`DEPLOYMENT_MODE=hosted`). Self-hosted deployments never load the Sentry or PostHog SDKs, never send telemetry, and never need these variables. If you're self-hosting, skip this section entirely.
+
+**Sentry (error tracking):**
+
+- **`NEXT_PUBLIC_SENTRY_DSN`** — **Hosted only**. Empty. The Sentry DSN used by the UI (client, server, and edge runtimes). Gated on `DEPLOYMENT_MODE=hosted` + `NODE_ENV=production` — absent or empty means no Sentry code runs.
+- **`SENTRY_DSN`** — **Hosted only**. Empty. The Sentry DSN used by the worker and passed to E2B gateway sandboxes. Same DSN value as above, but not prefixed with `NEXT_PUBLIC_` because these runtimes don't need Next.js client bundling.
+- **`SENTRY_AUTH_TOKEN`** — **Hosted only, build-time (Vercel)**. A Sentry personal API token with `project:releases` and `org:read` scopes. Used by `@sentry/nextjs` during the Next.js build to upload source maps. Not needed at runtime.
+- **`SENTRY_ORG`** — **Hosted only, build-time (Vercel)**. The Sentry org slug.
+- **`SENTRY_PROJECT`** — **Hosted only, build-time (Vercel)**. The Sentry project slug.
+
+Gateway daemons (Python) use `SENTRY_DSN` and additionally require `RUNTIME_MODE` to be `hosted` or `e2b` before initializing Sentry. Self-hosted gateways (`RUNTIME_MODE=docker`) never activate Sentry even if a DSN is present.
+
+**PostHog (product analytics):**
+
+- **`NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`** — **Hosted only**. Empty. PostHog project API key for the UI client.
+- **`NEXT_PUBLIC_POSTHOG_HOST`** — **Hosted only**. Default `https://us.i.posthog.com`. PostHog ingest endpoint.
+- **`POSTHOG_API_KEY`** — **Hosted only**. Empty. Server-side PostHog API key for the worker.
+
+Like Sentry, PostHog is gated on `DEPLOYMENT_MODE=hosted`. No analytics code runs in self-hosted installs.
+
 ---
 
 ## 4. Secrets handling

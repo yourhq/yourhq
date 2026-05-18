@@ -380,6 +380,12 @@ def resolve_config() -> bool:
 
 
 def main() -> None:
+    try:
+        from sentry_init import init_sentry
+        init_sentry("source_sync")
+    except ImportError:
+        pass
+
     log("Starting source sync daemon")
     log(f"  poll interval: {POLL_INTERVAL}s")
 
@@ -392,8 +398,13 @@ def main() -> None:
     while True:
         try:
             poll_cycle()
-        except Exception:
+        except Exception as e:
             log(f"Poll cycle error: {traceback.format_exc()}")
+            try:
+                from sentry_init import capture
+                capture(e)
+            except ImportError:
+                pass
         time.sleep(POLL_INTERVAL)
 
 

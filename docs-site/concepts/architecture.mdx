@@ -273,6 +273,8 @@ The hosted offering at [app.yourhq.ai](https://app.yourhq.ai) runs the same code
 
 Self-hosted code is unaffected — hosted routes are gated behind `DEPLOYMENT_MODE=hosted` and the Worker service is a separate app.
 
+**Hosted-only observability.** The hosted offering includes Sentry (error tracking) and PostHog (product analytics). Both are strictly gated on `DEPLOYMENT_MODE=hosted` — self-hosted installs never load these SDKs, never send telemetry, and never need the associated environment variables. Sentry covers all runtimes (UI client/server/edge, worker, Python gateway daemons) with environment tags for triage. PostHog covers client-side analytics in the UI and server-side events in the worker. See [Configuration § 2.12](/reference/configuration#212-hosted-only-observability-sentry--posthog) for the full variable reference.
+
 ## 15. Where things are going
 
 - **Self-hosted hardening.** Better migration tooling, stronger validation around workspace setup, and clearer gateway health diagnostics.
