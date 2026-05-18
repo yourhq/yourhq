@@ -93,7 +93,7 @@ export function InboxSection({ agentId }: InboxSectionProps) {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex items-center gap-0.5 mb-2">
+      <div className="flex items-center gap-0.5 mb-2 overflow-x-auto">
         {STATUS_TABS.map((tab) => (
           <button
             key={tab.value}

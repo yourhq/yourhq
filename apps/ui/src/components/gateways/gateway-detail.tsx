@@ -39,7 +39,7 @@ import { DetailHeader } from "@/components/shared/detail-header";
 import { OpenDesktopModal } from "./open-desktop-modal";
 import {
   DetailSidebar,
-  DetailSidebarMobile,
+  DetailSidebarInline,
   DetailSidebarSection,
   DetailSidebarPropertyGrid,
   DetailSidebarProperty,
@@ -139,15 +139,6 @@ export function GatewayDetail({
             )}
           </>
         }
-        secondaryActions={
-          <DetailSidebarMobile title={`${gateway.label} details`}>
-            <GatewayRailContent
-              gateway={gateway}
-              onOpenDesktop={() => setDesktopOpen(true)}
-              onGatewayUpdated={refetch}
-            />
-          </DetailSidebarMobile>
-        }
         overflow={
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -185,6 +176,13 @@ export function GatewayDetail({
               <div className="mx-auto max-w-3xl space-y-6 px-5 py-5">
                 <ReachableUrlsSection gateway={gateway} />
               </div>
+              <DetailSidebarInline>
+                <GatewayRailContent
+                  gateway={gateway}
+                  onOpenDesktop={() => setDesktopOpen(true)}
+                  onGatewayUpdated={refetch}
+                />
+              </DetailSidebarInline>
             </TabsContent>
 
             <TabsContent
@@ -194,6 +192,13 @@ export function GatewayDetail({
               <div className="mx-auto max-w-3xl px-5 py-5">
                 <CommandsTabContent gatewayId={gateway.id} />
               </div>
+              <DetailSidebarInline>
+                <GatewayRailContent
+                  gateway={gateway}
+                  onOpenDesktop={() => setDesktopOpen(true)}
+                  onGatewayUpdated={refetch}
+                />
+              </DetailSidebarInline>
             </TabsContent>
           </Tabs>
         </main>

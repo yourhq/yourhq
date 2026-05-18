@@ -348,7 +348,7 @@ export function KnowledgeDetailEditor({
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            className="hidden h-7 w-7 text-muted-foreground hover:text-foreground lg:inline-flex"
             onClick={() => setShowHistory(!showHistory)}
             title="History"
           >
@@ -369,7 +369,7 @@ export function KnowledgeDetailEditor({
 
       <div className="flex flex-1 min-h-0">
         <div className="flex-1 overflow-auto">
-          <div className="mx-auto max-w-3xl px-6 py-8">
+          <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
             <textarea
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -499,7 +499,7 @@ export function KnowledgeDetailEditor({
             <NovelEditor
               initialContent={initialContent}
               onChange={debouncedSaveContent}
-              className="min-h-[60vh]"
+              className="min-h-[40vh] sm:min-h-[60vh]"
             />
           ) : item.kind === "file" ? (
             <FileDetailView item={item} supabase={supabase} />
@@ -589,7 +589,7 @@ function KnowledgeHistoryPanel({
   }, [supabase, itemId, refreshKey]);
 
   return (
-    <div className="w-72 shrink-0 border-l border-border/50 overflow-auto">
+    <div className="hidden w-72 shrink-0 border-l border-border/50 overflow-auto lg:block">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           History

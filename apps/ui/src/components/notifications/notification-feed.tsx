@@ -193,7 +193,7 @@ export function NotificationFeed({
                 variant="ghost"
                 size="icon"
                 aria-label="Dismiss notification"
-                className="h-6 w-6 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shrink-0"
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 max-lg:opacity-100 transition-opacity shrink-0"
                 onClick={(e) => {
                   e.stopPropagation();
                   onDismiss(n.id);

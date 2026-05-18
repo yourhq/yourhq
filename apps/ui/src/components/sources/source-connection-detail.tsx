@@ -18,7 +18,7 @@ import { DetailHeader } from "@/components/shared/detail-header";
 import { SourceContentPicker } from "@/components/sources/source-content-picker";
 import {
   DetailSidebar,
-  DetailSidebarMobile,
+  DetailSidebarInline,
   DetailSidebarSection,
   DetailSidebarPropertyGrid,
   DetailSidebarProperty,
@@ -226,11 +226,6 @@ export function SourceConnectionDetail({
             {CONNECTION_STATUS_LABELS[connection.status]}
           </Badge>
         }
-        secondaryActions={
-          <DetailSidebarMobile title={connection.account_label}>
-            {sidebarContent}
-          </DetailSidebarMobile>
-        }
         overflow={
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -304,6 +299,8 @@ export function SourceConnectionDetail({
           ) : (
             <HistoryTab runs={filteredRuns} />
           )}
+
+          <DetailSidebarInline>{sidebarContent}</DetailSidebarInline>
         </div>
 
         <DetailSidebar>{sidebarContent}</DetailSidebar>

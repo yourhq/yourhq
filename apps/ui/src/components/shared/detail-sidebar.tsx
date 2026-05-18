@@ -78,6 +78,29 @@ export function DetailSidebarMobile({
   );
 }
 
+// ─── Inline variant (shown below content on mobile) ─────────────────
+
+interface DetailSidebarInlineProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+export function DetailSidebarInline({
+  children,
+  className,
+}: DetailSidebarInlineProps) {
+  return (
+    <aside
+      className={cn(
+        "border-t border-border/60 lg:hidden",
+        className,
+      )}
+    >
+      <div className="flex flex-col divide-y divide-border/50">{children}</div>
+    </aside>
+  );
+}
+
 // ─── Sidebar section blocks ──────────────────────────────────────────
 
 interface DetailSidebarSectionProps {

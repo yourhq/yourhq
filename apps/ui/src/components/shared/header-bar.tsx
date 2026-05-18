@@ -195,6 +195,14 @@ export function HeaderBar({
         <button
           type="button"
           onClick={handleCommandPalette}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:hidden"
+          aria-label="Search"
+        >
+          <Search className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={handleCommandPalette}
           className="hidden h-8 items-center gap-2 rounded-md border border-border/60 bg-muted/30 px-2.5 text-body text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:inline-flex"
         >
           <Search className="h-3.5 w-3.5" />
