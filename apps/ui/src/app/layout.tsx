@@ -29,6 +29,17 @@ export const metadata: Metadata = {
   title: "HQ",
   description: "Your HQ — agent operations platform.",
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/favicon-light.ico", sizes: "any", media: "(prefers-color-scheme: light)" },
+      { url: "/favicon-light-16x16.png", sizes: "16x16", type: "image/png", media: "(prefers-color-scheme: light)" },
+      { url: "/favicon-light-32x32.png", sizes: "32x32", type: "image/png", media: "(prefers-color-scheme: light)" },
+      { url: "/favicon-dark.ico", sizes: "any", media: "(prefers-color-scheme: dark)" },
+      { url: "/favicon-dark-16x16.png", sizes: "16x16", type: "image/png", media: "(prefers-color-scheme: dark)" },
+      { url: "/favicon-dark-32x32.png", sizes: "32x32", type: "image/png", media: "(prefers-color-scheme: dark)" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",

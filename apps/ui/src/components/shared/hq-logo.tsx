@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useTheme } from "next-themes";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 interface HqLogoProps {
@@ -8,41 +11,41 @@ interface HqLogoProps {
 }
 
 export function HqLogo({ size = 24, className }: HqLogoProps) {
-  const height = size;
-  const width = Math.round(size * 2.2);
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  const isDark = resolvedTheme === "dark";
 
   return (
-    <svg
-      width={width}
-      height={height}
-      viewBox="0 0 44 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={cn("shrink-0", className)}
-      aria-label="HQ"
-    >
-      <rect
-        x="0.5"
-        y="0.5"
-        width="43"
-        height="23"
-        rx="5.5"
-        stroke="currentColor"
-        strokeWidth="1"
-        opacity="0.25"
-      />
-      <text
-        x="22"
-        y="16.5"
-        textAnchor="middle"
-        fill="currentColor"
-        fontSize="14"
-        fontWeight="700"
-        fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
-        letterSpacing="0.05em"
+    <div className={cn("flex items-center gap-2 shrink-0", className)}>
+      <div
+        className="relative"
+        style={{ width: size, height: size }}
       >
+        <Image
+          src="/logo-light.png"
+          alt="HQ"
+          width={size}
+          height={size}
+          className="absolute inset-0 transition-opacity duration-300"
+          style={{ opacity: mounted && !isDark ? 1 : 0 }}
+          priority
+        />
+        <Image
+          src="/logo-dark.png"
+          alt="HQ"
+          width={size}
+          height={size}
+          className="absolute inset-0 transition-opacity duration-300"
+          style={{ opacity: mounted && isDark ? 1 : 0 }}
+          priority
+        />
+      </div>
+      <span className="text-base font-semibold tracking-[0.08em]">
         HQ
-      </text>
-    </svg>
+      </span>
+    </div>
   );
 }
