@@ -72,7 +72,7 @@ BEGIN
         ),
         'routine_event:' || r.id || ':' || NEW.id || ':' || to_char(now(), 'YYYY-MM-DD-HH24-MI')
       )
-      ON CONFLICT (dedup_key) DO NOTHING;
+      ON CONFLICT ON CONSTRAINT uq_inbox_dedup DO NOTHING;
 
       UPDATE public.routines
       SET last_run_at = now(), run_count = run_count + 1
@@ -160,7 +160,7 @@ BEGIN
         ),
         'routine_event:' || r.id || ':' || NEW.id || ':' || to_char(now(), 'YYYY-MM-DD-HH24-MI')
       )
-      ON CONFLICT (dedup_key) DO NOTHING;
+      ON CONFLICT ON CONSTRAINT uq_inbox_dedup DO NOTHING;
 
       UPDATE public.routines
       SET last_run_at = now(), run_count = run_count + 1
@@ -244,7 +244,7 @@ BEGIN
         ),
         'routine_event:' || r.id || ':' || NEW.id || ':' || to_char(now(), 'YYYY-MM-DD-HH24-MI')
       )
-      ON CONFLICT (dedup_key) DO NOTHING;
+      ON CONFLICT ON CONSTRAINT uq_inbox_dedup DO NOTHING;
 
       UPDATE public.routines
       SET last_run_at = now(), run_count = run_count + 1

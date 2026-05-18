@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS task_relations (
 CREATE INDEX IF NOT EXISTS idx_task_relations_source ON task_relations(source_task_id);
 CREATE INDEX IF NOT EXISTS idx_task_relations_target ON task_relations(target_task_id);
 CREATE INDEX IF NOT EXISTS idx_task_relations_tenant ON task_relations(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_task_relations_blocker
+  ON task_relations (target_task_id, relation_type)
+  WHERE relation_type = 'blocked_by';
 
 -- ── RLS ────────────────────────────────────────────────────────────
 
@@ -159,7 +162,7 @@ BEGIN
             'resolution', v_verb
           ),
           v_rel.tenant_id
-        ) ON CONFLICT (dedup_key) DO NOTHING;
+        ) ON CONFLICT ON CONSTRAINT uq_inbox_dedup DO NOTHING;
       END IF;
     END IF;
   END LOOP;

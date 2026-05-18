@@ -27,7 +27,7 @@ export default function NotificationsPage() {
 
   const filteredNotifications = useMemo(() => {
     if (activeFilter === "all") return notifications;
-    if (activeFilter === "unread") return notifications.filter((n) => !n.is_read);
+    if (activeFilter === "unread") return notifications.filter((n) => !n.read_at);
     return notifications.filter((n) => n.type === activeFilter);
   }, [notifications, activeFilter]);
 
@@ -95,7 +95,7 @@ export default function NotificationsPage() {
           <NotificationFeed
             notifications={filteredNotifications}
             loading={loading}
-            unreadCount={activeFilter === "all" ? unreadCount : filteredNotifications.filter((n) => !n.is_read).length}
+            unreadCount={activeFilter === "all" ? unreadCount : filteredNotifications.filter((n) => !n.read_at).length}
             onMarkRead={markAsRead}
             onMarkAllRead={markAllRead}
             onDismiss={dismiss}

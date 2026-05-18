@@ -23,6 +23,8 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_module ON audit_log(module);
 CREATE INDEX IF NOT EXISTS idx_audit_log_entity ON audit_log(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_actor ON audit_log(actor_type, actor_agent_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action);
+CREATE INDEX IF NOT EXISTS idx_audit_log_entity_time
+  ON audit_log (tenant_id, entity_type, entity_id, created_at DESC);
 
 -- RLS
 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
@@ -36,7 +38,7 @@ CREATE POLICY "Service role full access" ON audit_log
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 -- Grants
-GRANT ALL ON audit_log TO authenticated, service_role;
+GRANT SELECT, INSERT ON audit_log TO authenticated, service_role;
 
 -- Realtime
 DO $$ BEGIN
@@ -58,14 +60,15 @@ CREATE TABLE IF NOT EXISTS notifications (
   entity_id       uuid,
   actor_type      actor_type DEFAULT 'system',
   actor_agent_id  uuid REFERENCES agents(id) ON DELETE SET NULL,
-  is_read         boolean NOT NULL DEFAULT false,
   read_at         timestamptz,
   dismissed_at    timestamptz,
   meta            jsonb NOT NULL DEFAULT '{}'
 );
 
 CREATE INDEX IF NOT EXISTS idx_notifications_tenant ON notifications(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(created_at DESC) WHERE read_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_notifications_unread
+  ON notifications (tenant_id, created_at DESC)
+  WHERE read_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications(type);
 
 -- RLS

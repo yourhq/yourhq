@@ -11,17 +11,16 @@ DECLARE
   v_dedup_key text;
 BEGIN
   FOR v_task IN
-    SELECT t.id, t.title, t.status, t.due_date, t.due_at,
+    SELECT t.id, t.title, t.status, t.due_date,
            t.assignee_agent_id, a.slug AS agent_slug, a.name AS agent_name,
            a.reports_to_id, a.tenant_id
     FROM public.tasks t
     LEFT JOIN public.agents a ON a.id = t.assignee_agent_id
+    JOIN public.tenants tn ON tn.id = t.tenant_id AND tn.status = 'active'
     WHERE t.archived_at IS NULL
       AND t.status NOT IN ('done', 'cancelled', 'missed')
-      AND (
-        (t.due_at IS NOT NULL AND t.due_at < now())
-        OR (t.due_date IS NOT NULL AND t.due_at IS NULL AND t.due_date < CURRENT_DATE)
-      )
+      AND t.due_date IS NOT NULL
+      AND t.due_date < CURRENT_DATE
   LOOP
     UPDATE public.tasks SET status = 'missed' WHERE id = v_task.id;
 
@@ -44,7 +43,7 @@ BEGIN
           'escalation', true
         ),
         v_task.tenant_id
-      ) ON CONFLICT (dedup_key) DO NOTHING;
+      ) ON CONFLICT ON CONSTRAINT uq_inbox_dedup DO NOTHING;
 
       IF v_task.reports_to_id IS NOT NULL THEN
         SELECT id, slug, name INTO v_manager
@@ -71,7 +70,7 @@ BEGIN
               'escalation', true
             ),
             v_task.tenant_id
-          ) ON CONFLICT (dedup_key) DO NOTHING;
+          ) ON CONFLICT ON CONSTRAINT uq_inbox_dedup DO NOTHING;
         END IF;
       END IF;
 

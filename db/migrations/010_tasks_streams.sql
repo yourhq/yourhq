@@ -41,7 +41,6 @@ CREATE TABLE IF NOT EXISTS tasks (
   model_override       text,
   thinking_override    text,
   due_date             timestamptz,
-  due_at               timestamptz,
   completed_at         timestamptz,
   linked_entity_type   text,
   linked_entity_id     uuid,
@@ -66,13 +65,19 @@ CREATE INDEX IF NOT EXISTS idx_tasks_parent ON tasks(parent_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_contact ON tasks(contact_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_org ON tasks(org_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_due ON tasks(due_date ASC NULLS LAST);
-CREATE INDEX IF NOT EXISTS idx_tasks_due_at ON tasks(due_at ASC NULLS LAST);
 CREATE INDEX IF NOT EXISTS idx_tasks_active ON tasks(created_at DESC) WHERE archived_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_tasks_agent_active ON tasks(assignee_agent_id, status, due_at)
+CREATE INDEX IF NOT EXISTS idx_tasks_agent_active ON tasks(assignee_agent_id, status, due_date)
   WHERE archived_at IS NULL AND assignee_agent_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_tasks_tags ON tasks USING gin(tags);
 CREATE INDEX IF NOT EXISTS idx_tasks_series_history
   ON tasks(series_id, series_occurrence_at DESC) WHERE series_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_tasks_due_date_active
+  ON tasks (tenant_id, due_date ASC NULLS LAST)
+  WHERE archived_at IS NULL AND due_date IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_tasks_overdue_scan
+  ON tasks (status, due_date)
+  WHERE archived_at IS NULL
+    AND status NOT IN ('done', 'cancelled', 'missed');
 
 DO $$ BEGIN
   ALTER TABLE tasks ADD CONSTRAINT tasks_series_occurrence_key UNIQUE (series_id, series_occurrence_at);
@@ -145,6 +150,11 @@ CREATE TABLE IF NOT EXISTS task_series (
   missed_policy         text NOT NULL DEFAULT 'auto_skip'
     CHECK (missed_policy IN ('auto_skip','queue'))
 );
+
+DO $$ BEGIN
+  ALTER TABLE task_series ADD CONSTRAINT task_series_days_of_week_check
+    CHECK (days_of_week IS NULL OR (SELECT bool_and(v >= 0 AND v <= 6) FROM unnest(days_of_week) AS v));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 CREATE INDEX IF NOT EXISTS idx_task_series_tenant ON task_series(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_task_series_next_due
@@ -355,13 +365,15 @@ DECLARE
   v_meta            jsonb;
 BEGIN
   FOR v_series IN
-    SELECT * FROM public.task_series
-    WHERE NOT is_paused
-      AND next_occurrence_at IS NOT NULL
-      AND next_occurrence_at <= now()
-      AND (ends_on IS NULL OR (next_occurrence_at AT TIME ZONE timezone)::date <= ends_on)
-      AND (ends_after_count IS NULL OR spawned_count < ends_after_count)
-    FOR UPDATE SKIP LOCKED
+    SELECT ts.* FROM public.task_series ts
+    JOIN public.tenants t ON t.id = ts.tenant_id
+    WHERE t.status = 'active'
+      AND NOT ts.is_paused
+      AND ts.next_occurrence_at IS NOT NULL
+      AND ts.next_occurrence_at <= now()
+      AND (ts.ends_on IS NULL OR (ts.next_occurrence_at AT TIME ZONE ts.timezone)::date <= ts.ends_on)
+      AND (ts.ends_after_count IS NULL OR ts.spawned_count < ts.ends_after_count)
+    FOR UPDATE OF ts SKIP LOCKED
   LOOP
     v_occurrence_at := v_series.next_occurrence_at;
     v_catchup_skipped := 0;
@@ -401,13 +413,13 @@ BEGIN
       stream_id, title, description, priority,
       assignee_type, assignee_agent_id, tags,
       linked_entity_type, linked_entity_id,
-      series_id, series_occurrence_at, due_at, due_date,
+      series_id, series_occurrence_at, due_date,
       tenant_id
     ) VALUES (
       v_series.stream_id, v_series.title, v_series.description, v_series.priority,
       v_series.assignee_type, v_series.assignee_agent_id, v_series.tags,
       v_series.linked_entity_type, v_series.linked_entity_id,
-      v_series.id, v_occurrence_at, v_occurrence_at, v_occurrence_at,
+      v_series.id, v_occurrence_at, v_occurrence_at,
       v_series.tenant_id
     )
     ON CONFLICT (series_id, series_occurrence_at) DO NOTHING

@@ -83,8 +83,7 @@ GRANT ALL ON gateway_registration_tokens TO authenticated, service_role;
 CREATE OR REPLACE FUNCTION consume_gateway_token(
   p_token     text,
   p_label     text DEFAULT NULL,
-  p_slug_hint text DEFAULT NULL,
-  p_tenant_id uuid DEFAULT '00000000-0000-0000-0000-000000000000'
+  p_slug_hint text DEFAULT NULL
 )
 RETURNS TABLE (gateway_id uuid, gateway_slug text)
 LANGUAGE plpgsql
@@ -94,6 +93,7 @@ AS $$
 DECLARE
   v_token_hash text;
   v_token_row  public.gateway_registration_tokens%ROWTYPE;
+  v_tenant_id  uuid;
   v_gateway_id uuid;
   v_slug       text;
   v_label      text;
@@ -108,6 +108,8 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'invalid_token' USING ERRCODE = '28000';
   END IF;
+
+  v_tenant_id := v_token_row.tenant_id;
 
   IF v_token_row.consumed_at IS NOT NULL THEN
     RETURN QUERY
@@ -130,14 +132,14 @@ BEGIN
   v_slug := regexp_replace(v_slug, '(^-+|-+$)', '', 'g');
   IF v_slug = '' THEN v_slug := 'gateway'; END IF;
 
-  IF EXISTS (SELECT 1 FROM public.gateways WHERE slug = v_slug AND tenant_id = p_tenant_id) THEN
+  IF EXISTS (SELECT 1 FROM public.gateways WHERE slug = v_slug AND tenant_id = v_tenant_id) THEN
     DECLARE
       v_suffix int := 2;
       v_try    text;
     BEGIN
       LOOP
         v_try := v_slug || '-' || v_suffix;
-        EXIT WHEN NOT EXISTS (SELECT 1 FROM public.gateways WHERE slug = v_try AND tenant_id = p_tenant_id);
+        EXIT WHEN NOT EXISTS (SELECT 1 FROM public.gateways WHERE slug = v_try AND tenant_id = v_tenant_id);
         v_suffix := v_suffix + 1;
       END LOOP;
       v_slug := v_try;
@@ -145,7 +147,7 @@ BEGIN
   END IF;
 
   INSERT INTO public.gateways (slug, label, status, tenant_id, meta)
-  VALUES (v_slug, v_label, 'provisioning', p_tenant_id, jsonb_build_object('registered_via', 'token'))
+  VALUES (v_slug, v_label, 'provisioning', v_tenant_id, jsonb_build_object('registered_via', 'token'))
   RETURNING id INTO v_gateway_id;
 
   UPDATE public.gateway_registration_tokens
@@ -157,4 +159,4 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION consume_gateway_token(text, text, text, uuid) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION consume_gateway_token(text, text, text) TO anon, authenticated;

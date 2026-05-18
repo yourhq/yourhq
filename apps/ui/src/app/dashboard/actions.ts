@@ -237,7 +237,7 @@ async function fetchActionItems(): Promise<ActionItem[]> {
     supabase
       .from("notifications")
       .select("id, type, title, body, entity_type, entity_id, created_at")
-      .eq("is_read", false)
+      .is("read_at", null)
       .is("dismissed_at", null)
       .order("created_at", { ascending: false })
       .limit(3),

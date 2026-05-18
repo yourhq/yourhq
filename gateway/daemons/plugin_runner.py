@@ -562,6 +562,7 @@ def wait_for_supabase_config():
 def main():
     try:
         from sentry_init import init_sentry
+
         init_sentry("plugin_runner")
     except ImportError:
         pass

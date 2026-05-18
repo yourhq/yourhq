@@ -41,7 +41,7 @@ export function useNotifications() {
   });
 
   const unreadCount = useMemo(
-    () => notifications.filter((n) => !n.is_read).length,
+    () => notifications.filter((n) => !n.read_at).length,
     [notifications]
   );
 
@@ -49,17 +49,17 @@ export function useNotifications() {
     async (id: string) => {
       setNotifications((prev) =>
         prev.map((n) =>
-          n.id === id ? { ...n, is_read: true, read_at: new Date().toISOString() } : n
+          n.id === id ? { ...n, read_at: new Date().toISOString() } : n
         )
       );
       const { error } = await supabase
         .from("notifications")
-        .update({ is_read: true, read_at: new Date().toISOString() })
+        .update({ read_at: new Date().toISOString() })
         .eq("id", id);
       if (error) {
         setNotifications((prev) =>
           prev.map((n) =>
-            n.id === id ? { ...n, is_read: false, read_at: null } : n
+            n.id === id ? { ...n, read_at: null } : n
           )
         );
         toast.error("Failed to mark notification as read");
@@ -72,12 +72,12 @@ export function useNotifications() {
     const previousState = notifications;
     const now = new Date().toISOString();
     setNotifications((prev) =>
-      prev.map((n) => (n.is_read ? n : { ...n, is_read: true, read_at: now }))
+      prev.map((n) => (n.read_at ? n : { ...n, read_at: now }))
     );
     const { error } = await supabase
       .from("notifications")
-      .update({ is_read: true, read_at: now })
-      .eq("is_read", false);
+      .update({ read_at: now })
+      .is("read_at", null);
     if (error) {
       setNotifications(previousState);
       toast.error("Failed to mark all as read");
@@ -127,7 +127,7 @@ export function useUnreadNotificationCount() {
     const { count: c } = await supabase
       .from("notifications")
       .select("*", { count: "exact", head: true })
-      .eq("is_read", false)
+      .is("read_at", null)
       .is("dismissed_at", null);
     setCount(c ?? 0);
   }, [supabase]);

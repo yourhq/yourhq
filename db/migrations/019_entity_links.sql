@@ -31,8 +31,9 @@ CREATE TABLE IF NOT EXISTS entity_links (
   CONSTRAINT entity_links_unique UNIQUE (owner_type, owner_id, target_type, target_id)
 );
 
+DROP INDEX IF EXISTS idx_entity_links_owner;
 CREATE INDEX IF NOT EXISTS idx_entity_links_owner
-  ON entity_links(owner_type, owner_id);
+  ON entity_links (tenant_id, owner_type, owner_id);
 
 CREATE INDEX IF NOT EXISTS idx_entity_links_target
   ON entity_links(target_type, target_id);
@@ -124,7 +125,7 @@ BEGIN
           'review_note', NEW.review_note
         ),
         v_agent.tenant_id
-      ) ON CONFLICT (dedup_key) DO NOTHING;
+      ) ON CONFLICT ON CONSTRAINT uq_inbox_dedup DO NOTHING;
     END IF;
   END IF;
 

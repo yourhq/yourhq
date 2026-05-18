@@ -47,7 +47,8 @@ CREATE POLICY "Service role full access" ON agent_commands
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 -- Grants
-GRANT ALL ON agent_commands TO authenticated, service_role;
+GRANT SELECT, INSERT ON agent_commands TO authenticated;
+GRANT ALL ON agent_commands TO service_role;
 
 -- Realtime
 DO $$ BEGIN

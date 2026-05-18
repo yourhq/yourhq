@@ -89,8 +89,8 @@ BEGIN
       'Task overdue: ' || COALESCE(NEW.title, 'Untitled'),
       CASE
         WHEN v_agent_name IS NOT NULL
-          THEN 'Assigned to ' || v_agent_name || ' — deadline was ' || COALESCE(NEW.due_date::text, NEW.due_at::text, 'unknown')
-        ELSE 'Deadline was ' || COALESCE(NEW.due_date::text, NEW.due_at::text, 'unknown')
+          THEN 'Assigned to ' || v_agent_name || ' — deadline was ' || COALESCE(NEW.due_date::text, 'unknown')
+        ELSE 'Deadline was ' || COALESCE(NEW.due_date::text, 'unknown')
       END,
       'task',
       NEW.id,
@@ -99,7 +99,6 @@ BEGIN
       jsonb_build_object(
         'task_title', NEW.title,
         'due_date', NEW.due_date,
-        'due_at', NEW.due_at,
         'agent_name', v_agent_name
       )
     );

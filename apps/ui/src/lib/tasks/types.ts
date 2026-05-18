@@ -36,7 +36,6 @@ export interface Task {
   assignee_type: ActorType | null;
   assignee_agent_id: string | null;
   due_date: string | null;
-  due_at: string | null;
   completed_at: string | null;
   sort_order: number;
   tags: string[];

@@ -523,7 +523,7 @@ class Handler(BaseHTTPRequestHandler):
             if not supabase_url or not supabase_key:
                 return self._error(500, "Supabase not configured")
 
-            url = f"{supabase_url}/rest/v1/source_connections?id=eq.{connection_id}&select=provider,credentials&limit=1"
+            url = f"{supabase_url}/rest/v1/source_connections?id=eq.{connection_id}&select=provider&limit=1"
             req = urllib.request.Request(
                 url,
                 headers={
@@ -540,7 +540,7 @@ class Handler(BaseHTTPRequestHandler):
 
             connection = rows[0]
             provider = connection["provider"]
-            creds = _resolve_credentials(provider, connection_id, dict(connection.get("credentials") or {}))
+            creds = _resolve_credentials(provider, connection_id)
 
             connector = get_connector(provider)
             if not connector:

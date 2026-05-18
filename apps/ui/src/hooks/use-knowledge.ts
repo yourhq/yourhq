@@ -306,6 +306,9 @@ export function useKnowledge() {
   }
 
   async function importFiles(files: File[], targetFolderId: string | null) {
+    const { data: { user } } = await supabase.auth.getUser();
+    const tenantId = (user?.app_metadata?.tenant_id as string) ?? "00000000-0000-0000-0000-000000000000";
+
     let count = 0;
     for (const file of files) {
       const ext = file.name.split(".").pop()?.toLowerCase();
@@ -338,7 +341,7 @@ export function useKnowledge() {
         }
       } else {
         const itemId = crypto.randomUUID();
-        const storagePath = `knowledge/${itemId}/${file.name}`;
+        const storagePath = `${tenantId}/knowledge/${itemId}/${file.name}`;
         const { error: uploadError } = await supabase.storage
           .from("assets")
           .upload(storagePath, file);

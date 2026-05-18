@@ -14,7 +14,6 @@ export interface SourceConnection {
   updated_at: string;
   provider: string;
   account_label: string;
-  credentials: Record<string, unknown>;
   status: SourceConnectionStatus;
   last_verified_at: string | null;
   sync_interval_hours: number;

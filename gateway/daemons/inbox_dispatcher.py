@@ -309,6 +309,7 @@ def wake_agent(agent_slug, agent_id, reason, tracker, context=None):
         log(f"Wake error for {agent_slug}: {e}")
         try:
             from sentry_init import capture
+
             capture(e)
         except ImportError:
             pass
@@ -642,6 +643,7 @@ def wait_for_supabase_config():
 def main():
     try:
         from sentry_init import init_sentry
+
         init_sentry("inbox_dispatcher")
     except ImportError:
         pass
