@@ -44,7 +44,23 @@ npx tsc --noEmit     # type check
 
 # Run the interactive installer locally
 ./installer/install.sh
+
+# Cut a release (bumps versions, tags, pushes, creates GitHub Release)
+./scripts/release.sh 0.1.1
 ```
+
+## Release process
+
+Releases follow semver and are cut with `./scripts/release.sh <version>`. The script bumps versions in all packages, updates the CHANGELOG, commits, tags, and pushes. CI handles the rest:
+
+1. Tag push → `docker-publish.yml` builds all images, pushes to GHCR + ECR with semver + `:latest` tags.
+2. After images publish → `deploy-hosted.yml` deploys worker to ECS.
+3. `e2b-template.yml` rebuilds the E2B gateway template.
+4. `install.yourhq.ai` (Cloudflare Worker) auto-resolves the new tag within 5 minutes.
+
+**Branch protection on `main`:** CI checks (`ui`, `worker`) must pass. Linear history required. No force pushes. Admin can push directly; external contributors must PR.
+
+**Cadence:** scheduled releases every 2-4 weeks. Versioning: `0.1.x` for patches, `0.x.0` for features/breaking changes.
 
 ## UI module reference
 
