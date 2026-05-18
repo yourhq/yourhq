@@ -208,7 +208,7 @@ describe("useColumnVisibility", () => {
     const { result: r1 } = renderHook(() =>
       useColumnVisibility("contacts", configs),
     );
-    const { result: r2 } = renderHook(() =>
+    renderHook(() =>
       useColumnVisibility("tasks", configs),
     );
 

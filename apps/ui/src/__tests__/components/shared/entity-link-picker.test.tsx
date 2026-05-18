@@ -4,8 +4,8 @@ import userEvent from "@testing-library/user-event";
 
 vi.mock("@/components/ui/popover", () => ({
   Popover: ({
-    open,
-    onOpenChange,
+    open: _open,
+    onOpenChange: _onOpenChange,
     children,
   }: {
     open?: boolean;
@@ -14,7 +14,7 @@ vi.mock("@/components/ui/popover", () => ({
   }) => <div data-testid="popover">{children}</div>,
   PopoverTrigger: ({
     children,
-    asChild,
+    asChild: _asChild,
   }: {
     children: React.ReactNode;
     asChild?: boolean;
@@ -72,7 +72,7 @@ vi.mock("@/components/ui/command", () => ({
   CommandItem: ({
     children,
     onSelect,
-    className,
+    className: _className,
     disabled,
   }: {
     children: React.ReactNode;

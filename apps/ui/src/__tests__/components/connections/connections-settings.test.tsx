@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import type { Connection, ConnectionStatus } from "@/lib/connections/types";
 import type { Gateway } from "@/lib/gateways/types";
 

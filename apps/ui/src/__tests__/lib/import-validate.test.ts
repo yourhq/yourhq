@@ -1,7 +1,7 @@
 import { describe, test, expect } from "vitest";
 import { validateRows } from "@/lib/import/validate";
 import type { ImportContext } from "@/lib/import/types";
-import type { FieldDefinition, PipelineStage } from "@/lib/fields/types";
+import type { FieldDefinition } from "@/lib/fields/types";
 
 function makeCtx(overrides: Partial<ImportContext> = {}): ImportContext {
   return {

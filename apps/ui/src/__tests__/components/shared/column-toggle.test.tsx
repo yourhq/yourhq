@@ -26,7 +26,7 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
     checked,
     onCheckedChange,
     disabled,
-    onSelect,
+    onSelect: _onSelect,
   }: {
     children: React.ReactNode;
     checked?: boolean;

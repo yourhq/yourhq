@@ -44,7 +44,7 @@ vi.mock("@/components/ui/breadcrumb", () => ({
   ),
   BreadcrumbList: ({
     children,
-    className,
+    className: _className,
   }: {
     children: React.ReactNode;
     className?: string;
@@ -54,19 +54,19 @@ vi.mock("@/components/ui/breadcrumb", () => ({
   ),
   BreadcrumbLink: ({
     children,
-    asChild,
+    asChild: _asChild,
   }: {
     children: React.ReactNode;
     asChild?: boolean;
   }) => <span>{children}</span>,
   BreadcrumbPage: ({
     children,
-    className,
+    className: _className2,
   }: {
     children: React.ReactNode;
     className?: string;
   }) => <span data-testid="breadcrumb-page">{children}</span>,
-  BreadcrumbSeparator: ({ className }: { className?: string }) => (
+  BreadcrumbSeparator: ({ className: _className3 }: { className?: string }) => (
     <span>/</span>
   ),
 }));
@@ -90,7 +90,7 @@ vi.mock("@/components/ui/button", () => ({
 vi.mock("@/components/ui/kbd", () => ({
   Kbd: ({
     children,
-    className,
+    className: _className4,
   }: {
     children: React.ReactNode;
     className?: string;
@@ -122,7 +122,7 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
   ),
   DropdownMenuLabel: ({
     children,
-    className,
+    className: _className5,
   }: {
     children: React.ReactNode;
     className?: string;
@@ -130,7 +130,7 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
   DropdownMenuSeparator: () => <hr />,
   DropdownMenuTrigger: ({
     children,
-    asChild,
+    asChild: _asChild2,
   }: {
     children: React.ReactNode;
     asChild?: boolean;

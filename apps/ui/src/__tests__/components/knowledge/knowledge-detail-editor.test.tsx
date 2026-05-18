@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { buildKnowledgeItem } from "@/__tests__/helpers/factories/knowledge-item";
 import { createMockSupabaseClient } from "@/__tests__/helpers/supabase-mock";
 

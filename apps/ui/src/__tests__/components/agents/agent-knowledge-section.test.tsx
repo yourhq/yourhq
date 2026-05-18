@@ -19,12 +19,12 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-const mockSelect = vi.fn();
-const mockEq = vi.fn();
-const mockIn = vi.fn();
-const mockIs = vi.fn();
-const mockOrder = vi.fn();
-const mockGte = vi.fn();
+const _mockSelect = vi.fn();
+const _mockEq = vi.fn();
+const _mockIn = vi.fn();
+const _mockIs = vi.fn();
+const _mockOrder = vi.fn();
+const _mockGte = vi.fn();
 
 function buildChain(resolveWith: { data: unknown[] | null }) {
   const chain: Record<string, ReturnType<typeof vi.fn>> = {};
@@ -39,7 +39,7 @@ function buildChain(resolveWith: { data: unknown[] | null }) {
   return chain;
 }
 
-let fromCallCount = 0;
+let _fromCallCount = 0;
 const junctionsData = [{ knowledge_item_id: "ki-1" }, { knowledge_item_id: "ki-2" }];
 const skillsData = [
   {
@@ -77,7 +77,7 @@ import { AgentKnowledgeSection } from "@/components/agents/agent-knowledge-secti
 describe("AgentKnowledgeSection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    fromCallCount = 0;
+    _fromCallCount = 0;
   });
 
   it("renders loading state initially", () => {
@@ -109,7 +109,7 @@ describe("AgentKnowledgeSection", () => {
         from: () => buildChain({ data: [] }),
       }),
     }));
-    const { AgentKnowledgeSection: FreshComponent } = await import(
+    const { AgentKnowledgeSection: _FreshComponent } = await import(
       "@/components/agents/agent-knowledge-section"
     );
     // Can't easily re-mock per test, so we test the general flow

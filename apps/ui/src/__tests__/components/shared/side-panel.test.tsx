@@ -5,7 +5,7 @@ vi.mock("@/components/ui/sheet", () => ({
   Sheet: ({
     children,
     open,
-    onOpenChange,
+    onOpenChange: _onOpenChange,
   }: {
     children: React.ReactNode;
     open?: boolean;

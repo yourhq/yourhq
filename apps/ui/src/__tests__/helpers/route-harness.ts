@@ -1,5 +1,3 @@
-import { vi } from "vitest";
-
 interface RouteCallOptions {
   method?: string;
   body?: unknown;

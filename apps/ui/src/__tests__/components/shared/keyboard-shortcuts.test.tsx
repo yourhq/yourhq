@@ -24,7 +24,7 @@ vi.mock("@/components/ui/responsive-dialog", () => ({
     ) : null,
   ResponsiveDialogContent: ({
     children,
-    className,
+    className: _className,
   }: {
     children: React.ReactNode;
     className?: string;

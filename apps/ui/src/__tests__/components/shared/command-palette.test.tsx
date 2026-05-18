@@ -56,7 +56,7 @@ vi.mock("@/components/ui/command", () => ({
       onChange={(e) => onValueChange?.(e.target.value)}
     />
   ),
-  CommandList: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+  CommandList: ({ children, className: _className }: { children: React.ReactNode; className?: string }) => (
     <div data-testid="command-list">{children}</div>
   ),
   CommandGroup: ({
@@ -80,7 +80,7 @@ vi.mock("@/components/ui/command", () => ({
     onSelect?: () => void;
     value?: string;
   }) => (
-    <div data-testid="command-item" data-value={value} role="option" onClick={onSelect}>
+    <div data-testid="command-item" data-value={value} role="option" aria-selected={false} onClick={onSelect}>
       {children}
     </div>
   ),

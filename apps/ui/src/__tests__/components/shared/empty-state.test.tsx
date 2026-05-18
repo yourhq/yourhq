@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Users, Search, FolderOpen } from "lucide-react";
+import { Users, Search } from "lucide-react";
 
 describe("EmptyState", () => {
   beforeEach(() => {

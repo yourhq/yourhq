@@ -95,7 +95,7 @@ describe("IntentCards", () => {
   });
 
   it("renders check icon on selected card", () => {
-    const { container } = render(
+    render(
       <IntentCards selected="reach" onSelect={onSelect} />,
     );
     const checkedCard = screen.getAllByRole("radio").find(

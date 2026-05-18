@@ -191,7 +191,7 @@ describe("ImportStep — completed with errors", () => {
   };
 
   it("shows error count with destructive styling", () => {
-    const { container } = render(
+    render(
       <ImportStep
         importing={false}
         progress={100}

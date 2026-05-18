@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
-import { resetServerMocks, getAdminClient } from "../helpers/server-mock";
+import { resetServerMocks } from "../helpers/server-mock";
 import { createMockSupabaseClient } from "../helpers/supabase-mock";
 import "../helpers/server-mock";
 
@@ -110,7 +110,6 @@ describe("GET /api/agents/[slug]/skills", () => {
       return b;
     })();
 
-    const fromCallCount = 0;
     const mockClient = {
       from: vi.fn().mockImplementation((table: string) => {
         if (table === "agents") return agentQueryBuilder;

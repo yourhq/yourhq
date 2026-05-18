@@ -48,7 +48,7 @@ vi.mock("@/components/shared/side-panel", () => ({
     open,
     children,
     footer,
-    onClose,
+    onClose: _onClose,
   }: {
     open: boolean;
     children: React.ReactNode;

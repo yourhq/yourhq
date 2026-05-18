@@ -163,7 +163,6 @@ describe("ProviderPickerDialog", () => {
 
     expect(screen.getByText("Connect Notion")).toBeInTheDocument();
 
-    const backBtn = screen.getByRole("button", { name: "" });
     const arrowButtons = screen
       .getAllByRole("button")
       .filter((b) => b.querySelector("svg"));
@@ -408,7 +407,6 @@ describe("ProviderPickerDialog", () => {
   });
 
   it("redirects to OAuth flow for hosted mode when provider has OAuth", () => {
-    const originalHref = window.location.href;
     renderDialog({ isHosted: true });
 
     expect(screen.getByText("Notion")).toBeInTheDocument();

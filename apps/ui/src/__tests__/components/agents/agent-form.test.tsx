@@ -33,7 +33,7 @@ vi.mock("@/components/ui/responsive-dialog", () => ({
   ResponsiveDialog: ({
     children,
     open,
-    onOpenChange,
+    onOpenChange: _onOpenChange,
   }: {
     children: React.ReactNode;
     open: boolean;
@@ -53,7 +53,7 @@ vi.mock("@/components/ui/responsive-dialog", () => ({
 vi.mock("@/components/ui/tag-input", () => ({
   TagInput: ({
     value,
-    onChange,
+    onChange: _onChange,
     placeholder,
   }: {
     value: string[];

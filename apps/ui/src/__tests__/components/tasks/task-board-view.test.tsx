@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { buildTask, resetTaskCounter } from "@/__tests__/helpers/factories/task";
-import type { Task, TaskStatus } from "@/lib/tasks/types";
+import type { Task } from "@/lib/tasks/types";
 
 vi.mock("@dnd-kit/core", () => ({
   DndContext: ({ children }: { children: React.ReactNode }) => <>{children}</>,

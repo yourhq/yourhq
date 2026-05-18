@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { FieldDefinition } from "@/lib/fields/types";
 
@@ -78,8 +78,8 @@ vi.mock("@/components/shared/confirm-delete-dialog", () => ({
 
 vi.mock("@/components/ui/responsive-popover", () => ({
   ResponsivePopover: ({
-    open,
-    onOpenChange,
+    open: _open,
+    onOpenChange: _onOpenChange,
     children,
   }: {
     open?: boolean;
@@ -88,7 +88,7 @@ vi.mock("@/components/ui/responsive-popover", () => ({
   }) => <div data-testid="responsive-popover">{children}</div>,
   ResponsivePopoverTrigger: ({
     children,
-    asChild,
+    asChild: _asChild,
   }: {
     children: React.ReactNode;
     asChild?: boolean;
@@ -157,7 +157,7 @@ vi.mock("@/components/ui/select", () => ({
   Select: ({
     children,
     value,
-    onValueChange,
+    onValueChange: _onValueChange,
   }: {
     children: React.ReactNode;
     value?: string;
@@ -169,7 +169,7 @@ vi.mock("@/components/ui/select", () => ({
   ),
   SelectTrigger: ({
     children,
-    className,
+    className: _className,
   }: {
     children: React.ReactNode;
     className?: string;
@@ -205,7 +205,7 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
   DropdownMenuItem: ({
     children,
     onClick,
-    className,
+    className: _className2,
   }: {
     children: React.ReactNode;
     onClick?: () => void;
@@ -218,7 +218,7 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
   DropdownMenuSeparator: () => <hr />,
   DropdownMenuTrigger: ({
     children,
-    asChild,
+    asChild: _asChild2,
   }: {
     children: React.ReactNode;
     asChild?: boolean;

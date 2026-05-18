@@ -59,7 +59,7 @@ vi.mock("@/components/ui/button", () => ({
     children,
     onClick,
     disabled,
-    ...rest
+    ..._rest
   }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
     variant?: string;
     size?: string;
@@ -189,9 +189,6 @@ describe("AgentProvisioning", () => {
     });
     render(<AgentProvisioning agent={makeAgent()} />);
     const provisionButtons = screen.getAllByText("Provision");
-    const actionButton = provisionButtons.find(
-      (el) => el.tagName === "BUTTON" || el.closest("button")
-    );
     const inCommandRow = provisionButtons.find(
       (el) => el.closest(".border-b")
     );

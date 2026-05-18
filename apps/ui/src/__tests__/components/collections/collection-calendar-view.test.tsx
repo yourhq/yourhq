@@ -111,10 +111,6 @@ describe("CollectionCalendarView", () => {
     const currentMonth = format(now, "MMMM yyyy");
     expect(screen.getByText(currentMonth)).toBeInTheDocument();
 
-    const prevButtons = screen.getAllByRole("button").filter((btn) =>
-      btn.querySelector("[class*='lucide-chevron-left']") !== null ||
-      btn.getAttribute("class")?.includes("chevron")
-    );
     const prevButton = screen.getAllByRole("button")[0];
     await user.click(prevButton);
   });

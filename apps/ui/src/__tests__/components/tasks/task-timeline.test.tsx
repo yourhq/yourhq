@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import type { Comment } from "@/lib/tasks/types";
 import type { AuditLogEntry } from "@/lib/audit/types";
 
@@ -61,7 +60,10 @@ vi.mock("@/components/ui/avatar", () => ({
   Avatar: ({ children }: { children: React.ReactNode; size?: string }) => (
     <div data-testid="avatar">{children}</div>
   ),
-  AvatarImage: ({ src, alt }: { src: string; alt: string }) => <img src={src} alt={alt} />,
+  AvatarImage: ({ src, alt }: { src: string; alt: string }) => (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt={alt} />
+  ),
   AvatarFallback: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="avatar-fallback">{children}</div>
   ),
@@ -205,7 +207,7 @@ describe("TaskTimeline", () => {
     render(<TaskTimeline taskId="t-1" />);
 
     const activityText = screen.getByText("Earlier activity");
-    const commentText = screen.getByText("Later comment");
+    screen.getByText("Later comment");
 
     const container = activityText.closest(".space-y-2")!;
     const allTexts = within(container).getAllByText(/.+/);

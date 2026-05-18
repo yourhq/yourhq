@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockParseFile = vi.fn();
@@ -21,7 +21,7 @@ function csvResult(rowCount = 5, headers = ["name", "email"]) {
   return { headers, rows: Array(rowCount).fill({}), format: "csv" as const, rowCount };
 }
 
-function jsonResult(rowCount = 3, headers = ["name", "phone"]) {
+function _jsonResult(rowCount = 3, headers = ["name", "phone"]) {
   return { headers, rows: Array(rowCount).fill({}), format: "json" as const, rowCount };
 }
 

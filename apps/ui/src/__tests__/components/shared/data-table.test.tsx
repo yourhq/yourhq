@@ -92,6 +92,7 @@ function TestDataTable({
   onRowClick?: (row: { original: TestRow }) => void;
   isLoading?: boolean;
 }) {
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns,

@@ -34,7 +34,7 @@ vi.mock("@/app/dashboard/settings/connections/actions", () => ({
 }));
 
 vi.mock("@/lib/models/catalog", () => ({
-  getCuratedModelsForProviders: (providers: string[]) => [
+  getCuratedModelsForProviders: (_providers: string[]) => [
     {
       provider: "anthropic",
       providerDisplayName: "Anthropic",

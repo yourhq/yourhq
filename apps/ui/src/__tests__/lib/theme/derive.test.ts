@@ -9,7 +9,7 @@ import {
   hexToOklch,
 } from "@/lib/theme/derive";
 import type { OklchColor, ThemeTokens } from "@/lib/theme/types";
-import { DEFAULT_BRAND, DEFAULT_WARMTH } from "@/lib/theme/types";
+import { DEFAULT_WARMTH } from "@/lib/theme/types";
 
 const ALL_TOKEN_KEYS: (keyof ThemeTokens)[] = [
   "background",

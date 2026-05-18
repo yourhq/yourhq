@@ -16,7 +16,7 @@ vi.mock("@/lib/onboarding/progress", () => ({
 vi.mock("@/components/ui/input-otp", () => ({
   InputOTP: ({
     children,
-    onChange,
+    onChange: _onChange,
   }: {
     children: React.ReactNode;
     onChange?: (v: string) => void;
@@ -71,7 +71,7 @@ describe("AgentChannelCard", () => {
   });
 
   it("shows star icon on Telegram (recommended)", () => {
-    const { container } = render(<AgentChannelCard agent={makeAgent()} />);
+    render(<AgentChannelCard agent={makeAgent()} />);
     const telegramButton = screen.getByText("Telegram").closest("button");
     const starIcon = telegramButton?.querySelector(".lucide-star");
     expect(starIcon).toBeInTheDocument();

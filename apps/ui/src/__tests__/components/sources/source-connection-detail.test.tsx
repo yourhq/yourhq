@@ -33,7 +33,7 @@ vi.mock("@/hooks/use-source-connections", () => ({
     connections: [],
     syncRuns: [] as SourceSyncRun[],
     loading: false,
-    getConnection: (id: string) => null,
+    getConnection: (_id: string) => null,
     actions: mockActions,
   }),
 }));

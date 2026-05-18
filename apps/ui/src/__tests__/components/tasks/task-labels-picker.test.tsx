@@ -22,7 +22,7 @@ vi.mock("@/hooks/use-labels", () => ({
 vi.mock("@/components/ui/popover", () => ({
   Popover: ({
     children,
-    open,
+    open: _open,
   }: {
     children: React.ReactNode;
     open?: boolean;
@@ -30,7 +30,7 @@ vi.mock("@/components/ui/popover", () => ({
   }) => <div data-testid="popover">{children}</div>,
   PopoverTrigger: ({
     children,
-    asChild,
+    asChild: _asChild,
   }: {
     children: React.ReactNode;
     asChild?: boolean;

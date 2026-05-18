@@ -22,7 +22,7 @@ function makeFilters(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function makeStream(overrides: Partial<Stream> = {}): Stream {
+function _makeStream(overrides: Partial<Stream> = {}): Stream {
   return {
     id: "stream-1",
     created_at: new Date().toISOString(),

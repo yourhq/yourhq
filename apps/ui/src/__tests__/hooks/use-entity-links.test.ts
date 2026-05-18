@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { createMockSupabaseClient } from "@/__tests__/helpers/supabase-mock";
-import { buildEntityLink, buildKnowledgeItem } from "@/__tests__/helpers/factories";
+import { buildEntityLink } from "@/__tests__/helpers/factories";
 
 let mockSupabase: ReturnType<typeof createMockSupabaseClient>;
 
@@ -286,7 +286,6 @@ describe("useEntityLinks", () => {
       await result.current.actions.reorderLinks(["l-2", "l-1"]);
     });
 
-    const updateCalls = mockSupabase.from("entity_links").update as ReturnType<typeof vi.fn>;
     expect(mockSupabase.from).toHaveBeenCalledWith("entity_links");
   });
 });
