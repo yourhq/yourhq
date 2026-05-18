@@ -1,6 +1,9 @@
 import posthog from "posthog-js";
 
-const isEnabled = typeof window !== "undefined" && !!process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
+const isEnabled =
+  typeof window !== "undefined" &&
+  !!process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN &&
+  !window.location.hostname.includes("localhost");
 
 export function trackEvent(event: string, properties?: Record<string, unknown>) {
   if (!isEnabled) return;

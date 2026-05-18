@@ -20,7 +20,11 @@ function PageviewTracker() {
 }
 
 export function PostHogPageview() {
-  if (!process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN) return null;
+  if (
+    !process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN ||
+    (typeof window !== "undefined" && window.location.hostname.includes("localhost"))
+  )
+    return null;
   return (
     <Suspense fallback={null}>
       <PageviewTracker />
