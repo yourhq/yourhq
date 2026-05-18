@@ -1,8 +1,18 @@
 -- 001_extensions.sql — Required Postgres extensions and schema-level grants.
 
-CREATE EXTENSION IF NOT EXISTS "vector" WITH SCHEMA extensions;
-CREATE EXTENSION IF NOT EXISTS pg_cron;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+DO $$ BEGIN
+  CREATE EXTENSION IF NOT EXISTS "vector" WITH SCHEMA extensions;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pgvector not available — vector columns will fail';
+END $$;
+
+DO $$ BEGIN
+  CREATE EXTENSION IF NOT EXISTS pg_cron;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pg_cron not available — scheduled jobs will not run';
+END $$;
 
 -- Newer Supabase projects revoke public schema access by default.
 -- Grant it explicitly so authenticated/anon roles can reach tables and functions.

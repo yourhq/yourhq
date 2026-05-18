@@ -151,10 +151,25 @@ CREATE TABLE IF NOT EXISTS task_series (
     CHECK (missed_policy IN ('auto_skip','queue'))
 );
 
-DO $$ BEGIN
-  ALTER TABLE task_series ADD CONSTRAINT task_series_days_of_week_check
-    CHECK (days_of_week IS NULL OR (SELECT bool_and(v >= 0 AND v <= 6) FROM unnest(days_of_week) AS v));
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+CREATE OR REPLACE FUNCTION validate_days_of_week()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  IF NEW.days_of_week IS NOT NULL AND array_length(NEW.days_of_week, 1) > 0 THEN
+    IF EXISTS (SELECT 1 FROM unnest(NEW.days_of_week) AS v WHERE v < 0 OR v > 6) THEN
+      RAISE EXCEPTION 'days_of_week values must be between 0 (Sun) and 6 (Sat)';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS task_series_validate_days ON task_series;
+CREATE TRIGGER task_series_validate_days
+  BEFORE INSERT OR UPDATE ON task_series
+  FOR EACH ROW EXECUTE FUNCTION validate_days_of_week();
 
 CREATE INDEX IF NOT EXISTS idx_task_series_tenant ON task_series(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_task_series_next_due

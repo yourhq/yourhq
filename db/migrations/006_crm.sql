@@ -214,7 +214,7 @@ CREATE TABLE IF NOT EXISTS contact_organizations (
   contact_id  uuid NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
   org_id      uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   role        text,
-  is_current  boolean DEFAULT true,
+  is_current  boolean NOT NULL DEFAULT true,
   started_at  date,
   ended_at    date,
   UNIQUE (tenant_id, contact_id, org_id, role),

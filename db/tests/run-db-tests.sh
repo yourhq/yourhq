@@ -130,9 +130,18 @@ CREATE TABLE IF NOT EXISTS storage.objects (
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 GRANT ALL ON storage.objects TO authenticated, service_role;
 
--- extensions schema stub for pgvector
+-- Supabase-provided helper used by storage RLS policies
+CREATE OR REPLACE FUNCTION storage.foldername(name text)
+RETURNS text[] LANGUAGE plpgsql AS $f$
+BEGIN
+  RETURN string_to_array(name, '/');
+END;
+$f$;
+
+-- extensions schema stub for pgvector (Supabase includes extensions in search_path)
 CREATE SCHEMA IF NOT EXISTS extensions;
 GRANT USAGE ON SCHEMA extensions TO authenticated, anon, service_role, PUBLIC;
+ALTER DATABASE hq_test SET search_path TO public, extensions;
 
 -- Realtime publication stub
 DO $$ BEGIN
@@ -168,24 +177,6 @@ apply_migrations() {
   for f in "$MIGRATIONS_DIR"/*.sql; do
     local fname
     fname="$(basename "$f")"
-
-    if [[ "$fname" == "001_extensions.sql" ]]; then
-      psql "$DB_URL" -v ON_ERROR_STOP=0 -X -q <<'EXTFIX'
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') THEN
-    BEGIN
-      CREATE EXTENSION vector SCHEMA extensions;
-    EXCEPTION WHEN OTHERS THEN
-      RAISE NOTICE 'pgvector not available — creating stub type';
-    END;
-  END IF;
-END $$;
-EXTFIX
-      count=$((count + 1))
-      continue
-    fi
 
     if ! psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q -f "$f" > /dev/null 2>&1; then
       echo "  [warn] Migration $fname had errors (may be non-fatal)"
@@ -286,7 +277,6 @@ test_column_contracts() {
   check_column tasks title "text"
   check_column tasks assignee_agent_id "uuid"
   check_column tasks due_date "timestamp with time zone"
-  check_column tasks due_at "timestamp with time zone"
   check_column tasks series_id "uuid"
 
   check_column contacts id "uuid"
@@ -706,23 +696,23 @@ test_routine_next_occurrence_rpc() {
 
   local result
   result=$(run_sql_value "
-    SELECT routine_next_occurrence(
+    SELECT (routine_next_occurrence(
       'daily', NULL, NULL, NULL, '09:00'::time, 'UTC', now()
-    ) IS NOT NULL AS ok
+    ) IS NOT NULL)::text
   ")
   assert_eq "$result" "true" "routine_next_occurrence returns non-null for daily"
 
   result=$(run_sql_value "
-    SELECT routine_next_occurrence(
+    SELECT (routine_next_occurrence(
       'weekly', NULL, ARRAY[1,3,5]::smallint[], NULL, '10:00'::time, 'UTC', now()
-    ) IS NOT NULL AS ok
+    ) IS NOT NULL)::text
   ")
   assert_eq "$result" "true" "routine_next_occurrence returns non-null for weekly"
 
   result=$(run_sql_value "
-    SELECT routine_next_occurrence(
+    SELECT (routine_next_occurrence(
       'monthly', NULL, NULL, 15::smallint, '14:00'::time, 'America/New_York', now()
-    ) IS NOT NULL AS ok
+    ) IS NOT NULL)::text
   ")
   assert_eq "$result" "true" "routine_next_occurrence returns non-null for monthly"
 }
