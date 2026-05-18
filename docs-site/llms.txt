@@ -64,6 +64,7 @@
 
 ## Reference
 
+- [API reference](https://docs.yourhq.ai/reference/api): UI HTTP endpoints, Supabase RPCs, key table schemas, enum reference, and common query patterns.
 - [Configuration](https://docs.yourhq.ai/reference/configuration): Environment variables and runtime configuration.
 - [Database schema](https://docs.yourhq.ai/reference/database-schema): Tables, migrations, queues, triggers, and RLS trust model.
 - [Migrations](https://docs.yourhq.ai/reference/migrations): Ordered Supabase migration files and how to apply them.
@@ -87,6 +88,7 @@
 ## Security and troubleshooting
 
 - [Security policy](https://docs.yourhq.ai/security/security-policy): Vulnerability reporting, trust model, known risks, and hardening.
+- [Privacy and telemetry](https://docs.yourhq.ai/security/privacy): Zero telemetry for self-hosted, hosted data collection, data residency, GDPR, cookies.
 - [Troubleshooting](https://docs.yourhq.ai/troubleshooting/common-issues): Symptom-indexed fixes for common UI, Supabase, gateway, install, and agent issues.
 
 ## Source

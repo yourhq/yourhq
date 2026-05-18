@@ -673,6 +673,8 @@ Where HQ is now, what ships in v0.1, and what comes after.
 
 ### Observability and operations
 
+- Sentry error tracking across all runtimes (UI client/server/edge, worker, gateway daemons). **Hosted-only** — self-hosted installs never load the Sentry SDK, never send telemetry. Noise-filtered `beforeSend` to stay within free-tier budget
+- PostHog product analytics in the UI and worker. **Hosted-only** — self-hosted installs never load the PostHog SDK
 - System page with Commands, Inbox, and Audit Log tabs
 - Status, module, action, and actor filters across all log views
 - Realtime subscriptions and pagination on all log views
@@ -696,7 +698,6 @@ Small items to address before tagging. None are blockers, but they'd be good to 
 
 ## Next (post-v0.1)
 
-- **Sentry (env-gated)** — `sentry-sdk` in daemons, `@sentry/nextjs` in UI. Only active when `SENTRY_DSN` is set. Ships alongside other hosted integrations.
 - **Templates source UI** — switch between bundled templates and a custom git URL per workspace.
 - **Pretty tailnet URLs** — optional Tailscale Serve automation in the installer for `http://hq` instead of ported URLs.
 
@@ -2604,6 +2605,79 @@ The UI's Supabase config lives in the workspace registry (runtime, not baked int
 
 > 
   Check [GitHub releases](https://github.com/yourhq/yourhq/releases) before updating. If a release includes new migrations, run them in Supabase SQL Editor before pulling the new images. Skipping this step can cause the UI to show a "schema out of date" banner.
+
+---
+
+## Upgrading across versions
+
+When a new HQ version ships with database schema changes, you need to run the new migrations before (or immediately after) pulling the new images. Here's the full process.
+
+### 1. Check what changed
+
+Read the [release notes](https://github.com/yourhq/yourhq/releases) for the version you're upgrading to. Each release lists any new migration files.
+
+You can also diff migration files directly:
+
+```bash
+# See what migrations were added since your current version
+git log v0.1.0..v0.2.0 --oneline -- db/migrations/
+```
+
+### 2. Back up before upgrading
+
+Always back up before applying new migrations. At minimum:
+
+```bash
+# Database
+pg_dump \
+  "postgresql://postgres:@db..supabase.co:5432/postgres" \
+  -Fc -f pre-upgrade-$(date +%Y%m%d).dump
+
+# Gateway state volume
+docker run --rm \
+  -v yourhq-gateway-state:/src \
+  -v $(pwd):/dst \
+  alpine tar -czf /dst/gateway-state-pre-upgrade.tar.gz -C /src .
+```
+
+### 3. Apply new migrations
+
+Open your Supabase project's **SQL Editor** and run each new migration file in filename order. All HQ migrations are idempotent (`IF NOT EXISTS`, `CREATE OR REPLACE`), so re-running an already-applied migration is safe.
+
+> 
+  You can check which migrations have been applied by querying the schema version table:
+  ```sql
+  SELECT * FROM _schema_version ORDER BY applied_at;
+  ```
+  If this table doesn't exist, you're on a pre-v0.1.0 install — apply all migrations from `001` onward.
+
+### 4. Pull and restart
+
+```bash
+cd ~/.yourhq
+docker compose pull
+docker compose up -d
+```
+
+### 5. Verify
+
+After restarting:
+
+- The UI should load without a "schema out of date" banner
+- Settings → System should show all services as healthy
+- Settings → Gateways should show your gateway(s) with a green heartbeat
+
+### Downgrading
+
+HQ migrations are forward-only. There are no down migrations. If an upgrade breaks something:
+
+1. Restore your database from the pre-upgrade `pg_dump`
+2. Pin your images to the previous version tag (see [Pinning image versions](#pinning-image-versions))
+3. Open an issue on [GitHub](https://github.com/yourhq/yourhq/issues) with the error
+
+### Version compatibility
+
+All images in a running stack should be from the same release. Don't mix a v0.2.0 UI with v0.1.0 gateway images — the UI may reference database columns or RPCs that don't exist yet. Pin all images to the same tag when you pin any of them.
 
 ---
 
@@ -4988,6 +5062,8 @@ The hosted offering at [app.yourhq.ai](https://app.yourhq.ai) runs the same code
 
 Self-hosted code is unaffected — hosted routes are gated behind `DEPLOYMENT_MODE=hosted` and the Worker service is a separate app.
 
+**Hosted-only observability.** The hosted offering includes Sentry (error tracking) and PostHog (product analytics). Both are strictly gated on `DEPLOYMENT_MODE=hosted` — self-hosted installs never load these SDKs, never send telemetry, and never need the associated environment variables. Sentry covers all runtimes (UI client/server/edge, worker, Python gateway daemons) with environment tags for triage. PostHog covers client-side analytics in the UI and server-side events in the worker. See [Configuration § 2.12](/reference/configuration#212-hosted-only-observability-sentry--posthog) for the full variable reference.
+
 ## 15. Where things are going
 
 - **Self-hosted hardening.** Better migration tooling, stronger validation around workspace setup, and clearer gateway health diagnostics.
@@ -5314,6 +5390,21 @@ Every knowledge item has a `kind` that determines how it's stored and rendered:
 
 Pages and skills support rich editing in the UI. Files go through a processing pipeline (upload, extract text, embed). Sources sync from external integrations and track their sync status.
 
+## How indexing works
+
+When you create or edit a knowledge item, HQ automatically indexes it so your agents can find it through search. Indexing converts the document into a format optimized for semantic search — agents can find relevant knowledge even when the exact words don't match.
+
+For pages and skills, indexing starts immediately after you save and typically completes within a few seconds. For files (PDF, DOCX, XLSX, CSV, PPTX, TXT), the system first extracts text from the file and then indexes it, which may take a little longer depending on file size. Editing a document automatically re-triggers indexing.
+
+You'll see a status indicator on each knowledge item:
+
+- **Search ready** (green) — fully indexed and searchable by agents.
+- **Text ready** (amber) — text has been processed; search embedding is still completing.
+- **Indexing...** (spinner) — indexing is in progress.
+- **Index failed** (red) — something went wrong. Use the retry button to re-process.
+
+The embedder service handles indexing using a local embedding model that ships pre-loaded in the Docker image — no external API calls or additional setup required.
+
 ## Source connectors
 
 Source connections use a **plugin-based connector architecture**. Each provider is a self-contained folder under `gateway/connectors//` containing:
@@ -5444,32 +5535,89 @@ Source: https://docs.yourhq.ai/concepts/workspaces
 
 > How one UI manages multiple Supabase-backed workspaces.
 
-An HQ workspace is a Supabase-backed unit — your agents, tasks, CRM, knowledge, and settings all live in one Supabase project that you own.
+An HQ workspace is a Supabase project that you own. Your agents, tasks, CRM, knowledge, routines, collections, and settings all live in that one database. The HQ UI connects to it at runtime — you can point a single UI at multiple Supabase projects and switch between them.
 
-## How it works
+## What a workspace contains
+
+Each workspace is a complete, independent HQ environment:
+
+| Layer | What lives here |
+|---|---|
+| **Database** | Agents, tasks, contacts, organizations, knowledge items, routines, collections, usage history, audit log, secrets, plugins, gateway registrations |
+| **Auth** | Supabase Auth — user accounts, sessions, JWTs |
+| **Storage** | Supabase Storage — uploaded files, agent screenshots |
+| **Realtime** | Supabase Realtime — live subscriptions for daemons and the dashboard |
+| **Gateways** | One or more gateway hosts bound to this workspace |
+
+Nothing in a workspace references or depends on any other workspace. Deleting a Supabase project deletes everything in that workspace.
+
+## The workspace registry
+
+The UI stores workspace metadata in two files on the `ui-config` Docker volume:
+
+- **`workspaces.json`** — array of workspace entries: label, emoji, Supabase URL, anon key, and a `default` flag
+- **`secrets.json`** — encrypted service-role keys for each workspace
+
+When the UI container starts, it reads the registry and connects to the default workspace. The browser receives the workspace's Supabase URL and anon key — it connects directly to your Supabase project, not through the UI server.
 
   - **Workspace registry**: 
-    The UI stores workspace metadata in `/config/workspaces.json` and secrets in `/config/secrets.json` on the `ui-config` Docker volume.
+    Stored on the `ui-config` Docker volume. Survives container restarts and image updates. Back this up.
   
 
   - **Runtime injection**: 
-    The active workspace is selected at runtime and injected into the browser — no image rebuild needed when switching workspaces.
+    The active workspace is selected at runtime and injected into the browser — no image rebuild needed when switching.
   
+
+## Switching workspaces
+
+Use the workspace switcher in Settings → Database. When you switch:
+
+1. The UI server updates the active workspace in the registry
+2. The browser reloads with the new Supabase URL and anon key
+3. You re-authenticate against the new workspace's Supabase Auth
+
+Each workspace has its own user accounts. Signing into workspace A doesn't sign you into workspace B — they're separate Supabase projects with separate auth.
 
 ## Multi-workspace support
 
-One UI install can manage multiple Supabase projects. Each workspace is fully isolated with its own database, auth, and realtime. Within each database, every table enforces tenant-scoped RLS via `tenant_id`. The multi-workspace registry adds a second isolation layer on top — each workspace gets its own Supabase project entirely.
+One UI install can manage multiple Supabase projects. This is useful for:
 
-> 
-  Use the workspace switcher in Settings → Database to move between workspaces. Each workspace has its own agents, gateways, tasks, and CRM data.
+| Use case | Example |
+|---|---|
+| **Staging + production** | Test agent configs in a staging workspace before deploying to production |
+| **Client separation** | Agency managing multiple client workspaces from one dashboard |
+| **Regional isolation** | EU data in an EU Supabase project, US data in a US project |
+| **Team boundaries** | Separate workspaces for separate teams that shouldn't share data |
+
+### Adding a workspace
+
+Settings → Database → **Add workspace**. You'll need:
+
+- The Supabase project URL (`https://xyz.supabase.co`)
+- The anon key (public, safe for browsers)
+- The service-role key (secret, stored encrypted)
+
+The UI validates credentials before saving. You can also add workspaces via the `/api/workspaces` endpoint.
 
 ## Isolation model
 
-| Boundary | Scope |
-|---|---|
-| **Supabase project** | Full isolation — separate database, auth, and realtime |
-| **Gateway** | Bound to one workspace via Supabase credentials |
-| **UI** | Can switch between workspaces at runtime |
+HQ enforces isolation at two levels:
+
+| Boundary | Scope | Enforced by |
+|---|---|---|
+| **Supabase project** | Full isolation — separate database, auth, storage, and realtime | Supabase infrastructure |
+| **Tenant ID (within a project)** | Row-level isolation — every table filters by `tenant_id` | Postgres RLS policies |
+| **Gateway binding** | Each gateway connects to exactly one workspace via its Supabase credentials | `.env` on the gateway host |
+| **UI registry** | Each workspace entry is independent — switching reloads the entire context | Workspace registry files |
+
+### Single-tenant default
+
+Self-hosted installs use a single default tenant ID (`00000000-0000-0000-0000-000000000000`). All authenticated users in a workspace see the same data. This is by design — HQ is workspace-level admin software, not a multi-user SaaS with per-user permissions.
+
+If you need per-user access control within a workspace, restrict who can sign up for your Supabase project (disable email signup, use invite-only). See [Security model](/concepts/security-model).
+
+> 
+  For most teams, one workspace is enough. Add a second when you genuinely need data isolation — not just organizational separation. Use streams, labels, and agent hierarchy within a workspace to organize work.
 
 ---
 
@@ -5479,32 +5627,116 @@ Source: https://docs.yourhq.ai/concepts/gateways
 
 > Docker hosts that run your agents, browsers, and daemons.
 
-A gateway is a Docker host that runs agents on infrastructure you control. Each gateway is a self-contained runtime environment — agents, browsers, files, and daemons all live inside it.
+A gateway is a Docker host that runs agents on infrastructure you control. Each gateway is a self-contained runtime environment — agents, browsers, files, and daemons all live inside it. The gateway has no direct network link to the UI; all coordination happens through Supabase.
+
+## What's inside a gateway
+
+A gateway deployment is a set of Docker containers that work together:
 
   - **Gateway container**: 
-    Runs OpenClaw (agent runtime), Chrome/Chromium, XFCE desktop, noVNC (remote desktop), and the files API.
+    Runs OpenClaw (agent runtime), Chrome/Chromium, XFCE desktop, noVNC (remote desktop), and the files API. This is where agents actually execute.
   
 
   - **Dispatcher daemon**: 
-    Watches for background work (task assignments, comment mentions, routines) and wakes the right agent.
+    Subscribes to `agent_inbox_items` via Supabase Realtime. When new work arrives (task assignments, comment mentions, routines), it wakes the right agent on this gateway.
   
 
   - **Runner daemon**: 
-    Executes lifecycle commands: provision, update, remove, provider auth, gateway operations.
+    Subscribes to `agent_commands` via Supabase Realtime. Leases and executes lifecycle commands: provision, update, remove, provider auth, shell commands, gateway operations. Also runs heartbeat (every 30s) and secrets sync.
+  
+
+  - **Embedder**: 
+    Runs a local embedding model (default: `BAAI/bge-small-en-v1.5`). Leases knowledge items pending indexing, generates vector embeddings, and creates chunks. HTTP server at `:9100`.
+  
+
+  - **File processor**: 
+    Leases knowledge items with `kind='file'` and `processing_status='ready'`, downloads from Supabase Storage, extracts text (PDF, DOCX, XLSX, CSV, PPTX, TXT), and triggers embedding.
   
 
   - **Shared state volume**: 
-    Holds OpenClaw config, the git repo, agent worktrees, browser profiles, desktop files, and auth state.
+    Holds OpenClaw config, the local bare git repo with per-agent branches, browser profiles, desktop files, auth tokens, and secrets.
   
+
+## How gateways communicate
+
+Gateways are **pull-based** — they don't receive inbound connections from the UI. All coordination flows through Supabase:
+
+```
+UI → writes to Supabase tables (agent_commands, agent_inbox_items, etc.)
+         ↓ Supabase Realtime
+Gateway daemons ← subscribe and process
+         ↓
+Gateway daemons → write results back to Supabase
+         ↓
+UI ← reads updated state
+```
+
+This means a gateway can run behind NAT, a firewall, or a VPN with no inbound ports open. The only requirement is outbound HTTPS to your Supabase project.
+
+The one exception is **noVNC**: when you open an agent's remote desktop, the UI proxies WebSocket traffic to the gateway container over Docker's internal network (or Tailscale, if configured). This is the only direct connection between the UI and the gateway.
+
+## Gateway lifecycle
+
+### Boot sequence
+
+When a gateway container starts, `entrypoint.sh` runs a 10-step boot sequence:
+
+1. Seed the local bare git repo from `/opt/templates/` (or `$TEMPLATES_SOURCE`)
+2. Optionally attach to `$GIT_REMOTE_URL` for branch backup
+3. Optionally bring up Tailscale (`$TAILSCALE_AUTH_KEY`)
+4. Run `openclaw onboard` (first boot only)
+5. Patch `openclaw.json` with browser, channel, and plugin paths
+6. Install the hq-bootstrap plugin
+7. Start Xtigervnc + XFCE desktop
+8. Start websockify → noVNC
+9. Upsert this gateway's row in the `gateways` table with reachable URLs
+10. Exec `openclaw gateway start` as the main process
+
+See [Gateway boot](/self-host/gateway-boot) for the detailed walkthrough.
+
+### Heartbeat
+
+The runner daemon writes `last_heartbeat_at` to the `gateways` table every 30 seconds. The UI uses this to show gateway health:
+
+- **Healthy** (green) — heartbeat within 90 seconds
+- **Stale** (amber) — status is `ready` but heartbeat is old
+- **No signal** — gateway has never reported
+
+If a gateway goes stale, its agents can still have pending work queued — it will be processed when the gateway comes back online.
+
+### Registration
+
+Gateways register with Supabase via a one-time token exchange. The UI generates a token (Settings → Gateways → Add Gateway), the gateway installer calls `consume_gateway_token()` to atomically convert the token into a `gateways` row, and the gateway stores its `GATEWAY_ID` in `.env` for all future operations.
 
 ## One workspace, many gateways
 
-A single HQ workspace can have multiple gateways on different hosts. Each gateway registers itself in the `gateways` table with its reachable URLs, so the UI knows how to reach each one.
+A single HQ workspace can have multiple gateways on different hosts — different machines, different data centers, different continents. Each gateway registers itself in the `gateways` table with its reachable URLs, so the UI knows how to reach each one.
 
-Agents are bound to a specific gateway via `gateway_id`. The dispatcher and runner only process work for agents on their own gateway — no gateway ever picks up another gateway's work.
+Agents are bound to a specific gateway via `gateway_id`. The dispatcher and runner filter their Supabase subscriptions by `GATEWAY_ID` — no gateway ever picks up another gateway's work.
+
+Common multi-gateway patterns:
+
+| Pattern | Example |
+|---|---|
+| **Geo-distributed** | US gateway for US agents, EU gateway for EU agents |
+| **Capability-split** | GPU gateway for heavy tasks, lightweight gateway for messaging agents |
+| **Dev / prod** | Staging gateway for testing, production gateway for live agents |
+| **Team isolation** | Marketing team gateway, engineering team gateway |
 
 > 
   Start with one gateway. You can add more later from Settings → Gateways without reconfiguring anything.
+
+## Gateway state and persistence
+
+Each gateway owns a Docker volume (`gateway-state`) that holds:
+
+- **Git repo** — a bare repo with one branch per agent. Agent files, skills, memory, and identity all live here.
+- **Browser profiles** — Chrome profiles persist cookies, logins, and localStorage across agent sessions.
+- **Auth tokens** — model provider credentials (OpenAI, Anthropic, etc.) stored by OpenClaw.
+- **Secrets** — decrypted `.env` files written by the secrets sync daemon (plaintext on disk, `chmod 0600`).
+- **Desktop state** — XFCE config, wallpapers, shortcuts.
+
+If you lose the `gateway-state` volume, agents can be reprovisioned from the database, but accumulated browser sessions, local files, and auth tokens are gone. Use `GIT_REMOTE_URL` to continuously back up agent branches to GitHub/Gitea. See [Operations → Backing up](/self-host/operations#backing-up).
 
 ## Adding a gateway
 
@@ -6026,22 +6258,24 @@ All colors use the **OKLch** color space — perceptually uniform lightness, so 
 
 ### Base palette
 
+All neutral surfaces carry a subtle warm chroma (`0.004–0.006`) at hue 75, giving backgrounds a warm paper quality rather than clinical gray. The `--primary` token IS the brand color (Pine teal `#1F7A6E` by default), so all components using `bg-primary` automatically render in the brand color. Workspace admins can customize the brand via Settings → Appearance.
+
 | Token | Light (`:root`) | Dark (`.dark`) | Used for |
 |---|---|---|---|
-| `--background` | `oklch(1 0 0)` | `oklch(0.13 0 0)` | Page background |
-| `--foreground` | `oklch(0.145 0 0)` | `oklch(0.96 0 0)` | Primary text |
-| `--card` | `oklch(1 0 0)` | `oklch(0.16 0 0)` | Card surface |
-| `--popover` | `oklch(1 0 0)` | `oklch(0.19 0 0)` | Floating surfaces (menus, tooltips) |
-| `--primary` | `oklch(0.205 0 0)` | `oklch(0.96 0 0)` | Primary action background |
-| `--primary-foreground` | `oklch(0.985 0 0)` | `oklch(0.13 0 0)` | Text on primary |
-| `--secondary` | `oklch(0.97 0 0)` | `oklch(0.2 0 0)` | Secondary action background |
-| `--muted` | `oklch(0.97 0 0)` | `oklch(0.18 0 0)` | Subdued surface |
-| `--muted-foreground` | `oklch(0.556 0 0)` | `oklch(0.62 0 0)` | Secondary text, labels |
-| `--accent` | `oklch(0.97 0 0)` | `oklch(0.22 0 0)` | Hover and selected fills on lists |
-| `--destructive` | `oklch(0.577 0.245 27.325)` | `oklch(0.704 0.191 22.216)` | Destructive actions |
-| `--border` | `oklch(0.922 0 0)` | `oklch(1 0 0 / 9%)` | Default 1px divider |
-| `--input` | `oklch(0.922 0 0)` | `oklch(1 0 0 / 10%)` | Input border |
-| `--ring` | `oklch(0.708 0 0)` | `oklch(0.65 0 0)` | Focus ring |
+| `--background` | `oklch(0.98 0.003 75)` | `oklch(0.14 0.005 75)` | Page background — warm paper / warm charcoal |
+| `--foreground` | `oklch(0.15 0.004 75)` | `oklch(0.93 0.004 75)` | Primary text — warm near-black / warm off-white |
+| `--card` | `oklch(1 0 0)` | `oklch(0.17 0.005 75)` | Card surface |
+| `--popover` | `oklch(1 0 0)` | `oklch(0.19 0.005 75)` | Floating surfaces (menus, tooltips) |
+| `--primary` | `oklch(0.50 0.09 175)` | `oklch(0.72 0.085 175)` | Brand — Pine teal for buttons, links, active states |
+| `--primary-foreground` | `oklch(1 0 0)` | `oklch(0.14 0.005 75)` | Text on primary |
+| `--secondary` | `oklch(0.955 0.004 75)` | `oklch(0.21 0.005 75)` | Secondary action background |
+| `--muted` | `oklch(0.96 0.004 75)` | `oklch(0.20 0.005 75)` | Subdued surface |
+| `--muted-foreground` | `oklch(0.46 0.008 75)` | `oklch(0.60 0.008 75)` | Secondary text, labels |
+| `--accent` | `oklch(0.95 0.005 75)` | `oklch(0.22 0.006 75)` | Hover and selected fills on lists |
+| `--destructive` | `oklch(0.55 0.20 25)` | `oklch(0.65 0.18 25)` | Destructive actions |
+| `--border` | `oklch(0.91 0.004 75)` | `oklch(1 0 0 / 10%)` | Default 1px divider |
+| `--input` | `oklch(0.91 0.004 75)` | `oklch(1 0 0 / 10%)` | Input border |
+| `--ring` | `oklch(0.50 0.09 175)` | `oklch(0.72 0.085 175)` | Focus ring (matches brand) |
 
 ### Surface ladder
 
@@ -6051,8 +6285,8 @@ The depth system. Built from neutral-on-surface transparency so the same compone
 |---|---|---|---|
 | `--surface-hover` | `oklch(0 0 0 / 4%)` | `oklch(1 0 0 / 5%)` | Hover lift on rows, cells, list items |
 | `--surface-selected` | `oklch(0 0 0 / 6%)` | `oklch(1 0 0 / 8%)` | Selected/active row fill |
-| `--border` | `oklch(0.922 0 0)` | `oklch(1 0 0 / 9%)` | Default divider, list separators |
-| `--border-strong` | `oklch(0.85 0 0)` | `oklch(1 0 0 / 14%)` | Section breaks, emphasized edges |
+| `--border` | `oklch(0.91 0.004 75)` | `oklch(1 0 0 / 10%)` | Default divider, list separators |
+| `--border-strong` | `oklch(0.84 0.005 75)` | `oklch(1 0 0 / 16%)` | Section breaks, emphasized edges |
 
 Applied via Tailwind utilities: `bg-surface-hover`, `bg-surface-selected`, `border-border`, `border-strong`.
 
@@ -6060,10 +6294,10 @@ Applied via Tailwind utilities: `bg-surface-hover`, `bg-surface-selected`, `bord
 
 | Token | Light | Dark | Role |
 |---|---|---|---|
-| `--foreground` | `oklch(0.145 0 0)` | `oklch(0.96 0 0)` | Primary text |
-| `--muted-foreground` | `oklch(0.556 0 0)` | `oklch(0.62 0 0)` | Secondary text, labels |
-| `--text-secondary` | `oklch(0.556 0 0)` | `oklch(0.62 0 0)` | Same role as muted-foreground; available where you need a non-mapped utility |
-| `--text-tertiary` | `oklch(0.65 0 0)` | `oklch(0.45 0 0)` | Tertiary text — timestamps, helper hints, low-emphasis metadata |
+| `--foreground` | `oklch(0.15 0.004 75)` | `oklch(0.93 0.004 75)` | Primary text |
+| `--muted-foreground` | `oklch(0.46 0.008 75)` | `oklch(0.60 0.008 75)` | Secondary text, labels |
+| `--text-secondary` | `oklch(0.46 0.008 75)` | `oklch(0.60 0.008 75)` | Same role as muted-foreground; available where you need a non-mapped utility |
+| `--text-tertiary` | `oklch(0.60 0.006 75)` | `oklch(0.44 0.006 75)` | Tertiary text — timestamps, helper hints, low-emphasis metadata |
 
 Note the inversion: in light mode `--text-tertiary` is *lighter* than `--text-secondary` (closer to background = lower contrast); in dark mode it is *darker* (also closer to background). The visual hierarchy is the same — the OKLch numbers move opposite directions because the background does.
 
@@ -6075,12 +6309,12 @@ Reserved for state, never decoration. Use these tokens for any badge, dot, or ic
 
 | Token | Light | Dark | Use for |
 |---|---|---|---|
-| `--status-success` | `oklch(0.55 0.15 162.48)` | `oklch(0.72 0.17 162.48)` | Completed, ready, healthy |
-| `--status-warning` | `oklch(0.6 0.16 70.08)` | `oklch(0.8 0.18 70.08)` | Pending, blocked, attention needed |
-| `--status-error` | `oklch(0.55 0.18 22.216)` | `oklch(0.71 0.19 22.216)` | Failed, errored, missed |
-| `--status-info` | `oklch(0.5 0.18 250)` | `oklch(0.68 0.18 250)` | Queued, informational |
-| `--status-progress` | `oklch(0.5 0.18 290)` | `oklch(0.68 0.18 290)` | Actively executing, in flight |
-| `--status-neutral` | `oklch(0.5 0 0)` | `oklch(0.62 0 0)` | Inactive, archived, idle |
+| `--status-success` | `oklch(0.52 0.14 145)` | `oklch(0.68 0.13 145)` | Completed, ready, healthy (hue 145, distinct from brand 175) |
+| `--status-warning` | `oklch(0.60 0.15 70)` | `oklch(0.74 0.13 70)` | Pending, blocked, attention needed |
+| `--status-error` | `oklch(0.52 0.19 25)` | `oklch(0.66 0.17 25)` | Failed, errored, missed |
+| `--status-info` | `oklch(0.50 0.14 250)` | `oklch(0.65 0.13 250)` | Queued, informational |
+| `--status-progress` | `oklch(0.50 0.14 290)` | `oklch(0.65 0.13 290)` | Actively executing, in flight |
+| `--status-neutral` | `oklch(0.46 0.008 75)` | `oklch(0.58 0.008 75)` | Inactive, archived, idle |
 
 `--status-info` and `--status-progress` are intentionally distinct hues (blue and purple). The lifecycle of a daemon-driven record — agent commands, inbox items, source syncs — passes through queued (info) → claimed (warning) → executing (progress) → terminal (success or error). Collapsing queued and executing into one color erases meaningful information at a glance.
 
@@ -6092,30 +6326,49 @@ Used by tasks and any other module that ranks records by urgency. Aligned with s
 
 | Token | Light | Dark | Level |
 |---|---|---|---|
-| `--priority-urgent` | `oklch(0.55 0.18 22.216)` | `oklch(0.71 0.19 22.216)` | Urgent |
-| `--priority-high` | `oklch(0.6 0.16 55)` | `oklch(0.78 0.17 55)` | High |
-| `--priority-medium` | `oklch(0.65 0.15 90)` | `oklch(0.83 0.17 90)` | Medium |
-| `--priority-low` | `oklch(0.5 0.13 240)` | `oklch(0.68 0.12 240)` | Low |
+| `--priority-urgent` | `oklch(0.52 0.19 25)` | `oklch(0.66 0.17 25)` | Urgent |
+| `--priority-high` | `oklch(0.58 0.15 55)` | `oklch(0.72 0.13 55)` | High |
+| `--priority-medium` | `oklch(0.62 0.14 90)` | `oklch(0.76 0.12 90)` | Medium |
+| `--priority-low` | `oklch(0.50 0.12 240)` | `oklch(0.65 0.11 240)` | Low |
 
 Tailwind utilities: `text-priority-urgent`, `bg-priority-high/15`, etc.
 
 ### Chart palette
 
-Five distinct hues, OKLch-balanced so adjacent series stay readable side by side.
+Five distinct hues, OKLch-balanced so adjacent series stay readable side by side. `--chart-1` matches the brand color.
 
 | Token | Light | Dark |
 |---|---|---|
-| `--chart-1` | `oklch(0.646 0.222 41.116)` | `oklch(0.488 0.243 264.376)` |
-| `--chart-2` | `oklch(0.6 0.118 184.704)` | `oklch(0.696 0.17 162.48)` |
-| `--chart-3` | `oklch(0.398 0.07 227.392)` | `oklch(0.769 0.188 70.08)` |
-| `--chart-4` | `oklch(0.828 0.189 84.429)` | `oklch(0.627 0.265 303.9)` |
-| `--chart-5` | `oklch(0.769 0.188 70.08)` | `oklch(0.645 0.246 16.439)` |
+| `--chart-1` | `oklch(0.50 0.09 175)` | `oklch(0.72 0.085 175)` |
+| `--chart-2` | `oklch(0.55 0.12 145)` | `oklch(0.65 0.11 145)` |
+| `--chart-3` | `oklch(0.50 0.14 250)` | `oklch(0.62 0.12 250)` |
+| `--chart-4` | `oklch(0.60 0.14 70)` | `oklch(0.70 0.12 70)` |
+| `--chart-5` | `oklch(0.50 0.14 290)` | `oklch(0.62 0.12 290)` |
 
 Recharts wrapper at [`components/ui/chart.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/chart.tsx) consumes these.
 
+### Accent palette
+
+Twelve identity colors for category/tagging purposes — module badges, label dots, agent avatars, knowledge kinds. Never used for semantic state (use status tokens instead). Consumed via `text-accent-blue`, `bg-accent-purple/20`, etc.
+
+| Token | Light | Dark |
+|---|---|---|
+| `--accent-blue` | `oklch(0.50 0.14 250)` | `oklch(0.67 0.12 250)` |
+| `--accent-purple` | `oklch(0.50 0.14 300)` | `oklch(0.68 0.12 300)` |
+| `--accent-emerald` | `oklch(0.50 0.12 145)` | `oklch(0.67 0.11 145)` |
+| `--accent-cyan` | `oklch(0.50 0.10 220)` | `oklch(0.68 0.09 220)` |
+| `--accent-violet` | `oklch(0.50 0.14 290)` | `oklch(0.67 0.12 290)` |
+| `--accent-amber` | `oklch(0.58 0.13 70)` | `oklch(0.74 0.12 70)` |
+| `--accent-teal` | `oklch(0.50 0.10 195)` | `oklch(0.67 0.09 195)` |
+| `--accent-orange` | `oklch(0.56 0.13 45)` | `oklch(0.70 0.12 45)` |
+| `--accent-pink` | `oklch(0.52 0.14 350)` | `oklch(0.68 0.12 350)` |
+| `--accent-slate` | `oklch(0.44 0.01 260)` | `oklch(0.58 0.01 260)` |
+| `--accent-indigo` | `oklch(0.48 0.14 275)` | `oklch(0.65 0.12 275)` |
+| `--accent-sky` | `oklch(0.50 0.12 235)` | `oklch(0.68 0.10 235)` |
+
 ### Sidebar
 
-The shell sidebar has its own token group so it can sit slightly darker than the page background and still match the surface ladder.
+The shell sidebar has its own token group so it can sit slightly darker than the page background and still match the surface ladder. `--sidebar-primary` matches the brand color for active/highlighted items.
 
 `--sidebar`, `--sidebar-foreground`, `--sidebar-primary`, `--sidebar-primary-foreground`, `--sidebar-accent`, `--sidebar-accent-foreground`, `--sidebar-border`, `--sidebar-ring`. Defined in both themes. Consumed via Tailwind utilities `bg-sidebar`, `text-sidebar-foreground`, etc.
 
@@ -6220,6 +6473,8 @@ The animation library is [`tw-animate-css`](https://github.com/Wombosvideo/tw-an
 
 ## Theming
 
+### Light/Dark switching
+
 Theme switching is instant, class-driven, and does not animate. [`next-themes`](https://github.com/pacocoursey/next-themes) is wired up at the root layout with:
 
 ```tsx
@@ -6231,6 +6486,32 @@ The mechanism: `next-themes` toggles a `dark` class on ``. The `:root` declarati
 `disableTransitionOnChange` is on intentionally. We do not animate every element on the page when the user flips themes — it would be visually loud and slow. The flip is a single-frame swap.
 
 The toggle component lives at [`components/theme-toggle.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/theme-toggle.tsx) — a dropdown with Light / Dark / System and a Sun ↔ Moon icon transition.
+
+### User-customizable theme (Settings → Appearance)
+
+The theme system supports per-workspace customization at two tiers:
+
+**Simple tier** — covers 90% of use cases:
+- **Brand color** — a single OKLch color from which `--primary`, `--ring`, `--sidebar-primary`, and `--chart-1` are derived. Preset swatches + native color picker.
+- **Mode** — Light / Dark / System.
+- **Surface warmth** — controls the chroma on neutral surfaces (0 = cool gray, 0.008 = warm). Adjusts the warm tint at hue 75 across all surfaces.
+
+**Advanced tier** — expandable section for OSS users:
+- Override individual tokens: surfaces, semantic colors, the 12-accent palette, text colors, borders.
+- Each override has a "Reset to derived" button so users can selectively pin values while the rest auto-derive from the brand color.
+
+**Architecture:**
+- `lib/theme/types.ts` — `ThemeConfig`, `OklchColor`, `ThemeTokens` types.
+- `lib/theme/derive.ts` — `deriveLightTokens(brand, warmth)` and `deriveDarkTokens(brand, warmth)` generate all CSS variable values. Also provides `oklchToHex()` / `hexToOklch()` converters.
+- `components/theme-applier.tsx` — client component in the root layout, reads `workspace.settings.theme` from Supabase and injects a `` tag overriding CSS variables.
+- `app/dashboard/settings/appearance/page.tsx` — the settings UI.
+- Persistence: stored in the workspace `settings` JSON column under the `theme` key.
+
+**Rules for contributors:**
+- Never branch on `isDark` in component code — tokens handle it.
+- Never hardcode hex/rgb/hsl. Use Tailwind utilities that resolve to CSS variables.
+- If you add a new interactive element, use `bg-primary` / `text-primary` for the active state — it will automatically pick up whatever brand color the user has configured.
+- The derivation engine can be extended. To add a new derived token, update `deriveLightTokens()` and `deriveDarkTokens()` in `lib/theme/derive.ts`.
 
 ## Iconography
 
@@ -7394,6 +7675,559 @@ If you change `globals.css`, also update [foundations](/design/foundations) so t
 
 ---
 
+# API Reference
+
+Source: https://docs.yourhq.ai/reference/api
+
+> UI HTTP endpoints, Supabase RPCs, key table schemas, and authentication.
+
+HQ exposes two API surfaces: **HTTP endpoints** served by the Next.js UI, and **Supabase RPCs** you call directly against your Supabase project. Most day-to-day interaction happens through the dashboard, but both surfaces are available for scripting, integrations, and custom tooling.
+
+## Authentication
+
+All requests require authentication. The method depends on which surface you're calling.
+
+| Surface | Auth method | Header |
+|---|---|---|
+| UI HTTP endpoints | Supabase session cookie (browser) | Automatic via `sb-*` cookies |
+| Supabase client queries | Supabase anon key + JWT | `apikey` + `Authorization: Bearer ` |
+| Service-role operations | Supabase service-role key | `apikey` + `Authorization: Bearer ` |
+| Agent skill endpoints | Service-role key | `Authorization: Bearer ` |
+
+> 
+  The service-role key bypasses all RLS policies. Never expose it to browsers or client-side code. Use it only in server-side scripts and gateway daemons.
+
+---
+
+## UI HTTP Endpoints
+
+These are served by the Next.js app at your HQ URL (default `http://localhost:3000`).
+
+### Health and configuration
+
+  Returns server health status. No authentication required.
+
+```json
+{ "ok": true, "ts": "2026-05-18T12:00:00.000Z" }
+```
+
+  Returns the active workspace's public-safe configuration. No authentication required.
+
+```json
+{
+  "workspace": {
+    "workspaceId": "abc123",
+    "label": "My HQ",
+    "emoji": "🏢",
+    "url": "https://xyz.supabase.co",
+    "anonKey": "eyJ..."
+  }
+}
+```
+
+### Workspaces
+
+All workspace endpoints require an authenticated session.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/workspaces` | List all workspaces in the registry |
+| `POST` | `/api/workspaces` | Add a workspace to the registry |
+| `GET` | `/api/workspaces/switch` | Switch the active workspace |
+| `POST` | `/api/workspaces/validate` | Validate Supabase credentials before adding |
+
+**POST /api/workspaces** body:
+```json
+{
+  "label": "Production",
+  "emoji": "🚀",
+  "url": "https://xyz.supabase.co",
+  "anonKey": "eyJ...",
+  "serviceRoleKey": "eyJ...",
+  "makeDefault": true
+}
+```
+
+### Agent operations
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/agents/templates` | Session | List available agent templates |
+| `GET` | `/api/agents/[slug]/skills` | Service-role | Get agent's skills |
+| `POST` | `/api/agents/[slug]/skills` | Service-role | Create or update a skill |
+| `GET` | `/api/agents/[slug]/browser/screenshot` | Session | JPEG screenshot of agent's browser |
+| `GET` | `/api/agents/[slug]/browser/state` | Session | Agent browser state |
+| `GET` | `/api/agents/[slug]/files/[...path]` | Session | Read a file from the agent's sandbox |
+| `POST` | `/api/agents/[slug]/files` | Session | Upload a file to the agent's sandbox |
+
+**POST /api/agents/[slug]/skills** body:
+```json
+{
+  "title": "Research competitors",
+  "content": "# Steps\n1. Search for...",
+  "action": "create",
+  "reason": "Learned from user feedback"
+}
+```
+
+For updates, include `action: "update"` and `knowledge_item_id` of the existing skill.
+
+**GET /api/agents/[slug]/browser/screenshot** query params:
+- `quality` — JPEG quality, 1–100 (default: `50`)
+- `maxWidth` — Max pixel width (default: `1280`)
+
+### Data sources
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/sources/browse` | Browse items in a connected source |
+| `POST` | `/api/sources/validate` | Validate source connection credentials |
+| `GET` | `/api/sources/oauth/[provider]/start` | Start OAuth flow for a source provider |
+| `GET` | `/api/sources/oauth/[provider]/callback` | OAuth callback handler |
+
+### Embedding
+
+  Generate an embedding vector for a text input. Proxies to the embedder service.
+
+```json
+// Request
+{ "input": "quarterly revenue report" }
+
+// Response
+{ "embedding": [0.012, -0.034, ...] }
+```
+
+---
+
+## Supabase RPCs
+
+Call these directly against your Supabase project using the [Supabase client](https://supabase.com/docs/reference/javascript/rpc) or any Postgres client. All RPCs respect RLS unless marked `SECURITY DEFINER`.
+
+### Knowledge search
+
+The primary way to query the knowledge base programmatically.
+
+#### `search_knowledge_items`
+
+Vector similarity search across knowledge items.
+
+```typescript
+const { data } = await supabase.rpc('search_knowledge_items', {
+  query_embedding: embedding,  // vector(384)
+  match_count: 5,
+  filter_tags: ['sales'],      // optional
+  filter_folder_id: null,      // optional
+  filter_kind: 'page'          // optional: page, skill, file, source
+})
+```
+
+Returns: `id`, `title`, `kind`, `content`, `tags`, `folder_id`, `scope`, `updated_at`, `meta`, `source_connection_id`, `source_external_id`, `similarity`.
+
+#### `search_knowledge_items_text`
+
+Full-text search (no embedding needed).
+
+```typescript
+const { data } = await supabase.rpc('search_knowledge_items_text', {
+  query_text: 'quarterly report',
+  match_count: 10,
+  filter_tags: null,
+  filter_folder_id: null,
+  filter_kind: null
+})
+```
+
+#### `search_knowledge_chunks`
+
+Vector similarity search at the chunk level — useful for long documents where you want the most relevant passage.
+
+```typescript
+const { data } = await supabase.rpc('search_knowledge_chunks', {
+  query_embedding: embedding,
+  match_count: 10,
+  filter_tags: null,
+  filter_folder_id: null,
+  filter_source_type: null,
+  filter_source_id: null
+})
+```
+
+Returns: `knowledge_item_id`, `kind`, `title`, `tags`, `chunk_id`, `chunk_index`, `content`, `char_start`, `char_end`, `page_number`, `section_path`, `meta`, `similarity`.
+
+#### `search_knowledge_chunks_text`
+
+Full-text search at the chunk level.
+
+```typescript
+const { data } = await supabase.rpc('search_knowledge_chunks_text', {
+  query_text: 'revenue forecast',
+  match_count: 10
+})
+```
+
+### Command queue
+
+Used by the runner daemon. You can also use these to script agent operations.
+
+#### `lease_command`
+
+Atomically lease the next pending command for a gateway.
+
+```typescript
+const { data } = await supabase.rpc('lease_command', {
+  p_lease_seconds: 300,
+  p_gateway_slug: 'my-gateway'
+})
+```
+
+Returns the leased `agent_commands` row, or empty if no work is pending.
+
+#### `start_command` / `complete_command` / `fail_command`
+
+Transition a command through its lifecycle.
+
+```typescript
+await supabase.rpc('start_command', { p_command_id: id })
+
+await supabase.rpc('complete_command', {
+  p_command_id: id,
+  p_exit_code: 0,
+  p_stdout: 'Agent provisioned',
+  p_stderr: null
+})
+
+await supabase.rpc('fail_command', {
+  p_command_id: id,
+  p_exit_code: 1,
+  p_error: 'Template not found'
+})
+```
+
+### Agent inbox
+
+Used by the dispatcher daemon. These manage the work queue that wakes agents.
+
+#### `lease_inbox_item`
+
+Lease the next pending inbox item for an agent.
+
+```typescript
+const { data } = await supabase.rpc('lease_inbox_item', {
+  p_agent_id: agentId,
+  p_lease_seconds: 120
+})
+```
+
+#### `complete_inbox_item` / `fail_inbox_item`
+
+```typescript
+await supabase.rpc('complete_inbox_item', { p_item_id: id })
+
+await supabase.rpc('fail_inbox_item', {
+  p_item_id: id,
+  p_reason: 'Agent not responding'
+})
+```
+
+Failed items retry up to `max_attempts` (default 3), then move to `dead_letter`.
+
+### Routines
+
+#### `routine_next_occurrence`
+
+Compute the next fire time for a routine schedule.
+
+```typescript
+const { data } = await supabase.rpc('routine_next_occurrence', {
+  p_cadence_type: 'daily',
+  p_interval_n: 1,
+  p_days_of_week: [],
+  p_day_of_month: null,
+  p_time_of_day: '09:00',
+  p_timezone: 'America/New_York',
+  p_from: new Date().toISOString()
+})
+```
+
+#### `spawn_routine_schedule_items`
+
+Called by pg_cron every minute. Creates inbox items for routines that are due. You generally don't call this manually.
+
+### Agent hierarchy
+
+#### `agent_reports_chain`
+
+Walk the reporting chain for an agent.
+
+```typescript
+const { data } = await supabase.rpc('agent_reports_chain', {
+  p_agent_id: agentId,
+  p_max_depth: 5
+})
+// Returns: [{ depth, agent_id, slug, name }, ...]
+```
+
+### Gateway registration
+
+#### `consume_gateway_token`
+
+Atomic token exchange during gateway registration. `SECURITY DEFINER` — bypasses RLS.
+
+```typescript
+const { data } = await supabase.rpc('consume_gateway_token', {
+  p_token: 'abc123...',
+  p_label: 'US-East Gateway',
+  p_slug_hint: 'us-east',
+  p_tenant_id: '00000000-0000-0000-0000-000000000000'
+})
+// Returns: { gateway_id, gateway_slug }
+```
+
+### Task management
+
+#### `get_task_relations`
+
+Get all relations for a task (blockers, children, related tasks).
+
+```typescript
+const { data } = await supabase.rpc('get_task_relations', {
+  p_task_id: taskId
+})
+```
+
+#### `get_agent_daily_usage`
+
+Get an agent's LLM usage for a date range.
+
+```typescript
+const { data } = await supabase.rpc('get_agent_daily_usage', {
+  p_agent_id: agentId,
+  p_start_date: '2026-05-01',
+  p_end_date: '2026-05-18'
+})
+```
+
+### Embedding pipeline
+
+These are used internally by the embedder daemon.
+
+| RPC | Purpose |
+|---|---|
+| `lease_knowledge_items_for_indexing(p_gateway_slug, p_limit, p_lease_seconds)` | Lease items pending embedding |
+| `mark_knowledge_item_indexed(p_item_id, p_embedding, p_model, p_dimensions, p_source_hash)` | Mark item as indexed |
+| `mark_knowledge_item_failed(p_item_id, p_error)` | Mark item as failed |
+
+---
+
+## Key Table Schemas
+
+These are the tables you'll query most often when building integrations. Full schema is in [Database schema](/reference/database-schema); migration source is in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations).
+
+### agents
+
+```sql
+agents (
+  id             uuid PRIMARY KEY,
+  tenant_id      uuid NOT NULL,
+  gateway_id     uuid,
+  name           text NOT NULL,
+  slug           text NOT NULL UNIQUE(tenant_id, slug),
+  description    text,
+  avatar_url     text,
+  status         agent_status,    -- ready, paused, error, provisioning, hibernating
+  last_seen_at   timestamptz,
+  model          text,
+  thinking       text,
+  reports_to_id  uuid,            -- org-chart parent
+  domains        text[],
+  capabilities   text[],
+  config         jsonb,
+  meta           jsonb
+)
+```
+
+### tasks
+
+```sql
+tasks (
+  id                 uuid PRIMARY KEY,
+  tenant_id          uuid NOT NULL,
+  title              text NOT NULL,
+  description        text,
+  status             task_status,   -- todo, in_progress, blocked, done, cancelled, missed
+  priority           task_priority, -- low, medium, high, urgent
+  stream_id          uuid,
+  parent_id          uuid,
+  assignee_type      actor_type,    -- human, agent, system
+  assignee_agent_id  uuid,
+  due_date           timestamptz,
+  due_at             timestamptz,
+  completed_at       timestamptz,
+  contact_id         uuid,
+  org_id             uuid,
+  tags               text[],
+  sort_order         integer,
+  archived_at        timestamptz
+)
+```
+
+### knowledge_items
+
+```sql
+knowledge_items (
+  id                   uuid PRIMARY KEY,
+  tenant_id            uuid NOT NULL,
+  folder_id            uuid,
+  kind                 text,          -- page, skill, file, source
+  title                text NOT NULL,
+  content              jsonb,
+  plain_text           text,
+  scope                text,          -- workspace, agent
+  tags                 text[],
+  pinned               boolean,
+  embedding            vector(384),
+  embedding_status     text,          -- pending, indexed, failed
+  chunk_status         text,          -- pending, indexed, failed
+  processing_status    text,          -- ready, processing, done, failed
+  source_connection_id uuid,
+  source_external_id   text,
+  source_sync_status   text           -- synced, stale, error, source_deleted
+)
+```
+
+### agent_commands
+
+```sql
+agent_commands (
+  id            uuid PRIMARY KEY,
+  tenant_id     uuid NOT NULL,
+  agent_id      uuid,
+  agent_slug    text,
+  gateway_id    uuid NOT NULL,
+  action        command_action,  -- provision, update, remove, start_session, ...
+  payload       jsonb,
+  status        command_status,  -- pending, leased, running, done, failed, cancelled
+  exit_code     integer,
+  stdout        text,
+  stderr        text,
+  error_message text,
+  requested_by  uuid
+)
+```
+
+### routines
+
+```sql
+routines (
+  id            uuid PRIMARY KEY,
+  tenant_id     uuid NOT NULL,
+  agent_id      uuid NOT NULL,
+  agent_slug    text NOT NULL,
+  name          text NOT NULL,
+  instruction   text,
+  trigger_type  text,            -- schedule, event
+  is_active     boolean,
+  cadence_type  text,            -- every_n_minutes, daily, weekdays, weekly, monthly, ...
+  interval_n    integer,
+  days_of_week  smallint[],
+  time_of_day   time,
+  timezone      text,
+  next_run_at   timestamptz,
+  entity_type   text,            -- contact, collection_record, knowledge_item, task
+  field         text,
+  condition     text,            -- created, changed_to, changed_from, any_change
+  value         text
+)
+```
+
+---
+
+## Enum Reference
+
+Enums used across the schema. Useful when filtering queries or building integrations.
+
+| Enum | Values |
+|---|---|
+| `agent_status` | `ready`, `paused`, `error`, `provisioning`, `hibernating` |
+| `task_status` | `todo`, `in_progress`, `blocked`, `done`, `cancelled`, `missed` |
+| `task_priority` | `low`, `medium`, `high`, `urgent` |
+| `command_status` | `pending`, `leased`, `running`, `done`, `failed`, `cancelled` |
+| `command_action` | `provision`, `update`, `remove`, `start_session`, `end_session`, `restart_session`, `execute_prompt`, `send_message`, `run_shell`, `upload_file`, `auth_set_api_key`, `auth_start`, `auth_paste`, `set_agent_model`, `source_write`, and [others](/reference/command-actions) |
+| `inbox_event_type` | `task_assignment`, `task_reassignment`, `task_comment_mention`, `routine_schedule`, `routine_event`, `heartbeat`, `deliverable_review`, `blocker_resolved` |
+| `inbox_item_status` | `pending`, `leased`, `done`, `dead_letter`, `failed` |
+| `task_relation_type` | `blocks`, `blocked_by`, `relates_to`, `parent_of`, `child_of` |
+| `work_product_status` | `draft`, `in_review`, `approved`, `revision_requested`, `rejected` |
+| `actor_type` | `human`, `agent`, `system` |
+| `gateway_status` | `provisioning`, `ready`, `error`, `hibernating` |
+| `plugin_source` | `builtin`, `local`, `webhook`, `marketplace` |
+
+---
+
+## Common Query Patterns
+
+### List all agents on a gateway
+
+```typescript
+const { data } = await supabase
+  .from('agents')
+  .select('id, name, slug, status, last_seen_at, model')
+  .eq('gateway_id', gatewayId)
+  .order('name')
+```
+
+### Get open tasks for an agent
+
+```typescript
+const { data } = await supabase
+  .from('tasks')
+  .select('id, title, status, priority, due_date')
+  .eq('assignee_agent_id', agentId)
+  .in('status', ['todo', 'in_progress', 'blocked'])
+  .order('priority', { ascending: false })
+```
+
+### Create a command (trigger an agent action)
+
+```typescript
+const { data } = await supabase
+  .from('agent_commands')
+  .insert({
+    agent_id: agentId,
+    agent_slug: 'my-agent',
+    gateway_id: gatewayId,
+    action: 'execute_prompt',
+    payload: { prompt: 'Summarize today\'s news' },
+    status: 'pending'
+  })
+  .select()
+  .single()
+```
+
+The runner daemon will pick this up, execute it, and update `status`, `stdout`, and `exit_code`.
+
+### Search knowledge by text
+
+```typescript
+const { data } = await supabase.rpc('search_knowledge_items_text', {
+  query_text: 'onboarding checklist',
+  match_count: 5,
+  filter_kind: 'page'
+})
+```
+
+### Get an agent's usage this month
+
+```typescript
+const { data } = await supabase
+  .from('agent_usage')
+  .select('model, input_tokens, output_tokens, cost_usd, created_at')
+  .eq('agent_id', agentId)
+  .gte('created_at', '2026-05-01')
+  .order('created_at', { ascending: false })
+```
+
+---
+
 # Configuration
 
 Source: https://docs.yourhq.ai/reference/configuration
@@ -7445,7 +8279,7 @@ Use (1) only as an override — e.g. a remote gateway that must always point at 
 
 - **`EMBEDDER_URL`** — Optional. Defaults to `http://embedder:18801` inside Compose. Agent scripts use this local HTTP endpoint for query/document embeddings.
 
-- **`EMBEDDER_MODEL`** — Optional. Defaults to `BAAI/bge-small-en-v1.5`. The gateway-profile embedder service downloads/loads this local FastEmbed model on boot and uses it for knowledge vector search.
+- **`EMBEDDER_MODEL`** — Optional. Defaults to `BAAI/bge-small-en-v1.5`. The default model (~45 MB) is pre-loaded in the embedder Docker image for instant startup. Override with any [fastembed-compatible model name](https://qdrant.github.io/fastembed/examples/Supported_Models/) — non-default models download on first boot and are cached in the `gateway-embedding-cache` volume for subsequent restarts.
 
 - **`EMBEDDER_CHUNK_CHARS`**, **`EMBEDDER_CHUNK_OVERLAP`**, **`EMBEDDER_MAX_CHUNKS`** — Optional. Defaults to `3500`, `500`, and `500`. These tune the source-agnostic knowledge chunker used for documents now and future file/external-source indexing.
 
@@ -7602,6 +8436,28 @@ These variables control how user-managed secrets (channel tokens, API keys, OAut
 - **`SOURCE_SYNC_POLL_INTERVAL`** — **Optional**. Default `60`. Seconds between source-sync poll cycles (checks `source_connections` for connections due for sync). Not secrets-specific but relevant because source sync now reads OAuth tokens from the secrets filesystem.
 
 Self-hosted deployments do not need `HOSTED_SECRETS_KEY` — the encryption key is automatically derived from `SUPABASE_SERVICE_ROLE_KEY` via HKDF-SHA256 (salt: `yourhq-secrets-v1`, info: `aes-256-gcm`, 32 bytes). This means rotating your service role key requires re-encrypting all secrets.
+
+### 2.12 Hosted-only observability (Sentry + PostHog)
+
+These services are **only active in the hosted offering** (`DEPLOYMENT_MODE=hosted`). Self-hosted deployments never load the Sentry or PostHog SDKs, never send telemetry, and never need these variables. If you're self-hosting, skip this section entirely.
+
+**Sentry (error tracking):**
+
+- **`NEXT_PUBLIC_SENTRY_DSN`** — **Hosted only**. Empty. The Sentry DSN used by the UI (client, server, and edge runtimes). Gated on `DEPLOYMENT_MODE=hosted` + `NODE_ENV=production` — absent or empty means no Sentry code runs.
+- **`SENTRY_DSN`** — **Hosted only**. Empty. The Sentry DSN used by the worker and passed to E2B gateway sandboxes. Same DSN value as above, but not prefixed with `NEXT_PUBLIC_` because these runtimes don't need Next.js client bundling.
+- **`SENTRY_AUTH_TOKEN`** — **Hosted only, build-time (Vercel)**. A Sentry personal API token with `project:releases` and `org:read` scopes. Used by `@sentry/nextjs` during the Next.js build to upload source maps. Not needed at runtime.
+- **`SENTRY_ORG`** — **Hosted only, build-time (Vercel)**. The Sentry org slug.
+- **`SENTRY_PROJECT`** — **Hosted only, build-time (Vercel)**. The Sentry project slug.
+
+Gateway daemons (Python) use `SENTRY_DSN` and additionally require `RUNTIME_MODE` to be `hosted` or `e2b` before initializing Sentry. Self-hosted gateways (`RUNTIME_MODE=docker`) never activate Sentry even if a DSN is present.
+
+**PostHog (product analytics):**
+
+- **`NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`** — **Hosted only**. Empty. PostHog project API key for the UI client.
+- **`NEXT_PUBLIC_POSTHOG_HOST`** — **Hosted only**. Default `https://us.i.posthog.com`. PostHog ingest endpoint.
+- **`POSTHOG_API_KEY`** — **Hosted only**. Empty. Server-side PostHog API key for the worker.
+
+Like Sentry, PostHog is gated on `DEPLOYMENT_MODE=hosted`. No analytics code runs in self-hosted installs.
 
 ---
 
@@ -8145,7 +9001,7 @@ HQ's default Compose stack has seven services that work together. The UI runs on
   
 
   - **embedder**: 
-    **Knowledge indexing daemon.** Runs FastEmbed locally, starts downloading/loading the BGE model on boot, serves `/embed` inside Docker, and indexes pending knowledge items into searchable knowledge chunks.
+    **Knowledge indexing daemon.** Runs FastEmbed locally with the BGE embedding model pre-loaded in the image. Indexes pending knowledge items into searchable knowledge chunks. Override the model via `EMBEDDER_MODEL` env var — non-default models download on first boot.
   
 
   - **file-processor**: 
@@ -9822,6 +10678,100 @@ HQ collects no telemetry. The self-hosted stack never phones home. The only netw
 - Dependency updates: npm, PyPI, apt
 
 No user data, telemetry, or usage metrics flow to a YourHQ server. There isn't one.
+
+---
+
+# Privacy and Telemetry
+
+Source: https://docs.yourhq.ai/security/privacy
+
+> What HQ collects, what it doesn't, and how your data stays yours.
+
+## Self-hosted: zero telemetry
+
+The self-hosted HQ stack **does not phone home**. There is no analytics endpoint, no crash reporter, no usage beacon, and no license check server. Your install never contacts a YourHQ-operated server.
+
+The only network calls your HQ instance makes are:
+
+| Destination | When | Why |
+|---|---|---|
+| Your Supabase project | Always | Required — all data lives here |
+| Tailscale control plane | If you enable Tailscale | Managed by Tailscale, not HQ |
+| OpenClaw services | Agent model auth, plugin updates | Managed by OpenClaw |
+| GHCR (`ghcr.io`) | `docker compose pull` | Image downloads |
+| `get.docker.com` | Installer only | Docker install script (upstream) |
+| `tailscale.com/install.sh` | Installer only | Tailscale install script (upstream) |
+| npm, PyPI, apt | Build/dev only | Dependency resolution |
+
+No user data, workspace content, agent activity, or usage metrics flow to YourHQ or any third party.
+
+## Hosted: what we collect
+
+If you use the hosted offering at [app.yourhq.ai](https://app.yourhq.ai), the control plane stores operational data needed to provision and manage your workspace. See the [hosted trust model](/security/security-policy#hosted-trust-model) for full details.
+
+**Stored in the control-plane database:**
+- Your email address and display name
+- Stripe customer and subscription IDs
+- Your workspace's Supabase project reference, URL, and anon key (not secret — same data your browser uses)
+- Encrypted service-role key and database password (ChaCha20-Poly1305)
+- E2B sandbox ID, status, and access URLs
+- Provisioning progress and setup metadata
+
+**Not stored or accessed:**
+- Your Supabase data (contacts, tasks, knowledge, agent data)
+- Agent session content or outputs
+- noVNC/remote desktop session data
+- LLM prompts or responses
+
+**Observability (hosted only):**
+- **Sentry** — error tracking for the UI (client/server/edge), worker, and Python gateway daemons. Captures stack traces and error metadata. Never active in self-hosted installs.
+- **PostHog** — product analytics for the hosted dashboard. Captures page views and UI interactions. Never active in self-hosted installs.
+
+Both are gated on `RUNTIME_MODE=hosted` — self-hosted installs have no Sentry DSN and no PostHog key, so these SDKs are inert.
+
+## Data residency
+
+**Self-hosted:** your data lives wherever you put it. Your Supabase project, your gateway host, your choice of region.
+
+**Hosted:** each workspace gets a dedicated Supabase project (currently US regions via Supabase Cloud). Gateway sandboxes run on E2B infrastructure. We do not currently offer region selection for hosted workspaces — if this matters to you, self-host.
+
+## Data retention and deletion
+
+**Self-hosted:** you control retention. HQ doesn't auto-delete anything. The database grows with your usage. Back up regularly (see [Operations](/self-host/operations#backing-up)).
+
+**Hosted:** when you cancel a workspace, the sandbox is paused immediately (no compute charges). After 30 days:
+
+1. The E2B sandbox is permanently destroyed
+2. The Supabase project is permanently deleted
+3. All encrypted credentials are cleared from the control-plane database
+
+Both deletions must succeed before the workspace is marked as fully canceled. If either fails, a cleanup loop retries every 6 hours.
+
+To request immediate deletion of your account and all associated data, email **privacy@yourhq.ai**.
+
+## Cookies and local storage
+
+The HQ dashboard uses:
+
+| Item | Purpose | Scope |
+|---|---|---|
+| Supabase auth cookies (`sb-*`) | Session authentication | Your Supabase project domain |
+| `workspace` (localStorage) | Active workspace ID | Your HQ domain |
+| Theme preferences (localStorage) | UI appearance settings | Your HQ domain |
+
+No third-party tracking cookies. No advertising pixels. No cross-site tracking.
+
+## GDPR and data subject rights
+
+HQ is infrastructure software — *you* are the data controller for any personal data stored in your workspace (contacts, CRM records, etc.). HQ is the processor only in the hosted offering.
+
+**Self-hosted:** you have full database access. Export, modify, or delete any data directly in Supabase.
+
+**Hosted:** to exercise data subject rights (access, rectification, erasure, portability), email **privacy@yourhq.ai** with your workspace ID. We'll respond within 30 days.
+
+## Questions
+
+For privacy questions, contact **privacy@yourhq.ai**. For security vulnerabilities, see [Security policy](/security/security-policy).
 
 ---
 
