@@ -1,30 +1,74 @@
 // Gateway-backed file operations. The UI server makes authenticated HTTP
-// requests directly to the gateway's files-API process (never across the
-// public internet — the connection is inside the Docker network, or
-// across a Tailscale tailnet, depending on deployment).
+// requests to the gateway's files-API process.
+//
+// Resolution order for the gateway URL:
+//   1. GATEWAY_URL env var (self-hosted Docker deployments)
+//   2. gateways.meta.reachable_urls.files_api from the DB (hosted / E2B)
+//
+// Auth token resolution:
+//   1. /config/gateway-auth-token file or GATEWAY_AUTH_TOKEN env (self-hosted)
+//   2. gateways.meta.files_api_token from the DB (hosted / E2B)
 
 import type { GitHubTreeEntry, GitHubFileContent } from "@/lib/agent-repo/types";
 import type { BrowserState } from "@/lib/agent-repo/browser-types";
 import { getOrCreateGatewayAuthToken } from "@/lib/workspaces/gateway-auth-token";
+import { createAdminClient } from "@/lib/supabase/admin";
 
-async function getEnv() {
-  const base = process.env.GATEWAY_URL;
-  if (!base) {
-    throw new Error("GATEWAY_URL is not configured");
+async function getEnv(gatewayId?: string) {
+  // Self-hosted: env var takes precedence
+  const envBase = process.env.GATEWAY_URL;
+  if (envBase) {
+    const token = await getOrCreateGatewayAuthToken();
+    return { base: envBase.replace(/\/$/, ""), token };
   }
-  // Token is auto-managed: pulled from /config/gateway-auth-token,
-  // generated there on first boot. Falls back to GATEWAY_AUTH_TOKEN
-  // env var for legacy installs that wrote it to .env directly.
-  const token = await getOrCreateGatewayAuthToken();
+
+  // Hosted: look up from the gateway's meta in the DB
+  if (!gatewayId) {
+    throw new Error(
+      "GATEWAY_URL is not configured and no gatewayId was provided to look up dynamically",
+    );
+  }
+
+  const supabase = await createAdminClient();
+  const { data, error } = await supabase
+    .from("gateways")
+    .select("meta")
+    .eq("id", gatewayId)
+    .maybeSingle();
+
+  if (error || !data) {
+    throw new Error(`Gateway ${gatewayId} not found`);
+  }
+
+  const meta = (data.meta ?? {}) as {
+    reachable_urls?: { files_api?: string };
+    files_api_token?: string;
+  };
+
+  const base = meta.reachable_urls?.files_api;
+  const token = meta.files_api_token;
+
+  if (!base) {
+    throw new Error(
+      `Gateway ${gatewayId} has no files_api URL configured`,
+    );
+  }
+  if (!token) {
+    throw new Error(
+      `Gateway ${gatewayId} has no files_api_token configured`,
+    );
+  }
+
   return { base: base.replace(/\/$/, ""), token };
 }
 
 async function request<T>(
   method: "GET" | "PUT" | "POST" | "DELETE",
   path: string,
-  body?: unknown
+  body?: unknown,
+  gatewayId?: string,
 ): Promise<T> {
-  const { base, token } = await getEnv();
+  const { base, token } = await getEnv(gatewayId);
   const res = await fetch(`${base}${path}`, {
     method,
     headers: {
@@ -58,20 +102,25 @@ function encodeBranch(branch: string): string {
   return encodeURIComponent(branch);
 }
 
-export async function getFileTree(branch: string): Promise<GitHubTreeEntry[]> {
+export async function getFileTree(branch: string, gatewayId?: string): Promise<GitHubTreeEntry[]> {
   return request<GitHubTreeEntry[]>(
     "GET",
-    `/branches/${encodeBranch(branch)}/tree`
+    `/branches/${encodeBranch(branch)}/tree`,
+    undefined,
+    gatewayId,
   );
 }
 
 export async function getFileContent(
   branch: string,
-  path: string
+  path: string,
+  gatewayId?: string,
 ): Promise<GitHubFileContent> {
   const data = await request<{ path: string; content: string; sha: string }>(
     "GET",
-    `/branches/${encodeBranch(branch)}/files/${path}`
+    `/branches/${encodeBranch(branch)}/files/${path}`,
+    undefined,
+    gatewayId,
   );
   return { path: data.path, content: data.content, sha: data.sha };
 }
@@ -81,11 +130,13 @@ export async function saveFile(
   path: string,
   content: string,
   sha: string,
+  gatewayId?: string,
 ): Promise<string> {
   const data = await request<{ path: string; sha: string }>(
     "PUT",
     `/branches/${encodeBranch(branch)}/files/${path}`,
-    { content, sha }
+    { content, sha },
+    gatewayId,
   );
   return data.sha;
 }
@@ -94,11 +145,13 @@ export async function createFile(
   branch: string,
   path: string,
   content: string,
+  gatewayId?: string,
 ): Promise<string> {
   const data = await request<{ path: string; sha: string }>(
     "POST",
     `/branches/${encodeBranch(branch)}/files/${path}`,
-    { content }
+    { content },
+    gatewayId,
   );
   return data.sha;
 }
@@ -107,20 +160,19 @@ export async function deleteFile(
   branch: string,
   path: string,
   sha: string,
+  gatewayId?: string,
 ): Promise<void> {
   await request<{ ok: true }>(
     "DELETE",
     `/branches/${encodeBranch(branch)}/files/${path}`,
-    { sha }
+    { sha },
+    gatewayId,
   );
 }
 
-// Branch existence / creation: add-agent.sh handles branch creation at
-// provision time. The UI shouldn't need to create branches directly;
-// these exist to keep route signatures stable.
-export async function branchExists(branch: string): Promise<boolean> {
+export async function branchExists(branch: string, gatewayId?: string): Promise<boolean> {
   try {
-    await getFileTree(branch);
+    await getFileTree(branch, gatewayId);
     return true;
   } catch (e) {
     if ((e as { status?: number }).status === 404) return false;
@@ -138,15 +190,16 @@ export async function createBranch(): Promise<void> {
 
 // ── Browser / CDP ─────────────────────────────────────────────────────
 
-export async function getBrowserState(slug: string): Promise<BrowserState> {
-  return request<BrowserState>("GET", `/browser/${encodeURIComponent(slug)}/state`);
+export async function getBrowserState(slug: string, gatewayId?: string): Promise<BrowserState> {
+  return request<BrowserState>("GET", `/browser/${encodeURIComponent(slug)}/state`, undefined, gatewayId);
 }
 
 export async function getBrowserScreenshot(
   slug: string,
-  opts?: { quality?: number; maxWidth?: number }
+  opts?: { quality?: number; maxWidth?: number },
+  gatewayId?: string,
 ): Promise<Response> {
-  const { base, token } = await getEnv();
+  const { base, token } = await getEnv(gatewayId);
   const params = new URLSearchParams();
   if (opts?.quality) params.set("quality", String(opts.quality));
   if (opts?.maxWidth) params.set("maxWidth", String(opts.maxWidth));

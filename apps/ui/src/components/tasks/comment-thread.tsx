@@ -89,15 +89,22 @@ function CommentAttachments({
 
 function ActorAvatar({ comment }: { comment: Comment }) {
   const isAgent = comment.actor_type === "agent";
+  const emoji = isAgent ? (comment.actor_agent?.meta?.emoji as string | undefined) : undefined;
 
   if (isAgent && comment.actor_agent?.avatar_url) {
     return (
       <Avatar size="sm">
         <AvatarImage src={comment.actor_agent.avatar_url} alt={comment.actor_agent.name} />
-        <AvatarFallback>
-          <Bot className="h-3 w-3" />
-        </AvatarFallback>
+        <AvatarFallback>{emoji || <Bot className="h-3 w-3" />}</AvatarFallback>
       </Avatar>
+    );
+  }
+
+  if (isAgent && emoji) {
+    return (
+      <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0 text-sm">
+        {emoji}
+      </div>
     );
   }
 
@@ -144,7 +151,7 @@ function CommentItem({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 text-xs">
-            <span className={`font-medium ${isAgent ? "text-purple-400" : ""}`}>
+            <span className={`font-medium ${isAgent ? "text-accent-purple" : ""}`}>
               {actorName}
             </span>
             <span className="text-muted-foreground">
@@ -176,7 +183,7 @@ function CommentItem({
                     {onDelete && (
                       <DropdownMenuItem
                         onClick={() => setConfirmDelete(true)}
-                        className="gap-2 text-xs text-red-400 focus:text-red-400"
+                        className="gap-2 text-xs text-destructive focus:text-destructive"
                       >
                         <Trash2 className="h-3 w-3" />
                         Delete

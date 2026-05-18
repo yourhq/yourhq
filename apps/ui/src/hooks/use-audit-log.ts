@@ -14,7 +14,13 @@ function useAuditLogCore(opts: {
   actorFilter: string;
   actionFilter: string;
 }) {
-  const { entityFilter, moduleFilter, actorFilter, actionFilter } = opts;
+  const { moduleFilter, actorFilter, actionFilter } = opts;
+  const entityType = opts.entityFilter?.entity_type;
+  const entityId = opts.entityFilter?.entity_id;
+  const entityFilter = useMemo(
+    () => (entityType && entityId ? { entity_type: entityType, entity_id: entityId } : undefined),
+    [entityType, entityId]
+  );
 
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,7 +33,7 @@ function useAuditLogCore(opts: {
 
     let query = supabase
       .from("audit_log")
-      .select("*, actor_agent:agents!audit_log_actor_agent_id_fkey(id, name, slug, avatar_url)")
+      .select("*, actor_agent:agents!audit_log_actor_agent_id_fkey(id, name, slug, avatar_url, meta)")
       .order("created_at", { ascending: false })
       .range(offset, offset + PAGE_SIZE - 1);
 
@@ -90,7 +96,7 @@ function useAuditLogCore(opts: {
 
       const { data, error } = await supabase
         .from("audit_log")
-        .select("*, actor_agent:agents!audit_log_actor_agent_id_fkey(id, name, slug, avatar_url)")
+        .select("*, actor_agent:agents!audit_log_actor_agent_id_fkey(id, name, slug, avatar_url, meta)")
         .eq("id", id)
         .single();
 

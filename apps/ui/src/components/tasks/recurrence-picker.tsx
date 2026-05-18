@@ -111,9 +111,7 @@ export function RecurrencePicker({ value, onChange, timezone }: RecurrencePicker
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className={cn(
-                    "inline-flex h-6 items-center gap-1 rounded-md border border-border/50 bg-transparent px-2 text-xs font-normal transition-colors hover:bg-accent"
-                  )}
+                  className="inline-flex h-7 items-center gap-1.5 rounded-md bg-transparent px-2 text-xs font-normal transition-colors hover:bg-accent"
                 >
                   <Repeat
                     className={cn(
@@ -246,7 +244,7 @@ export function RecurrencePicker({ value, onChange, timezone }: RecurrencePicker
             <PopoverTrigger asChild>
               <button
                 type="button"
-                className="inline-flex h-6 items-center gap-1 rounded-md border border-border/50 bg-transparent px-2 text-xs font-normal transition-colors hover:bg-accent"
+                className="inline-flex h-7 items-center gap-1.5 rounded-md bg-transparent px-2 text-xs font-normal transition-colors hover:bg-accent"
               >
                 <Clock className="h-3 w-3 text-muted-foreground" />
                 <span>{formatTimeOfDay(value.timeOfDay)}</span>

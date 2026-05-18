@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Sparkles, AlertCircle, Check, ArrowRight, Mail } from "lucide-react";
 import { hostedLoginAction } from "./actions";
 import { cn } from "@/lib/utils";
+import { trackEvent, identifyUser } from "@/lib/analytics";
 
 export function LoginForm({ mode }: { mode: "oss" | "hosted" }) {
   const [email, setEmail] = useState("");
@@ -26,6 +27,7 @@ export function LoginForm({ mode }: { mode: "oss" | "hosted" }) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    trackEvent("login_submitted", { mode: "oss" });
 
     let supabase;
     try {
@@ -41,11 +43,14 @@ export function LoginForm({ mode }: { mode: "oss" | "hosted" }) {
     });
 
     if (error) {
+      trackEvent("login_failed", { mode: "oss", error: error.message });
       setError(error.message);
       setLoading(false);
       return;
     }
 
+    identifyUser(email, { email });
+    trackEvent("login_succeeded", { mode: "oss" });
     router.push("/dashboard");
     router.refresh();
   }
@@ -54,14 +59,17 @@ export function LoginForm({ mode }: { mode: "oss" | "hosted" }) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    trackEvent("login_submitted", { mode: "hosted" });
 
     const result = await hostedLoginAction(email);
     if (!result.ok) {
+      trackEvent("login_failed", { mode: "hosted", error: result.error });
       setError(result.error ?? "Something went wrong.");
       setLoading(false);
       return;
     }
 
+    trackEvent("magic_link_sent", { email });
     setMagicLinkSent(true);
     setLoading(false);
   }
@@ -71,7 +79,7 @@ export function LoginForm({ mode }: { mode: "oss" | "hosted" }) {
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
         <div className="w-full max-w-[400px]">
           <div className="mb-8 flex flex-col items-center gap-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-500/10 text-green-600">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-status-success/10 text-status-success">
               <Mail className="h-[18px] w-[18px]" />
             </div>
             <div className="text-center space-y-1">
@@ -87,8 +95,8 @@ export function LoginForm({ mode }: { mode: "oss" | "hosted" }) {
 
           <div className="rounded-xl border border-border/60 bg-card p-6 shadow-sm">
             <div className="space-y-4 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-500/10">
-                <Check className="h-5 w-5 text-green-600" />
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-status-success/10">
+                <Check className="h-5 w-5 text-status-success" />
               </div>
               <div className="space-y-1.5">
                 <p className="text-[13px] text-foreground">

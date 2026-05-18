@@ -29,21 +29,34 @@ export function AgentBrowserTab({ slug }: AgentBrowserTabProps) {
   const [paused, setPaused] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
 
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const errorCountRef = useRef(0);
   const prevBlobRef = useRef<string | null>(null);
-  const visibleRef = useRef(true);
   const mountedRef = useRef(true);
+  const pausedRef = useRef(false);
+  const fetchingRef = useRef(false);
 
   const stopPolling = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
     }
   }, []);
 
+  const scheduleNext = useCallback(() => {
+    if (timerRef.current) return;
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
+      void fetchFrame();
+    }, POLL_INTERVAL_MS);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Use a ref-stable fetch so the polling loop never tears down on re-render
   const fetchFrame = useCallback(async () => {
-    if (!visibleRef.current || !mountedRef.current) return;
+    if (!mountedRef.current || pausedRef.current || fetchingRef.current) return;
+    fetchingRef.current = true;
+
     try {
       const [stateRes, imgRes] = await Promise.all([
         fetch(`/api/agents/${slug}/browser/state`),
@@ -76,67 +89,69 @@ export function AgentBrowserTab({ slug }: AgentBrowserTabProps) {
       setError(null);
       setLoading(false);
       errorCountRef.current = 0;
+
+      if (!pausedRef.current) scheduleNext();
     } catch (e) {
       errorCountRef.current += 1;
       if (errorCountRef.current >= MAX_CONSECUTIVE_ERRORS) {
         setError(e instanceof Error ? e.message : "Connection lost");
         setLoading(false);
         stopPolling();
+      } else if (!pausedRef.current) {
+        scheduleNext();
       }
+    } finally {
+      fetchingRef.current = false;
     }
-  }, [slug, stopPolling]);
-
-  const startPolling = useCallback(() => {
-    if (intervalRef.current) return;
-    errorCountRef.current = 0;
-    intervalRef.current = setInterval(fetchFrame, POLL_INTERVAL_MS);
-  }, [fetchFrame]);
+  }, [slug, scheduleNext, stopPolling]);
 
   const handleRefresh = useCallback(() => {
     setError(null);
     setLoading(true);
     errorCountRef.current = 0;
-    fetchFrame();
-    if (!paused) startPolling();
-  }, [fetchFrame, paused, startPolling]);
+    stopPolling();
+    void fetchFrame();
+  }, [fetchFrame, stopPolling]);
 
   const togglePause = useCallback(() => {
     setPaused((prev) => {
-      if (prev) {
-        startPolling();
-      } else {
+      const next = !prev;
+      pausedRef.current = next;
+      if (next) {
         stopPolling();
+      } else {
+        errorCountRef.current = 0;
+        void fetchFrame();
       }
-      return !prev;
+      return next;
     });
-  }, [startPolling, stopPolling]);
+  }, [fetchFrame, stopPolling]);
 
+  // Single mount/unmount effect — no dependency on fetchFrame/startPolling
   useEffect(() => {
     mountedRef.current = true;
-    fetchFrame();
-    startPolling();
+    pausedRef.current = false;
+    void fetchFrame();
+
+    const onVisibility = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else if (!pausedRef.current && errorCountRef.current < MAX_CONSECUTIVE_ERRORS) {
+        void fetchFrame();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
     return () => {
       mountedRef.current = false;
       stopPolling();
+      document.removeEventListener("visibilitychange", onVisibility);
       if (prevBlobRef.current) {
         URL.revokeObjectURL(prevBlobRef.current);
       }
     };
-  }, [fetchFrame, startPolling, stopPolling]);
-
-  useEffect(() => {
-    const onVisibility = () => {
-      if (document.hidden) {
-        visibleRef.current = false;
-        stopPolling();
-      } else {
-        visibleRef.current = true;
-        if (!paused && !error) startPolling();
-      }
-    };
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, [paused, error, startPolling, stopPolling]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug]);
 
   useEffect(() => {
     if (!fullscreen) return;
@@ -162,15 +177,13 @@ export function AgentBrowserTab({ slug }: AgentBrowserTabProps) {
     >
       {/* ── Address bar ──────────────────────────────────────── */}
       <div className="flex h-9 shrink-0 items-center gap-1.5 border-b border-border/60 px-3">
-        {/* Live indicator */}
         <div className="relative flex h-4 w-4 shrink-0 items-center justify-center">
           <Globe className="h-3.5 w-3.5 text-muted-foreground" />
           {isStreaming && (
-            <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-status-success" />
           )}
         </div>
 
-        {/* URL display */}
         <div className="min-w-0 flex-1 rounded-md bg-muted/50 px-2.5 py-1">
           {currentUrl ? (
             <span className="block truncate text-[11px] font-mono text-foreground/80">
@@ -183,14 +196,12 @@ export function AgentBrowserTab({ slug }: AgentBrowserTabProps) {
           )}
         </div>
 
-        {/* Tab count */}
         {tabs.length > 1 && (
           <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
             {tabs.length}
           </span>
         )}
 
-        {/* Controls */}
         <div className="flex shrink-0 items-center">
           <Button
             variant="ghost"
@@ -268,7 +279,7 @@ export function AgentBrowserTab({ slug }: AgentBrowserTabProps) {
             </div>
           </div>
         ) : screenshotUrl ? (
-          <div className="flex h-full items-center justify-center bg-neutral-950/[0.02] p-3 dark:bg-neutral-950/30">
+          <div className="flex h-full items-center justify-center bg-foreground/[0.02] p-3 dark:bg-foreground/5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={screenshotUrl}
@@ -285,7 +296,6 @@ export function AgentBrowserTab({ slug }: AgentBrowserTabProps) {
           </div>
         )}
 
-        {/* Paused overlay badge */}
         {paused && screenshotUrl && (
           <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-md bg-background/90 px-2 py-1 shadow-sm ring-1 ring-border/50 backdrop-blur-sm">
             <Pause className="h-3 w-3 text-muted-foreground" />

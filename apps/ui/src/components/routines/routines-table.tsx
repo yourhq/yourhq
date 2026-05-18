@@ -122,8 +122,8 @@ export function RoutinesTable({
         const agent = row.original.agent;
         return (
           <div className="flex items-center gap-1.5">
-            <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center shrink-0">
-              <Bot className="h-3 w-3 text-muted-foreground" />
+            <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center shrink-0 text-sm">
+              {(agent?.meta?.emoji as string) || <Bot className="h-3 w-3 text-muted-foreground" />}
             </div>
             <span className="text-xs text-muted-foreground truncate">
               {agent?.name ?? row.original.agent_slug}
@@ -291,7 +291,7 @@ export function RoutinesTable({
                 </p>
                 <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
                   <span className="flex items-center gap-1">
-                    <Bot className="h-3 w-3" />
+                    {(r.agent?.meta?.emoji as string) || <Bot className="h-3 w-3" />}
                     {r.agent?.name ?? r.agent_slug}
                   </span>
                   {r.last_run_at && (

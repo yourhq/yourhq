@@ -1,11 +1,8 @@
 // Parser for `openclaw models status --json --probe` stdout.
 //
-// The CLI's exact JSON shape isn't fully documented; we only know the
-// keys we've observed (auth.providers, auth.oauth) and the reason codes
-// (`ok`, `expired`, `missing_credential`, `invalid_expires`, etc.). This
-// parser is intentionally lenient — unknown fields are ignored, missing
-// fields fall back to `unknown` status. If openclaw's shape changes we
-// surface "Unknown" rather than crashing the page.
+// Lenient by design: any profile that exists and doesn't have a
+// known-bad reason is treated as "ok". This avoids false negatives
+// when openclaw's JSON uses status strings we haven't mapped yet.
 
 import type { Connection, ConnectionStatus } from "./types";
 
@@ -20,13 +17,17 @@ interface RawProfile {
   isDefault?: boolean;
 }
 
-const REASON_TO_STATUS: Record<string, ConnectionStatus> = {
-  ok: "ok",
+// Known-bad reasons — anything not listed here is treated as "ok"
+// since the profile existing at all means a credential was stored.
+const BAD_REASON_TO_STATUS: Record<string, ConnectionStatus> = {
   expired: "expired",
   missing_credential: "missing_credential",
   invalid_expires: "invalid",
   unresolved_ref: "missing_credential",
-  // Add as we observe more reasons.
+  invalid: "invalid",
+  error: "invalid",
+  failed: "invalid",
+  not_configured: "missing_credential",
 };
 
 export function parseModelsStatus(
@@ -56,9 +57,8 @@ export function parseModelsStatus(
     if (!provider) return;
     const id = raw.profileId ?? `${provider}:${profileName}`;
 
-    const reason = raw.reason ?? raw.status ?? "unknown";
-    let status: ConnectionStatus =
-      REASON_TO_STATUS[reason] ?? (reason === "ok" ? "ok" : "unknown");
+    const reason = raw.reason ?? raw.status ?? "";
+    let status: ConnectionStatus = BAD_REASON_TO_STATUS[reason] ?? "ok";
 
     let expiresAt: string | undefined = raw.expiresAt;
     if (typeof raw.expires === "number" && raw.expires > 0) {

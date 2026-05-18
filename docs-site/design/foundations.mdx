@@ -24,22 +24,24 @@ All colors use the **OKLch** color space — perceptually uniform lightness, so 
 
 ### Base palette
 
+All neutral surfaces carry a subtle warm chroma (`0.004–0.006`) at hue 75, giving backgrounds a warm paper quality rather than clinical gray. The `--primary` token IS the brand color (Pine teal `#1F7A6E` by default), so all components using `bg-primary` automatically render in the brand color. Workspace admins can customize the brand via Settings → Appearance.
+
 | Token | Light (`:root`) | Dark (`.dark`) | Used for |
 |---|---|---|---|
-| `--background` | `oklch(1 0 0)` | `oklch(0.13 0 0)` | Page background |
-| `--foreground` | `oklch(0.145 0 0)` | `oklch(0.96 0 0)` | Primary text |
-| `--card` | `oklch(1 0 0)` | `oklch(0.16 0 0)` | Card surface |
-| `--popover` | `oklch(1 0 0)` | `oklch(0.19 0 0)` | Floating surfaces (menus, tooltips) |
-| `--primary` | `oklch(0.205 0 0)` | `oklch(0.96 0 0)` | Primary action background |
-| `--primary-foreground` | `oklch(0.985 0 0)` | `oklch(0.13 0 0)` | Text on primary |
-| `--secondary` | `oklch(0.97 0 0)` | `oklch(0.2 0 0)` | Secondary action background |
-| `--muted` | `oklch(0.97 0 0)` | `oklch(0.18 0 0)` | Subdued surface |
-| `--muted-foreground` | `oklch(0.556 0 0)` | `oklch(0.62 0 0)` | Secondary text, labels |
-| `--accent` | `oklch(0.97 0 0)` | `oklch(0.22 0 0)` | Hover and selected fills on lists |
-| `--destructive` | `oklch(0.577 0.245 27.325)` | `oklch(0.704 0.191 22.216)` | Destructive actions |
-| `--border` | `oklch(0.922 0 0)` | `oklch(1 0 0 / 9%)` | Default 1px divider |
-| `--input` | `oklch(0.922 0 0)` | `oklch(1 0 0 / 10%)` | Input border |
-| `--ring` | `oklch(0.708 0 0)` | `oklch(0.65 0 0)` | Focus ring |
+| `--background` | `oklch(0.98 0.003 75)` | `oklch(0.14 0.005 75)` | Page background — warm paper / warm charcoal |
+| `--foreground` | `oklch(0.15 0.004 75)` | `oklch(0.93 0.004 75)` | Primary text — warm near-black / warm off-white |
+| `--card` | `oklch(1 0 0)` | `oklch(0.17 0.005 75)` | Card surface |
+| `--popover` | `oklch(1 0 0)` | `oklch(0.19 0.005 75)` | Floating surfaces (menus, tooltips) |
+| `--primary` | `oklch(0.50 0.09 175)` | `oklch(0.72 0.085 175)` | Brand — Pine teal for buttons, links, active states |
+| `--primary-foreground` | `oklch(1 0 0)` | `oklch(0.14 0.005 75)` | Text on primary |
+| `--secondary` | `oklch(0.955 0.004 75)` | `oklch(0.21 0.005 75)` | Secondary action background |
+| `--muted` | `oklch(0.96 0.004 75)` | `oklch(0.20 0.005 75)` | Subdued surface |
+| `--muted-foreground` | `oklch(0.46 0.008 75)` | `oklch(0.60 0.008 75)` | Secondary text, labels |
+| `--accent` | `oklch(0.95 0.005 75)` | `oklch(0.22 0.006 75)` | Hover and selected fills on lists |
+| `--destructive` | `oklch(0.55 0.20 25)` | `oklch(0.65 0.18 25)` | Destructive actions |
+| `--border` | `oklch(0.91 0.004 75)` | `oklch(1 0 0 / 10%)` | Default 1px divider |
+| `--input` | `oklch(0.91 0.004 75)` | `oklch(1 0 0 / 10%)` | Input border |
+| `--ring` | `oklch(0.50 0.09 175)` | `oklch(0.72 0.085 175)` | Focus ring (matches brand) |
 
 ### Surface ladder
 
@@ -49,8 +51,8 @@ The depth system. Built from neutral-on-surface transparency so the same compone
 |---|---|---|---|
 | `--surface-hover` | `oklch(0 0 0 / 4%)` | `oklch(1 0 0 / 5%)` | Hover lift on rows, cells, list items |
 | `--surface-selected` | `oklch(0 0 0 / 6%)` | `oklch(1 0 0 / 8%)` | Selected/active row fill |
-| `--border` | `oklch(0.922 0 0)` | `oklch(1 0 0 / 9%)` | Default divider, list separators |
-| `--border-strong` | `oklch(0.85 0 0)` | `oklch(1 0 0 / 14%)` | Section breaks, emphasized edges |
+| `--border` | `oklch(0.91 0.004 75)` | `oklch(1 0 0 / 10%)` | Default divider, list separators |
+| `--border-strong` | `oklch(0.84 0.005 75)` | `oklch(1 0 0 / 16%)` | Section breaks, emphasized edges |
 
 Applied via Tailwind utilities: `bg-surface-hover`, `bg-surface-selected`, `border-border`, `border-strong`.
 
@@ -58,10 +60,10 @@ Applied via Tailwind utilities: `bg-surface-hover`, `bg-surface-selected`, `bord
 
 | Token | Light | Dark | Role |
 |---|---|---|---|
-| `--foreground` | `oklch(0.145 0 0)` | `oklch(0.96 0 0)` | Primary text |
-| `--muted-foreground` | `oklch(0.556 0 0)` | `oklch(0.62 0 0)` | Secondary text, labels |
-| `--text-secondary` | `oklch(0.556 0 0)` | `oklch(0.62 0 0)` | Same role as muted-foreground; available where you need a non-mapped utility |
-| `--text-tertiary` | `oklch(0.65 0 0)` | `oklch(0.45 0 0)` | Tertiary text — timestamps, helper hints, low-emphasis metadata |
+| `--foreground` | `oklch(0.15 0.004 75)` | `oklch(0.93 0.004 75)` | Primary text |
+| `--muted-foreground` | `oklch(0.46 0.008 75)` | `oklch(0.60 0.008 75)` | Secondary text, labels |
+| `--text-secondary` | `oklch(0.46 0.008 75)` | `oklch(0.60 0.008 75)` | Same role as muted-foreground; available where you need a non-mapped utility |
+| `--text-tertiary` | `oklch(0.60 0.006 75)` | `oklch(0.44 0.006 75)` | Tertiary text — timestamps, helper hints, low-emphasis metadata |
 
 Note the inversion: in light mode `--text-tertiary` is *lighter* than `--text-secondary` (closer to background = lower contrast); in dark mode it is *darker* (also closer to background). The visual hierarchy is the same — the OKLch numbers move opposite directions because the background does.
 
@@ -73,12 +75,12 @@ Reserved for state, never decoration. Use these tokens for any badge, dot, or ic
 
 | Token | Light | Dark | Use for |
 |---|---|---|---|
-| `--status-success` | `oklch(0.55 0.15 162.48)` | `oklch(0.72 0.17 162.48)` | Completed, ready, healthy |
-| `--status-warning` | `oklch(0.6 0.16 70.08)` | `oklch(0.8 0.18 70.08)` | Pending, blocked, attention needed |
-| `--status-error` | `oklch(0.55 0.18 22.216)` | `oklch(0.71 0.19 22.216)` | Failed, errored, missed |
-| `--status-info` | `oklch(0.5 0.18 250)` | `oklch(0.68 0.18 250)` | Queued, informational |
-| `--status-progress` | `oklch(0.5 0.18 290)` | `oklch(0.68 0.18 290)` | Actively executing, in flight |
-| `--status-neutral` | `oklch(0.5 0 0)` | `oklch(0.62 0 0)` | Inactive, archived, idle |
+| `--status-success` | `oklch(0.52 0.14 145)` | `oklch(0.68 0.13 145)` | Completed, ready, healthy (hue 145, distinct from brand 175) |
+| `--status-warning` | `oklch(0.60 0.15 70)` | `oklch(0.74 0.13 70)` | Pending, blocked, attention needed |
+| `--status-error` | `oklch(0.52 0.19 25)` | `oklch(0.66 0.17 25)` | Failed, errored, missed |
+| `--status-info` | `oklch(0.50 0.14 250)` | `oklch(0.65 0.13 250)` | Queued, informational |
+| `--status-progress` | `oklch(0.50 0.14 290)` | `oklch(0.65 0.13 290)` | Actively executing, in flight |
+| `--status-neutral` | `oklch(0.46 0.008 75)` | `oklch(0.58 0.008 75)` | Inactive, archived, idle |
 
 `--status-info` and `--status-progress` are intentionally distinct hues (blue and purple). The lifecycle of a daemon-driven record — agent commands, inbox items, source syncs — passes through queued (info) → claimed (warning) → executing (progress) → terminal (success or error). Collapsing queued and executing into one color erases meaningful information at a glance.
 
@@ -90,30 +92,49 @@ Used by tasks and any other module that ranks records by urgency. Aligned with s
 
 | Token | Light | Dark | Level |
 |---|---|---|---|
-| `--priority-urgent` | `oklch(0.55 0.18 22.216)` | `oklch(0.71 0.19 22.216)` | Urgent |
-| `--priority-high` | `oklch(0.6 0.16 55)` | `oklch(0.78 0.17 55)` | High |
-| `--priority-medium` | `oklch(0.65 0.15 90)` | `oklch(0.83 0.17 90)` | Medium |
-| `--priority-low` | `oklch(0.5 0.13 240)` | `oklch(0.68 0.12 240)` | Low |
+| `--priority-urgent` | `oklch(0.52 0.19 25)` | `oklch(0.66 0.17 25)` | Urgent |
+| `--priority-high` | `oklch(0.58 0.15 55)` | `oklch(0.72 0.13 55)` | High |
+| `--priority-medium` | `oklch(0.62 0.14 90)` | `oklch(0.76 0.12 90)` | Medium |
+| `--priority-low` | `oklch(0.50 0.12 240)` | `oklch(0.65 0.11 240)` | Low |
 
 Tailwind utilities: `text-priority-urgent`, `bg-priority-high/15`, etc.
 
 ### Chart palette
 
-Five distinct hues, OKLch-balanced so adjacent series stay readable side by side.
+Five distinct hues, OKLch-balanced so adjacent series stay readable side by side. `--chart-1` matches the brand color.
 
 | Token | Light | Dark |
 |---|---|---|
-| `--chart-1` | `oklch(0.646 0.222 41.116)` | `oklch(0.488 0.243 264.376)` |
-| `--chart-2` | `oklch(0.6 0.118 184.704)` | `oklch(0.696 0.17 162.48)` |
-| `--chart-3` | `oklch(0.398 0.07 227.392)` | `oklch(0.769 0.188 70.08)` |
-| `--chart-4` | `oklch(0.828 0.189 84.429)` | `oklch(0.627 0.265 303.9)` |
-| `--chart-5` | `oklch(0.769 0.188 70.08)` | `oklch(0.645 0.246 16.439)` |
+| `--chart-1` | `oklch(0.50 0.09 175)` | `oklch(0.72 0.085 175)` |
+| `--chart-2` | `oklch(0.55 0.12 145)` | `oklch(0.65 0.11 145)` |
+| `--chart-3` | `oklch(0.50 0.14 250)` | `oklch(0.62 0.12 250)` |
+| `--chart-4` | `oklch(0.60 0.14 70)` | `oklch(0.70 0.12 70)` |
+| `--chart-5` | `oklch(0.50 0.14 290)` | `oklch(0.62 0.12 290)` |
 
 Recharts wrapper at [`components/ui/chart.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/ui/chart.tsx) consumes these.
 
+### Accent palette
+
+Twelve identity colors for category/tagging purposes — module badges, label dots, agent avatars, knowledge kinds. Never used for semantic state (use status tokens instead). Consumed via `text-accent-blue`, `bg-accent-purple/20`, etc.
+
+| Token | Light | Dark |
+|---|---|---|
+| `--accent-blue` | `oklch(0.50 0.14 250)` | `oklch(0.67 0.12 250)` |
+| `--accent-purple` | `oklch(0.50 0.14 300)` | `oklch(0.68 0.12 300)` |
+| `--accent-emerald` | `oklch(0.50 0.12 145)` | `oklch(0.67 0.11 145)` |
+| `--accent-cyan` | `oklch(0.50 0.10 220)` | `oklch(0.68 0.09 220)` |
+| `--accent-violet` | `oklch(0.50 0.14 290)` | `oklch(0.67 0.12 290)` |
+| `--accent-amber` | `oklch(0.58 0.13 70)` | `oklch(0.74 0.12 70)` |
+| `--accent-teal` | `oklch(0.50 0.10 195)` | `oklch(0.67 0.09 195)` |
+| `--accent-orange` | `oklch(0.56 0.13 45)` | `oklch(0.70 0.12 45)` |
+| `--accent-pink` | `oklch(0.52 0.14 350)` | `oklch(0.68 0.12 350)` |
+| `--accent-slate` | `oklch(0.44 0.01 260)` | `oklch(0.58 0.01 260)` |
+| `--accent-indigo` | `oklch(0.48 0.14 275)` | `oklch(0.65 0.12 275)` |
+| `--accent-sky` | `oklch(0.50 0.12 235)` | `oklch(0.68 0.10 235)` |
+
 ### Sidebar
 
-The shell sidebar has its own token group so it can sit slightly darker than the page background and still match the surface ladder.
+The shell sidebar has its own token group so it can sit slightly darker than the page background and still match the surface ladder. `--sidebar-primary` matches the brand color for active/highlighted items.
 
 `--sidebar`, `--sidebar-foreground`, `--sidebar-primary`, `--sidebar-primary-foreground`, `--sidebar-accent`, `--sidebar-accent-foreground`, `--sidebar-border`, `--sidebar-ring`. Defined in both themes. Consumed via Tailwind utilities `bg-sidebar`, `text-sidebar-foreground`, etc.
 
@@ -218,6 +239,8 @@ The animation library is [`tw-animate-css`](https://github.com/Wombosvideo/tw-an
 
 ## Theming
 
+### Light/Dark switching
+
 Theme switching is instant, class-driven, and does not animate. [`next-themes`](https://github.com/pacocoursey/next-themes) is wired up at the root layout with:
 
 ```tsx
@@ -234,6 +257,32 @@ The mechanism: `next-themes` toggles a `dark` class on `<html>`. The `:root` dec
 `disableTransitionOnChange` is on intentionally. We do not animate every element on the page when the user flips themes — it would be visually loud and slow. The flip is a single-frame swap.
 
 The toggle component lives at [`components/theme-toggle.tsx`](https://github.com/yourhq/yourhq/blob/main/apps/ui/src/components/theme-toggle.tsx) — a dropdown with Light / Dark / System and a Sun ↔ Moon icon transition.
+
+### User-customizable theme (Settings → Appearance)
+
+The theme system supports per-workspace customization at two tiers:
+
+**Simple tier** — covers 90% of use cases:
+- **Brand color** — a single OKLch color from which `--primary`, `--ring`, `--sidebar-primary`, and `--chart-1` are derived. Preset swatches + native color picker.
+- **Mode** — Light / Dark / System.
+- **Surface warmth** — controls the chroma on neutral surfaces (0 = cool gray, 0.008 = warm). Adjusts the warm tint at hue 75 across all surfaces.
+
+**Advanced tier** — expandable section for OSS users:
+- Override individual tokens: surfaces, semantic colors, the 12-accent palette, text colors, borders.
+- Each override has a "Reset to derived" button so users can selectively pin values while the rest auto-derive from the brand color.
+
+**Architecture:**
+- `lib/theme/types.ts` — `ThemeConfig`, `OklchColor`, `ThemeTokens` types.
+- `lib/theme/derive.ts` — `deriveLightTokens(brand, warmth)` and `deriveDarkTokens(brand, warmth)` generate all CSS variable values. Also provides `oklchToHex()` / `hexToOklch()` converters.
+- `components/theme-applier.tsx` — client component in the root layout, reads `workspace.settings.theme` from Supabase and injects a `<style>` tag overriding CSS variables.
+- `app/dashboard/settings/appearance/page.tsx` — the settings UI.
+- Persistence: stored in the workspace `settings` JSON column under the `theme` key.
+
+**Rules for contributors:**
+- Never branch on `isDark` in component code — tokens handle it.
+- Never hardcode hex/rgb/hsl. Use Tailwind utilities that resolve to CSS variables.
+- If you add a new interactive element, use `bg-primary` / `text-primary` for the active state — it will automatically pick up whatever brand color the user has configured.
+- The derivation engine can be extended. To add a new derived token, update `deriveLightTokens()` and `deriveDarkTokens()` in `lib/theme/derive.ts`.
 
 ## Iconography
 

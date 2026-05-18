@@ -45,6 +45,7 @@ export interface StepProviderProps {
   validated: boolean;
   validationError?: string | null;
   isHosted?: boolean;
+  collectOnly?: boolean;
 }
 
 type OAuthPhase =
@@ -66,6 +67,7 @@ export function StepProvider({
   validated,
   validationError,
   isHosted,
+  collectOnly,
 }: StepProviderProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState("");
@@ -89,12 +91,13 @@ export function StepProvider({
   const isLocal = selectedEntry?.authShape === "local_url";
   const isOAuth = selectedEntry && OAUTH_PROVIDERS.has(selectedEntry.id);
 
-  const canSubmit =
-    selected &&
-    !isOAuth &&
-    (isLocal || apiKey.trim().length > 5) &&
-    !validating &&
-    !pending;
+  const canSubmit = collectOnly
+    ? selected && (isOAuth || isLocal || apiKey.trim().length > 5) && !pending
+    : selected &&
+      !isOAuth &&
+      (isLocal || apiKey.trim().length > 5) &&
+      !validating &&
+      !pending;
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -232,7 +235,7 @@ export function StepProvider({
             </div>
           )}
           {isSelected && oauthPhase.kind === "done" && (
-            <div className="flex h-4 w-4 items-center justify-center rounded-full bg-green-600 text-white shrink-0">
+            <div className="flex h-4 w-4 items-center justify-center rounded-full bg-status-success text-white shrink-0">
               <Check className="h-2.5 w-2.5" strokeWidth={3} />
             </div>
           )}
@@ -273,13 +276,13 @@ export function StepProvider({
                 Get an API key →
               </a>
             )}
-            {validationError && (
+            {!collectOnly && validationError && (
               <p className="text-[12px] text-destructive animate-in fade-in duration-150">
                 {validationError}
               </p>
             )}
-            {validated && (
-              <p className="flex items-center gap-1.5 text-[12px] text-green-600 animate-in fade-in duration-200">
+            {!collectOnly && validated && (
+              <p className="flex items-center gap-1.5 text-[12px] text-status-success animate-in fade-in duration-200">
                 <Check className="h-3 w-3" />
                 Connected
               </p>
@@ -301,8 +304,17 @@ export function StepProvider({
           </div>
         )}
 
+        {/* OAuth provider — collect-only deferred message */}
+        {isSelected && providerIsOAuth && collectOnly && (
+          <div className="px-4 pb-3 pt-2.5 animate-in fade-in slide-in-from-top-1 duration-150">
+            <p className="text-[12px] text-muted-foreground">
+              You&apos;ll sign in with {p.displayName} once your workspace is set up.
+            </p>
+          </div>
+        )}
+
         {/* OAuth provider — inline interactive flow */}
-        {isSelected && providerIsOAuth && (
+        {isSelected && providerIsOAuth && !collectOnly && (
           <div className="px-4 pb-3 pt-2.5 animate-in fade-in slide-in-from-top-1 duration-150">
             {oauthPhase.kind === "idle" && (
               <div className="space-y-3">
@@ -362,7 +374,7 @@ export function StepProvider({
                           className="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border/60 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                           title="Copy URL"
                         >
-                          {copied === "url" ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                          {copied === "url" ? <CheckCircle2 className="h-3.5 w-3.5 text-status-success" /> : <Copy className="h-3.5 w-3.5" />}
                         </button>
                         <a
                           href={oauthPhase.state.url}
@@ -390,7 +402,7 @@ export function StepProvider({
                             onClick={() => copyToClipboard(oauthPhase.state.stage !== "starting" ? ((oauthPhase.state as { verificationCode?: string }).verificationCode ?? "") : "", "code")}
                             className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                           >
-                            {copied === "code" ? <CheckCircle2 className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                            {copied === "code" ? <CheckCircle2 className="h-3 w-3 text-status-success" /> : <Copy className="h-3 w-3" />}
                             {copied === "code" ? "Copied" : "Copy"}
                           </button>
                         </div>
@@ -440,7 +452,7 @@ export function StepProvider({
                 )}
 
                 {oauthPhase.state.stage === "completed" && (
-                  <div className="flex items-center gap-2 rounded-lg border border-green-500/40 bg-green-500/5 px-3 py-2 text-[12px] text-green-400">
+                  <div className="flex items-center gap-2 rounded-lg border border-status-success/40 bg-status-success/5 px-3 py-2 text-[12px] text-status-success">
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     Signed in. Saving credential…
                   </div>
@@ -462,7 +474,7 @@ export function StepProvider({
 
             {oauthPhase.kind === "done" && (
               <div className="space-y-2">
-                <p className="flex items-center gap-1.5 text-[12px] text-green-600 animate-in fade-in duration-200">
+                <p className="flex items-center gap-1.5 text-[12px] text-status-success animate-in fade-in duration-200">
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   {p.displayName} connected
                 </p>
@@ -483,10 +495,12 @@ export function StepProvider({
         <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight">
           Connect an AI provider
         </h1>
-        <p className="max-w-[44ch] text-[14px] leading-relaxed text-muted-foreground">
-          {isHosted
-            ? "Your API key is stored securely in your private workspace. You can connect more providers later in Settings."
-            : "Your API key stays on your gateway. HQ never sees or stores it. You can connect more providers later in Settings."}
+        <p className="max-w-[48ch] text-[14px] leading-relaxed text-muted-foreground">
+          Your employees need an AI brain to think with. Pick a provider and
+          add your key — {isHosted
+            ? "it’s stored securely in your private workspace."
+            : "it stays on your gateway and HQ never sees it."}{" "}
+          You can connect more later in Settings.
         </p>
       </div>
 
@@ -529,7 +543,7 @@ export function StepProvider({
       </div>
 
       <div className="flex items-center gap-3 pt-2">
-        {oauthPhase.kind === "done" ? (
+        {!collectOnly && oauthPhase.kind === "done" ? (
           <button
             type="button"
             onClick={handleOAuthContinue}

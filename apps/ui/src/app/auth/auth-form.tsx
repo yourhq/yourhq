@@ -117,8 +117,8 @@ export function AuthForm() {
       <div className="flex min-h-svh items-center justify-center bg-background p-4">
         <div className="w-full max-w-sm">
           <div className="flex flex-col items-center text-center">
-            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-500/20">
-              <Mail className="h-6 w-6 text-emerald-500" />
+            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-status-success/10 ring-1 ring-status-success/20">
+              <Mail className="h-6 w-6 text-status-success" />
             </div>
 
             <h1 className="text-xl font-semibold tracking-tight text-foreground">
@@ -131,8 +131,8 @@ export function AuthForm() {
 
             <div className="mt-8 w-full rounded-xl border border-border/50 bg-muted/30 px-6 py-5">
               <div className="flex flex-col items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/10">
-                  <Check className="h-4 w-4 text-emerald-500" />
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-status-success/10">
+                  <Check className="h-4 w-4 text-status-success" />
                 </div>
                 <p className="text-sm font-medium text-foreground">
                   Click the link in your email to sign in
@@ -244,7 +244,7 @@ export function AuthForm() {
               className={cn(
                 "block h-11 w-full rounded-lg border border-border/50 bg-muted/20 px-4 text-sm text-foreground outline-none transition-all",
                 "placeholder:text-muted-foreground/40",
-                "focus:border-foreground/30 focus:bg-muted/30 focus:ring-2 focus:ring-foreground/5",
+                "focus:border-primary/40 focus:bg-muted/30 focus:ring-2 focus:ring-primary/10",
                 "disabled:cursor-not-allowed disabled:opacity-50",
               )}
             />
@@ -261,7 +261,7 @@ export function AuthForm() {
               disabled={loading}
               className={cn(
                 "flex h-11 w-full items-center justify-center gap-2 rounded-lg text-sm font-medium transition-all",
-                "bg-foreground text-background",
+                "bg-primary text-primary-foreground",
                 "hover:opacity-90 active:scale-[0.98]",
                 loading && "cursor-wait opacity-60",
               )}

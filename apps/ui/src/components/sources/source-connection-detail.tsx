@@ -487,28 +487,28 @@ function SyncStatusIndicator({ status }: { status: string | null }) {
   switch (status) {
     case "synced":
       return (
-        <span className="flex items-center gap-1 text-[11px] text-green-400">
+        <span className="flex items-center gap-1 text-[11px] text-status-success">
           <CheckCircle2 className="h-3 w-3" />
           Synced
         </span>
       );
     case "stale":
       return (
-        <span className="flex items-center gap-1 text-[11px] text-yellow-400">
+        <span className="flex items-center gap-1 text-[11px] text-status-warning">
           <Clock className="h-3 w-3" />
           Pending sync
         </span>
       );
     case "error":
       return (
-        <span className="flex items-center gap-1 text-[11px] text-red-400">
+        <span className="flex items-center gap-1 text-[11px] text-status-error">
           <XCircle className="h-3 w-3" />
           Sync failed
         </span>
       );
     case "source_deleted":
       return (
-        <span className="flex items-center gap-1 text-[11px] text-red-400">
+        <span className="flex items-center gap-1 text-[11px] text-status-error">
           <AlertTriangle className="h-3 w-3" />
           Deleted in source
         </span>
@@ -539,9 +539,9 @@ function HistoryTab({ runs }: { runs: SourceSyncRun[] }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               {run.status === "done" ? (
-                <CheckCircle2 className="h-3.5 w-3.5 text-green-400 shrink-0" />
+                <CheckCircle2 className="h-3.5 w-3.5 text-status-success shrink-0" />
               ) : run.status === "failed" ? (
-                <XCircle className="h-3.5 w-3.5 text-red-400 shrink-0" />
+                <XCircle className="h-3.5 w-3.5 text-status-error shrink-0" />
               ) : (
                 <RefreshCw className="h-3.5 w-3.5 text-muted-foreground animate-spin shrink-0" />
               )}

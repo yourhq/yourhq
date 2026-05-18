@@ -7,7 +7,9 @@ import { E2BSandboxProvider } from "./providers/e2b.js";
 import { startTimeoutRenewer } from "./loops/timeout-renewer.js";
 import { startCleanupLoop } from "./loops/cleanup.js";
 import { startProvisioningRetryLoop } from "./loops/provisioning-retry.js";
+import { startSandboxHealthLoop } from "./loops/sandbox-health.js";
 import { validateWorkerEnv } from "./lib/env.js";
+import { shutdownAnalytics } from "./lib/analytics.js";
 
 validateWorkerEnv();
 const app = new Hono();
@@ -27,6 +29,7 @@ const sandboxProvider = new E2BSandboxProvider();
 startTimeoutRenewer(sandboxProvider);
 startCleanupLoop(sandboxProvider);
 startProvisioningRetryLoop(sandboxProvider);
+startSandboxHealthLoop(sandboxProvider);
 
 const port = Number(process.env.PORT ?? 3001);
 console.log(`[worker] Starting on port ${port}`);
@@ -35,4 +38,13 @@ import { serve } from "@hono/node-server";
 
 serve({ fetch: app.fetch, port }, () => {
   console.log(`[worker] Listening on http://localhost:${port}`);
+});
+
+process.on("SIGTERM", async () => {
+  await shutdownAnalytics();
+  process.exit(0);
+});
+process.on("SIGINT", async () => {
+  await shutdownAnalytics();
+  process.exit(0);
 });

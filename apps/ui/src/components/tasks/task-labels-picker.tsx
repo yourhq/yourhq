@@ -64,9 +64,9 @@ export function TaskLabelsPicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className="h-8 sm:h-6 flex items-center gap-1 border border-border/50 bg-transparent px-2.5 sm:px-2 text-xs font-normal hover:bg-accent rounded-md transition-colors">
+        <button className="h-7 flex items-center gap-1.5 bg-transparent px-2 text-xs font-normal hover:bg-accent rounded-md transition-colors">
           {selectedLabels.length > 0 ? (
-            <div className="flex items-center gap-1 max-w-[140px]">
+            <div className="flex items-center gap-1.5 max-w-[200px]">
               {selectedLabels.slice(0, 2).map((l) => (
                 <span key={l.id} className="flex items-center gap-1 truncate">
                   <span

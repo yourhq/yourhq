@@ -18,6 +18,21 @@ Every knowledge item has a `kind` that determines how it's stored and rendered:
 
 Pages and skills support rich editing in the UI. Files go through a processing pipeline (upload, extract text, embed). Sources sync from external integrations and track their sync status.
 
+## How indexing works
+
+When you create or edit a knowledge item, HQ automatically indexes it so your agents can find it through search. Indexing converts the document into a format optimized for semantic search — agents can find relevant knowledge even when the exact words don't match.
+
+For pages and skills, indexing starts immediately after you save and typically completes within a few seconds. For files (PDF, DOCX, XLSX, CSV, PPTX, TXT), the system first extracts text from the file and then indexes it, which may take a little longer depending on file size. Editing a document automatically re-triggers indexing.
+
+You'll see a status indicator on each knowledge item:
+
+- **Search ready** (green) — fully indexed and searchable by agents.
+- **Text ready** (amber) — text has been processed; search embedding is still completing.
+- **Indexing...** (spinner) — indexing is in progress.
+- **Index failed** (red) — something went wrong. Use the retry button to re-process.
+
+The embedder service handles indexing using a local embedding model that ships pre-loaded in the Docker image — no external API calls or additional setup required.
+
 ## Source connectors
 
 Source connections use a **plugin-based connector architecture**. Each provider is a self-contained folder under `gateway/connectors/<provider>/` containing:

@@ -13,14 +13,21 @@ import { provisionWorkspace } from "../lib/provisioner.js";
 import { decryptSecret } from "../lib/secret-crypto.js";
 import { getPublicSiteUrl } from "../lib/env.js";
 import { E2BSandboxProvider } from "../providers/e2b.js";
+import { rateLimit } from "../lib/rate-limit.js";
 
 const sandboxProvider = new E2BSandboxProvider();
+
+const HOUR = 60 * 60 * 1000;
+const MINUTE = 60 * 1000;
 
 const app = new Hono();
 
 // Lookup user + workspaces by email (used by hosted login flow)
-app.get("/users/by-email/:email", async (c) => {
-  const email = decodeURIComponent(c.req.param("email"));
+app.get(
+  "/users/by-email/:email",
+  rateLimit({ keyFn: (c) => `email:${c.req.param("email") ?? ""}`, max: 10, windowMs: MINUTE }),
+  async (c) => {
+  const email = decodeURIComponent(c.req.param("email")!);
   const user = await findUserByEmail(email);
   if (!user) return c.json({ error: "User not found" }, 404);
 
@@ -40,11 +47,39 @@ app.get("/users/by-email/:email", async (c) => {
 
 // Resolve the active workspace's Supabase config for the UI server.
 // This route is internal-token gated and should never be called from browser JS.
+// Additionally requires an HMAC signature scoping the request to a specific workspace.
 app.get("/workspaces/:id/connection", async (c) => {
-  const ws = await getWorkspace(c.req.param("id"));
+  const workspaceId = c.req.param("id");
+
+  const sig = c.req.header("x-workspace-sig");
+  const ts = c.req.header("x-workspace-ts");
+  if (!sig || !ts) {
+    return c.json({ error: "Missing workspace signature" }, 403);
+  }
+
+  const age = Math.abs(Date.now() - Number(ts));
+  if (Number.isNaN(age) || age > 5 * 60 * 1000) {
+    return c.json({ error: "Workspace signature expired" }, 403);
+  }
+
+  const { createHmac, timingSafeEqual } = await import("node:crypto");
+  const expected = createHmac("sha256", process.env.WORKER_INTERNAL_TOKEN!)
+    .update(`${workspaceId}:${ts}`)
+    .digest("base64url");
+  const sigBuf = Buffer.from(sig);
+  const expBuf = Buffer.from(expected);
+  if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
+    return c.json({ error: "Invalid workspace signature" }, 403);
+  }
+
+  const ws = await getWorkspace(workspaceId);
   if (!ws) return c.json({ error: "Not found" }, 404);
 
   const serviceRoleKey = decryptSecret(ws.supabase_service_role_key_enc);
+
+  await logSandboxEvent(workspaceId, "credentials_accessed", {
+    timestamp: new Date().toISOString(),
+  });
 
   return c.json({
     id: ws.id,
@@ -132,7 +167,10 @@ app.get("/workspaces/:id/siblings", async (c) => {
 });
 
 // Create Stripe Checkout session for a workspace
-app.post("/checkout", async (c) => {
+app.post(
+  "/checkout",
+  rateLimit({ keyFn: () => "checkout:global", max: 20, windowMs: HOUR }),
+  async (c) => {
   const body = await c.req.json<{
     email: string;
     ownerName?: string;
@@ -202,10 +240,29 @@ app.post("/checkout", async (c) => {
       })
       .select("id")
       .single();
-    if (error || !ws) {
-      return c.json({ error: error?.message ?? "Failed to create workspace" }, 500);
+    if (error) {
+      // Unique constraint on (user_id) WHERE pending — race condition, re-fetch
+      if (error.code === "23505") {
+        const { data: raced } = await db
+          .from("hosted_workspaces")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("subscription_status", "pending")
+          .limit(1)
+          .single();
+        if (raced) {
+          workspaceId = raced.id;
+        } else {
+          return c.json({ error: "Failed to create workspace" }, 500);
+        }
+      } else {
+        return c.json({ error: error.message }, 500);
+      }
+    } else if (!ws) {
+      return c.json({ error: "Failed to create workspace" }, 500);
+    } else {
+      workspaceId = ws.id;
     }
-    workspaceId = ws.id;
   }
 
   const origin = getPublicSiteUrl();
@@ -220,9 +277,66 @@ app.post("/checkout", async (c) => {
   return c.json({ url, workspaceId });
 });
 
+// Verify payment with Stripe and kick provisioning if webhook was missed
+app.post(
+  "/workspaces/:id/verify-payment",
+  rateLimit({ keyFn: (c) => `verify:${c.req.param("id") ?? ""}`, max: 5, windowMs: HOUR }),
+  async (c) => {
+  const ws = await getWorkspace(c.req.param("id")!);
+  if (!ws) return c.json({ error: "Not found" }, 404);
+
+  if (ws.subscription_status !== "pending") {
+    return c.json({ ok: true, status: ws.subscription_status });
+  }
+
+  const stripe = getStripe();
+  const sessions = await stripe.checkout.sessions.list({
+    limit: 5,
+  });
+
+  const match = sessions.data.find(
+    (s) => s.metadata?.workspace_id === ws.id && s.status === "complete",
+  );
+
+  if (!match) {
+    return c.json({ ok: false, error: "No completed payment found yet. Please wait a moment and try again." });
+  }
+
+  const email = match.customer_email ?? match.customer_details?.email;
+  if (!email) {
+    return c.json({ ok: false, error: "Payment found but could not resolve your email. Please contact support." });
+  }
+
+  await updateWorkspace(ws.id, {
+    stripe_subscription_id: match.subscription as string,
+    subscription_status: "provisioning",
+  } as any);
+
+  const { data: wsRow } = await getMasterSupabase()
+    .from("hosted_workspaces")
+    .select("user_id")
+    .eq("id", ws.id)
+    .single();
+  if (wsRow && match.customer) {
+    await getMasterSupabase()
+      .from("hosted_users")
+      .update({ stripe_customer_id: match.customer as string })
+      .eq("id", wsRow.user_id);
+  }
+
+  provisionWorkspace(ws.id, email, sandboxProvider).catch((err) => {
+    console.error(`[verify-payment] Background provisioning failed for ${ws.id}:`, err);
+  });
+
+  return c.json({ ok: true, status: "provisioning" });
+});
+
 // Retry provisioning for a workspace stuck in error state
-app.post("/workspaces/:id/retry-provision", async (c) => {
-  const ws = await getWorkspace(c.req.param("id"));
+app.post(
+  "/workspaces/:id/retry-provision",
+  rateLimit({ keyFn: (c) => `retry:${c.req.param("id") ?? ""}`, max: 3, windowMs: HOUR }),
+  async (c) => {
+  const ws = await getWorkspace(c.req.param("id")!);
   if (!ws) return c.json({ error: "Not found" }, 404);
 
   if (ws.provision_stage !== "error") {

@@ -74,7 +74,6 @@ function AgentsContent() {
   useEffect(() => {
     const saved = localStorage.getItem(AGENTS_VIEW_KEY) as AgentsViewMode | null;
     if (saved === "fleet" || saved === "chart") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration-safe restore
       setViewMode(saved);
     }
   }, []);

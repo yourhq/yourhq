@@ -126,7 +126,7 @@ export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
             className={cn(
               "flex h-11 w-11 items-center justify-center rounded-xl shadow-sm transition-colors duration-500",
               isComplete
-                ? "bg-green-500/10 text-green-600"
+                ? "bg-status-success/10 text-status-success"
                 : "bg-foreground text-background",
             )}
           >
@@ -153,7 +153,7 @@ export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
           <div
             className={cn(
               "h-full rounded-full transition-all duration-700 ease-out",
-              isComplete ? "bg-green-500" : "bg-foreground",
+              isComplete ? "bg-status-success" : "bg-foreground",
             )}
             style={{ width: `${progressPercent}%` }}
           />
@@ -196,8 +196,8 @@ export function ProvisionStatus({ workspaceId }: { workspaceId: string }) {
                   >
                     <div className="flex h-5 w-5 shrink-0 items-center justify-center">
                       {done ? (
-                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-green-500/10">
-                          <Check className="h-3 w-3 text-green-600" />
+                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-status-success/10">
+                          <Check className="h-3 w-3 text-status-success" />
                         </div>
                       ) : active ? (
                         <Loader2 className="h-4 w-4 animate-spin text-foreground" />

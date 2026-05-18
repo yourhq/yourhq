@@ -42,5 +42,8 @@ venv/
 *.egg-info/
 htmlcov/
 
+# Generated reports
+*-setup-report.md
+
 # Local Docker state (only when using bind-mount dev overrides)
 data/

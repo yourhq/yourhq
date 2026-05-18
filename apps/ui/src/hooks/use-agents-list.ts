@@ -7,6 +7,7 @@ interface AgentListItem {
   id: string;
   slug: string;
   name: string;
+  meta?: Record<string, unknown>;
 }
 
 /** Lightweight hook that fetches agent slugs and names for display purposes. */
@@ -18,7 +19,7 @@ export function useAgentsList() {
   const fetch = useCallback(async () => {
     const { data } = await supabase
       .from("agents")
-      .select("id, slug, name")
+      .select("id, slug, name, meta")
       .order("name", { ascending: true });
     if (data) setAgents(data as AgentListItem[]);
     setLoading(false);

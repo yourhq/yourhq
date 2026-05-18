@@ -12,9 +12,18 @@ import { decryptSecret, encryptSecret } from "./secret-crypto.js";
 import { getPublicSiteUrl } from "./env.js";
 import type { SandboxProvider } from "../providers/types.js";
 import { randomBytes } from "node:crypto";
+import { trackWorkerEvent } from "./analytics.js";
 
-async function setStage(workspaceId: string, stage: string) {
+const provisionLocks = new Map<string, Promise<void>>();
+
+async function setStage(workspaceId: string, stage: string, email?: string) {
   await updateWorkspace(workspaceId, { provision_stage: stage } as any);
+  trackWorkerEvent(
+    email ?? `workspace:${workspaceId}`,
+    "provisioning_stage_reached",
+    { stage, workspace_id: workspaceId },
+    { workspace: workspaceId },
+  );
 }
 
 async function setError(workspaceId: string, error: string) {
@@ -26,6 +35,29 @@ async function setError(workspaceId: string, error: string) {
 }
 
 export async function provisionWorkspace(
+  workspaceId: string,
+  email: string,
+  sandboxProvider: SandboxProvider,
+): Promise<void> {
+  const existing = provisionLocks.get(workspaceId);
+  if (existing) {
+    await existing;
+    return;
+  }
+
+  let resolve: () => void;
+  const lock = new Promise<void>((r) => { resolve = r; });
+  provisionLocks.set(workspaceId, lock);
+
+  try {
+    await doProvision(workspaceId, email, sandboxProvider);
+  } finally {
+    provisionLocks.delete(workspaceId);
+    resolve!();
+  }
+}
+
+async function doProvision(
   workspaceId: string,
   email: string,
   sandboxProvider: SandboxProvider,
@@ -42,13 +74,15 @@ export async function provisionWorkspace(
     } as any);
 
     // ── 1. Create Supabase project ──
-    await setStage(workspaceId, "creating_project");
+    await setStage(workspaceId, "creating_project", email);
 
     const orgId = process.env.SUPABASE_ORG_ID;
     if (!orgId) throw new Error("SUPABASE_ORG_ID required");
 
-    let projectRef = workspace.supabase_project_ref;
-    let dbPassword = decryptSecret(workspace.supabase_db_password_enc);
+    // Re-read to catch project created by a concurrent caller
+    const freshForProject = await getWorkspace(workspaceId);
+    let projectRef = freshForProject?.supabase_project_ref ?? workspace.supabase_project_ref;
+    let dbPassword = decryptSecret(freshForProject?.supabase_db_password_enc ?? workspace.supabase_db_password_enc);
     if (!projectRef) {
       dbPassword = randomBytes(24).toString("base64url");
 
@@ -60,7 +94,7 @@ export async function provisionWorkspace(
           name: `hq-${workspace.label.toLowerCase().replace(/[^a-z0-9]/g, "-").slice(0, 30)}-${workspaceId.slice(0, 8)}`,
           db_pass: dbPassword,
           region: process.env.SUPABASE_REGION ?? "us-east-1",
-          plan: "free",
+          plan: process.env.SUPABASE_PROJECT_PLAN ?? "pro",
         }),
       });
 
@@ -78,7 +112,7 @@ export async function provisionWorkspace(
     }
 
     // ── 2. Poll until project is ready ──
-    await setStage(workspaceId, "waiting_for_project");
+    await setStage(workspaceId, "waiting_for_project", email);
     const startPoll = Date.now();
     let projectReady = false;
     while (Date.now() - startPoll < 120_000) {
@@ -97,7 +131,7 @@ export async function provisionWorkspace(
     if (!projectReady) throw new Error("Supabase project did not become ready in time");
 
     // ── 3. Fetch API keys ──
-    await setStage(workspaceId, "fetching_keys");
+    await setStage(workspaceId, "fetching_keys", email);
     let anonKey = workspace.supabase_anon_key;
     let serviceRoleKey = decryptSecret(workspace.supabase_service_role_key_enc);
     if (!anonKey || !serviceRoleKey) {
@@ -137,11 +171,11 @@ export async function provisionWorkspace(
     if (!authConfigRes.ok) throw new Error("Failed to configure tenant auth settings");
 
     // ── 4. Apply schema migrations ──
-    await setStage(workspaceId, "applying_schema");
+    await setStage(workspaceId, "applying_schema", email);
     await applyMigrations(projectRef);
 
     // ── 5. Create auth user in tenant Supabase ──
-    await setStage(workspaceId, "creating_user");
+    await setStage(workspaceId, "creating_user", email);
     const tenantClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
@@ -174,45 +208,53 @@ export async function provisionWorkspace(
     }
 
     // ── 5b. Initialize workspace via complete_setup() ──
-    const meta = workspace.setup_metadata ?? {};
-    const ownerName = meta.ownerName || "";
-    const presetKey = meta.contextPreset || "other";
-    const { stages, fields, streams } = resolvePreset(presetKey);
+    const { count: wsCount } = await tenantClient
+      .from("workspace")
+      .select("id", { count: "exact", head: true });
 
-    const slug = workspace.label
-      .toLowerCase()
-      .replace(/['']s\b/g, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
-      .slice(0, 40) || "workspace";
+    if (!wsCount) {
+      const meta = workspace.setup_metadata ?? {};
+      const ownerName = meta.ownerName || "";
+      const presetKey = meta.contextPreset || "other";
+      const { stages, fields, streams, modules } = resolvePreset(presetKey);
 
-    const { error: setupError } = await tenantClient.rpc("complete_setup", {
-      p_name: workspace.label,
-      p_slug: slug,
-      p_description: "",
-      p_owner_name: ownerName,
-      p_preferred_name: ownerName.split(" ")[0] || "",
-      p_timezone: "UTC",
-      p_stages: stages,
-      p_fields: fields,
-      p_streams: streams,
-    });
-    if (setupError) throw new Error(`Workspace setup failed: ${setupError.message}`);
+      const slug = workspace.label
+        .toLowerCase()
+        .replace(/['']s\b/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
+        .slice(0, 40) || "workspace";
 
-    // ── 5c. Set workspace modules based on preset ──
-    const { modules } = resolvePreset(presetKey);
-    if (modules) {
-      await tenantClient
-        .from("workspace")
-        .update({ settings: { modules } })
-        .eq("tenant_id", "00000000-0000-0000-0000-000000000000");
+      const { error: setupError } = await tenantClient.rpc("complete_setup", {
+        p_name: workspace.label,
+        p_slug: slug,
+        p_description: "",
+        p_owner_name: ownerName,
+        p_preferred_name: ownerName.split(" ")[0] || "",
+        p_timezone: "UTC",
+        p_stages: stages,
+        p_fields: fields,
+        p_streams: streams,
+      });
+      if (setupError) throw new Error(`Workspace setup failed: ${setupError.message}`);
+
+      if (modules) {
+        await tenantClient
+          .from("workspace")
+          .update({ settings: { modules } })
+          .eq("tenant_id", "00000000-0000-0000-0000-000000000000");
+      }
     }
 
     // ── 6. Spawn E2B sandbox ──
-    await setStage(workspaceId, "starting_sandbox");
+    await setStage(workspaceId, "starting_sandbox", email);
 
-    if (!workspace.e2b_sandbox_id) {
-      const vncPassword = randomBytes(12).toString("base64url").slice(0, 12);
+    let spawnResult: { sandboxId: string; novncUrl: string; accessToken: string; sandboxHost: string } | null = null;
+    let vncPassword: string | null = null;
+
+    const freshWs = await getWorkspace(workspaceId);
+    if (!freshWs?.e2b_sandbox_id) {
+      vncPassword = randomBytes(12).toString("base64url").slice(0, 12);
 
       const sandbox = await sandboxProvider.spawn({
         workspaceId,
@@ -223,9 +265,11 @@ export async function provisionWorkspace(
           GATEWAY_ID: "default",
           GATEWAY_LABEL: workspace.label,
           TENANT_ID: "00000000-0000-0000-0000-000000000000",
-          NETWORKING_MODE: "e2b",
+          NETWORKING_MODE: "hosted",
         },
       });
+
+      spawnResult = sandbox;
 
       await updateWorkspace(workspaceId, {
         e2b_sandbox_id: sandbox.sandboxId,
@@ -236,14 +280,18 @@ export async function provisionWorkspace(
       } as any);
     }
 
-    // ── 7. Wait for gateway to register ──
-    await setStage(workspaceId, "waiting_for_gateway");
+    // ── 7. Wait for command runner to come online ──
+    // The schema seeds a default gateway row so we can't just check for existence.
+    // The entrypoint sets `last_seen_at` at step 9 but daemons start at step 12.
+    // Poll for `last_heartbeat_at` which the command_runner sets on its first tick.
+    await setStage(workspaceId, "waiting_for_gateway", email);
     const gwStart = Date.now();
     let gatewayReady = false;
-    while (Date.now() - gwStart < 120_000) {
+    while (Date.now() - gwStart < 180_000) {
       const { data } = await tenantClient
         .from("gateways")
-        .select("id")
+        .select("id, last_heartbeat_at")
+        .not("last_heartbeat_at", "is", null)
         .limit(1);
       if (data && data.length > 0) {
         gatewayReady = true;
@@ -251,7 +299,29 @@ export async function provisionWorkspace(
       }
       await new Promise((r) => setTimeout(r, 3000));
     }
-    if (!gatewayReady) throw new Error("Gateway did not register in time");
+    if (!gatewayReady) throw new Error("Gateway command runner did not come online in time");
+
+    // ── 7b. Patch gateway meta with correct URLs ──
+    // The entrypoint may have lost the race with /tmp/sandbox-host,
+    // so we overwrite reachable_urls from the known-good spawn result.
+    if (spawnResult) {
+      const filesApiHost = spawnResult.sandboxHost.replace(/^https:\/\//, "https://18790-");
+      await tenantClient
+        .from("gateways")
+        .update({
+          meta: {
+            reachable_urls: {
+              base: spawnResult.sandboxHost,
+              files_api: filesApiHost,
+              novnc: spawnResult.novncUrl,
+            },
+            networking_mode: "hosted",
+            vnc_password: vncPassword,
+            files_api_token: spawnResult.accessToken,
+          },
+        })
+        .eq("slug", "default");
+    }
 
     // ── 8. Done ──
     await updateWorkspace(workspaceId, {
@@ -264,6 +334,13 @@ export async function provisionWorkspace(
       provision_stage: "complete",
     });
 
+    trackWorkerEvent(
+      email,
+      "provisioning_completed",
+      { workspace_id: workspaceId },
+      { workspace: workspaceId },
+    );
+
     sendProvisioningComplete(email, workspace.label, `${publicSiteUrl}/login`).catch(
       () => console.error("[provisioner] Failed to send provisioning email"),
     );
@@ -272,6 +349,12 @@ export async function provisionWorkspace(
     console.error("[provisioner] Workspace provisioning failed");
     await setError(workspaceId, message);
     await logSandboxEvent(workspaceId, "error", { provision_stage: "error" });
+    trackWorkerEvent(
+      email,
+      "provisioning_failed",
+      { workspace_id: workspaceId, error: message.slice(0, 200) },
+      { workspace: workspaceId },
+    );
     throw err;
   }
 }

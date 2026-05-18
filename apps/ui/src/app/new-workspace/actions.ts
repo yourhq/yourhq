@@ -3,6 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { z } from "zod";
 import { addWorkspace } from "@/lib/workspaces/registry";
+import { getPostHogClient } from "@/lib/posthog-server";
 import {
   ACTIVE_WORKSPACE_COOKIE,
   ACTIVE_WORKSPACE_COOKIE_OPTIONS,
@@ -173,6 +174,16 @@ export async function createHostedWorkspaceCheckout(params: {
       maxAge: 60 * 60 * 24 * 30,
     },
   );
+
+  getPostHogClient()?.capture({
+    distinctId: params.email,
+    event: "checkout_initiated",
+    properties: {
+      workspace_id: data.workspaceId,
+      workspace_label: params.workspaceLabel,
+      owner_name: params.ownerName,
+    },
+  });
 
   return { url: data.url, workspaceId: data.workspaceId };
 }

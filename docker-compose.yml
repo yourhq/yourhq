@@ -26,6 +26,7 @@ x-gateway-env: &gateway-env
   SUPABASE_URL: ${SUPABASE_URL}
   SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
   EMBEDDER_URL: ${EMBEDDER_URL:-http://embedder:18801}
+  # Override with a different fastembed-compatible model; non-default models download on first boot
   EMBEDDER_MODEL: ${EMBEDDER_MODEL:-BAAI/bge-small-en-v1.5}
   WORKSPACE_SLUG: ${WORKSPACE_SLUG:-}
   GATEWAY_ID: ${GATEWAY_ID:-default}
@@ -40,7 +41,7 @@ x-gateway-env: &gateway-env
 services:
 
   ui:
-    image: ${UI_IMAGE:-ghcr.io/yourhq/yourhq-ui:latest}
+    image: ${UI_IMAGE:-ghcr.io/yourhq/yourhq-ui:${IMAGE_TAG:-latest}}
     build:
       context: .
       dockerfile: apps/ui/Dockerfile
@@ -97,7 +98,7 @@ services:
       - ${TAILSCALE_SOCKET_HOST:-/var/run/tailscale}:/var/run/tailscale:ro
 
   gateway:
-    image: ${GATEWAY_IMAGE:-ghcr.io/yourhq/yourhq-gateway:latest}
+    image: ${GATEWAY_IMAGE:-ghcr.io/yourhq/yourhq-gateway:${IMAGE_TAG:-latest}}
     build:
       context: .
       dockerfile: gateway/Dockerfile
@@ -150,7 +151,7 @@ services:
       - "${FILES_API_HOST_PORT:-127.0.0.1:18790}:18790"
 
   dispatcher:
-    image: ${DISPATCHER_IMAGE:-ghcr.io/yourhq/yourhq-dispatcher:latest}
+    image: ${DISPATCHER_IMAGE:-ghcr.io/yourhq/yourhq-dispatcher:${IMAGE_TAG:-latest}}
     build:
       context: .
       dockerfile: gateway/dispatcher/Dockerfile
@@ -176,7 +177,7 @@ services:
       - ui-config:/config:ro
 
   runner:
-    image: ${RUNNER_IMAGE:-ghcr.io/yourhq/yourhq-runner:latest}
+    image: ${RUNNER_IMAGE:-ghcr.io/yourhq/yourhq-runner:${IMAGE_TAG:-latest}}
     build:
       context: .
       dockerfile: gateway/runner/Dockerfile
@@ -209,7 +210,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
 
   embedder:
-    image: ${EMBEDDER_IMAGE:-ghcr.io/yourhq/yourhq-embedder:latest}
+    image: ${EMBEDDER_IMAGE:-ghcr.io/yourhq/yourhq-embedder:${IMAGE_TAG:-latest}}
     build:
       context: .
       dockerfile: gateway/embedder/Dockerfile
@@ -221,7 +222,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 30s
+      start_period: 10s
     environment:
       <<: *gateway-env
       EMBEDDER_HOST: 0.0.0.0
@@ -237,7 +238,7 @@ services:
       - ui-config:/config:ro
 
   file-processor:
-    image: ${FILE_PROCESSOR_IMAGE:-ghcr.io/yourhq/yourhq-file-processor:latest}
+    image: ${FILE_PROCESSOR_IMAGE:-ghcr.io/yourhq/yourhq-file-processor:${IMAGE_TAG:-latest}}
     build:
       context: .
       dockerfile: gateway/file-processor/Dockerfile

@@ -132,7 +132,7 @@ export function GatewayDetail({
             <span>·</span>
             <span className="font-mono">{gateway.slug}</span>
             {stale && (
-              <span className="ml-1 inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-300">
+              <span className="ml-1 inline-flex items-center gap-1 rounded bg-status-warning/10 px-1.5 py-0.5 text-status-warning">
                 <AlertTriangle className="h-2.5 w-2.5" />
                 stale
               </span>
@@ -313,11 +313,11 @@ function GatewayRailContent({
           <DetailSidebarProperty label="Heartbeat">
             <span className={cn(
               "inline-flex items-center gap-1 text-[12px]",
-              fresh ? "text-emerald-400" : "text-amber-400",
+              fresh ? "text-status-success" : "text-status-warning",
             )}>
               <span className={cn(
                 "h-1.5 w-1.5 rounded-full",
-                fresh ? "bg-emerald-400" : "bg-amber-400",
+                fresh ? "bg-status-success" : "bg-status-warning",
               )} />
               {fresh ? "Healthy" : stale ? "Stale" : "No signal"}
             </span>
@@ -620,7 +620,7 @@ function CommandRow({
     <div
       className={cn(
         !isFirst && "border-t border-border/50",
-        command.status === "failed" && "bg-red-500/5",
+        command.status === "failed" && "bg-status-error/5",
       )}
     >
       <button
@@ -667,12 +667,12 @@ function CommandRow({
             </pre>
           )}
           {command.stderr && (
-            <pre className="max-h-48 overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-red-500/10 p-2.5 text-[10px] text-red-300/80">
+            <pre className="max-h-48 overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-status-error/10 p-2.5 text-[10px] text-status-error/80">
               {command.stderr}
             </pre>
           )}
           {command.error_message && !command.stderr && (
-            <pre className="max-h-32 overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-red-500/10 p-2.5 text-[10px] text-red-300/80">
+            <pre className="max-h-32 overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-status-error/10 p-2.5 text-[10px] text-status-error/80">
               {command.error_message}
             </pre>
           )}
@@ -794,7 +794,7 @@ function Tag({
       className={cn(
         "rounded px-1.5 py-0.5 font-mono text-[10px]",
         tone === "warning"
-          ? "bg-amber-500/10 text-amber-300"
+          ? "bg-status-warning/10 text-status-warning"
           : "bg-muted text-muted-foreground",
       )}
     >
@@ -815,6 +815,16 @@ function InlineAlert({ children }: { children: React.ReactNode }) {
 function resolveNovncUrl(gateway: Gateway): string | null {
   const novnc = gateway.meta.reachable_urls?.novnc ?? null;
   if (!novnc) return null;
+
+  // Hosted gateways that registered before URL resolution completed will
+  // have a localhost URL — discard it.
+  if (
+    (gateway.meta.networking_mode ?? "local") !== "local" &&
+    /^https?:\/\/(localhost|127\.0\.0\.1)/.test(novnc)
+  ) {
+    return null;
+  }
+
   const overrideBase = gateway.meta.reachable_urls_override?.base?.trim();
   const vncPw = (gateway.meta as Record<string, unknown>).vnc_password as string | undefined;
 

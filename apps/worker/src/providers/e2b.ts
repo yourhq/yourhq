@@ -1,5 +1,6 @@
 import { Sandbox } from "e2b";
-import type { SandboxProvider, SpawnResult } from "./types.js";
+import { randomBytes } from "node:crypto";
+import type { SandboxProvider, SandboxStatus, SpawnResult } from "./types.js";
 
 const DEFAULT_TEMPLATE_NAME = "yourhq-gateway";
 const DEFAULT_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24h
@@ -17,10 +18,12 @@ export class E2BSandboxProvider implements SandboxProvider {
     envs: Record<string, string>;
   }): Promise<SpawnResult> {
     const templateName = process.env.E2B_TEMPLATE_NAME ?? DEFAULT_TEMPLATE_NAME;
+    const gatewayAuthToken = randomBytes(32).toString("hex");
     const sandbox = await Sandbox.create(templateName, {
       envs: {
         ...opts.envs,
-        RUNTIME_MODE: "e2b",
+        RUNTIME_MODE: "hosted",
+        GATEWAY_AUTH_TOKEN: gatewayAuthToken,
       },
       timeoutMs: DEFAULT_TIMEOUT_MS,
       metadata: { workspaceId: opts.workspaceId },
@@ -65,14 +68,25 @@ export class E2BSandboxProvider implements SandboxProvider {
     return {
       sandboxId,
       novncUrl,
-      accessToken: "",
+      accessToken: gatewayAuthToken,
       sandboxHost,
     };
   }
 
   async destroy(sandboxId: string): Promise<void> {
-    const sandbox = await Sandbox.connect(sandboxId);
-    await sandbox.kill();
+    try {
+      const sandbox = await Sandbox.connect(sandboxId);
+      await sandbox.kill();
+    } catch {
+      // SDK connect may fail on paused/dead sandboxes — use REST API directly
+      const res = await fetch(`${E2B_API_BASE}/sandboxes/${sandboxId}`, {
+        method: "DELETE",
+        headers: { "X-API-Key": getApiKey() },
+      });
+      if (!res.ok && res.status !== 404) {
+        throw new Error(`E2B destroy failed (${res.status})`);
+      }
+    }
   }
 
   async pause(sandboxId: string): Promise<void> {
@@ -104,5 +118,21 @@ export class E2BSandboxProvider implements SandboxProvider {
   async renewTimeout(sandboxId: string, timeoutMs: number): Promise<void> {
     const sandbox = await Sandbox.connect(sandboxId);
     await sandbox.setTimeout(timeoutMs);
+  }
+
+  async status(sandboxId: string): Promise<SandboxStatus> {
+    try {
+      const res = await fetch(`${E2B_API_BASE}/sandboxes/${sandboxId}`, {
+        headers: { "X-API-Key": getApiKey() },
+      });
+      if (res.status === 404) return "stopped";
+      if (!res.ok) return "unknown";
+      const data = (await res.json()) as { state?: string };
+      if (data.state === "running") return "running";
+      if (data.state === "paused") return "paused";
+      return "stopped";
+    } catch {
+      return "unknown";
+    }
   }
 }

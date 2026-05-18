@@ -140,16 +140,18 @@ function RecordDetailInner({
         }
       />
 
-      <div className="p-4 max-w-2xl space-y-6">
+      <div className="p-4 max-w-2xl">
         <CollectionRecordDetail
           record={record}
           fields={cr.fields}
           onCellChange={(fieldKey, value) => cr.actions.updateCell(recordId, fieldKey, value)}
+          onAddField={cr.actions.addField}
+          onNavigateToFields={() => router.push(`/dashboard/collections/${collection.slug}`)}
         />
 
-        <div className="border-t border-border/50 pt-4">
-          <EntityLinkList ownerType="collection_record" ownerId={recordId} />
-        </div>
+        <div className="my-6 border-t border-border/30" />
+
+        <EntityLinkList ownerType="collection_record" ownerId={recordId} />
       </div>
 
       <ConfirmDialog

@@ -17,8 +17,8 @@ export function MentionBadge({ mention, className }: MentionBadgeProps) {
       className={cn(
         "inline-flex items-center gap-0.5 rounded px-1 py-px text-[10px] font-medium",
         isMe
-          ? "bg-blue-500/15 text-blue-400"
-          : "bg-purple-500/15 text-purple-400",
+          ? "bg-accent-blue/15 text-accent-blue"
+          : "bg-accent-purple/15 text-accent-purple",
         className
       )}
     >

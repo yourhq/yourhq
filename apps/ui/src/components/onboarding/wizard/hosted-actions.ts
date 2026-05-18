@@ -74,6 +74,21 @@ export async function pollProvisionStatus(workspaceId: string) {
   return getProvisionStatus(workspaceId);
 }
 
+export async function verifyAndKickProvision(workspaceId: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await workerFetch(`/workspaces/${workspaceId}/verify-payment`, {
+      method: "POST",
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: "Verification failed" }));
+      return { ok: false, error: (body as { error?: string }).error ?? "Verification failed" };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Unable to reach our servers. Please try again." };
+  }
+}
+
 export async function retryProvisionAction(workspaceId: string): Promise<{ ok: boolean; error?: string }> {
   const { workerFetch } = await import("@/lib/worker-client");
   const res = await workerFetch(`/workspaces/${workspaceId}/retry-provision`, {
@@ -125,5 +140,29 @@ export async function verifyAutoLogin(
     return { ok: false, error: error.message };
   }
 
+  return { ok: true };
+}
+
+export async function sendFreshLoginLink(
+  email: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const workspace = await getActiveWorkspace().catch(() => null);
+  if (!workspace?.url || !workspace.anonKey) {
+    return { ok: false, error: "No workspace configured" };
+  }
+
+  const hdrs = await headers();
+  const host = hdrs.get("host") ?? "localhost:3000";
+  const proto = hdrs.get("x-forwarded-proto") ?? "http";
+  const siteUrl = `${proto}://${host}`;
+
+  const { createClient } = await import("@supabase/supabase-js");
+  const supabase = createClient(workspace.url, workspace.anonKey);
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: `${siteUrl}/auth/callback?next=/dashboard` },
+  });
+
+  if (error) return { ok: false, error: error.message };
   return { ok: true };
 }

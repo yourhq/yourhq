@@ -9,7 +9,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -100,7 +99,7 @@ function TextCell({
         className="w-full text-left text-body truncate px-1.5 py-0.5 rounded hover:bg-accent/50 min-h-[28px] flex items-center"
         onClick={() => !readOnly && startEditing()}
       >
-        {value || <span className="text-muted-foreground">—</span>}
+        {value || <span className="text-muted-foreground/50">{readOnly ? "—" : "Empty"}</span>}
       </button>
     );
   }
@@ -157,7 +156,7 @@ function NumberCell({
         className="w-full text-left text-body truncate px-1.5 py-0.5 rounded hover:bg-accent/50 min-h-[28px] flex items-center tabular-nums"
         onClick={() => !readOnly && startEditing()}
       >
-        {value !== null && value !== undefined ? value : <span className="text-muted-foreground">—</span>}
+        {value !== null && value !== undefined ? value : <span className="text-muted-foreground/50">{readOnly ? "—" : "Empty"}</span>}
       </button>
     );
   }
@@ -217,7 +216,7 @@ function UrlCell({
       >
         {value ? (
           <>
-            <span className="truncate text-blue-400">{value}</span>
+            <span className="truncate text-accent-blue">{value}</span>
             <a
               href={value}
               target="_blank"
@@ -229,7 +228,7 @@ function UrlCell({
             </a>
           </>
         ) : (
-          <span className="text-muted-foreground">—</span>
+          <span className="text-muted-foreground/50">{readOnly ? "—" : "Empty"}</span>
         )}
       </button>
     );
@@ -336,15 +335,29 @@ function SelectCell({
     );
   }
 
+  const selectedOpt = options.find((o) => o.value === value);
+
   return (
     <Select
       value={value ?? "__none__"}
       onValueChange={(v) => onChange(v === "__none__" ? null : v)}
     >
-      <SelectTrigger className="h-7 text-body border-0 bg-transparent hover:bg-accent/50">
-        <SelectValue placeholder="—" />
+      <SelectTrigger className="h-7 text-body border-0 bg-transparent hover:bg-accent/50 px-1.5 [&>svg]:text-muted-foreground/40">
+        {selectedOpt ? (
+          <span className="flex items-center gap-1.5">
+            {selectedOpt.color && (
+              <span
+                className="inline-block h-2 w-2 rounded-full shrink-0"
+                style={{ backgroundColor: selectedOpt.color }}
+              />
+            )}
+            <span className="truncate">{selectedOpt.label}</span>
+          </span>
+        ) : (
+          <span className="text-muted-foreground/50">Select...</span>
+        )}
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent position="popper" sideOffset={4}>
         <SelectItem value="__none__">
           <span className="text-muted-foreground">None</span>
         </SelectItem>
@@ -385,9 +398,10 @@ function MultiSelectCell({
     onChange(next);
   };
 
+  const remaining = options.filter((o) => !value.includes(o.value));
+
   return (
     <div className="flex flex-wrap gap-1 px-1 py-0.5 min-h-[28px] items-center">
-      {value.length === 0 && <span className="text-body text-muted-foreground">—</span>}
       {value.map((v) => {
         const opt = options.find((o) => o.value === v);
         return (
@@ -402,24 +416,36 @@ function MultiSelectCell({
           </Badge>
         );
       })}
-      {!readOnly && (
+      {!readOnly && remaining.length > 0 && (
         <Select
           value=""
           onValueChange={(val) => {
             if (!value.includes(val)) onChange([...value, val]);
           }}
         >
-          <SelectTrigger className="h-5 w-5 border-0 bg-transparent p-0 text-muted-foreground hover:text-foreground [&>svg]:h-3 [&>svg]:w-3">
-            <span className="text-[10px]">+</span>
-          </SelectTrigger>
-          <SelectContent>
-            {options
-              .filter((o) => !value.includes(o.value))
-              .map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
+          {value.length === 0 ? (
+            <SelectTrigger className="h-7 text-body border-0 bg-transparent hover:bg-accent/50 px-1.5 [&>svg]:text-muted-foreground/40">
+              <span className="text-muted-foreground/50">Select...</span>
+            </SelectTrigger>
+          ) : (
+            <SelectTrigger className="h-5 border-0 bg-transparent px-1 text-muted-foreground/50 hover:text-muted-foreground [&>svg]:hidden">
+              <span className="text-[11px]">+</span>
+            </SelectTrigger>
+          )}
+          <SelectContent position="popper" sideOffset={4}>
+            {remaining.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                <span className="flex items-center gap-1.5">
+                  {opt.color && (
+                    <span
+                      className="inline-block h-2 w-2 rounded-full"
+                      style={{ backgroundColor: opt.color }}
+                    />
+                  )}
                   {opt.label}
-                </SelectItem>
-              ))}
+                </span>
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       )}

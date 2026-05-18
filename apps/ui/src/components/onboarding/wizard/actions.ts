@@ -294,6 +294,14 @@ export async function connectProvider(
       return { ok: false, error: error?.message ?? "Failed to save provider" };
     }
 
+    // Fire auth_list so the connections cache is warm when the user
+    // reaches the agent detail page later.
+    await supabase.from("agent_commands").insert({
+      gateway_id: gw?.id ?? null,
+      action: "auth_list",
+      payload: {},
+    });
+
     await patchOnboardingState({
       step: "agent",
       data: { providerId: provider, providerCommandId: cmd.id },
@@ -400,6 +408,24 @@ export async function pollCommandState(
 }
 
 export async function saveOAuthProvider(provider: string): Promise<ActionResult> {
+  try {
+    const supabase = await createAdminClient();
+    const { data: gw } = await supabase
+      .from("gateways")
+      .select("id")
+      .limit(1)
+      .maybeSingle();
+
+    // Fire auth_list so the connections cache is warm after OAuth login.
+    await supabase.from("agent_commands").insert({
+      gateway_id: gw?.id ?? null,
+      action: "auth_list",
+      payload: {},
+    });
+  } catch {
+    // Non-critical — the model section will trigger its own probe if needed
+  }
+
   await patchOnboardingState({ step: "agent", data: { providerId: provider } });
   return { ok: true };
 }

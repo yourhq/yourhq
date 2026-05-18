@@ -7,6 +7,7 @@ import {
   Sliders,
   User,
   Puzzle,
+  Palette,
   Layers,
   LayoutGrid,
   Plug,
@@ -18,6 +19,7 @@ import {
   Zap,
   ScrollText,
   DollarSign,
+  CreditCard,
   Settings,
   Tag,
   LayoutTemplate,
@@ -44,6 +46,7 @@ interface NavGroup {
   items: NavItem[];
   ossOnly?: boolean;
   crmOnly?: boolean;
+  hostedOnly?: boolean;
 }
 
 const SETTINGS_NAV: NavGroup[] = [
@@ -53,6 +56,14 @@ const SETTINGS_NAV: NavGroup[] = [
       { href: "/dashboard/settings/general", label: "General", icon: Sliders },
       { href: "/dashboard/settings/profile", label: "Profile", icon: User },
       { href: "/dashboard/settings/modules", label: "Modules", icon: Puzzle },
+      { href: "/dashboard/settings/appearance", label: "Appearance", icon: Palette },
+    ],
+  },
+  {
+    label: "Account",
+    hostedOnly: true,
+    items: [
+      { href: "/dashboard/settings/account", label: "Subscription & Billing", icon: CreditCard },
     ],
   },
   {
@@ -119,6 +130,7 @@ export function SettingsShell({
 
   const visibleGroups = SETTINGS_NAV.filter((group) => {
     if (group.ossOnly && isHosted) return false;
+    if (group.hostedOnly && !isHosted) return false;
     if (group.crmOnly && !crmEnabled) return false;
     return true;
   });

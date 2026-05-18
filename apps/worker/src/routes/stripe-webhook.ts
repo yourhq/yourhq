@@ -11,6 +11,7 @@ import { sendPaymentFailed } from "../lib/email.js";
 import { getPublicSiteUrl } from "../lib/env.js";
 import { E2BSandboxProvider } from "../providers/e2b.js";
 import type Stripe from "stripe";
+import { trackWorkerEvent } from "../lib/analytics.js";
 
 const app = new Hono();
 
@@ -103,6 +104,8 @@ app.post("/webhooks/stripe", async (c) => {
             .eq("id", ws.user_id);
         }
 
+        trackWorkerEvent(email, "checkout_completed", { workspace_id: workspaceId }, { workspace: workspaceId });
+
         provisionWorkspace(workspaceId, email, sandboxProvider).catch((err) => {
           console.error("[stripe] Background provisioning failed");
         });
@@ -135,6 +138,13 @@ app.post("/webhooks/stripe", async (c) => {
             subscription_status: "canceling",
             cancel_at: thirtyDaysFromNow,
           } as any);
+
+          trackWorkerEvent(
+            `workspace:${ws.id}`,
+            "subscription_canceled",
+            { workspace_id: ws.id },
+            { workspace: ws.id },
+          );
         }
         break;
       }
@@ -175,6 +185,13 @@ app.post("/webhooks/stripe", async (c) => {
         await logSandboxEvent(ws.id, shouldSuspend ? "suspended" : "payment_failed", {
           failure_count: newCount,
         });
+
+        trackWorkerEvent(
+          `workspace:${ws.id}`,
+          "payment_failed",
+          { workspace_id: ws.id, failure_count: newCount, suspended: shouldSuspend },
+          { workspace: ws.id },
+        );
 
         const email = await resolveWorkspaceEmail(ws.id);
         if (email) {
@@ -218,9 +235,20 @@ app.post("/webhooks/stripe", async (c) => {
           } as any);
 
           await logSandboxEvent(ws.id, "reactivated", { reason: "payment_recovered" });
+
+          trackWorkerEvent(
+            `workspace:${ws.id}`,
+            "payment_recovered",
+            { workspace_id: ws.id },
+            { workspace: ws.id },
+          );
         } else if (ws.payment_failure_count > 0) {
           await updateWorkspace(ws.id, { payment_failure_count: 0 } as any);
         }
+        break;
+      }
+      default: {
+        console.log(`[stripe] Unhandled event type: ${event.type}`);
         break;
       }
     }

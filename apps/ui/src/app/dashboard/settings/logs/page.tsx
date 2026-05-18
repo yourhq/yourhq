@@ -38,7 +38,7 @@ function SystemCommandRow({ command }: { command: AgentCommand }) {
   const hasOutput = command.stdout || command.stderr || command.error_message;
 
   return (
-    <div className={cn("border-b border-border/50 last:border-0", command.status === "failed" && "bg-red-500/5")}>
+    <div className={cn("border-b border-border/50 last:border-0", command.status === "failed" && "bg-status-error/5")}>
       <button
         className="flex items-center gap-2.5 w-full px-3 py-2.5 text-left hover:bg-muted/30 transition-colors"
         onClick={() => hasOutput && setExpanded(!expanded)}
@@ -84,16 +84,16 @@ function SystemCommandRow({ command }: { command: AgentCommand }) {
           )}
           {command.stderr && (
             <div>
-              <span className="text-[10px] text-red-400/80 uppercase tracking-wider">stderr</span>
-              <pre className="text-[10px] text-red-300/80 bg-red-500/10 rounded-md p-2.5 overflow-x-auto max-h-48 whitespace-pre-wrap break-all mt-0.5">
+              <span className="text-[10px] text-status-error/80 uppercase tracking-wider">stderr</span>
+              <pre className="text-[10px] text-status-error/80 bg-status-error/10 rounded-md p-2.5 overflow-x-auto max-h-48 whitespace-pre-wrap break-all mt-0.5">
                 {command.stderr}
               </pre>
             </div>
           )}
           {command.error_message && !command.stderr && (
             <div>
-              <span className="text-[10px] text-red-400/80 uppercase tracking-wider">error</span>
-              <pre className="text-[10px] text-red-300/80 bg-red-500/10 rounded-md p-2.5 overflow-x-auto max-h-32 whitespace-pre-wrap break-all mt-0.5">
+              <span className="text-[10px] text-status-error/80 uppercase tracking-wider">error</span>
+              <pre className="text-[10px] text-status-error/80 bg-status-error/10 rounded-md p-2.5 overflow-x-auto max-h-32 whitespace-pre-wrap break-all mt-0.5">
                 {command.error_message}
               </pre>
             </div>
@@ -117,7 +117,7 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
 
 function InboxRow({ item }: { item: InboxItem }) {
   return (
-    <div className={cn("border-b border-border/50 last:border-0", item.status === "failed" && "bg-red-500/5", item.status === "dead_letter" && "bg-red-500/5")}>
+    <div className={cn("border-b border-border/50 last:border-0", item.status === "failed" && "bg-status-error/5", item.status === "dead_letter" && "bg-status-error/5")}>
       <div className="flex items-center gap-2.5 w-full px-3 py-2.5">
         <StatusDot color={INBOX_STATUS_COLORS[item.status]} size="sm" />
         <span className="text-xs font-medium text-foreground shrink-0">
@@ -153,7 +153,9 @@ function AuditRow({ entry }: { entry: AuditLogEntry }) {
     <div className="border-b border-border/50 last:border-0">
       <div className="flex items-center gap-2.5 w-full px-3 py-2.5">
         {entry.actor_type === "agent" ? (
-          <Bot className="h-3 w-3 text-muted-foreground shrink-0" />
+          (entry.actor_agent?.meta?.emoji as string)
+            ? <span className="shrink-0 text-xs">{entry.actor_agent!.meta!.emoji as string}</span>
+            : <Bot className="h-3 w-3 text-muted-foreground shrink-0" />
         ) : entry.actor_type === "system" ? (
           <Cpu className="h-3 w-3 text-muted-foreground shrink-0" />
         ) : (

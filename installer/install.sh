@@ -81,7 +81,15 @@ TARGET="${YOURHQ_HOME:-$HOME/.yourhq}"
 mkdir -p "$TARGET"
 cd "$TARGET"
 
-REPO_RAW="${YOURHQ_REPO_RAW:-https://raw.githubusercontent.com/yourhq/yourhq/main}"
+# Resolve latest release tag (falls back to main if no releases exist yet)
+YOURHQ_VERSION="${YOURHQ_VERSION:-}"
+if [ -z "$YOURHQ_VERSION" ]; then
+  YOURHQ_VERSION=$(curl -fsSL "https://api.github.com/repos/yourhq/yourhq/releases/latest" 2>/dev/null \
+    | grep -oP '"tag_name":\s*"\K[^"]+' || echo "main")
+fi
+info "Version: $YOURHQ_VERSION"
+
+REPO_RAW="${YOURHQ_REPO_RAW:-https://raw.githubusercontent.com/yourhq/yourhq/${YOURHQ_VERSION}}"
 
 # Auth for private-repo raw fetches. In order of preference:
 #   1) Explicit GH_TOKEN / GITHUB_TOKEN (the user passed one in)
@@ -131,6 +139,12 @@ if [ ! -f "docker-compose.yml" ]; then
   fi
 fi
 
+# Fetch update script
+if [ ! -f "update.sh" ]; then
+  curl -fsSL "${CURL_AUTH[@]}" "$REPO_RAW/update.sh" -o update.sh 2>/dev/null && chmod +x update.sh && \
+    ok "Fetched update.sh" || true
+fi
+
 # ── Minimal .env ───────────────────────────────────────────
 # The UI doesn't need Supabase creds at boot — the user pastes them in
 # the browser during onboarding. We still write a GATEWAY_AUTH_TOKEN so
@@ -138,8 +152,12 @@ fi
 # running yet.
 if [ ! -f ".env" ]; then
   GATEWAY_AUTH_TOKEN_VAL=$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | xxd -p | tr -d '\n')
+  # Pin to the installed version (strip leading "v" for docker tags)
+  PIN_TAG="${YOURHQ_VERSION#v}"
+  [ "$PIN_TAG" = "main" ] && PIN_TAG="latest"
   cat > .env <<ENVEOF
 COMPOSE_PROJECT=yourhq
+IMAGE_TAG=$PIN_TAG
 GATEWAY_AUTH_TOKEN=$GATEWAY_AUTH_TOKEN_VAL
 # Supabase creds come from the browser onboarding flow and are written
 # to the /config volume. The UI reads them at runtime; gateway services

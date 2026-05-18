@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getBrowserState } from "@/lib/agent-repo/gateway-backend";
+import { resolveAgentContext } from "@/lib/workspace/branch";
 
 export async function GET(
   _request: Request,
@@ -15,9 +16,10 @@ export async function GET(
   }
 
   const { slug } = await params;
+  const { gatewayId } = await resolveAgentContext(slug);
 
   try {
-    const state = await getBrowserState(slug);
+    const state = await getBrowserState(slug, gatewayId);
     return NextResponse.json(state);
   } catch (e: unknown) {
     const status = (e as { status?: number }).status ?? 500;

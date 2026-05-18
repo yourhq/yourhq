@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { trackEvent } from "@/lib/analytics";
 import type {
   SourceConnection,
   SourceSyncRun,
@@ -111,6 +112,7 @@ export function useSourceConnections() {
         action: "created",
         summary: `Connected ${input.provider}: ${input.account_label}`,
       });
+      trackEvent("source_connected", { provider: input.provider });
 
       completeItem("sourceConnected");
       toast.success(`Connected to ${input.account_label}`);

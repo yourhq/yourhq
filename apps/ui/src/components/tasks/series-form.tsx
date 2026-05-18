@@ -58,19 +58,19 @@ const statusIcons: Record<TaskStatus, typeof Circle> = {
 };
 
 const statusDotColors: Record<TaskStatus, string> = {
-  todo: "#6b7280",
-  in_progress: "#3b82f6",
-  blocked: "#ef4444",
-  done: "#22c55e",
-  cancelled: "#71717a",
-  missed: "#f59e0b",
+  todo: "var(--status-neutral)",
+  in_progress: "var(--status-info)",
+  blocked: "var(--status-error)",
+  done: "var(--status-success)",
+  cancelled: "var(--status-neutral)",
+  missed: "var(--status-warning)",
 };
 
 const priorityDotColors: Record<TaskPriority, string> = {
-  urgent: "#ef4444",
-  high: "#f97316",
-  medium: "#eab308",
-  low: "#3b82f6",
+  urgent: "var(--priority-urgent)",
+  high: "var(--priority-high)",
+  medium: "var(--priority-medium)",
+  low: "var(--priority-low)",
 };
 
 interface SeriesFormProps {
@@ -116,7 +116,7 @@ export function SeriesForm({ seriesId, onClose }: SeriesFormProps) {
     if (!seriesId) return;
     supabase
       .from("tasks")
-      .select("*, assignee_agent:agents!tasks_assignee_agent_id_fkey(id, name, slug, avatar_url)")
+      .select("*, assignee_agent:agents!tasks_assignee_agent_id_fkey(id, name, slug, avatar_url, meta)")
       .eq("series_id", seriesId)
       .order("series_occurrence_at", { ascending: false })
       .limit(100)
@@ -398,10 +398,13 @@ export function SeriesForm({ seriesId, onClose }: SeriesFormProps) {
                       Me
                     </>
                   ) : assigneeValue !== "none" ? (
-                    <>
-                      <Bot className="h-3 w-3" />
-                      {agents.find((a) => a.id === assigneeValue)?.name ?? "Agent"}
-                    </>
+                    (() => {
+                      const ag = agents.find((a) => a.id === assigneeValue);
+                      return <>
+                        {(ag?.meta?.emoji as string) ? <span>{ag!.meta!.emoji as string}</span> : <Bot className="h-3 w-3" />}
+                        {ag?.name ?? "Agent"}
+                      </>;
+                    })()
                   ) : (
                     <span className="text-muted-foreground">Unassigned</span>
                   )}
@@ -429,7 +432,7 @@ export function SeriesForm({ seriesId, onClose }: SeriesFormProps) {
           {/* Status + next-run strip */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/50 px-4 py-2.5 text-[11px]">
             <StatusDot
-              color={series.is_paused ? "#71717a" : "#22c55e"}
+              color={series.is_paused ? "var(--status-neutral)" : "var(--status-success)"}
               label={series.is_paused ? "Paused" : "Active"}
             />
             <span className="text-muted-foreground">{longCadenceLabel(series)}</span>

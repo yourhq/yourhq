@@ -40,7 +40,7 @@ function CommandRow({ command }: { command: AgentCommand }) {
   const hasOutput = command.stdout || command.stderr || command.error_message;
 
   return (
-    <div className={cn("border-b border-border/50 last:border-0", command.status === "failed" && "bg-red-500/5")}>
+    <div className={cn("border-b border-border/50 last:border-0", command.status === "failed" && "bg-status-error/5")}>
       <button
         className="flex items-center gap-2.5 w-full px-2 py-2 text-left hover:bg-muted/30 transition-colors"
         onClick={() => hasOutput && setExpanded(!expanded)}
@@ -80,16 +80,16 @@ function CommandRow({ command }: { command: AgentCommand }) {
           )}
           {command.stderr && (
             <div>
-              <span className="text-[10px] text-red-400/80 uppercase tracking-wider">stderr</span>
-              <pre className="text-[10px] text-red-300/80 bg-red-500/10 rounded-md p-2.5 overflow-x-auto max-h-48 whitespace-pre-wrap break-all mt-0.5">
+              <span className="text-[10px] text-status-error/80 uppercase tracking-wider">stderr</span>
+              <pre className="text-[10px] text-status-error/80 bg-status-error/10 rounded-md p-2.5 overflow-x-auto max-h-48 whitespace-pre-wrap break-all mt-0.5">
                 {command.stderr}
               </pre>
             </div>
           )}
           {command.error_message && !command.stderr && (
             <div>
-              <span className="text-[10px] text-red-400/80 uppercase tracking-wider">error</span>
-              <pre className="text-[10px] text-red-300/80 bg-red-500/10 rounded-md p-2.5 overflow-x-auto max-h-32 whitespace-pre-wrap break-all mt-0.5">
+              <span className="text-[10px] text-status-error/80 uppercase tracking-wider">error</span>
+              <pre className="text-[10px] text-status-error/80 bg-status-error/10 rounded-md p-2.5 overflow-x-auto max-h-32 whitespace-pre-wrap break-all mt-0.5">
                 {command.error_message}
               </pre>
             </div>
@@ -112,9 +112,9 @@ function ProvisioningBanner({ commands }: { commands: AgentCommand[] }) {
   return (
     <div className={cn(
       "flex items-center gap-2 rounded-md border px-3 py-2 text-xs",
-      latest.status === "done" && "border-green-500/20 bg-green-500/5 text-green-400",
-      latest.status === "failed" && "border-red-500/20 bg-red-500/5 text-red-400",
-      isActive && "border-blue-500/20 bg-blue-500/5 text-blue-400",
+      latest.status === "done" && "border-status-success/20 bg-status-success/5 text-status-success",
+      latest.status === "failed" && "border-status-error/20 bg-status-error/5 text-status-error",
+      isActive && "border-status-info/20 bg-status-info/5 text-status-info",
     )}>
       {isActive && <Loader2 className="h-3 w-3 animate-spin shrink-0" />}
       <StatusDot color={color} size="sm" />
@@ -164,6 +164,7 @@ export function AgentProvisioning({ agent }: AgentProvisioningProps) {
   return (
     <div>
       <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+        <Terminal className="mr-1.5 inline h-3 w-3" />
         Operations
       </h2>
 
@@ -199,7 +200,7 @@ export function AgentProvisioning({ agent }: AgentProvisioningProps) {
         <Button
           variant="outline"
           size="sm"
-          className="h-7 text-xs gap-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 border-red-500/20"
+          className="h-7 text-xs gap-1.5 text-destructive hover:text-destructive/80 hover:bg-destructive/10 border-destructive/20"
           onClick={() => setConfirmRemove(true)}
           disabled={submitting !== null}
         >

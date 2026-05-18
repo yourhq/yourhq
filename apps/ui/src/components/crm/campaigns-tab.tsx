@@ -112,7 +112,7 @@ export function CampaignsTab() {
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium truncate">{campaign.name}</span>
                   <StatusDot
-                    color={campaign.is_active ? "#4ade80" : "#6b7280"}
+                    color={campaign.is_active ? "var(--status-success)" : "var(--status-neutral)"}
                     label={campaign.is_active ? "Active" : "Archived"}
                   />
                 </div>
@@ -162,7 +162,7 @@ export function CampaignsTab() {
                   </TableCell>
                   <TableCell className="py-1.5 px-3">
                     <StatusDot
-                      color={campaign.is_active ? "#4ade80" : "#6b7280"}
+                      color={campaign.is_active ? "var(--status-success)" : "var(--status-neutral)"}
                       label={campaign.is_active ? "Active" : "Archived"}
                     />
                   </TableCell>

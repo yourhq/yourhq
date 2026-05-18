@@ -15,6 +15,8 @@ RUN apt-get update \
 COPY gateway/embedder/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
+RUN python -c "from fastembed import TextEmbedding; TextEmbedding(model_name='BAAI/bge-small-en-v1.5', cache_dir='/models')"
+
 COPY gateway/embedder/embedder.py /app/embedder.py
 COPY gateway/daemons/registry_config.py /app/registry_config.py
 

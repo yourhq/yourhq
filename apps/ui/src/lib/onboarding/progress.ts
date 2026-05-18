@@ -21,27 +21,6 @@ export interface OnboardingProgress {
 
 const STORAGE_KEY = "hq_onboarding_progress";
 
-const DEFAULT_PROGRESS: OnboardingProgress = {
-  wizardCompleted: false,
-  tier1: {
-    agentCreated: false,
-    channelConnected: false,
-    taskAssigned: false,
-    agentWorked: false,
-    knowledgeCreated: false,
-    dashboardExplored: false,
-  },
-  tier2: {
-    sourceConnected: false,
-    routineCreated: false,
-    desktopViewed: false,
-    secondAgentCreated: false,
-  },
-  pagesVisited: [],
-  microTipsSeen: [],
-  dismissedAt: null,
-};
-
 function freshDefaults(): OnboardingProgress {
   return {
     wizardCompleted: false,

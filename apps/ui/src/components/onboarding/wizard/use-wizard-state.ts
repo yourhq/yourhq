@@ -10,7 +10,8 @@ export type WizardStep =
   | "agent"
   | "account"
   | "payment"
-  | "provisioning";
+  | "provisioning"
+  | "launch";
 
 export interface WizardData {
   ownerName?: string;
@@ -20,6 +21,7 @@ export interface WizardData {
   intentKey?: string;
   contextPresetKey?: string;
   providerId?: string;
+  providerApiKey?: string;
   providerCommandId?: string;
   agentId?: string;
   agentSlug?: string;
@@ -33,7 +35,7 @@ export interface WizardData {
   [key: string]: unknown;
 }
 
-const HOSTED_STEPS: WizardStep[] = ["welcome", "intent", "payment", "provisioning", "provider", "agent"];
+const HOSTED_STEPS: WizardStep[] = ["welcome", "intent", "provider", "agent", "launch"];
 const OSS_STEPS: WizardStep[] = ["welcome", "intent", "infrastructure", "provider", "agent", "account"];
 
 const SESSION_KEY = "hq_wizard_session";

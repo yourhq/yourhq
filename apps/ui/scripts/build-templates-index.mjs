@@ -45,9 +45,7 @@ function main() {
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     const slug = entry.name;
-    // `default` is the base template every agent forks from; not a
-    // user-facing choice.
-    if (slug === "default") continue;
+    if (slug === "default" || slug === "_shared") continue;
     const agentJsonPath = join(TEMPLATES_DIR, slug, "agent.json");
     let raw;
     try {

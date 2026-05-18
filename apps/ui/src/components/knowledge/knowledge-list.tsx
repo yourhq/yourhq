@@ -70,14 +70,14 @@ export function KnowledgeList({
           <KnowledgeScopeBadge scope={item.scope} />
 
           {item.pinned && (
-            <Pin className="h-3 w-3 text-amber-400 shrink-0" />
+            <Pin className="h-3 w-3 text-status-warning shrink-0" />
           )}
 
           {item.kind === "file" && item.processing_status === "processing" && (
-            <Loader2 className="h-3 w-3 text-blue-400 animate-spin shrink-0" />
+            <Loader2 className="h-3 w-3 text-status-info animate-spin shrink-0" />
           )}
           {item.kind === "file" && item.processing_status === "failed" && (
-            <AlertCircle className="h-3 w-3 text-red-400 shrink-0" />
+            <AlertCircle className="h-3 w-3 text-status-error shrink-0" />
           )}
           {(item.kind === "page" || item.kind === "skill" || item.kind === "source" || (item.kind === "file" && item.processing_status === "done")) && (
             <EmbeddingStatus
@@ -145,9 +145,9 @@ function SourceSyncInfo({ item }: { item: KnowledgeItem }) {
           })}
         </span>
       ) : item.source_sync_status === "source_deleted" ? (
-        <span className="text-red-400">Deleted in source</span>
+        <span className="text-status-error">Deleted in source</span>
       ) : item.source_sync_status === "error" ? (
-        <span className="text-red-400">Sync failed</span>
+        <span className="text-status-error">Sync failed</span>
       ) : (
         <span>Pending sync</span>
       )}

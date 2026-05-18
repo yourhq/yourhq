@@ -7,7 +7,7 @@ import {
   deleteFile,
 } from "@/lib/agent-repo/gateway-backend";
 import { logAudit } from "@/lib/audit/log";
-import { resolveAgentBranch } from "@/lib/workspace/branch";
+import { resolveAgentContext } from "@/lib/workspace/branch";
 
 type RouteParams = { params: Promise<{ slug: string; path: string[] }> };
 
@@ -26,11 +26,11 @@ export async function GET(_request: Request, { params }: RouteParams) {
   }
 
   const { slug, path } = await params;
-  const branch = await resolveAgentBranch(slug);
+  const { branch, gatewayId } = await resolveAgentContext(slug);
   const filePath = path.join("/");
 
   try {
-    const file = await getFileContent(branch, filePath);
+    const file = await getFileContent(branch, filePath, gatewayId);
     return NextResponse.json(file);
   } catch (e: unknown) {
     console.error("[api/agents/files] Error reading file:", e);
@@ -46,12 +46,12 @@ export async function PUT(request: Request, { params }: RouteParams) {
   }
 
   const { slug, path } = await params;
-  const branch = await resolveAgentBranch(slug);
+  const { branch, gatewayId } = await resolveAgentContext(slug);
   const filePath = path.join("/");
   const body = (await request.json()) as { content: string; sha: string };
 
   try {
-    const newSha = await saveFile(branch, filePath, body.content, body.sha);
+    const newSha = await saveFile(branch, filePath, body.content, body.sha, gatewayId);
 
     logAudit(supabase, {
       module: "agents",
@@ -82,12 +82,12 @@ export async function POST(request: Request, { params }: RouteParams) {
   }
 
   const { slug, path } = await params;
-  const branch = await resolveAgentBranch(slug);
+  const { branch, gatewayId } = await resolveAgentContext(slug);
   const filePath = path.join("/");
   const body = (await request.json()) as { content?: string };
 
   try {
-    const sha = await createFile(branch, filePath, body.content ?? "");
+    const sha = await createFile(branch, filePath, body.content ?? "", gatewayId);
 
     logAudit(supabase, {
       module: "agents",
@@ -112,12 +112,12 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   }
 
   const { slug, path } = await params;
-  const branch = await resolveAgentBranch(slug);
+  const { branch, gatewayId } = await resolveAgentContext(slug);
   const filePath = path.join("/");
   const body = (await request.json()) as { sha: string };
 
   try {
-    await deleteFile(branch, filePath, body.sha);
+    await deleteFile(branch, filePath, body.sha, gatewayId);
 
     logAudit(supabase, {
       module: "agents",

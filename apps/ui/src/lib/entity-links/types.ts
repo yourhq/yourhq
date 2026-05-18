@@ -27,7 +27,7 @@ export interface EntityLink {
   reviewed_by: string | null;
   reviewed_at: string | null;
   submitted_by_agent_id: string | null;
-  submitted_by_agent?: { id: string; name: string; slug: string } | null;
+  submitted_by_agent?: { id: string; name: string; slug: string; meta?: Record<string, unknown> } | null;
   resolved_name?: string;
   resolved_icon?: string;
   resolved_extra?: Record<string, unknown>;

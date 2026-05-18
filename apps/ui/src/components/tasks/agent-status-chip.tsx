@@ -14,6 +14,7 @@ export function AgentStatusChip({ task, compact }: AgentStatusChipProps) {
   if (task.assignee_type !== "agent" || !task.assignee_agent) return null;
 
   const name = task.assignee_agent.name;
+  const emoji = task.assignee_agent.meta?.emoji as string | undefined;
 
   if (task.status === "done" && task.completed_at) {
     return (
@@ -46,7 +47,7 @@ export function AgentStatusChip({ task, compact }: AgentStatusChipProps) {
   if (task.status === "todo") {
     return (
       <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-        <Bot className="h-3 w-3" />
+        {emoji ? <span>{emoji}</span> : <Bot className="h-3 w-3" />}
         {!compact && <span className="truncate max-w-[120px]">Queued for {name}</span>}
       </span>
     );
@@ -55,7 +56,7 @@ export function AgentStatusChip({ task, compact }: AgentStatusChipProps) {
   // Default: just show agent name
   return (
     <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-      <Bot className="h-3 w-3" />
+      {emoji ? <span>{emoji}</span> : <Bot className="h-3 w-3" />}
       {!compact && <span className="truncate max-w-[120px]">{name}</span>}
     </span>
   );

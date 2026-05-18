@@ -1,21 +1,22 @@
 # CODEOWNERS — auto-request review when these paths change.
 # https://docs.github.com/en/repositories/managing-your-repositories-settings-and-security/customizing-your-repository/about-code-owners
 
-* @anara-ai
+* @hq-prajoth
 
 # Security-sensitive areas — flag any change here for explicit review.
-/SECURITY.md            @anara-ai
-/installer/             @anara-ai
-/gateway/runner/        @anara-ai
-/gateway/daemons/secrets_sync.py @anara-ai
-/apps/ui/src/lib/secrets/ @anara-ai
-/db/migrations/         @anara-ai
-/.github/               @anara-ai
-/.github/workflows/     @anara-ai
+/SECURITY.md            @hq-prajoth
+/installer/             @hq-prajoth
+/gateway/runner/        @hq-prajoth
+/gateway/daemons/secrets_sync.py @hq-prajoth
+/apps/ui/src/lib/secrets/ @hq-prajoth
+/db/migrations/         @hq-prajoth
+/.github/               @hq-prajoth
+/.github/workflows/     @hq-prajoth
 
 # Test infrastructure — maintainer review to keep CI stable.
-/apps/ui/vitest.config.ts @anara-ai
-/apps/ui/src/__tests__/helpers/ @anara-ai
-/gateway/tests/conftest.py @anara-ai
-/db/tests/              @anara-ai
-/Makefile               @anara-ai
+/apps/ui/vitest.config.ts @hq-prajoth
+/apps/ui/src/__tests__/helpers/ @hq-prajoth
+/gateway/tests/conftest.py @hq-prajoth
+/db/tests/              @hq-prajoth
+/Makefile               @hq-prajoth
+

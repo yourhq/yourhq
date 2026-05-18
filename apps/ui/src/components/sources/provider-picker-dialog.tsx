@@ -293,7 +293,7 @@ export function ProviderPickerDialog({
                 <div
                   className={cn(
                     "flex items-center gap-1.5 text-[12px]",
-                    validation.valid ? "text-green-400" : "text-red-400",
+                    validation.valid ? "text-status-success" : "text-status-error",
                   )}
                 >
                   {validation.valid ? (

@@ -42,6 +42,21 @@ export async function sendProvisioningComplete(email: string, workspaceLabel: st
   });
 }
 
+export async function sendSandboxError(email: string, workspaceLabel: string, dashboardUrl: string): Promise<void> {
+  const resend = getResend();
+  await resend.emails.send({
+    from: FROM,
+    replyTo: REPLY_TO,
+    to: email,
+    subject: `Action needed: "${workspaceLabel}" gateway is offline`,
+    html: `
+      <p>The gateway for your workspace <strong>${workspaceLabel}</strong> encountered an issue. We attempted to restart it automatically but it's still not responding.</p>
+      <p><a href="${dashboardUrl}" style="display:inline-block;padding:12px 24px;background:#171717;color:#fff;border-radius:6px;text-decoration:none;font-weight:500;">Check your workspace</a></p>
+      <p style="color:#666;font-size:13px;">If the issue persists, reply to this email or contact support@yourhq.ai.</p>
+    `,
+  });
+}
+
 export async function sendPaymentFailed(email: string, workspaceLabel: string, billingUrl: string, failureCount: number): Promise<void> {
   const resend = getResend();
   const isFinal = failureCount >= 3;

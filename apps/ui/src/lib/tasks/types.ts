@@ -50,7 +50,7 @@ export interface Task {
   series_occurrence_at: string | null;
   // Joined
   stream?: Stream | null;
-  assignee_agent?: { id: string; name: string; slug: string; avatar_url: string | null } | null;
+  assignee_agent?: { id: string; name: string; slug: string; avatar_url: string | null; meta?: Record<string, unknown> } | null;
   series?: Pick<TaskSeries, "id" | "cadence_type" | "interval_n" | "days_of_week" | "day_of_month" | "time_of_day" | "timezone"> | null;
   comment_count?: number;
   attachment_count?: number;
@@ -92,7 +92,7 @@ export interface TaskSeries {
   missed_policy: MissedPolicy;
   // Joined
   stream?: Stream | null;
-  assignee_agent?: { id: string; name: string; slug: string; avatar_url: string | null } | null;
+  assignee_agent?: { id: string; name: string; slug: string; avatar_url: string | null; meta?: Record<string, unknown> } | null;
 }
 
 export interface Comment {
@@ -108,7 +108,7 @@ export interface Comment {
   mentions: string[];
   meta: Record<string, unknown>;
   // Joined
-  actor_agent?: { id: string; name: string; slug: string; avatar_url: string | null } | null;
+  actor_agent?: { id: string; name: string; slug: string; avatar_url: string | null; meta?: Record<string, unknown> } | null;
   replies?: Comment[];
 }
 

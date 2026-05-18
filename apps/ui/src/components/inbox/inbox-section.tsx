@@ -29,7 +29,7 @@ function InboxItemRow({ item }: { item: InboxItem }) {
     <div
       className={cn(
         "border-b border-border/50 last:border-0",
-        isDeadLetter && "bg-red-500/5"
+        isDeadLetter && "bg-status-error/5"
       )}
     >
       <button
@@ -82,10 +82,11 @@ export function InboxSection({ agentId }: InboxSectionProps) {
     <div>
       <div className="flex items-center gap-2 mb-3">
         <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          <Inbox className="mr-1.5 inline h-3 w-3" />
           Inbox
         </h2>
         {pendingCount > 0 && (
-          <Badge variant="secondary" className="h-4 px-1.5 text-[10px] bg-blue-500/15 text-blue-400 border border-blue-500/20">
+          <Badge variant="secondary" className="h-4 px-1.5 text-[10px] bg-status-info/15 text-status-info border border-status-info/20">
             {pendingCount} pending
           </Badge>
         )}

@@ -110,7 +110,7 @@ export function DatabaseSettings({ activeWorkspaceId, workspaces }: Props) {
                           {w.label}
                         </div>
                         {isActive && (
-                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" title="Active" />
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-status-success" title="Active" />
                         )}
                         {w.isDefault && !isActive && (
                           <Star className="h-3 w-3 shrink-0 text-muted-foreground/60" />

@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { listSwitcherWorkspaces } from "@/lib/workspaces";
+import { PostHogIdentifier } from "@/app/posthog-identifier";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,13 @@ export default async function DashboardLayout({
       isHosted={isHosted}
       modules={modules}
     >
+      {isHosted && activeWorkspaceId && (
+        <PostHogIdentifier
+          userId={user.id}
+          email={user.email!}
+          workspaceId={activeWorkspaceId}
+        />
+      )}
       {children}
     </DashboardShell>
   );

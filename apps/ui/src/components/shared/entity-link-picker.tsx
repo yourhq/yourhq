@@ -60,6 +60,8 @@ interface EntityLinkPickerProps {
     targetTypes?: TargetType[]
   ) => Promise<EntityLinkSearchResult[]>;
   portal?: boolean;
+  triggerLabel?: string;
+  triggerVariant?: "default" | "subtle";
 }
 
 export function EntityLinkPicker({
@@ -70,6 +72,8 @@ export function EntityLinkPicker({
   onCreatePage,
   searchTargets,
   portal = true,
+  triggerLabel = "Add link",
+  triggerVariant = "default",
 }: EntityLinkPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -148,10 +152,14 @@ export function EntityLinkPicker({
         <Button
           variant="ghost"
           size="sm"
-          className="h-6 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+          className={
+            triggerVariant === "subtle"
+              ? "h-7 gap-1.5 px-1.5 text-xs text-muted-foreground/50 hover:text-muted-foreground"
+              : "h-6 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+          }
         >
           <Paperclip className="h-3 w-3" />
-          Link
+          {triggerLabel}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-0" align="start" portal={portal}>

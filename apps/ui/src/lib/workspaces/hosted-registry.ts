@@ -68,9 +68,18 @@ export async function getWorkspaceSession(): Promise<WorkspaceSession | null> {
   }
 }
 
+function workspaceSig(workspaceId: string): { "x-workspace-sig": string; "x-workspace-ts": string } {
+  const ts = String(Date.now());
+  const sig = createHmac("sha256", signingSecret())
+    .update(`${workspaceId}:${ts}`)
+    .digest("base64url");
+  return { "x-workspace-sig": sig, "x-workspace-ts": ts };
+}
+
 async function fetchHostedWorkspace(workspaceId: string): Promise<HostedWorkspaceData | null> {
   const res = await workerFetch(`/workspaces/${workspaceId}/connection`, {
     cache: "no-store" as RequestCache,
+    headers: workspaceSig(workspaceId),
   });
   if (!res.ok) return null;
   return res.json();
@@ -165,11 +174,13 @@ export async function canAccessWorkspace(workspaceId: string): Promise<boolean> 
   return siblings.some((w) => w.id === workspaceId);
 }
 
+type OnboardingStep = OnboardingState["step"];
+
 function deriveHostedStep(
   subscriptionStatus: string | undefined,
   provisionStage: string | null | undefined,
   metadata: Record<string, unknown>,
-): string {
+): OnboardingStep {
   if (subscriptionStatus === "pending") return "payment";
   if (
     subscriptionStatus === "provisioning" ||
@@ -202,7 +213,7 @@ export async function getOnboardingState(): Promise<OnboardingState> {
 
     return {
       version: 1 as const,
-      step: complete ? "done" : "welcome",
+      step: complete ? "done" : step,
       complete,
       data: {
         ownerName: metadata.ownerName,
@@ -271,9 +282,13 @@ export async function getProvisionStatus(workspaceId: string): Promise<{
   auto_login_token_hash: string | null;
   auto_login_type: string;
 } | null> {
-  const res = await workerFetch(
-    `/workspaces/${workspaceId}/status`,
-  );
-  if (!res.ok) return null;
-  return res.json();
+  try {
+    const res = await workerFetch(
+      `/workspaces/${workspaceId}/status`,
+    );
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
 }

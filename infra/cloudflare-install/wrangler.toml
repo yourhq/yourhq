@@ -1,0 +1,7 @@
+name = "yourhq-install"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+routes = [
+  { pattern = "install.yourhq.ai/*", zone_name = "yourhq.ai" }
+]

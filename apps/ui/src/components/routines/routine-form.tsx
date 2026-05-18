@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import type { Routine, TriggerType, RoutineCadenceType, RoutineCondition, RoutineEntityType } from "@/lib/routines/types";
 import { CADENCE_OPTIONS, SUB_DAILY_PRESETS, CONDITION_LABELS, ENTITY_TYPE_LABELS, DAYS_OF_WEEK_LABELS } from "@/lib/routines/types";
 import { usePipelineStages } from "@/hooks/use-pipeline-stages";
+import { useBufferedEntityLinks } from "@/hooks/use-buffered-entity-links";
+import { EntityLinkList } from "@/components/shared/entity-link-list";
 import { logAudit } from "@/lib/audit/log";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -23,8 +25,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Clock, Zap } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { Clock, Play, Zap, ChevronDown } from "lucide-react";
+import { formatDistanceToNow, differenceInSeconds } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface RoutineFormProps {
@@ -36,6 +38,7 @@ interface RoutineFormProps {
   };
   onSave: () => void;
   onCancel: () => void;
+  onRunNow?: (id: string) => void;
 }
 
 interface AgentOption {
@@ -56,11 +59,13 @@ export function RoutineForm({
   initialValues,
   onSave,
   onCancel,
+  onRunNow,
 }: RoutineFormProps) {
   const supabase = useMemo(() => createClient(), []);
   const [agents, setAgents] = useState<AgentOption[]>([]);
   const [saving, setSaving] = useState(false);
   const { stageOptions, stagesByKey } = usePipelineStages("contact");
+  const entityLinks = useBufferedEntityLinks("routine", editingRoutine?.id ?? null);
 
   const lockAgent = !editingRoutine && Boolean(initialValues?.lockAgent);
 
@@ -100,8 +105,9 @@ export function RoutineForm({
   const [collections, setCollections] = useState<{ id: string; name: string; slug: string }[]>([]);
   const [collectionFields, setCollectionFields] = useState<{ field_key: string; label: string; field_type: string; options: unknown }[]>([]);
   const [recentRuns, setRecentRuns] = useState<
-    { id: string; created_at: string; status: string; context: Record<string, unknown> | null }[]
+    { id: string; created_at: string; completed_at: string | null; event_type: string; status: string; summary: string | null; context: Record<string, unknown> | null }[]
   >([]);
+  const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
 
   const instructionRef = useRef<HTMLTextAreaElement>(null);
 
@@ -159,7 +165,7 @@ export function RoutineForm({
     let cancelled = false;
     supabase
       .from("agent_inbox_items")
-      .select("id, created_at, status, context")
+      .select("id, created_at, completed_at, event_type, status, summary, context")
       .contains("context", { routine_id: editingRoutine.id })
       .order("created_at", { ascending: false })
       .limit(5)
@@ -296,6 +302,9 @@ export function RoutineForm({
         setSaving(false);
         return;
       }
+      if (entityLinks.dirty) {
+        await entityLinks.actions.flush(editingRoutine.id);
+      }
       logAudit(supabase, {
         module: "routines",
         entity_type: "routine",
@@ -314,6 +323,9 @@ export function RoutineForm({
         setSaving(false);
         return;
       }
+      if (entityLinks.dirty) {
+        await entityLinks.actions.flush(inserted.id);
+      }
       logAudit(supabase, {
         module: "routines",
         entity_type: "routine",
@@ -325,6 +337,34 @@ export function RoutineForm({
 
     setSaving(false);
     onSave();
+  }
+
+  function formatDuration(run: typeof recentRuns[number]): string | null {
+    if (!run.completed_at) return null;
+    const secs = differenceInSeconds(new Date(run.completed_at), new Date(run.created_at));
+    if (secs < 60) return `${secs}s`;
+    const mins = Math.floor(secs / 60);
+    const remSecs = secs % 60;
+    if (mins < 60) return remSecs > 0 ? `${mins}m ${remSecs}s` : `${mins}m`;
+    const hrs = Math.floor(mins / 60);
+    const remMins = mins % 60;
+    return remMins > 0 ? `${hrs}h ${remMins}m` : `${hrs}h`;
+  }
+
+  function triggerLabel(run: typeof recentRuns[number]): string | null {
+    const ctx = run.context;
+    if (!ctx) return null;
+    if (run.event_type === "routine_event") {
+      const entity = ctx.entity_type as string | undefined;
+      const cond = ctx.condition as string | undefined;
+      const field = ctx.field as string | undefined;
+      const newVal = ctx.new_value as string | undefined;
+      if (cond === "created" && entity) return `${entity} created`;
+      if (field && cond && newVal) return `${field} ${cond.replace(/_/g, " ")} ${newVal}`;
+      if (field && cond) return `${field} ${cond.replace(/_/g, " ")}`;
+      return "event triggered";
+    }
+    return null;
   }
 
   return (
@@ -348,7 +388,7 @@ export function RoutineForm({
           {/* Header */}
           <div className="px-5 pt-5 pb-3">
             <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded bg-purple-500/10 text-purple-400">
+              <div className="flex h-6 w-6 items-center justify-center rounded bg-accent-purple/10 text-accent-purple">
                 {triggerType === "schedule" ? (
                   <Clock className="h-3.5 w-3.5" />
                 ) : (
@@ -387,7 +427,7 @@ export function RoutineForm({
                   className={cn(
                     "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
                     triggerType === "schedule"
-                      ? "bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/30"
+                      ? "bg-accent-blue/15 text-accent-blue ring-1 ring-accent-blue/30"
                       : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
                   )}
                 >
@@ -400,7 +440,7 @@ export function RoutineForm({
                   className={cn(
                     "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
                     triggerType === "event"
-                      ? "bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30"
+                      ? "bg-accent-amber/15 text-accent-amber ring-1 ring-accent-amber/30"
                       : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
                   )}
                 >
@@ -457,7 +497,7 @@ export function RoutineForm({
                           className={cn(
                             "rounded px-2 py-1 text-[11px] transition-colors",
                             cadenceType === p.cadence_type && intervalN === p.interval_n
-                              ? "bg-blue-500/20 text-blue-400"
+                              ? "bg-accent-blue/20 text-accent-blue"
                               : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
                           )}
                         >
@@ -505,7 +545,7 @@ export function RoutineForm({
                         className={cn(
                           "h-7 w-9 rounded text-[11px] font-medium transition-colors",
                           daysOfWeek.includes(i + 1)
-                            ? "bg-blue-500/20 text-blue-400"
+                            ? "bg-accent-blue/20 text-accent-blue"
                             : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
                         )}
                       >
@@ -751,39 +791,81 @@ export function RoutineForm({
               />
             </div>
 
+            {/* Entity links */}
+            <EntityLinkList
+              links={entityLinks.links}
+              onAddLink={entityLinks.actions.addLink}
+              onRemoveLink={entityLinks.actions.removeLink}
+              searchTargets={entityLinks.actions.searchTargets}
+            />
+
             {editingRoutine && recentRuns.length > 0 && (
               <div>
                 <label className="text-[11px] uppercase tracking-wide text-muted-foreground/70">
                   Recent runs
                 </label>
                 <div className="mt-1 space-y-0.5">
-                  {recentRuns.map((run) => (
-                    <div
-                      key={run.id}
-                      className="flex items-center gap-2 rounded px-2.5 py-1.5 text-[11px] bg-muted/20"
-                    >
-                      <span
-                        className={cn(
-                          "inline-flex h-4 items-center rounded px-1 text-[10px] font-medium",
-                          run.status === "done"
-                            ? "bg-emerald-500/15 text-emerald-400"
-                            : run.status === "pending" || run.status === "leased"
-                              ? "bg-blue-500/15 text-blue-400"
-                              : run.status === "failed"
-                                ? "bg-red-500/15 text-red-400"
-                                : "bg-muted text-muted-foreground"
+                  {recentRuns.map((run) => {
+                    const duration = formatDuration(run);
+                    const trigger = triggerLabel(run);
+                    const isExpanded = expandedRunId === run.id;
+                    const hasSummary = !!run.summary;
+
+                    return (
+                      <div key={run.id}>
+                        <button
+                          type="button"
+                          onClick={() => hasSummary && setExpandedRunId(isExpanded ? null : run.id)}
+                          className={cn(
+                            "flex items-center gap-2 rounded px-2.5 py-1.5 text-[11px] bg-muted/20 w-full text-left",
+                            hasSummary && "cursor-pointer hover:bg-muted/30 transition-colors"
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "inline-flex h-4 items-center rounded px-1 text-[10px] font-medium shrink-0",
+                              run.status === "done"
+                                ? "bg-status-success/15 text-status-success"
+                                : run.status === "pending" || run.status === "leased"
+                                  ? "bg-status-info/15 text-status-info"
+                                  : run.status === "failed" || run.status === "dead_letter"
+                                    ? "bg-status-error/15 text-status-error"
+                                    : "bg-status-neutral/15 text-status-neutral"
+                            )}
+                          >
+                            {run.status === "dead_letter" ? "failed" : run.status}
+                          </span>
+                          <span className="text-muted-foreground shrink-0">
+                            {formatDistanceToNow(new Date(run.created_at), { addSuffix: true })}
+                          </span>
+                          {duration && (
+                            <span className="text-muted-foreground/50 shrink-0">
+                              {duration}
+                            </span>
+                          )}
+                          {trigger && (
+                            <span className="text-muted-foreground/40 truncate">
+                              {trigger}
+                            </span>
+                          )}
+                          {Boolean(run.context?.manual_trigger) && (
+                            <span className="text-muted-foreground/50 shrink-0">manual</span>
+                          )}
+                          {hasSummary && (
+                            <ChevronDown className={cn(
+                              "h-3 w-3 ml-auto shrink-0 text-muted-foreground/40 transition-transform",
+                              isExpanded && "rotate-180"
+                            )} />
+                          )}
+                        </button>
+                        {isExpanded && run.summary && (
+                          <div className="mx-2.5 mt-0.5 mb-1 rounded bg-muted/10 px-2.5 py-2 text-[11px] text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                            {run.summary}
+                          </div>
                         )}
-                      >
-                        {run.status}
-                      </span>
-                      <span className="text-muted-foreground">
-                        {formatDistanceToNow(new Date(run.created_at), { addSuffix: true })}
-                      </span>
-                      {Boolean(run.context?.manual_trigger) && (
-                        <span className="text-muted-foreground/50">manual</span>
-                      )}
-                    </div>
-                  ))}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -792,16 +874,30 @@ export function RoutineForm({
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-border/50 px-5 py-3 shrink-0">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <Switch
-              data-size="sm"
-              checked={isActive}
-              onCheckedChange={setIsActive}
-            />
-            <span className="text-xs text-muted-foreground">
-              {isActive ? "Active" : "Paused"}
-            </span>
-          </label>
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Switch
+                data-size="sm"
+                checked={isActive}
+                onCheckedChange={setIsActive}
+              />
+              <span className="text-xs text-muted-foreground">
+                {isActive ? "Active" : "Paused"}
+              </span>
+            </label>
+            {editingRoutine && onRunNow && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => onRunNow(editingRoutine.id)}
+              >
+                <Play className="mr-1.5 h-3 w-3" />
+                Run now
+              </Button>
+            )}
+          </div>
           <div className="flex items-center gap-1.5">
             <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancel}>
               Cancel

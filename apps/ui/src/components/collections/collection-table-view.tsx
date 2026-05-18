@@ -23,7 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { ArrowUpDown, MoreHorizontal, Plus, Trash2, Archive } from "lucide-react";
+import { ArrowUp, ArrowDown, MoreHorizontal, Plus, Trash2, Archive } from "lucide-react";
 
 interface CollectionTableViewProps {
   records: CollectionRecord[];
@@ -67,18 +67,23 @@ export function CollectionTableView({
     const cols: ColumnDef<CollectionRecord>[] = activeFields.map((field) => ({
       id: field.field_key,
       accessorFn: (row: CollectionRecord) => row.values[field.field_key],
-      header: ({ column }) => (
-        <button
-          type="button"
-          className="flex items-center gap-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground"
-          onClick={() => column.toggleSorting()}
-        >
-          {field.label}
-          {column.getIsSorted() && (
-            <ArrowUpDown className="h-3 w-3" />
-          )}
-        </button>
-      ),
+      header: ({ column }) => {
+        const sorted = column.getIsSorted();
+        return (
+          <button
+            type="button"
+            className={cn(
+              "flex items-center gap-1 text-[11px] font-medium uppercase tracking-wider transition-colors",
+              sorted ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+            )}
+            onClick={() => column.toggleSorting()}
+          >
+            {field.label}
+            {sorted === "asc" && <ArrowUp className="h-3 w-3" />}
+            {sorted === "desc" && <ArrowDown className="h-3 w-3" />}
+          </button>
+        );
+      },
       cell: ({ row }) =>
         field.is_title_field ? (
           <button
@@ -235,13 +240,13 @@ export function CollectionTableView({
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-body">
-        <thead>
+        <thead className="sticky top-0 z-10 bg-background">
           {table.getHeaderGroups().map((hg) => (
             <tr key={hg.id} className="border-b border-border/50">
               {hg.headers.map((header) => (
                 <th
                   key={header.id}
-                  className="px-2 py-1.5 text-left font-normal"
+                  className="px-3 py-2 text-left font-normal bg-muted/30"
                   style={{ width: header.getSize() }}
                 >
                   {header.isPlaceholder
@@ -256,14 +261,14 @@ export function CollectionTableView({
           {table.getRowModel().rows.map((row) => (
             <tr
               key={row.id}
-              className="group/row border-b border-border/30 transition-colors hover:bg-accent/30"
+              className="group/row border-b border-border/20 transition-colors hover:bg-accent/40"
             >
               {row.getVisibleCells().map((cell) => {
                 const isTitleField = (cell.column.columnDef.meta as { isTitleField?: boolean })?.isTitleField;
                 return (
                   <td
                     key={cell.id}
-                    className={cn("px-2 py-0.5", isTitleField && "cursor-pointer")}
+                    className={cn("px-3 py-0.5", isTitleField && "cursor-pointer")}
                     onClick={isTitleField ? undefined : (e) => e.stopPropagation()}
                   >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -275,11 +280,10 @@ export function CollectionTableView({
         </tbody>
       </table>
 
-      {/* Add row button */}
       <button
         type="button"
         onClick={onAddRecord}
-        className="flex w-full items-center gap-1.5 px-2 py-1.5 text-body text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground"
+        className="flex w-full items-center gap-1.5 border-b border-dashed border-border/30 px-3 py-2 text-body text-muted-foreground/60 transition-colors hover:bg-accent/30 hover:text-muted-foreground"
       >
         <Plus className="h-3.5 w-3.5" />
         New record

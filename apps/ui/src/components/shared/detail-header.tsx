@@ -25,6 +25,8 @@ interface DetailHeaderProps {
   identityTitle: React.ReactNode;
   /** Slot for status pill / slug / @handle next to the title. */
   identityMeta?: React.ReactNode;
+  /** Optional description slot rendered below the identity row. */
+  identityDescription?: React.ReactNode;
   /** Right-side action slot (e.g. mobile rail trigger). */
   secondaryActions?: React.ReactNode;
   /** Right-side overflow menu trigger. */
@@ -37,6 +39,7 @@ export function DetailHeader({
   identityIcon,
   identityTitle,
   identityMeta,
+  identityDescription,
   secondaryActions,
   overflow,
   className,
@@ -78,6 +81,9 @@ export function DetailHeader({
           {overflow}
         </div>
       </div>
+      {identityDescription && (
+        <div className="mt-0.5">{identityDescription}</div>
+      )}
     </div>
   );
 }

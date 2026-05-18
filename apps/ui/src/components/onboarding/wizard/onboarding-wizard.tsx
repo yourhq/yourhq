@@ -11,8 +11,9 @@ import { StepWelcome } from "./step-welcome";
 import { StepIntent } from "./step-intent";
 import { StepInfrastructure, type InfraStatus, type SchemaInstallState } from "./step-infrastructure";
 import { StepProvider } from "./step-provider";
-import { StepAgent, type AgentRecommendation } from "./step-agent";
+import { StepAgent } from "./step-agent";
 import { StepAccount } from "./step-account";
+import { StepLaunch } from "./step-launch";
 import { StepPayment } from "./step-payment";
 import { StepProvisioning } from "./step-provisioning";
 import { StepCelebration } from "./step-celebration";
@@ -35,15 +36,135 @@ import {
   signOutFromOnboarding,
   markOnboardingComplete,
 } from "./actions";
-import { createHostedCheckout, getHostedEmail, verifyAutoLogin } from "./hosted-actions";
+import { createHostedCheckout, getHostedEmail, verifyAutoLogin, sendFreshLoginLink } from "./hosted-actions";
+import { trackEvent, identifyUser } from "@/lib/analytics";
 
-const INTENT_TO_TEMPLATE: Record<string, { branch: string; name: string; emoji: string; role: string; description: string }> = {
-  reach: { branch: "template/crm-researcher", name: "Scout", emoji: "🦅", role: "Research & Outreach", description: "Researches people, verifies info, and helps you craft personalized outreach." },
-  deals: { branch: "template/crm-researcher", name: "Scout", emoji: "🦅", role: "Sales Research", description: "Finds decision-makers, researches companies, and preps you for every conversation." },
-  hire: { branch: "template/crm-researcher", name: "Scout", emoji: "🦅", role: "Talent Sourcing", description: "Sources candidates, screens profiles, and helps you build a strong pipeline." },
-  publish: { branch: "template/ghostwriter", name: "Ghost", emoji: "🦎", role: "Content Writer", description: "Writes in your voice across any format — newsletters, posts, threads, and more." },
-  run: { branch: "template/chief-of-staff", name: "Chief", emoji: "🦫", role: "Operations", description: "Coordinates tasks, tracks clients, and keeps everything moving forward." },
-  explore: { branch: "template/assistant", name: "Assistant", emoji: "🐕", role: "General Assistant", description: "Routes work, tracks moving parts, and helps you stay organized." },
+interface AgentCapability {
+  label: string;
+  detail: string;
+}
+
+export interface AgentTemplate {
+  key: string;
+  branch: string;
+  name: string;
+  emoji: string;
+  role: string;
+  description: string;
+  capabilities: AgentCapability[];
+}
+
+const AGENT_ROSTER: AgentTemplate[] = [
+  {
+    key: "scout", branch: "template/crm-researcher", name: "Scout", emoji: "🦅", role: "Sales & Outreach",
+    description: "Your dedicated sales partner — researches targets, crafts outreach, and keeps your pipeline moving.",
+    capabilities: [
+      { label: "Prospect research", detail: "Deep-dives into companies, finds decision-makers, and builds target profiles" },
+      { label: "Outreach drafting", detail: "Writes personalized emails and messages tailored to each prospect" },
+      { label: "Pipeline tracking", detail: "Keeps your deals organized and flags follow-ups before they slip" },
+      { label: "Meeting prep", detail: "Summarizes notes, tracks next steps, and preps you before every call" },
+    ],
+  },
+  {
+    key: "ghost", branch: "template/ghostwriter", name: "Ghost", emoji: "🦎", role: "Content Writer",
+    description: "Your writing partner — drafts in your voice, researches topics, and keeps your content calendar full.",
+    capabilities: [
+      { label: "Content drafting", detail: "Writes newsletters, blog posts, and social threads in your voice" },
+      { label: "Topic research", detail: "Finds angles, pulls sources, and builds outlines before you write" },
+      { label: "Editing & refinement", detail: "Tightens drafts, adjusts tone, and incorporates your feedback" },
+      { label: "Calendar planning", detail: "Plans your publishing schedule and tracks what's due next" },
+    ],
+  },
+  {
+    key: "chief", branch: "template/chief-of-staff", name: "Chief", emoji: "🦫", role: "Operations",
+    description: "Your operations lead — coordinates work, tracks clients, and keeps everything on schedule.",
+    capabilities: [
+      { label: "Task management", detail: "Breaks down projects, assigns priorities, and tracks progress" },
+      { label: "Client tracking", detail: "Keeps accounts organized with status, notes, and next actions" },
+      { label: "Blocker alerts", detail: "Surfaces overdue items and bottlenecks before they become problems" },
+      { label: "Status updates", detail: "Prepares summaries and reports so you always know where things stand" },
+    ],
+  },
+  {
+    key: "researcher", branch: "template/assistant", name: "Researcher", emoji: "🦉", role: "Research & Analysis",
+    description: "Your research analyst — digs deep into topics, synthesizes findings, and keeps your knowledge organized.",
+    capabilities: [
+      { label: "Deep research", detail: "Investigates markets, companies, and trends with structured analysis" },
+      { label: "Brief creation", detail: "Synthesizes findings into clear, actionable summaries" },
+      { label: "Monitoring", detail: "Tracks topics over time and surfaces new developments" },
+      { label: "Knowledge organization", detail: "Files research into your knowledge base so nothing gets lost" },
+    ],
+  },
+  {
+    key: "assistant", branch: "template/assistant", name: "Assistant", emoji: "🐕", role: "General Assistant",
+    description: "Your right hand — manages tasks, tracks what matters, and handles the day-to-day so you can focus.",
+    capabilities: [
+      { label: "Task management", detail: "Organizes your to-dos, sets priorities, and tracks deadlines" },
+      { label: "Research & writing", detail: "Looks into topics and drafts docs, messages, and quick write-ups" },
+      { label: "Project tracking", detail: "Monitors progress across workstreams and flags what needs attention" },
+      { label: "Workspace upkeep", detail: "Keeps everything organized, up to date, and easy to find" },
+    ],
+  },
+  {
+    key: "cofounder", branch: "template/cofounder", name: "Co-Founder", emoji: "🦉", role: "Strategy & Execution",
+    description: "Your strategic operator — helps drive execution, shape direction, and keep the business moving.",
+    capabilities: [
+      { label: "Strategic planning", detail: "Breaks down big goals into actionable next steps" },
+      { label: "Decision support", detail: "Frames trade-offs and surfaces the data you need to decide" },
+      { label: "Execution tracking", detail: "Keeps initiatives on track and flags when things stall" },
+      { label: "Market awareness", detail: "Monitors competitors, trends, and opportunities" },
+    ],
+  },
+  {
+    key: "cmo", branch: "template/cmo", name: "CMO", emoji: "🕷️", role: "Marketing Strategy",
+    description: "Your marketing strategist — designs messaging, plans campaigns, and builds your funnel.",
+    capabilities: [
+      { label: "Campaign strategy", detail: "Plans multi-channel campaigns aligned to your goals" },
+      { label: "Messaging & positioning", detail: "Crafts clear value props that resonate with your audience" },
+      { label: "Funnel design", detail: "Maps the journey from awareness to conversion" },
+      { label: "Performance analysis", detail: "Tracks what's working and recommends where to double down" },
+    ],
+  },
+  {
+    key: "analytics", branch: "template/analytics", name: "Analytics", emoji: "🐙", role: "Data & Insights",
+    description: "Your performance analyst — turns activity and outcomes into clear metrics and action items.",
+    capabilities: [
+      { label: "Metric tracking", detail: "Monitors KPIs and highlights meaningful changes" },
+      { label: "Trend analysis", detail: "Spots patterns in your data and explains what's driving them" },
+      { label: "Reporting", detail: "Builds clear dashboards and summaries for stakeholders" },
+      { label: "Recommendations", detail: "Translates insights into specific next steps" },
+    ],
+  },
+  {
+    key: "designer", branch: "template/designer", name: "Designer", emoji: "🦚", role: "Visual Design",
+    description: "Your visual creator — turns ideas into clear, engaging graphics and polished content.",
+    capabilities: [
+      { label: "Graphic creation", detail: "Designs social graphics, presentations, and brand assets" },
+      { label: "Content formatting", detail: "Polishes docs and decks for a professional look" },
+      { label: "Brand consistency", detail: "Keeps your visual identity cohesive across everything" },
+      { label: "Creative concepts", detail: "Explores visual directions and translates ideas into layouts" },
+    ],
+  },
+  {
+    key: "market-researcher", branch: "template/market-researcher", name: "Market Intel", emoji: "🐦‍⬛", role: "Market Intelligence",
+    description: "Your external intelligence agent — scans markets, spots patterns, and surfaces meaningful signals.",
+    capabilities: [
+      { label: "Competitive analysis", detail: "Tracks competitors, their moves, and positioning shifts" },
+      { label: "Market scanning", detail: "Monitors industry trends and emerging opportunities" },
+      { label: "Signal detection", detail: "Surfaces news, funding rounds, and key market events" },
+      { label: "Intelligence briefs", detail: "Delivers structured summaries you can act on quickly" },
+    ],
+  },
+];
+
+const INTENT_TO_AGENT_KEY: Record<string, string> = {
+  reach: "scout",
+  publish: "ghost",
+  run: "chief",
+  hire: "scout",
+  research: "researcher",
+  organized: "assistant",
+  explore: "assistant",
 };
 
 const STEP_LAYOUT: Record<string, "narrow" | "wide"> = {
@@ -55,23 +176,24 @@ const STEP_LAYOUT: Record<string, "narrow" | "wide"> = {
   account: "narrow",
   payment: "wide",
   provisioning: "narrow",
+  launch: "wide",
 };
 
 const OSS_PROGRESS_STEPS = [
-  { key: "welcome", label: "Welcome" },
-  { key: "intent", label: "Your work" },
-  { key: "infrastructure", label: "Infrastructure" },
-  { key: "provider", label: "AI Provider" },
+  { key: "welcome", label: "You" },
+  { key: "intent", label: "Focus" },
+  { key: "infrastructure", label: "Setup" },
+  { key: "provider", label: "AI" },
   { key: "agent", label: "Agent" },
   { key: "account", label: "Account" },
 ];
 
 const HOSTED_PROGRESS_STEPS = [
-  { key: "welcome", label: "Welcome" },
-  { key: "intent", label: "Your work" },
-  { key: "payment", label: "Setup" },
-  { key: "provider", label: "AI Provider" },
+  { key: "welcome", label: "You" },
+  { key: "intent", label: "Focus" },
+  { key: "provider", label: "AI" },
   { key: "agent", label: "Agent" },
+  { key: "launch", label: "Launch" },
 ];
 
 export interface OnboardingWizardProps {
@@ -100,8 +222,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
 
   const layout = STEP_LAYOUT[step] ?? "narrow";
   const progressSteps = isHosted ? HOSTED_PROGRESS_STEPS : OSS_PROGRESS_STEPS;
-  // Map provisioning to payment for progress bar display (both show as "Setup")
-  const progressStep = step === "provisioning" ? "payment" : step;
+  const progressStep = step;
 
   // Infrastructure state (OSS only)
   const [infraStatus, setInfraStatus] = useState<InfraStatus>({
@@ -148,19 +269,19 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
     });
   }, [isHosted]);
 
-  // Handle Stripe return: ?stripe_success=1 means payment went through,
-  // jump straight to provisioning step
+  // Handle Stripe return: ?stripe_success=1 means payment went through
+  const [resumeAtProvisioning, setResumeAtProvisioning] = useState(false);
   useEffect(() => {
     if (!isHosted) return;
     if (searchParams.get("stripe_success") === "1") {
-      goTo("provisioning");
-      // Clean up the URL
+      setResumeAtProvisioning(true);
+      goTo("launch");
       const url = new URL(window.location.href);
       url.searchParams.delete("stripe_success");
       window.history.replaceState({}, "", url.toString());
     }
     if (searchParams.get("stripe_canceled") === "1") {
-      goTo("payment");
+      goTo("launch");
       const url = new URL(window.location.href);
       url.searchParams.delete("stripe_canceled");
       window.history.replaceState({}, "", url.toString());
@@ -193,11 +314,12 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
       startTransition(async () => {
         const r = await saveIntentStep(intentKey);
         if (!r.ok) return setError(r.error ?? "Something went wrong");
+        trackEvent("onboarding_intent_selected", { intent_key: intentKey, is_hosted: isHosted });
         patch({ intentKey, contextPresetKey: intentKey });
         advance();
       });
     },
-    [startTransition, patch, advance, setError],
+    [startTransition, patch, advance, setError, isHosted],
   );
 
   // ─── Infrastructure (OSS) ───
@@ -223,6 +345,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
           });
           setInfraStatus((s) => ({ ...s, db: "schema-needed" }));
         } else {
+          trackEvent("onboarding_db_connected", { schema_needed: false });
           setInfraStatus((s) => ({ ...s, db: "connected" }));
         }
       });
@@ -245,6 +368,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
         const r = await runOneClickMigrationAction({ projectRef, region, dbPassword });
         if (r.ok) {
           await saveWorkspaceToRegistry(creds);
+          trackEvent("onboarding_db_connected", { schema_needed: true, method: "one_click" });
           setSchemaInstall({ phase: "idle" });
           setInfraStatus((s) => ({ ...s, db: "connected" }));
         } else {
@@ -263,6 +387,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
       const r = await confirmSchemaInstalledAction(creds);
       if (r.ok) {
         await saveWorkspaceToRegistry(creds);
+        trackEvent("onboarding_db_connected", { schema_needed: true, method: "sql_editor" });
         setSchemaInstall({ phase: "idle" });
         setInfraStatus((s) => ({ ...s, db: "connected" }));
       } else {
@@ -322,12 +447,20 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
   // ─── Provider ───
   const handleProvider = useCallback(
     (provider: string, apiKey: string) => {
+      if (isHosted) {
+        // Collect-only: store choice and advance
+        trackEvent("onboarding_provider_connected", { provider, is_hosted: true });
+        patch({ providerId: provider, providerApiKey: apiKey });
+        advance();
+        return;
+      }
       setValidating(true);
       setValidationError(null);
       startTransition(async () => {
         const r = await connectProvider(provider, apiKey);
         setValidating(false);
         if (r.ok) {
+          trackEvent("onboarding_provider_connected", { provider, is_hosted: isHosted });
           setValidated(true);
           patch({ providerId: provider });
           setTimeout(() => advance(), 600);
@@ -336,21 +469,27 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
         }
       });
     },
-    [startTransition, patch, advance],
+    [isHosted, startTransition, patch, advance],
   );
 
   // ─── Agent ───
-  const getRecommendation = (): AgentRecommendation => {
-    const intentKey = (data.intentKey as string) ?? "explore";
-    const rec = INTENT_TO_TEMPLATE[intentKey] ?? INTENT_TO_TEMPLATE.explore;
-    return {
-      templateBranch: rec.branch,
-      name: rec.name,
-      emoji: rec.emoji,
-      description: rec.description,
-      role: rec.role,
-    };
+  const getRecommendedKey = (): string => {
+    const intentKey = (data.intentKey as string) ?? "organized";
+    return INTENT_TO_AGENT_KEY[intentKey] ?? "assistant";
   };
+
+  // Hosted collect-only: just store agent choices and advance to launch
+  const handleAgentCollect = useCallback(
+    (agentData: { name: string; emoji: string; templateBranch: string }) => {
+      patch({
+        agentName: agentData.name,
+        agentEmoji: agentData.emoji,
+        agentTemplateBranch: agentData.templateBranch,
+      });
+      advance();
+    },
+    [patch, advance],
+  );
 
   const handleCreateAgent = useCallback(
     async (agentData: { name: string; emoji: string; templateBranch: string }) => {
@@ -361,6 +500,11 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
       }
 
       const { agentId, provisionCommandId } = r.data;
+      trackEvent("onboarding_agent_created", {
+        agent_id: agentId,
+        agent_name: agentData.name,
+        template_branch: agentData.templateBranch,
+      });
       patch({ agentId, agentName: agentData.name, agentEmoji: agentData.emoji });
       setProvisionStatus("provisioning");
 
@@ -402,6 +546,11 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
   const navigateToTasks = useCallback(() => {
     clearWizardSession();
     markOnboardingComplete().catch(() => {});
+    trackEvent("onboarding_completed", {
+      intent_key: (data.intentKey as string) ?? null,
+      is_hosted: isHosted,
+      agent_id: (data.agentId as string) ?? null,
+    });
 
     const progress = localStorage.getItem("hq_onboarding_progress");
     const parsed = progress ? JSON.parse(progress) : {};
@@ -411,26 +560,23 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
 
     completeItem("agentCreated");
 
-    const intentKey = (data.intentKey as string) ?? "explore";
+    const intentKey = (data.intentKey as string) ?? "organized";
     const suggestion = FIRST_TASK_SUGGESTIONS[intentKey];
     const params = new URLSearchParams({ onboarding: "first-task" });
     if (suggestion) params.set("title", suggestion.title);
     if (data.agentId) params.set("agent", data.agentId as string);
     router.push(`/dashboard/tasks?${params.toString()}`);
-  }, [data.intentKey, data.agentId, router]);
+  }, [data.intentKey, data.agentId, router, isHosted]);
 
   const handleAgentDone = useCallback(() => {
-    if (isHosted) {
-      markOnboardingComplete().catch(() => {});
-      setShowCelebration(true);
-    } else {
-      advance();
-    }
-  }, [isHosted, advance]);
+    // OSS: advance to account step
+    advance();
+  }, [advance]);
 
-  // Auto-advance once agent provisioning finishes (ready or error)
+  // Auto-advance once agent provisioning finishes (OSS only — hosted uses launch step)
   const agentDoneFired = useRef(false);
   useEffect(() => {
+    if (isHosted) return;
     if (step !== "agent") return;
     if (agentDoneFired.current) return;
     if (provisionStatus === "ready" || provisionStatus === "error") {
@@ -438,7 +584,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
       const timer = setTimeout(handleAgentDone, 800);
       return () => clearTimeout(timer);
     }
-  }, [step, provisionStatus, handleAgentDone]);
+  }, [isHosted, step, provisionStatus, handleAgentDone]);
 
   // ─── Payment (Hosted) ───
   const handlePaymentCheckout = useCallback(
@@ -457,13 +603,34 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
     [data.ownerName, data.workspaceName, data.intentKey, patch],
   );
 
-  // ─── Provisioning complete (Hosted) ───
+  // ─── Launch complete (Hosted) ───
+  const [needsManualLogin, setNeedsManualLogin] = useState(false);
+
+  const handleLaunchComplete = useCallback(
+    (opts: { needsManualLogin: boolean; agentId?: string }) => {
+      if (opts.agentId) {
+        patch({ agentId: opts.agentId });
+      }
+      if (opts.needsManualLogin) {
+        setNeedsManualLogin(true);
+      }
+      markOnboardingComplete().catch(() => {});
+      setShowCelebration(true);
+    },
+    [patch],
+  );
+
+  // Legacy: kept for OSS provisioning if needed in future
   const handleProvisionComplete = useCallback(
     async (tokenHash: string | null, tokenType: string) => {
       if (tokenHash) {
         const result = await verifyAutoLogin(tokenHash, tokenType as "magiclink" | "email");
         if (!result.ok) {
-          console.warn("[onboarding] Auto-login failed, user can log in via email later:", result.error);
+          const hostedEmail = await getHostedEmail().catch(() => null);
+          if (hostedEmail) {
+            await sendFreshLoginLink(hostedEmail).catch(() => {});
+          }
+          setNeedsManualLogin(true);
         }
       }
       advance();
@@ -494,6 +661,8 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
           // If sign-in fails the user can sign in manually from /login
         }
 
+        identifyUser(creds.email, { email: creds.email });
+
         setShowCelebration(true);
       });
     },
@@ -505,7 +674,19 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-background to-background/95">
       {/* Header */}
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-border/40 px-5 lg:h-16 lg:px-8">
-        <HqLogo size={24} className="text-foreground" />
+        <div className="flex items-center gap-2">
+          {!isFirst && step !== "provisioning" && !(isHosted && step === "launch" && resumeAtProvisioning) && (
+            <button
+              type="button"
+              onClick={goBack}
+              aria-label="Go back"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+            </button>
+          )}
+          <HqLogo size={24} className="text-foreground" />
+        </div>
         <div className="hidden md:flex flex-1 justify-center px-8">
           <WizardProgress steps={progressSteps} currentStep={progressStep} />
         </div>
@@ -544,7 +725,8 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
               workspaceName={data.workspaceName as string | undefined}
               agentName={data.agentName as string | undefined}
               agentEmoji={data.agentEmoji as string | undefined}
-              onContinue={navigateToTasks}
+              needsManualLogin={needsManualLogin}
+              onContinue={needsManualLogin ? () => window.location.assign("/auth") : navigateToTasks}
             />
           </div>
         ) : (
@@ -556,19 +738,6 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
               layout === "wide" && "pt-8",
             )}
           >
-            {/* Back button — hidden during provisioning and at gates the user can't reverse */}
-            {!isFirst && step !== "provisioning" && !(isHosted && step === "provider") && (
-              <button
-                type="button"
-                onClick={goBack}
-                aria-label="Go back"
-                className="mb-4 flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
-              >
-                <ArrowLeft className="h-3 w-3" />
-                <span className="hidden sm:inline">Back</span>
-              </button>
-            )}
-
             {error && (
               <div className="mb-5 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-[12px] text-destructive animate-in fade-in duration-200">
                 <span className="flex-1">{error}</span>
@@ -635,15 +804,19 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
                   validated={validated}
                   validationError={validationError}
                   isHosted={isHosted}
+                  collectOnly={isHosted}
                 />
               )}
 
               {step === "agent" && (
                 <StepAgent
-                  recommendation={getRecommendation()}
-                  onCreateAgent={handleCreateAgent}
-                  provisionStatus={provisionStatus}
-                  provisionError={provisionError}
+                  roster={AGENT_ROSTER}
+                  recommendedKey={getRecommendedKey()}
+                  onCreateAgent={isHosted ? undefined : handleCreateAgent}
+                  onContinue={isHosted ? handleAgentCollect : undefined}
+                  collectOnly={isHosted}
+                  provisionStatus={isHosted ? undefined : provisionStatus}
+                  provisionError={isHosted ? undefined : provisionError}
                   pending={pending}
                 />
               )}
@@ -654,6 +827,24 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
                   onSubmit={handleAccount}
                   pending={pending}
                   error={accountError}
+                />
+              )}
+
+              {step === "launch" && (
+                <StepLaunch
+                  ownerName={(data.ownerName as string) ?? ""}
+                  workspaceName={(data.workspaceName as string) ?? "My Workspace"}
+                  intentKey={(data.intentKey as string) ?? "organized"}
+                  email={hostedEmail}
+                  providerId={(data.providerId as string) ?? ""}
+                  providerApiKey={(data.providerApiKey as string) ?? ""}
+                  agentName={(data.agentName as string) ?? (AGENT_ROSTER.find(a => a.key === getRecommendedKey()) ?? AGENT_ROSTER[0]).name}
+                  agentEmoji={(data.agentEmoji as string) ?? (AGENT_ROSTER.find(a => a.key === getRecommendedKey()) ?? AGENT_ROSTER[0]).emoji}
+                  agentTemplateBranch={(data.agentTemplateBranch as string) ?? (AGENT_ROSTER.find(a => a.key === getRecommendedKey()) ?? AGENT_ROSTER[0]).branch}
+                  hostedWorkspaceId={hostedWorkspaceId || (data.hostedWorkspaceId as string) || null}
+                  resumeAtProvisioning={resumeAtProvisioning}
+                  onComplete={handleLaunchComplete}
+                  onPatch={patch}
                 />
               )}
 

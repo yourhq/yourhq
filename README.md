@@ -182,3 +182,4 @@ You can run HQ for yourself, for your company, for your clients. You can modify 
 ---
 
 Built on [Next.js](https://nextjs.org), [Supabase](https://supabase.com), [OpenClaw](https://openclaw.ai), and [noVNC](https://novnc.com). Agents are real; marketing copy is not.
+

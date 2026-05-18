@@ -115,7 +115,7 @@ export function PreviewStep({
                     className={cn(
                       "block max-w-[200px] truncate rounded px-1 text-[12px]",
                       hasError && "bg-destructive/10 text-destructive",
-                      hasWarning && "bg-yellow-500/10 text-yellow-400"
+                      hasWarning && "bg-status-warning/10 text-status-warning"
                     )}
                   >
                     {displayValue || "—"}
@@ -159,7 +159,7 @@ export function PreviewStep({
         {/* Summary bar */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1.5 text-[12px]">
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+            <CheckCircle2 className="h-3.5 w-3.5 text-status-success" />
             <span>
               <span className="font-medium text-foreground">{validCount}</span>{" "}
               <span className="text-muted-foreground">ready</span>
@@ -180,9 +180,9 @@ export function PreviewStep({
           )}
           {warningCount > 0 && (
             <div className="flex items-center gap-1.5 text-[12px]">
-              <AlertTriangle className="h-3.5 w-3.5 text-yellow-400" />
+              <AlertTriangle className="h-3.5 w-3.5 text-status-warning" />
               <span>
-                <span className="font-medium text-yellow-400">
+                <span className="font-medium text-status-warning">
                   {warningCount}
                 </span>{" "}
                 <span className="text-muted-foreground">

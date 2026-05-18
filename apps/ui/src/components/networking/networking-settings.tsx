@@ -83,7 +83,7 @@ export function NetworkingSettings({
       {/* Tailscale block */}
       <section className="space-y-3 rounded-lg border border-border/60 bg-card p-4">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-500/10 text-blue-400">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-status-info/10 text-status-info">
             <Globe className="h-3.5 w-3.5" />
           </div>
           <div>
@@ -120,7 +120,7 @@ export function NetworkingSettings({
         )}
 
         {status.installed && !status.loggedIn && (
-          <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-[12px]">
+          <div className="rounded-md border border-status-warning/40 bg-status-warning/5 p-3 text-[12px]">
             <p>
               Tailscale is installed but not signed in. Run{" "}
               <span className="font-mono">sudo tailscale up</span> or open the
@@ -130,9 +130,9 @@ export function NetworkingSettings({
         )}
 
         {status.installed && status.loggedIn && (
-          <div className="space-y-2 rounded-md border border-emerald-500/40 bg-emerald-500/5 p-3">
+          <div className="space-y-2 rounded-md border border-status-success/40 bg-status-success/5 p-3">
             <div className="flex items-start gap-2 text-[12px]">
-              <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+              <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-success" />
               <div className="space-y-0.5">
                 <div className="font-medium">Connected</div>
                 <div className="text-muted-foreground">
@@ -238,7 +238,7 @@ export function NetworkingSettings({
 
         <div className="flex items-center justify-end gap-2 pt-1">
           {saved && (
-            <span className="text-[11px] text-emerald-500">Saved</span>
+            <span className="text-[11px] text-status-success">Saved</span>
           )}
           <Button onClick={save} disabled={pending || !workspaceId}>
             {pending ? "Saving…" : "Save"}

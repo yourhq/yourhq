@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { trackEvent } from "@/lib/analytics";
 import type { SortingState } from "@tanstack/react-table";
 import type { Task, TaskStatus } from "@/lib/tasks/types";
 import { TaskForm } from "@/components/tasks/task-form";
 import { logAudit } from "@/lib/audit/log";
+import { completeItem } from "@/lib/onboarding/progress";
 import { useRealtimeSync } from "./use-realtime-sync";
 import { useRealtime } from "./use-realtime";
 import { toast } from "sonner";
@@ -98,7 +100,7 @@ export function useTasks() {
     setLoading(true);
     let query = supabase
       .from("tasks")
-      .select("*, stream:streams(id, name, color, icon), assignee_agent:agents!tasks_assignee_agent_id_fkey(id, name, slug, avatar_url), series:task_series(id, cadence_type, interval_n, days_of_week, day_of_month, time_of_day, timezone)")
+      .select("*, stream:streams(id, name, color, icon), assignee_agent:agents!tasks_assignee_agent_id_fkey(id, name, slug, avatar_url, meta), series:task_series(id, cadence_type, interval_n, days_of_week, day_of_month, time_of_day, timezone)")
       .is("parent_id", null) // only top-level tasks
       .order("created_at", { ascending: false });
 
@@ -264,13 +266,33 @@ export function useTasks() {
     [supabase]
   );
 
+  const shouldIncludeTask = useCallback(
+    (task: Task): boolean => {
+      if (showArchived) {
+        if (!task.archived_at) return false;
+      } else {
+        if (task.archived_at) return false;
+      }
+      if (statusFilter !== "all" && task.status !== statusFilter) return false;
+      if (streamFilter !== "all" && task.stream_id !== streamFilter) return false;
+      if (priorityFilter !== "all" && task.priority !== priorityFilter) return false;
+      if (assigneeFilter === "me" && task.assignee_type !== "human") return false;
+      if (assigneeFilter === "unassigned" && task.assignee_type !== null) return false;
+      if (assigneeFilter !== "all" && assigneeFilter !== "me" && assigneeFilter !== "unassigned" && task.assignee_agent_id !== assigneeFilter) return false;
+      if (labelFilter !== "all" && !task.labels?.some((l) => l.id === labelFilter)) return false;
+      return true;
+    },
+    [statusFilter, streamFilter, priorityFilter, assigneeFilter, labelFilter, showArchived]
+  );
+
   useRealtimeSync<Task>({
     table: "tasks",
-    select: "*, stream:streams(id, name, color, icon), assignee_agent:agents!tasks_assignee_agent_id_fkey(id, name, slug, avatar_url), series:task_series(id, cadence_type, interval_n, days_of_week, day_of_month, time_of_day, timezone)",
+    select: "*, stream:streams(id, name, color, icon), assignee_agent:agents!tasks_assignee_agent_id_fkey(id, name, slug, avatar_url, meta), series:task_series(id, cadence_type, interval_n, days_of_week, day_of_month, time_of_day, timezone)",
     items: tasks,
     setItems: setTasks,
     filter: "parent_id=is.null",
     postProcess: taskPostProcess,
+    shouldInclude: shouldIncludeTask,
   });
 
   // Toast notifications when agent-assigned tasks change status
@@ -290,6 +312,7 @@ export function useTasks() {
 
       if (newRow.status === "done") {
         toast.success(`${agentName} completed: ${title}`);
+        completeItem("agentWorked");
       } else if (newRow.status === "blocked") {
         toast.warning(`${agentName} is blocked on: ${title}`);
       } else if (oldRow.status === "todo" && newRow.status === "in_progress") {
@@ -301,10 +324,24 @@ export function useTasks() {
   async function handleStatusChange(id: string, status: TaskStatus) {
     const task = tasks.find((t) => t.id === id);
     const oldStatus = task?.status;
+
+    // Optimistic update: reflect the change immediately in the UI
+    if (statusFilter !== "all" && status !== statusFilter) {
+      setTasks((prev) => prev.filter((t) => t.id !== id));
+    } else {
+      setTasks((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, status } : t))
+      );
+    }
+
     const { error } = await supabase.from("tasks").update({ status }).eq("id", id);
     if (error) {
       toast.error("Failed to update task status", { description: error.message });
+      fetchTasks();
       return;
+    }
+    if (status === "done" && task?.assignee_agent_id) {
+      completeItem("agentWorked");
     }
     logAudit(supabase, {
       module: "tasks",
@@ -314,7 +351,6 @@ export function useTasks() {
       summary: `Changed task '${task?.title ?? id}' from ${oldStatus} to ${status}`,
       changes: { status: { old: oldStatus, new: status } },
     });
-    fetchTasks();
   }
 
   async function handleArchiveTask(id: string) {
@@ -384,6 +420,7 @@ export function useTasks() {
       action: "created",
       summary: `Created task '${trimmed}'`,
     });
+    trackEvent("task_created", { status });
     fetchTasks();
   }
 
@@ -423,27 +460,29 @@ export function useTasks() {
     updateUrl({ task: null });
   }
 
-  function onFormSaved() {
+  function onFormSaved(createdTaskId?: string) {
     closeForm();
-    fetchTasks();
+    fetchTasks().then(() => {
+      if (createdTaskId) openTaskById(createdTaskId);
+    });
   }
 
   // Resolve an id → task (hydrating joins) and open the modal.
   // Used by deep-link handling when the page reads `?task=<id>`.
   const openTaskById = useCallback(
     async (id: string) => {
-      // Try the already-fetched list first
       const local = tasks.find((t) => t.id === id);
       if (local) {
         setEditingTask(local);
         setShowForm(true);
         setSelectedTask(null);
+        updateUrl({ task: id });
         return;
       }
       const { data } = await supabase
         .from("tasks")
         .select(
-          "*, stream:streams(id, name, color, icon), assignee_agent:agents!tasks_assignee_agent_id_fkey(id, name, slug, avatar_url), series:task_series(id, cadence_type, interval_n, days_of_week, day_of_month, time_of_day, timezone)"
+          "*, stream:streams(id, name, color, icon), assignee_agent:agents!tasks_assignee_agent_id_fkey(id, name, slug, avatar_url, meta), series:task_series(id, cadence_type, interval_n, days_of_week, day_of_month, time_of_day, timezone)"
         )
         .eq("id", id)
         .maybeSingle();
@@ -451,9 +490,10 @@ export function useTasks() {
         setEditingTask(data as unknown as Task);
         setShowForm(true);
         setSelectedTask(null);
+        updateUrl({ task: id });
       }
     },
-    [supabase, tasks]
+    [supabase, tasks, updateUrl]
   );
 
   const hasActiveFilters =

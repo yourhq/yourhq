@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { trackEvent } from "@/lib/analytics";
 import type { Routine, TriggerType } from "@/lib/routines/types";
 import { logAudit } from "@/lib/audit/log";
 import { completeItem } from "@/lib/onboarding/progress";
@@ -10,7 +11,7 @@ import { useRealtime } from "./use-realtime";
 import { toast } from "sonner";
 
 const ROUTINE_SELECT =
-  "*, agent:agents!routines_agent_id_fkey(id, name, slug)";
+  "*, agent:agents!routines_agent_id_fkey(id, name, slug, meta)";
 
 function updateUrl(params: Record<string, string | null>) {
   const url = new URL(window.location.href);
@@ -135,6 +136,7 @@ export function useRoutines() {
       action: "created",
       summary: `Created routine "${routine.name}"`,
     });
+    trackEvent("routine_created", { trigger_type: input.trigger_type });
     completeItem("routineCreated");
 
     fetchRoutines();
@@ -251,6 +253,14 @@ export function useRoutines() {
       return;
     }
 
+    await supabase
+      .from("routines")
+      .update({
+        last_run_at: new Date().toISOString(),
+        run_count: (routine.run_count ?? 0) + 1,
+      })
+      .eq("id", routine.id);
+
     toast.success(`"${routine.name}" triggered`, {
       description: "The agent will process it shortly.",
     });
@@ -262,6 +272,8 @@ export function useRoutines() {
       action: "updated",
       summary: `Manually triggered routine "${routine.name}"`,
     });
+
+    fetchRoutines();
   }
 
   function openCreateForm() {

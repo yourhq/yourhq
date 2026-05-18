@@ -4,7 +4,6 @@ on:
   workflow_run:
     workflows: ["Publish images"]
     types: [completed]
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -29,11 +28,21 @@ jobs:
       - uses: aws-actions/amazon-ecr-login@v2
         id: ecr-login
 
+      - name: Resolve image tag
+        id: tag
+        run: |
+          REF="${{ github.event.workflow_run.head_branch || 'latest' }}"
+          if [[ "$REF" == v* ]]; then
+            echo "image_tag=${REF#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "image_tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Deploy to ECS Express
         uses: aws-actions/amazon-ecs-deploy-express-service@v1
         with:
           service-name: yourhq-worker
-          image: ${{ steps.ecr-login.outputs.registry }}/${{ vars.ECR_WORKER_REPOSITORY || 'yourhq-worker' }}:latest
+          image: ${{ steps.ecr-login.outputs.registry }}/${{ vars.ECR_WORKER_REPOSITORY || 'yourhq-worker' }}:${{ steps.tag.outputs.image_tag }}
           execution-role-arn: ${{ secrets.ECS_EXECUTION_ROLE_ARN }}
           infrastructure-role-arn: ${{ secrets.ECS_INFRASTRUCTURE_ROLE_ARN }}
           container-port: 3001

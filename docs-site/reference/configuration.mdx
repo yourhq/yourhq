@@ -45,7 +45,7 @@ Use (1) only as an override — e.g. a remote gateway that must always point at 
 
 - **`EMBEDDER_URL`** — Optional. Defaults to `http://embedder:18801` inside Compose. Agent scripts use this local HTTP endpoint for query/document embeddings.
 
-- **`EMBEDDER_MODEL`** — Optional. Defaults to `BAAI/bge-small-en-v1.5`. The gateway-profile embedder service downloads/loads this local FastEmbed model on boot and uses it for knowledge vector search.
+- **`EMBEDDER_MODEL`** — Optional. Defaults to `BAAI/bge-small-en-v1.5`. The default model (~45 MB) is pre-loaded in the embedder Docker image for instant startup. Override with any [fastembed-compatible model name](https://qdrant.github.io/fastembed/examples/Supported_Models/) — non-default models download on first boot and are cached in the `gateway-embedding-cache` volume for subsequent restarts.
 
 - **`EMBEDDER_CHUNK_CHARS`**, **`EMBEDDER_CHUNK_OVERLAP`**, **`EMBEDDER_MAX_CHUNKS`** — Optional. Defaults to `3500`, `500`, and `500`. These tune the source-agnostic knowledge chunker used for documents now and future file/external-source indexing.
 
