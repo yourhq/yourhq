@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { ArrowRight, Loader2, Eye, EyeOff, Shield, Check } from "lucide-react";
+import { ArrowRight, Loader2, Eye, EyeOff, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StaggeredEntrance } from "./staggered-entrance";
 

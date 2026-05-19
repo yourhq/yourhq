@@ -27,10 +27,7 @@ import {
   saveOAuthProvider,
 } from "./actions";
 import { StaggeredEntrance } from "./staggered-entrance";
-import {
-  OAuthInteractiveFlow,
-  type OAuthFlowContext,
-} from "@/components/connections/oauth-interactive-flow";
+import { OAuthInteractiveFlow } from "@/components/connections/oauth-interactive-flow";
 
 const OAUTH_PROVIDERS = new Set([
   "openai-codex", "github-copilot", "google-gemini-cli", "minimax-portal",

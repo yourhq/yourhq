@@ -17,9 +17,9 @@ describe("StepAccount", () => {
 
   it("renders heading and description", () => {
     render(<StepAccount onSubmit={onSubmit} pending={false} />);
-    expect(screen.getByText("Secure your workspace")).toBeInTheDocument();
+    expect(screen.getByText("Create your login")).toBeInTheDocument();
     expect(
-      screen.getByText(/Create your admin account/),
+      screen.getByText(/Almost done/),
     ).toBeInTheDocument();
   });
 
@@ -116,14 +116,14 @@ describe("StepAccount", () => {
     expect(screen.queryByText(/error/i)).not.toBeInTheDocument();
   });
 
-  it("shows Setting up text when pending", () => {
+  it("shows Creating account text when pending", () => {
     render(<StepAccount onSubmit={onSubmit} pending={true} />);
-    expect(screen.getByText("Setting up…")).toBeInTheDocument();
+    expect(screen.getByText("Creating account…")).toBeInTheDocument();
   });
 
   it("disables button when pending", () => {
     render(<StepAccount onSubmit={onSubmit} pending={true} />);
-    const btn = screen.getByRole("button", { name: /setting up/i });
+    const btn = screen.getByRole("button", { name: /creating account/i });
     expect(btn).toBeDisabled();
   });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Loader2,
   Copy,
@@ -147,11 +147,11 @@ export function OAuthInteractiveFlow({
   const [pasteSubmitted, setPasteSubmitted] = useState(false);
 
   const { mode, autoCallback } = context;
-  const verifying = pasteSubmitted && !submittingPaste && state.stage !== "completed" && state.stage !== "failed";
+  if (error && pasteSubmitted) {
+    setPasteSubmitted(false);
+  }
 
-  useEffect(() => {
-    if (error) setPasteSubmitted(false);
-  }, [error]);
+  const verifying = pasteSubmitted && !submittingPaste && state.stage !== "completed" && state.stage !== "failed";
 
   async function copy(value: string, key: "url" | "code") {
     try {

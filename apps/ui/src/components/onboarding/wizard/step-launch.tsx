@@ -38,10 +38,7 @@ import {
   pollCommandState,
   saveOAuthProvider,
 } from "./actions";
-import {
-  OAuthInteractiveFlow,
-  type OAuthFlowContext,
-} from "@/components/connections/oauth-interactive-flow";
+import { OAuthInteractiveFlow } from "@/components/connections/oauth-interactive-flow";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
