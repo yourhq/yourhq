@@ -11,6 +11,8 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.1.2] — 2026-05-19
+
 ### Fixed
 
 - **API key provisioning** — `auth_set_api_key` now writes `auth-profiles.json` directly instead of piping to openclaw's interactive TUI prompt, which silently dropped keys. API keys set during onboarding (and from Settings → Connections) now reliably propagate to all agents.
@@ -91,6 +93,7 @@ Initial public release.
 - Vulnerability disclosure via `security@yourhq.ai`; trust model and known risks documented in [SECURITY.md](SECURITY.md).
 - Gateway tokens hashed at rest; service-role key handling documented.
 
-[Unreleased]: https://github.com/yourhq/yourhq/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/yourhq/yourhq/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/yourhq/yourhq/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/yourhq/yourhq/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/yourhq/yourhq/releases/tag/v0.1.0
