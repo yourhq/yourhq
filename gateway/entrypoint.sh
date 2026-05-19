@@ -134,8 +134,12 @@ REGISTRY_HELPER="/opt/yourhq/registry_config.py"
 
 if [ "$RUNTIME_MODE" = "hosted" ]; then
   if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
-    log "RUNTIME_MODE=hosted but SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set. Aborting."
-    exit 1
+    # E2B template builds run the start command without env vars to snapshot.
+    # Sleep briefly so the build sees a healthy start, then exit cleanly.
+    log "RUNTIME_MODE=hosted but SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set."
+    log "Assuming E2B template build — sleeping for snapshot, then exiting."
+    sleep 30
+    exit 0
   fi
 elif [ ! -f "$REGISTRY_HELPER" ]; then
   log "WARNING: registry_config.py not found — registry fallback disabled."
