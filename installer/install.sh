@@ -47,8 +47,8 @@ install_docker_linux() {
   fi
   curl -fsSL https://get.docker.com | $sh_cmd
   if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
-    sudo usermod -aG docker "$USER" || true
-    DOCKER="sudo docker"
+    sudo -n usermod -aG docker "$USER" || true
+    DOCKER="sudo -n docker"
   fi
   ok "Docker installed"
 }
@@ -70,10 +70,11 @@ if ! command -v docker >/dev/null 2>&1; then
   esac
 fi
 
-# If the current user can't reach the Docker socket, use sudo
+# If the current user can't reach the Docker socket, use sudo.
+# -n avoids prompting — critical when stdin is a pipe (curl | bash).
 if ! docker info >/dev/null 2>&1; then
-  if command -v sudo >/dev/null 2>&1 && sudo docker info >/dev/null 2>&1; then
-    DOCKER="sudo docker"
+  if command -v sudo >/dev/null 2>&1 && sudo -n docker info >/dev/null 2>&1; then
+    DOCKER="sudo -n docker"
   fi
 fi
 
