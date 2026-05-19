@@ -9,6 +9,9 @@ RUN python3 -c "from fastembed import TextEmbedding; TextEmbedding(model_name='B
 
 COPY --chown=openclaw:openclaw gateway/embedder/embedder.py /opt/yourhq/daemons/embedder.py
 
+COPY gateway/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 COPY --chown=openclaw:openclaw gateway/hosted/e2b/init.sh /opt/yourhq/hooks/init.sh
 COPY --chown=openclaw:openclaw gateway/hosted/e2b/resolve-urls.sh /opt/yourhq/hooks/resolve-urls.sh
 RUN chmod +x /opt/yourhq/hooks/init.sh /opt/yourhq/hooks/resolve-urls.sh
