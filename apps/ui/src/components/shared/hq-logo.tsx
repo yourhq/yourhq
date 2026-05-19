@@ -14,6 +14,7 @@ export function HqLogo({ size = 24, className }: HqLogoProps) {
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- mount guard to avoid hydration mismatch with next-themes
   useEffect(() => setMounted(true), []);
 
   const isDark = resolvedTheme === "dark";

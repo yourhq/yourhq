@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ArrowRight, Check, Loader2, AlertCircle, ExternalLink, Copy, CheckCheck } from "lucide-react";
+import { ArrowRight, Check, Loader2, AlertCircle, ExternalLink, Copy, CheckCheck, ChevronDown, Database, Server } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ConceptExplainer } from "./concept-explainer";
 
 type GatewayPlacement = "local" | "remote";
 
@@ -63,6 +62,66 @@ function CopyButton({ text }: { text: string }) {
     >
       {copied ? <CheckCheck className="h-3.5 w-3.5 text-status-success" /> : <Copy className="h-3.5 w-3.5" />}
     </button>
+  );
+}
+
+function SetupGuide({ onDone }: { onDone: () => void }) {
+  return (
+    <div className="rounded-xl border border-border/40 bg-card/30 p-4 md:p-5 space-y-4">
+      <div className="space-y-1">
+        <p className="text-[13px] font-medium text-foreground">New to Supabase? Follow these steps</p>
+        <p className="text-[12px] text-muted-foreground">
+          Supabase is a free, open-source database that stores all your workspace data. You keep full control.
+        </p>
+      </div>
+
+      <ol className="space-y-3">
+        <li className="flex gap-3">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-foreground/[0.07] text-[11px] font-semibold text-foreground/70">1</span>
+          <div className="text-[12px] md:text-[13px] text-muted-foreground pt-0.5">
+            <a
+              href="https://supabase.com/dashboard"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground"
+            >
+              Sign up at supabase.com
+            </a>
+            {" "}— it&apos;s free, no credit card required
+          </div>
+        </li>
+        <li className="flex gap-3">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-foreground/[0.07] text-[11px] font-semibold text-foreground/70">2</span>
+          <div className="text-[12px] md:text-[13px] text-muted-foreground pt-0.5">
+            Create a <span className="font-medium text-foreground/80">new project</span> — any name, any region, free tier works
+          </div>
+        </li>
+        <li className="flex gap-3">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-foreground/[0.07] text-[11px] font-semibold text-foreground/70">3</span>
+          <div className="text-[12px] md:text-[13px] text-muted-foreground pt-0.5">
+            Go to{" "}
+            <a
+              href="https://supabase.com/dashboard/project/_/settings/api-keys"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground"
+            >
+              Settings → API Keys
+              <ExternalLink className="ml-0.5 inline h-3 w-3" />
+            </a>
+            {" "}and copy all three values below
+          </div>
+        </li>
+      </ol>
+
+      <button
+        type="button"
+        onClick={onDone}
+        className="text-[12px] font-medium text-primary hover:text-primary/80 transition-colors"
+      >
+        I have my project ready →
+      </button>
+    </div>
   );
 }
 
@@ -270,6 +329,40 @@ function GatewayPollingMessage({ status }: { status: "starting" | "polling" }) {
   );
 }
 
+function extractProjectRef(supabaseUrl: string): string | null {
+  const trimmed = supabaseUrl.trim();
+  if (!trimmed) return null;
+  const normalized = /^https?:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const host = new URL(normalized).hostname;
+    const parts = host.split(".");
+    if (parts.length >= 3 && parts[1] === "supabase" && parts[2] === "co") {
+      const ref = parts[0];
+      if (ref && ref.length >= 1) return ref;
+    }
+  } catch { /* invalid URL */ }
+  return null;
+}
+
+function apiKeysUrl(projectRef: string | null): string {
+  if (projectRef) return `https://supabase.com/dashboard/project/${projectRef}/settings/api-keys`;
+  return "https://supabase.com/dashboard/project/_/settings/api-keys";
+}
+
+function FieldHint({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/50 transition-colors hover:text-muted-foreground"
+    >
+      {children}
+      <ExternalLink className="h-2.5 w-2.5" />
+    </a>
+  );
+}
+
 export function StepInfrastructure({
   status,
   schemaInstall,
@@ -284,7 +377,10 @@ export function StepInfrastructure({
   const [anonKey, setAnonKey] = useState("");
   const [serviceRoleKey, setServiceRoleKey] = useState("");
   const [placement, setPlacement] = useState<GatewayPlacement | null>(null);
-  const [showHelp, setShowHelp] = useState(false);
+  const [guideCollapsed, setGuideCollapsed] = useState(false);
+
+  const projectRef = extractProjectRef(url);
+  const keysHref = apiKeysUrl(projectRef);
 
   const dbReady = status.db === "connected";
   const gwReady = status.gateway === "connected";
@@ -297,26 +393,40 @@ export function StepInfrastructure({
           Infrastructure
         </div>
         <h1 className="text-[24px] md:text-[28px] font-semibold leading-[1.15] tracking-tight">
-          Connect your infrastructure
+          Connect your database
         </h1>
         <p className="max-w-[52ch] text-[14px] leading-relaxed text-muted-foreground">
-          Your agents need somewhere to store data and somewhere to run.
-          You&apos;ll set up both here — you own everything.
+          HQ uses{" "}
+          <a
+            href="https://supabase.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-foreground/80 underline decoration-border underline-offset-2 hover:decoration-foreground/40"
+          >
+            Supabase
+          </a>
+          {" "}(a free, open-source database) to store your workspace data.
+          You own everything — nothing leaves your project.
         </p>
       </div>
 
       {/* ── Section A: Database ── */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
+      <div className="space-y-5">
+        <div className="flex items-center gap-2.5">
           <div className={cn(
             "flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold transition-all duration-300",
             dbReady
               ? "bg-status-success text-primary-foreground"
               : "bg-foreground text-background",
           )}>
-            {dbReady ? <Check className="h-3 w-3" strokeWidth={3} /> : "1"}
+            {dbReady ? <Check className="h-3 w-3" strokeWidth={3} /> : <Database className="h-3 w-3" />}
           </div>
           <h2 className="text-[15px] font-semibold">Database</h2>
+          {dbReady && (
+            <span className="rounded-full bg-status-success/10 px-2 py-0.5 text-[11px] font-medium text-status-success">
+              Connected
+            </span>
+          )}
         </div>
 
         {dbReady ? (
@@ -330,19 +440,34 @@ export function StepInfrastructure({
             )}
           </div>
         ) : (
-          <div className="space-y-4">
-            <ConceptExplainer trigger="What is Supabase?">
-              Supabase is an open-source Postgres database platform. HQ uses it to store your
-              agents, tasks, knowledge, and all workspace data. You create a free project on{" "}
-              <span className="font-medium text-foreground">supabase.com</span> and keep full
-              control of your data.
-            </ConceptExplainer>
+          <div className="space-y-5">
+            {/* Setup guide — shown by default, collapsible */}
+            {!guideCollapsed && (
+              <SetupGuide onDone={() => setGuideCollapsed(true)} />
+            )}
 
-            <div className="rounded-xl border border-border/60 bg-card/20 p-5 space-y-4">
+            {guideCollapsed && (
+              <button
+                type="button"
+                onClick={() => setGuideCollapsed(false)}
+                className="flex items-center gap-1.5 text-[12px] text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+              >
+                <ChevronDown className="h-3 w-3" />
+                Show setup guide
+              </button>
+            )}
+
+            {/* Credentials form */}
+            <div className="rounded-xl border border-border/60 bg-card/20 p-4 md:p-5 space-y-4">
               <div className="space-y-1.5">
-                <label htmlFor="sb-url" className="text-[12px] font-medium text-foreground">
-                  Supabase URL
-                </label>
+                <div className="flex items-center justify-between">
+                  <label htmlFor="sb-url" className="text-[12px] font-medium text-foreground">
+                    Project URL
+                  </label>
+                  <FieldHint href="https://supabase.com/dashboard/project/_/settings/api-keys">
+                    Where is this?
+                  </FieldHint>
+                </div>
                 <input
                   id="sb-url"
                   type="url"
@@ -351,105 +476,112 @@ export function StepInfrastructure({
                   placeholder="https://abcdefghij.supabase.co"
                   className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 text-[13px] outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
                 />
+                {projectRef && (
+                  <p className="text-[11px] text-muted-foreground/50">
+                    Project detected:{" "}
+                    <span className="font-mono text-foreground/60">{projectRef}</span>
+                  </p>
+                )}
               </div>
 
+              {/* Show direct link to user's API Keys page once we have a project ref */}
+              {projectRef && !anonKey && !serviceRoleKey && (
+                <a
+                  href={keysHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/[0.04] px-3.5 py-2.5 text-[12px] font-medium text-primary transition-colors hover:bg-primary/[0.08]"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Open your API Keys page to copy the values below
+                </a>
+              )}
+
               <div className="space-y-1.5">
-                <label htmlFor="sb-anon" className="text-[12px] font-medium text-foreground">
-                  Anon key
-                  <span className="ml-1.5 text-[10px] font-normal text-muted-foreground/60">(public key from project settings)</span>
-                </label>
+                <div className="flex items-center justify-between">
+                  <label htmlFor="sb-publishable" className="text-[12px] font-medium text-foreground">
+                    Publishable key
+                  </label>
+                  <FieldHint href={keysHref}>
+                    Where is this?
+                  </FieldHint>
+                </div>
                 <input
-                  id="sb-anon"
+                  id="sb-publishable"
                   type="password"
                   value={anonKey}
                   onChange={(e) => setAnonKey(e.target.value)}
-                  placeholder="eyJhbGciOiJIUzI1…"
-                  aria-label="Supabase anon key"
+                  placeholder="sb_publishable_… or eyJhbGciOiJIUzI1…"
+                  aria-label="Supabase publishable key"
                   className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 text-[13px] font-mono outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
                 />
+                <p className="text-[11px] text-muted-foreground/50">
+                  Safe to use in browsers. Previously called &ldquo;anon key&rdquo;.
+                </p>
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="sb-service" className="text-[12px] font-medium text-foreground">
-                  Service role key
-                  <span className="ml-1.5 text-[10px] font-normal text-muted-foreground/60">(admin key — keep this private)</span>
-                </label>
+                <div className="flex items-center justify-between">
+                  <label htmlFor="sb-secret" className="text-[12px] font-medium text-foreground">
+                    Secret key
+                  </label>
+                  <FieldHint href={keysHref}>
+                    Where is this?
+                  </FieldHint>
+                </div>
                 <input
-                  id="sb-service"
+                  id="sb-secret"
                   type="password"
                   value={serviceRoleKey}
                   onChange={(e) => setServiceRoleKey(e.target.value)}
-                  placeholder="eyJhbGciOiJIUzI1…"
-                  aria-label="Supabase service role key"
+                  placeholder="sb_secret_… or eyJhbGciOiJIUzI1…"
+                  aria-label="Supabase secret key"
                   className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 text-[13px] font-mono outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
                 />
+                <p className="text-[11px] text-muted-foreground/50">
+                  Admin-level access — keep this private. Previously called &ldquo;service role key&rdquo;.
+                </p>
               </div>
             </div>
 
             {status.db === "error" && status.dbError && (
-              <div className="flex items-start gap-2 text-[12px] text-destructive">
-                <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+              <div className="flex items-start gap-2 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2.5 text-[12px] text-destructive">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>{status.dbError}</span>
               </div>
             )}
 
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => onValidateDb(url, anonKey, serviceRoleKey)}
-                disabled={
-                  status.db === "validating" ||
-                  !url.trim() ||
-                  !anonKey.trim() ||
-                  !serviceRoleKey.trim()
-                }
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-[12px] font-medium transition-all",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2",
-                  status.db === "validating"
+            <button
+              type="button"
+              onClick={() => onValidateDb(url, anonKey, serviceRoleKey)}
+              disabled={
+                status.db === "validating" ||
+                !url.trim() ||
+                !anonKey.trim() ||
+                !serviceRoleKey.trim()
+              }
+              className={cn(
+                "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2",
+                status.db === "validating"
+                  ? "cursor-not-allowed bg-muted text-muted-foreground/50"
+                  : !url.trim() || !anonKey.trim() || !serviceRoleKey.trim()
                     ? "cursor-not-allowed bg-muted text-muted-foreground/50"
-                    : "bg-foreground/[0.06] text-foreground hover:bg-foreground/[0.1]",
-                )}
-              >
-                {status.db === "validating" ? (
-                  <>
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Connecting…
-                  </>
-                ) : (
-                  "Connect"
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowHelp(!showHelp)}
-                className="text-[11px] text-muted-foreground/70 underline-offset-2 hover:text-muted-foreground hover:underline"
-              >
-                Need a Supabase account?
-              </button>
-            </div>
-
-            {showHelp && (
-              <div className="rounded-xl border border-border/40 bg-muted/20 px-4 py-4 animate-in fade-in duration-200">
-                <ol className="list-decimal space-y-2 pl-4 text-[12px] text-muted-foreground">
-                  <li>
-                    Go to{" "}
-                    <a
-                      href="https://supabase.com"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground"
-                    >
-                      supabase.com
-                    </a>{" "}
-                    and create a free account
-                  </li>
-                  <li>Create a new project (any region, free tier is fine)</li>
-                  <li>Copy your Project URL + API keys from Settings → Data API</li>
-                </ol>
-              </div>
-            )}
+                    : "bg-primary text-primary-foreground shadow-sm hover:brightness-110 active:scale-[0.97]",
+              )}
+            >
+              {status.db === "validating" ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Connecting…
+                </>
+              ) : (
+                <>
+                  Connect database
+                  <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                </>
+              )}
+            </button>
 
             {status.db === "schema-needed" && schemaInstall.phase !== "idle" && (
               <SchemaInstallPanel
@@ -464,35 +596,38 @@ export function StepInfrastructure({
 
       {/* ── Section B: Gateway (progressive disclosure — only visible after DB connects) ── */}
       {dbReady && (
-        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-3 duration-400">
-          <div className="flex items-center gap-2">
+        <div className="space-y-5 animate-in fade-in slide-in-from-bottom-3 duration-400">
+          <div className="flex items-center gap-2.5">
             <div className={cn(
               "flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold transition-all duration-300",
               gwReady
                 ? "bg-status-success text-primary-foreground"
                 : "bg-foreground text-background",
             )}>
-              {gwReady ? <Check className="h-3 w-3" strokeWidth={3} /> : "2"}
+              {gwReady ? <Check className="h-3 w-3" strokeWidth={3} /> : <Server className="h-3 w-3" />}
             </div>
-            <h2 className="text-[15px] font-semibold">Gateway</h2>
+            <h2 className="text-[15px] font-semibold">Agent runtime</h2>
+            {gwReady && (
+              <span className="rounded-full bg-status-success/10 px-2 py-0.5 text-[11px] font-medium text-status-success">
+                Connected
+              </span>
+            )}
           </div>
+
+          <p className="text-[13px] text-muted-foreground max-w-[52ch]">
+            The runtime is where your AI agents actually run — it connects to your database, manages workspaces, and handles browser automation.
+          </p>
 
           {gwReady ? (
             <div className="rounded-xl border border-status-success/20 bg-status-success/[0.04] px-4 py-3">
               <div className="flex items-center gap-2 text-[13px] text-status-success">
                 <Check className="h-3.5 w-3.5" />
-                Gateway connected
+                Agent runtime connected
               </div>
             </div>
           ) : (
             <div className="space-y-4">
-              <ConceptExplainer trigger="What is a gateway?">
-                The gateway is the computer where your AI agents actually run. It connects
-                to your database, manages agent workspaces, and handles browser automation.
-                You can run it on this machine via Docker or on any remote Linux server.
-              </ConceptExplainer>
-
-              <div role="radiogroup" aria-label="Gateway placement" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div role="radiogroup" aria-label="Gateway placement" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <button
                   type="button"
                   role="radio"
@@ -502,16 +637,21 @@ export function StepInfrastructure({
                     onChooseGateway("local");
                   }}
                   className={cn(
-                    "flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-all",
+                    "flex flex-col gap-2 rounded-xl border p-4 text-left transition-all",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     placement === "local"
                       ? "border-primary/50 bg-primary/[0.04] ring-1 ring-primary/10"
                       : "border-border/60 bg-card/40 hover:border-border hover:bg-card/70",
                   )}
                 >
-                  <span className="text-[20px]">💻</span>
-                  <span className="text-[13px] font-medium">This machine</span>
-                  <span className="rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-[18px]">💻</span>
+                    <span className="text-[13px] font-medium">This machine</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground/70">
+                    Runs via Docker on your computer. Good for trying things out.
+                  </p>
+                  <span className="inline-flex self-start rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                     Requires Docker
                   </span>
                 </button>
@@ -525,16 +665,21 @@ export function StepInfrastructure({
                     onChooseGateway("remote");
                   }}
                   className={cn(
-                    "flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-all",
+                    "flex flex-col gap-2 rounded-xl border p-4 text-left transition-all",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     placement === "remote"
                       ? "border-primary/50 bg-primary/[0.04] ring-1 ring-primary/10"
                       : "border-border/60 bg-card/40 hover:border-border hover:bg-card/70",
                   )}
                 >
-                  <span className="text-[20px]">☁️</span>
-                  <span className="text-[13px] font-medium">Remote server</span>
-                  <span className="rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-[18px]">☁️</span>
+                    <span className="text-[13px] font-medium">Remote server</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground/70">
+                    Run on any Linux server for always-on agents.
+                  </p>
+                  <span className="inline-flex self-start rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                     Any Linux server
                   </span>
                 </button>
@@ -545,24 +690,24 @@ export function StepInfrastructure({
               )}
 
               {status.gateway === "error" && (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {status.gatewayError && (
-                    <div className="flex items-start gap-2 text-[12px] text-destructive">
-                      <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+                    <div className="flex items-start gap-2 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2.5 text-[12px] text-destructive">
+                      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                       <span>{status.gatewayError}</span>
                     </div>
                   )}
                   {status.gatewayManualCmd && (
-                    <div className="rounded-xl border border-border/40 bg-muted/20 p-4">
+                    <div className="rounded-xl border border-border/40 bg-card/30 p-4">
                       <p className="mb-2 text-[12px] text-muted-foreground">
                         Run this command from the directory where you installed HQ:
                       </p>
                       <div className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2.5">
-                        <code className="text-[13px] font-mono text-foreground">{status.gatewayManualCmd}</code>
+                        <code className="min-w-0 truncate text-[12px] md:text-[13px] font-mono text-foreground">{status.gatewayManualCmd}</code>
                         <CopyButton text={status.gatewayManualCmd} />
                       </div>
-                      <p className="mt-2 text-[11px] text-muted-foreground/60">
-                        Once the gateway starts it will register automatically and this page will update.
+                      <p className="mt-2 text-[11px] text-muted-foreground/50">
+                        Once the runtime starts, it will register automatically and this page will update.
                       </p>
                     </div>
                   )}
@@ -573,25 +718,27 @@ export function StepInfrastructure({
         </div>
       )}
 
-      {/* Continue */}
-      <div className="pt-2">
-        <button
-          type="button"
-          onClick={onContinue}
-          disabled={!canContinue || pending}
-          className={cn(
-            "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all",
-            !canContinue || pending
-              ? "cursor-not-allowed bg-muted text-muted-foreground/50"
-              : "bg-primary text-primary-foreground shadow-sm hover:brightness-110 active:scale-[0.97]",
-          )}
-        >
-          {pending ? "Saving…" : "Continue"}
-          {!pending && canContinue && (
-            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-          )}
-        </button>
-      </div>
+      {/* Continue — only appears once both DB and runtime are connected */}
+      {canContinue && (
+        <div className="pt-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <button
+            type="button"
+            onClick={onContinue}
+            disabled={pending}
+            className={cn(
+              "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all",
+              pending
+                ? "cursor-not-allowed bg-muted text-muted-foreground/50"
+                : "bg-primary text-primary-foreground shadow-sm hover:brightness-110 active:scale-[0.97]",
+            )}
+          >
+            {pending ? "Saving…" : "Continue"}
+            {!pending && (
+              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
