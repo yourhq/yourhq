@@ -11,6 +11,8 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-05-18
+
 ### Added
 
 - **Comprehensive test suite** — 2215 tests across hooks, lib, components, API routes, and gateway daemons. Vitest + React Testing Library for UI, pytest for Python.
@@ -75,5 +77,6 @@ Initial public release.
 - Vulnerability disclosure via `security@yourhq.ai`; trust model and known risks documented in [SECURITY.md](SECURITY.md).
 - Gateway tokens hashed at rest; service-role key handling documented.
 
-[Unreleased]: https://github.com/yourhq/yourhq/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/yourhq/yourhq/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/yourhq/yourhq/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/yourhq/yourhq/releases/tag/v0.1.0

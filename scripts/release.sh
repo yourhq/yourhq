@@ -97,10 +97,10 @@ fi
 
 # Update comparison links at bottom of CHANGELOG
 if grep -q "\[Unreleased\]: https://github.com" CHANGELOG.md; then
-  # Get the previous version tag from the changelog
-  PREV_TAG=$(grep -oP '\[.*?\]: https://github.com/yourhq/yourhq/compare/v\K[^.]*\.[^.]*\.[^.]*' CHANGELOG.md | head -1)
+  PREV_TAG=$(grep -o '\[Unreleased\]: https://github.com/yourhq/yourhq/compare/v[^.]*\.[^.]*\.[^.]*' CHANGELOG.md | head -1 | sed 's/.*compare\/v//')
   if [ -n "$PREV_TAG" ]; then
-    sed -i.bak "s|\[Unreleased\]: https://github.com/yourhq/yourhq/compare/v.*\.\.\.HEAD|[Unreleased]: https://github.com/yourhq/yourhq/compare/v${VERSION}...HEAD\n[${VERSION}]: https://github.com/yourhq/yourhq/compare/v${PREV_TAG}...v${VERSION}|" CHANGELOG.md
+    sed -i.bak "s|\[Unreleased\]: https://github.com/yourhq/yourhq/compare/v.*\.\.\.HEAD|[Unreleased]: https://github.com/yourhq/yourhq/compare/v${VERSION}...HEAD\\
+[${VERSION}]: https://github.com/yourhq/yourhq/compare/v${PREV_TAG}...v${VERSION}|" CHANGELOG.md
     rm -f CHANGELOG.md.bak
   fi
 fi
