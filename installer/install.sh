@@ -70,6 +70,13 @@ if ! command -v docker >/dev/null 2>&1; then
   esac
 fi
 
+# If the current user can't reach the Docker socket, use sudo
+if ! docker info >/dev/null 2>&1; then
+  if command -v sudo >/dev/null 2>&1 && sudo docker info >/dev/null 2>&1; then
+    DOCKER="sudo docker"
+  fi
+fi
+
 if ! $DOCKER compose version >/dev/null 2>&1; then
   err "The 'docker compose' plugin is not available."
   say "  Install the Compose plugin: ${C}https://docs.docker.com/compose/install/${R}"
