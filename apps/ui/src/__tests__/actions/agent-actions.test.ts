@@ -23,7 +23,7 @@ vi.mock("@/generated/templates", () => ({
       branch: "template/assistant",
       name: "Assistant",
       description: "Assistant template",
-      emoji: "🐕",
+      emoji: "🧑‍💼",
       team: "ops",
       domains: [],
       capabilities: [],

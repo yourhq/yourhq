@@ -56,7 +56,7 @@ export interface AgentTemplate {
 
 const AGENT_ROSTER: AgentTemplate[] = [
   {
-    key: "scout", branch: "template/crm-researcher", name: "Scout", emoji: "🦅", role: "Sales & Outreach",
+    key: "scout", branch: "template/crm-researcher", name: "Scout", emoji: "🕵️", role: "Sales & Outreach",
     description: "Your dedicated sales partner — researches targets, crafts outreach, and keeps your pipeline moving.",
     capabilities: [
       { label: "Prospect research", detail: "Deep-dives into companies, finds decision-makers, and builds target profiles" },
@@ -66,7 +66,7 @@ const AGENT_ROSTER: AgentTemplate[] = [
     ],
   },
   {
-    key: "ghost", branch: "template/ghostwriter", name: "Ghost", emoji: "🦎", role: "Content Writer",
+    key: "ghost", branch: "template/ghostwriter", name: "Ghost", emoji: "👩‍💻", role: "Content Writer",
     description: "Your writing partner — drafts in your voice, researches topics, and keeps your content calendar full.",
     capabilities: [
       { label: "Content drafting", detail: "Writes newsletters, blog posts, and social threads in your voice" },
@@ -76,7 +76,7 @@ const AGENT_ROSTER: AgentTemplate[] = [
     ],
   },
   {
-    key: "chief", branch: "template/chief-of-staff", name: "Chief", emoji: "🦫", role: "Operations",
+    key: "chief", branch: "template/chief-of-staff", name: "Chief", emoji: "🦸", role: "Operations",
     description: "Your operations lead — coordinates work, tracks clients, and keeps everything on schedule.",
     capabilities: [
       { label: "Task management", detail: "Breaks down projects, assigns priorities, and tracks progress" },
@@ -86,7 +86,7 @@ const AGENT_ROSTER: AgentTemplate[] = [
     ],
   },
   {
-    key: "researcher", branch: "template/assistant", name: "Researcher", emoji: "🦉", role: "Research & Analysis",
+    key: "researcher", branch: "template/assistant", name: "Researcher", emoji: "🧑‍🔬", role: "Research & Analysis",
     description: "Your research analyst — digs deep into topics, synthesizes findings, and keeps your knowledge organized.",
     capabilities: [
       { label: "Deep research", detail: "Investigates markets, companies, and trends with structured analysis" },
@@ -96,7 +96,7 @@ const AGENT_ROSTER: AgentTemplate[] = [
     ],
   },
   {
-    key: "assistant", branch: "template/assistant", name: "Assistant", emoji: "🐕", role: "General Assistant",
+    key: "assistant", branch: "template/assistant", name: "Assistant", emoji: "🧑‍💼", role: "General Assistant",
     description: "Your right hand — manages tasks, tracks what matters, and handles the day-to-day so you can focus.",
     capabilities: [
       { label: "Task management", detail: "Organizes your to-dos, sets priorities, and tracks deadlines" },
@@ -106,7 +106,7 @@ const AGENT_ROSTER: AgentTemplate[] = [
     ],
   },
   {
-    key: "cofounder", branch: "template/cofounder", name: "Co-Founder", emoji: "🦉", role: "Strategy & Execution",
+    key: "cofounder", branch: "template/cofounder", name: "Co-Founder", emoji: "🚀", role: "Strategy & Execution",
     description: "Your strategic operator — helps drive execution, shape direction, and keep the business moving.",
     capabilities: [
       { label: "Strategic planning", detail: "Breaks down big goals into actionable next steps" },
@@ -116,7 +116,7 @@ const AGENT_ROSTER: AgentTemplate[] = [
     ],
   },
   {
-    key: "cmo", branch: "template/cmo", name: "CMO", emoji: "🕷️", role: "Marketing Strategy",
+    key: "cmo", branch: "template/cmo", name: "CMO", emoji: "📡", role: "Marketing Strategy",
     description: "Your marketing strategist — designs messaging, plans campaigns, and builds your funnel.",
     capabilities: [
       { label: "Campaign strategy", detail: "Plans multi-channel campaigns aligned to your goals" },
@@ -126,7 +126,7 @@ const AGENT_ROSTER: AgentTemplate[] = [
     ],
   },
   {
-    key: "analytics", branch: "template/analytics", name: "Analytics", emoji: "🐙", role: "Data & Insights",
+    key: "analytics", branch: "template/analytics", name: "Analytics", emoji: "📊", role: "Data & Insights",
     description: "Your performance analyst — turns activity and outcomes into clear metrics and action items.",
     capabilities: [
       { label: "Metric tracking", detail: "Monitors KPIs and highlights meaningful changes" },
@@ -136,7 +136,7 @@ const AGENT_ROSTER: AgentTemplate[] = [
     ],
   },
   {
-    key: "designer", branch: "template/designer", name: "Designer", emoji: "🦚", role: "Visual Design",
+    key: "designer", branch: "template/designer", name: "Designer", emoji: "🎨", role: "Visual Design",
     description: "Your visual creator — turns ideas into clear, engaging graphics and polished content.",
     capabilities: [
       { label: "Graphic creation", detail: "Designs social graphics, presentations, and brand assets" },
@@ -146,7 +146,7 @@ const AGENT_ROSTER: AgentTemplate[] = [
     ],
   },
   {
-    key: "market-researcher", branch: "template/market-researcher", name: "Market Intel", emoji: "🐦‍⬛", role: "Market Intelligence",
+    key: "market-researcher", branch: "template/market-researcher", name: "Market Intel", emoji: "🔮", role: "Market Intelligence",
     description: "Your external intelligence agent — scans markets, spots patterns, and surfaces meaningful signals.",
     capabilities: [
       { label: "Competitive analysis", detail: "Tracks competitors, their moves, and positioning shifts" },
@@ -176,7 +176,7 @@ const STEP_LAYOUT: Record<string, "narrow" | "wide"> = {
   account: "narrow",
   payment: "wide",
   provisioning: "narrow",
-  launch: "wide",
+  launch: "narrow",
 };
 
 const OSS_PROGRESS_STEPS = [

@@ -44,7 +44,7 @@ export function WizardProgress({
                   className={cn(
                     "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold transition-all duration-300",
                     completed &&
-                      "bg-status-success text-white",
+                      "bg-status-success text-primary-foreground",
                     current &&
                       "bg-foreground text-background ring-2 ring-foreground/20 ring-offset-1 ring-offset-background",
                     !completed &&
@@ -96,7 +96,7 @@ export function WizardProgress({
               <div
                 className={cn(
                   "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold transition-all duration-300",
-                  completed && "bg-status-success text-white",
+                  completed && "bg-status-success text-primary-foreground",
                   current &&
                     "bg-foreground text-background ring-2 ring-foreground/20 ring-offset-1 ring-offset-background",
                   !completed &&
@@ -126,7 +126,7 @@ export function WizardProgress({
         </span>
         <div className="h-1 w-24 overflow-hidden rounded-full bg-border/40">
           <div
-            className="h-full rounded-full bg-foreground transition-all duration-500 ease-out"
+            className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
             style={{ width: `${progressPercent}%` }}
           />
         </div>

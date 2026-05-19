@@ -2,7 +2,7 @@
   "slug": "assistant",
   "name": "Assistant",
   "description": "Central coordinator that routes work, tracks moving parts, and keeps the user’s agent system organized.",
-  "emoji": "🐕",
+  "emoji": "🧑‍💼",
   "team": "ops",
   "domains": [],
   "capabilities": [],

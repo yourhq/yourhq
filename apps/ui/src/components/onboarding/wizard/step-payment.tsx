@@ -45,7 +45,7 @@ export function StepPayment({
         <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70">
           Almost there
         </div>
-        <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight">
+        <h1 className="text-[24px] md:text-[28px] font-semibold leading-[1.15] tracking-tight">
           Activate your workspace
         </h1>
         <p className="max-w-[44ch] text-[14px] leading-relaxed text-muted-foreground">
@@ -92,7 +92,7 @@ export function StepPayment({
           "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all",
           isLoading
             ? "cursor-wait bg-muted text-muted-foreground/50"
-            : "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]",
+            : "bg-primary text-primary-foreground shadow-sm hover:brightness-110 active:scale-[0.97]",
         )}
       >
         <CreditCard className="h-3.5 w-3.5" />

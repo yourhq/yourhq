@@ -75,7 +75,7 @@ export function StepIntent({
     <div className="space-y-8">
       <StaggeredEntrance index={0}>
         <div className="space-y-2">
-          <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight">
+          <h1 className="text-[24px] md:text-[28px] font-semibold leading-[1.15] tracking-tight">
             What best describes your work?
           </h1>
           <p className="text-[14px] text-muted-foreground">
@@ -97,7 +97,7 @@ export function StepIntent({
                 onClick={() => handleSelect(option.key)}
                 disabled={confirming && !isSelected}
                 className={cn(
-                  "group flex w-full items-center justify-between rounded-lg px-3 py-3 text-left transition-all duration-200",
+                  "group flex w-full flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between rounded-lg px-3 py-3 text-left transition-all duration-200",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
                   isSelected
                     ? "bg-foreground/[0.08]"
@@ -118,7 +118,7 @@ export function StepIntent({
                 </span>
                 <span
                   className={cn(
-                    "text-[13px] transition-colors duration-200",
+                    "text-[12px] sm:text-[13px] transition-colors duration-200",
                     isSelected
                       ? "text-muted-foreground"
                       : "text-muted-foreground/60 group-hover:text-muted-foreground/80",

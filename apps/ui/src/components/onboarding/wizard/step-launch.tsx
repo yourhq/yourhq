@@ -11,6 +11,11 @@ import {
   ExternalLink,
   Copy,
   CheckCircle2,
+  Users,
+  Globe,
+  Brain,
+  Shield,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CONTEXT_PRESETS } from "@/lib/setup/templates";
@@ -523,41 +528,65 @@ export function StepLaunch({
   // ─── Render: Summary phase ─────────────────────────────────────────────────
 
   if (phase === "summary") {
+    const VALUE_POINTS = [
+      { icon: Users, text: "Unlimited AI employees" },
+      { icon: Globe, text: "Autonomous web browsing" },
+      { icon: Brain, text: "Knowledge base & skills" },
+      { icon: Zap, text: "Task management & routines" },
+    ];
+
     return (
       <div className="space-y-8">
+        {/* Hero: agent ready to work */}
         <div className="space-y-2">
-          <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight">
-            Ready to launch
+          <div className="relative inline-block mb-2">
+            <div className="absolute inset-0 rounded-full bg-primary/[0.08] blur-2xl scale-[2.5] pointer-events-none" />
+            <div className="relative flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-2xl text-[40px] md:text-[52px] leading-none">
+              {agentEmoji}
+            </div>
+          </div>
+          <h1 className="text-[24px] md:text-[28px] font-semibold leading-[1.15] tracking-tight">
+            {agentName} is ready to start
           </h1>
-          <p className="text-[14px] text-muted-foreground">
-            Here&apos;s what we&apos;ll set up for you.
+          <p className="text-[14px] md:text-[15px] leading-relaxed text-muted-foreground max-w-[44ch]">
+            Once you activate, we&apos;ll build your workspace, connect{" "}
+            {providerEntry?.displayName || "your AI provider"}, and{" "}
+            {agentName} will be ready to work in under two minutes.
           </p>
         </div>
 
-        <div className="space-y-3">
-          <div className="flex items-center justify-between text-[13px]">
-            <span className="text-muted-foreground">Workspace</span>
-            <span className="font-medium">{workspaceName}</span>
-          </div>
-          {preset && (
-            <div className="flex items-center justify-between text-[13px]">
-              <span className="text-muted-foreground">Focus</span>
-              <span className="font-medium">{preset.emoji} {preset.label}</span>
+        {/* What you get */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {VALUE_POINTS.map((vp) => (
+            <div
+              key={vp.text}
+              className="flex items-center gap-2.5 rounded-xl bg-foreground/[0.03] px-3.5 py-3"
+            >
+              <vp.icon className="h-4 w-4 text-primary/50 shrink-0" />
+              <span className="text-[13px] font-medium text-foreground/75">{vp.text}</span>
             </div>
-          )}
-          {providerEntry && (
-            <div className="flex items-center justify-between text-[13px]">
-              <span className="text-muted-foreground">AI</span>
-              <span className="font-medium">{providerEntry.displayName}</span>
+          ))}
+        </div>
+
+        {/* Compact summary */}
+        <div className="rounded-xl border border-border/30 bg-card/30 px-4 py-3.5">
+          <div className="flex flex-wrap gap-x-6 gap-y-2 text-[12px] md:text-[13px]">
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted-foreground/60">Workspace</span>
+              <span className="font-medium text-foreground/80">{workspaceName}</span>
             </div>
-          )}
-          <div className="flex items-center justify-between text-[13px]">
-            <span className="text-muted-foreground">Agent</span>
-            <span className="font-medium">{agentEmoji} {agentName}</span>
-          </div>
-          <div className="border-t border-border/40 pt-3 flex items-center justify-between text-[13px]">
-            <span className="text-muted-foreground">Plan</span>
-            <span className="font-medium">Pro &mdash; $30/mo</span>
+            {preset && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-muted-foreground/60">Focus</span>
+                <span className="font-medium text-foreground/80">{preset.emoji} {preset.label}</span>
+              </div>
+            )}
+            {providerEntry && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-muted-foreground/60">AI</span>
+                <span className="font-medium text-foreground/80">{providerEntry.displayName}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -568,28 +597,45 @@ export function StepLaunch({
           </div>
         )}
 
-        <div className="space-y-3">
+        {/* CTA */}
+        <div className="space-y-4">
           <button
             type="button"
             onClick={handleCheckout}
             disabled={paymentLoading}
             className={cn(
-              "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2",
+              "group inline-flex items-center gap-2.5 rounded-full px-6 py-3 text-[14px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2",
               paymentLoading
                 ? "cursor-wait bg-muted text-muted-foreground/50"
-                : "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]",
+                : "bg-primary text-primary-foreground shadow-sm hover:brightness-110 active:scale-[0.97]",
             )}
           >
-            {paymentLoading ? "Redirecting to Stripe..." : (
+            {paymentLoading ? (
               <>
-                Launch workspace
-                <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Redirecting to Stripe...
+              </>
+            ) : (
+              <>
+                Launch {workspaceName}
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </>
             )}
           </button>
-          <p className="text-[11px] text-muted-foreground/60">
-            Secure checkout via Stripe. Cancel anytime.
-          </p>
+
+          <div className="flex items-center gap-1.5 text-[14px] font-semibold text-foreground/80">
+            <span>$30</span>
+            <span className="text-[12px] font-normal text-muted-foreground/60">/month</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] md:text-[12px] text-muted-foreground/50">
+            <div className="flex items-center gap-1.5">
+              <Shield className="h-3 w-3" />
+              Secure checkout via Stripe
+            </div>
+            <span>Cancel anytime</span>
+            <span>No contracts</span>
+          </div>
         </div>
       </div>
     );
@@ -631,7 +677,7 @@ export function StepLaunch({
               ? "bg-status-success/10 text-status-success"
               : isPending && phase === "provisioning"
                 ? "bg-status-warning/10 text-status-warning"
-                : "bg-foreground text-background",
+                : "bg-primary/10 text-primary",
           )}
         >
           {isComplete ? (
@@ -658,7 +704,7 @@ export function StepLaunch({
           <div
             className={cn(
               "h-full rounded-full transition-all duration-700 ease-out",
-              isComplete ? "bg-status-success" : isPending ? "bg-status-warning" : "bg-foreground",
+              isComplete ? "bg-status-success" : isPending ? "bg-status-warning" : "bg-primary",
             )}
             style={{ width: `${Math.max(progressPercent, isPending ? 5 : 0)}%` }}
           />
@@ -727,7 +773,7 @@ export function StepLaunch({
 
         {/* OAuth interactive flow (during connecting_provider phase) */}
         {phase === "connecting_provider" && isOAuthProvider && !error && (
-          <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden p-5 space-y-4">
+          <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden p-4 md:p-5 space-y-4">
             {oauthPhase.kind === "idle" && (
               <div className="space-y-3">
                 <p className="text-[12px] text-muted-foreground">
@@ -785,7 +831,7 @@ export function StepLaunch({
                         <input
                           value={oauthPhase.state.url}
                           readOnly
-                          className="flex h-9 w-full rounded-lg border border-border/60 bg-background px-3 text-[11px] font-mono outline-none"
+                          className="flex h-9 w-full min-w-0 rounded-lg border border-border/60 bg-background px-3 text-[11px] font-mono outline-none truncate"
                           onFocus={(e) => e.currentTarget.select()}
                         />
                         <button
@@ -844,7 +890,7 @@ export function StepLaunch({
                             value={pasted}
                             onChange={(e) => setPasted(e.target.value)}
                             placeholder="https://… or the code from the page"
-                            className="flex h-9 w-full rounded-lg border border-border/60 bg-background px-3 text-[11px] font-mono outline-none placeholder:text-muted-foreground/40 focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"
+                            className="flex h-9 w-full rounded-lg border border-border/60 bg-background px-3 text-[11px] font-mono outline-none placeholder:text-muted-foreground/40 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
                           />
                           <button
                             type="button"
@@ -882,9 +928,9 @@ export function StepLaunch({
 
         {/* Pending payment state */}
         {phase === "provisioning" && !error && isPending && (
-          <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden p-6 space-y-4">
+          <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden p-4 md:p-6 space-y-4">
             <div className="flex items-center gap-3">
-              <Loader2 className="h-4 w-4 animate-spin text-status-warning" />
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin text-status-warning" />
               <span className="text-[13px] font-medium text-foreground">
                 Waiting for payment confirmation...
               </span>

@@ -53,7 +53,7 @@ describe("StepCelebration", () => {
     render(
       <StepCelebration
         agentName="Scout"
-        agentEmoji="🦊"
+        agentEmoji="🕵️"
         onContinue={onContinue}
       />,
     );
@@ -61,7 +61,7 @@ describe("StepCelebration", () => {
       vi.advanceTimersByTime(300);
     });
     expect(screen.getByText(/Scout is ready to help/)).toBeInTheDocument();
-    expect(screen.getByText("🦊")).toBeInTheDocument();
+    expect(screen.getByText("🕵️")).toBeInTheDocument();
   });
 
   it("does not show agent info when agentName is not provided", () => {

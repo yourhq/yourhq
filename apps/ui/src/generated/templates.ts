@@ -8,7 +8,7 @@ export const BUNDLED_TEMPLATES: AgentTemplate[] = [
     "branch": "template/analytics",
     "name": "Analytics",
     "description": "Performance analyst who turns activity and outcomes into clear metrics, trends, and actionable insight.",
-    "emoji": "🐙",
+    "emoji": "📊",
     "team": "analytics",
     "domains": [],
     "capabilities": []
@@ -17,7 +17,7 @@ export const BUNDLED_TEMPLATES: AgentTemplate[] = [
     "branch": "template/assistant",
     "name": "Assistant",
     "description": "Central coordinator that routes work, tracks moving parts, and keeps the user’s agent system organized.",
-    "emoji": "🐕",
+    "emoji": "🧑‍💼",
     "team": "ops",
     "domains": [],
     "capabilities": []
@@ -26,7 +26,7 @@ export const BUNDLED_TEMPLATES: AgentTemplate[] = [
     "branch": "template/chief-of-staff",
     "name": "Chief of Staff",
     "description": "Execution partner who turns priorities into coordinated action and keeps important work from slipping.",
-    "emoji": "🦫",
+    "emoji": "🦸",
     "team": "ops",
     "domains": [],
     "capabilities": []
@@ -35,7 +35,7 @@ export const BUNDLED_TEMPLATES: AgentTemplate[] = [
     "branch": "template/cmo",
     "name": "CMO",
     "description": "Marketing strategist who designs audience, messaging, and funnel systems that turn attention into growth.",
-    "emoji": "🕷️",
+    "emoji": "📡",
     "team": "strategy",
     "domains": [],
     "capabilities": []
@@ -44,7 +44,7 @@ export const BUNDLED_TEMPLATES: AgentTemplate[] = [
     "branch": "template/cofounder",
     "name": "Co-Founder",
     "description": "Strategic operator who helps drive execution, shape direction, and keep the business moving.",
-    "emoji": "🦉",
+    "emoji": "🚀",
     "team": "strategy",
     "domains": [],
     "capabilities": []
@@ -53,7 +53,7 @@ export const BUNDLED_TEMPLATES: AgentTemplate[] = [
     "branch": "template/crm-researcher",
     "name": "CRM Researcher",
     "description": "Information researcher who finds, verifies, and structures high-quality people and company data for the CRM.",
-    "emoji": "🦅",
+    "emoji": "🕵️",
     "team": "research",
     "domains": [],
     "capabilities": []
@@ -62,7 +62,7 @@ export const BUNDLED_TEMPLATES: AgentTemplate[] = [
     "branch": "template/designer",
     "name": "Designer",
     "description": "Visual creator who turns ideas into clear, engaging, platform-ready graphics and edited content.",
-    "emoji": "🦚",
+    "emoji": "🎨",
     "team": "design",
     "domains": [],
     "capabilities": []
@@ -71,7 +71,7 @@ export const BUNDLED_TEMPLATES: AgentTemplate[] = [
     "branch": "template/ghostwriter",
     "name": "Ghostwriter",
     "description": "Versatile content writer — drafts, outlines, repurposes across formats and platforms.",
-    "emoji": "🦎",
+    "emoji": "👩‍💻",
     "team": "content",
     "domains": [],
     "capabilities": []
@@ -80,7 +80,7 @@ export const BUNDLED_TEMPLATES: AgentTemplate[] = [
     "branch": "template/market-researcher",
     "name": "Market Researcher",
     "description": "External intelligence agent who scans markets, spots patterns, and surfaces meaningful signals.",
-    "emoji": "🐦‍⬛",
+    "emoji": "🔮",
     "team": "research",
     "domains": [],
     "capabilities": []
@@ -89,7 +89,7 @@ export const BUNDLED_TEMPLATES: AgentTemplate[] = [
     "branch": "template/newsletter-editor",
     "name": "Newsletter Editor",
     "description": "Editor who refines newsletter drafts for clarity, engagement, and stronger performance.",
-    "emoji": "🪶",
+    "emoji": "✨",
     "team": "content",
     "domains": [],
     "capabilities": []
@@ -98,7 +98,7 @@ export const BUNDLED_TEMPLATES: AgentTemplate[] = [
     "branch": "template/newsletter-writer",
     "name": "Newsletter Writer",
     "description": "Long-form writer who creates clear, engaging newsletters that build trust and keep readers coming back.",
-    "emoji": "🐬",
+    "emoji": "📝",
     "team": "content",
     "domains": [],
     "capabilities": []
@@ -107,7 +107,7 @@ export const BUNDLED_TEMPLATES: AgentTemplate[] = [
     "branch": "template/sales-copywriter",
     "name": "Sales Copywriter",
     "description": "Persuasive writer who crafts outreach and follow-ups that earn replies and move conversations forward.",
-    "emoji": "🦊",
+    "emoji": "🎯",
     "team": "content",
     "domains": [],
     "capabilities": []
@@ -116,7 +116,7 @@ export const BUNDLED_TEMPLATES: AgentTemplate[] = [
     "branch": "template/script-writer",
     "name": "Script Writer",
     "description": "Spoken-content writer who crafts clear, engaging scripts that sound natural and hold attention on video.",
-    "emoji": "🐦",
+    "emoji": "🎬",
     "team": "content",
     "domains": [],
     "capabilities": []
@@ -125,7 +125,7 @@ export const BUNDLED_TEMPLATES: AgentTemplate[] = [
     "branch": "template/social-writer",
     "name": "Social Media Content Writer",
     "description": "Short-form writer who creates platform-native social content that captures attention and keeps people engaged.",
-    "emoji": "🦜",
+    "emoji": "💬",
     "team": "content",
     "domains": [],
     "capabilities": []
@@ -134,7 +134,7 @@ export const BUNDLED_TEMPLATES: AgentTemplate[] = [
     "branch": "template/social-strategist",
     "name": "Social Media Strategist",
     "description": "Platform strategist who designs social content systems that grow attention, engagement, and audience momentum.",
-    "emoji": "🐒",
+    "emoji": "🧠",
     "team": "strategy",
     "domains": [],
     "capabilities": []

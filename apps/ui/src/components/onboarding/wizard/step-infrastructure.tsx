@@ -120,7 +120,7 @@ function SchemaInstallPanel({
                   value={region}
                   onChange={(e) => setRegion(e.target.value)}
                   disabled={busy}
-                  className="flex h-9 w-full rounded-md border border-border/60 bg-background px-3 text-[13px] outline-none transition-colors focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10 disabled:opacity-50"
+                  className="flex h-9 w-full rounded-md border border-border/60 bg-background px-3 text-[13px] outline-none transition-colors focus:border-primary/40 focus:ring-1 focus:ring-primary/10 disabled:opacity-50"
                 >
                   {SUPABASE_REGIONS.map((r) => (
                     <option key={r.value} value={r.value}>{r.label}</option>
@@ -138,7 +138,7 @@ function SchemaInstallPanel({
                   onChange={(e) => setDbPassword(e.target.value)}
                   placeholder="Your Supabase database password"
                   disabled={busy}
-                  className="flex h-9 w-full rounded-md border border-border/60 bg-background px-3 text-[13px] font-mono outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10 disabled:opacity-50"
+                  className="flex h-9 w-full rounded-md border border-border/60 bg-background px-3 text-[13px] font-mono outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-primary/40 focus:ring-1 focus:ring-primary/10 disabled:opacity-50"
                 />
                 <p className="text-[11px] text-muted-foreground/60">
                   Set when you created the project. Find it in Settings → Database.
@@ -296,7 +296,7 @@ export function StepInfrastructure({
         <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70">
           Infrastructure
         </div>
-        <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight">
+        <h1 className="text-[24px] md:text-[28px] font-semibold leading-[1.15] tracking-tight">
           Connect your infrastructure
         </h1>
         <p className="max-w-[52ch] text-[14px] leading-relaxed text-muted-foreground">
@@ -311,7 +311,7 @@ export function StepInfrastructure({
           <div className={cn(
             "flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold transition-all duration-300",
             dbReady
-              ? "bg-status-success text-white"
+              ? "bg-status-success text-primary-foreground"
               : "bg-foreground text-background",
           )}>
             {dbReady ? <Check className="h-3 w-3" strokeWidth={3} /> : "1"}
@@ -349,7 +349,7 @@ export function StepInfrastructure({
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   placeholder="https://abcdefghij.supabase.co"
-                  className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 text-[13px] outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"
+                  className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 text-[13px] outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
                 />
               </div>
 
@@ -365,7 +365,7 @@ export function StepInfrastructure({
                   onChange={(e) => setAnonKey(e.target.value)}
                   placeholder="eyJhbGciOiJIUzI1…"
                   aria-label="Supabase anon key"
-                  className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 text-[13px] font-mono outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"
+                  className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 text-[13px] font-mono outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
                 />
               </div>
 
@@ -381,7 +381,7 @@ export function StepInfrastructure({
                   onChange={(e) => setServiceRoleKey(e.target.value)}
                   placeholder="eyJhbGciOiJIUzI1…"
                   aria-label="Supabase service role key"
-                  className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 text-[13px] font-mono outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"
+                  className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 text-[13px] font-mono outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
                 />
               </div>
             </div>
@@ -469,7 +469,7 @@ export function StepInfrastructure({
             <div className={cn(
               "flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold transition-all duration-300",
               gwReady
-                ? "bg-status-success text-white"
+                ? "bg-status-success text-primary-foreground"
                 : "bg-foreground text-background",
             )}>
               {gwReady ? <Check className="h-3 w-3" strokeWidth={3} /> : "2"}
@@ -505,7 +505,7 @@ export function StepInfrastructure({
                     "flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-all",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     placement === "local"
-                      ? "border-foreground/80 bg-foreground/[0.04] ring-1 ring-foreground/10"
+                      ? "border-primary/50 bg-primary/[0.04] ring-1 ring-primary/10"
                       : "border-border/60 bg-card/40 hover:border-border hover:bg-card/70",
                   )}
                 >
@@ -528,7 +528,7 @@ export function StepInfrastructure({
                     "flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-all",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     placement === "remote"
-                      ? "border-foreground/80 bg-foreground/[0.04] ring-1 ring-foreground/10"
+                      ? "border-primary/50 bg-primary/[0.04] ring-1 ring-primary/10"
                       : "border-border/60 bg-card/40 hover:border-border hover:bg-card/70",
                   )}
                 >
@@ -583,7 +583,7 @@ export function StepInfrastructure({
             "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all",
             !canContinue || pending
               ? "cursor-not-allowed bg-muted text-muted-foreground/50"
-              : "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]",
+              : "bg-primary text-primary-foreground shadow-sm hover:brightness-110 active:scale-[0.97]",
           )}
         >
           {pending ? "Saving…" : "Continue"}

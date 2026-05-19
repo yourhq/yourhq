@@ -4,8 +4,8 @@ import "../helpers/server-mock";
 
 vi.mock("@/generated/templates", () => ({
   BUNDLED_TEMPLATES: [
-    { branch: "template/analytics", name: "Analytics", emoji: "🐙" },
-    { branch: "template/assistant", name: "Assistant", emoji: "🐕" },
+    { branch: "template/analytics", name: "Analytics", emoji: "📊" },
+    { branch: "template/assistant", name: "Assistant", emoji: "🧑‍💼" },
   ],
 }));
 
@@ -41,8 +41,8 @@ describe("GET /api/agents/templates", () => {
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data).toEqual([
-      { branch: "template/analytics", name: "Analytics", emoji: "🐙" },
-      { branch: "template/assistant", name: "Assistant", emoji: "🐕" },
+      { branch: "template/analytics", name: "Analytics", emoji: "📊" },
+      { branch: "template/assistant", name: "Assistant", emoji: "🧑‍💼" },
     ]);
   });
 });

@@ -75,7 +75,7 @@ function MissionContent({
       {/* Progress bar */}
       <div className="mx-4 h-1 overflow-hidden rounded-full bg-border/50">
         <div
-          className="h-full rounded-full bg-foreground transition-all duration-700 ease-out"
+          className="h-full rounded-full bg-primary transition-all duration-700 ease-out"
           style={{ width: `${progressPercent}%` }}
         />
       </div>
@@ -96,7 +96,7 @@ function MissionContent({
                 className={cn(
                   "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full transition-all duration-300",
                   done
-                    ? "bg-status-success text-white"
+                    ? "bg-status-success text-primary-foreground"
                     : "border-[1.5px] border-border",
                 )}
               >

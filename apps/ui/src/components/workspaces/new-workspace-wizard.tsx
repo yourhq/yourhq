@@ -362,7 +362,7 @@ function NameStep({
               value={emoji}
               onChange={(e) => onEmojiChange(e.target.value)}
               maxLength={8}
-              className="flex h-10 w-full rounded-lg border border-border/60 bg-background text-center text-base outline-none transition-colors focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"
+              className="flex h-10 w-full rounded-lg border border-border/60 bg-background text-center text-base outline-none transition-colors focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
             />
           </div>
           <div className="space-y-1.5">
@@ -377,7 +377,7 @@ function NameStep({
               placeholder="e.g. Sales team, Side project"
               maxLength={80}
               autoFocus
-              className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 text-[14px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"
+              className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 text-[14px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && valid && !pending) onContinue();
               }}
@@ -395,7 +395,7 @@ function NameStep({
             "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all",
             !valid || pending
               ? "cursor-not-allowed bg-muted text-muted-foreground/50"
-              : "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]",
+              : "bg-primary text-primary-foreground shadow-sm hover:brightness-110 active:scale-[0.97]",
           )}
         >
           Continue
@@ -476,7 +476,7 @@ function DatabaseStep({
             value={dbUrl}
             onChange={(e) => onDbUrlChange(e.target.value)}
             placeholder="https://xxxxxxxx.supabase.co"
-            className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 font-mono text-[13px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"
+            className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 font-mono text-[13px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
           />
         </div>
 
@@ -492,7 +492,7 @@ function DatabaseStep({
             spellCheck={false}
             autoComplete="off"
             placeholder="eyJhbGciOi…"
-            className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 font-mono text-[12px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"
+            className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 font-mono text-[12px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
           />
         </div>
 
@@ -508,7 +508,7 @@ function DatabaseStep({
             spellCheck={false}
             autoComplete="off"
             placeholder="eyJhbGciOi…"
-            className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 font-mono text-[12px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"
+            className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 font-mono text-[12px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
           />
         </div>
       </div>
@@ -559,7 +559,7 @@ function DatabaseStep({
               "inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12px] font-medium transition-all",
               schemaConfirming
                 ? "cursor-wait bg-muted text-muted-foreground/50"
-                : "bg-foreground text-background hover:bg-foreground/90",
+                : "bg-primary text-primary-foreground shadow-sm hover:brightness-110",
             )}
           >
             {schemaConfirming ? (
@@ -591,7 +591,7 @@ function DatabaseStep({
               "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all",
               !credsValid || status === "validating" || pending
                 ? "cursor-not-allowed bg-muted text-muted-foreground/50"
-                : "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]",
+                : "bg-primary text-primary-foreground shadow-sm hover:brightness-110 active:scale-[0.97]",
             )}
           >
             {status === "validating" ? (
@@ -668,7 +668,7 @@ function AccountStep({
             placeholder="you@example.com"
             autoComplete="email"
             autoFocus
-            className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 text-[14px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"
+            className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 text-[14px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
             onKeyDown={(e) => {
               if (e.key === "Enter" && valid && !pending) onSubmit();
             }}
@@ -687,7 +687,7 @@ function AccountStep({
               onChange={(e) => onPasswordChange(e.target.value)}
               placeholder="At least 6 characters"
               autoComplete="new-password"
-              className="flex h-10 w-full rounded-lg border border-border/60 bg-background pl-3 pr-10 text-[14px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"
+              className="flex h-10 w-full rounded-lg border border-border/60 bg-background pl-3 pr-10 text-[14px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && valid && !pending) onSubmit();
               }}
@@ -712,7 +712,7 @@ function AccountStep({
           "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all",
           !valid || pending
             ? "cursor-not-allowed bg-muted text-muted-foreground/50"
-            : "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]",
+            : "bg-primary text-primary-foreground shadow-sm hover:brightness-110 active:scale-[0.97]",
         )}
       >
         {pending ? (
@@ -792,7 +792,7 @@ function PaymentStep({
           "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all",
           isLoading
             ? "cursor-wait bg-muted text-muted-foreground/50"
-            : "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]",
+            : "bg-primary text-primary-foreground shadow-sm hover:brightness-110 active:scale-[0.97]",
         )}
       >
         <CreditCard className="h-3.5 w-3.5" />

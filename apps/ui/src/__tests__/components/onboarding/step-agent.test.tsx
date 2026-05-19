@@ -8,10 +8,10 @@ vi.mock("@/lib/utils", () => ({
 }));
 
 vi.mock("@/lib/agents/emoji-grid", () => ({
-  AGENT_EMOJIS: ["🤖", "🦊", "🎯", "⚡"],
+  AGENT_EMOJIS: ["🧑‍💼", "👩‍💻", "🎯", "⚡"],
   AGENT_EMOJI_LABELS: {
-    "🤖": "Robot",
-    "🦊": "Fox",
+    "🧑‍💼": "Professional",
+    "👩‍💻": "Developer",
     "🎯": "Target",
     "⚡": "Lightning",
   } as Record<string, string>,
@@ -43,7 +43,7 @@ function makeTemplate(overrides: Partial<AgentTemplate> & { key: string }): Agen
 }
 
 const roster: AgentTemplate[] = [
-  makeTemplate({ key: "scout", name: "Scout", emoji: "🦅", role: "Sales & Outreach", description: "Finds prospects.", capabilities: [{ label: "Prospect research", detail: "" }, { label: "Outreach drafting", detail: "" }] }),
+  makeTemplate({ key: "scout", name: "Scout", emoji: "🕵️", role: "Sales & Outreach", description: "Finds prospects.", capabilities: [{ label: "Prospect research", detail: "" }, { label: "Outreach drafting", detail: "" }] }),
   makeTemplate({ key: "writer", name: "Writer", emoji: "✍️", role: "Content Creator", description: "Writes content.", capabilities: [{ label: "Blog writing", detail: "" }] }),
   makeTemplate({ key: "ops", name: "Ops", emoji: "⚙️", role: "Operations", description: "Manages ops.", capabilities: [{ label: "Scheduling", detail: "" }] }),
   makeTemplate({ key: "researcher", name: "Researcher", emoji: "🔬", role: "Research Analyst", description: "Researches topics.", capabilities: [{ label: "Market analysis", detail: "" }] }),
@@ -84,11 +84,12 @@ describe("StepAgent", () => {
         pending={false}
       />,
     );
-    expect(screen.getByText("Scout")).toBeInTheDocument();
-    expect(screen.getByText("Writer")).toBeInTheDocument();
-    expect(screen.getByText("Ops")).toBeInTheDocument();
-    expect(screen.getByText("Researcher")).toBeInTheDocument();
-    expect(screen.getByText("Recruiter")).toBeInTheDocument();
+    // Mobile + desktop rosters both render in jsdom, so use getAllByText
+    expect(screen.getAllByText("Scout").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Writer").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Ops").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Researcher").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Recruiter").length).toBeGreaterThanOrEqual(1);
   });
 
   it("recommended agent shown with 'Suggested' badge", () => {
@@ -117,10 +118,12 @@ describe("StepAgent", () => {
       name: /2 more employees/i,
     });
     expect(toggle).toBeInTheDocument();
-    expect(screen.queryByText("Extra One")).not.toBeInTheDocument();
+    // Before toggling: extra agents appear once (mobile roster only)
+    const beforeCount = screen.queryAllByText("Extra One").length;
     await user.click(toggle);
-    expect(screen.getByText("Extra One")).toBeInTheDocument();
-    expect(screen.getByText("Extra Two")).toBeInTheDocument();
+    // After toggling: extra agents appear in both mobile + desktop rosters
+    expect(screen.getAllByText("Extra One").length).toBeGreaterThan(beforeCount);
+    expect(screen.getAllByText("Extra Two").length).toBeGreaterThanOrEqual(1);
   });
 
   it("selecting a different agent updates detail card", async () => {

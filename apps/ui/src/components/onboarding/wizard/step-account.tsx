@@ -29,7 +29,7 @@ export function StepAccount({ onSubmit, pending, error }: StepAccountProps) {
         <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70">
           Your account
         </div>
-        <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight">
+        <h1 className="text-[24px] md:text-[28px] font-semibold leading-[1.15] tracking-tight">
           Secure your workspace
         </h1>
         <p className="max-w-[44ch] text-[14px] leading-relaxed text-muted-foreground">
@@ -50,7 +50,7 @@ export function StepAccount({ onSubmit, pending, error }: StepAccountProps) {
             placeholder="you@example.com"
             autoFocus
             autoComplete="email"
-            className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 text-[14px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"
+            className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 text-[14px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
             onKeyDown={(e) => {
               if (e.key === "Enter") handleSubmit();
             }}
@@ -69,7 +69,7 @@ export function StepAccount({ onSubmit, pending, error }: StepAccountProps) {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="At least 6 characters"
               autoComplete="new-password"
-              className="flex h-10 w-full rounded-lg border border-border/60 bg-background pl-3 pr-10 text-[14px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"
+              className="flex h-10 w-full rounded-lg border border-border/60 bg-background pl-3 pr-10 text-[14px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSubmit();
               }}
@@ -103,7 +103,7 @@ export function StepAccount({ onSubmit, pending, error }: StepAccountProps) {
           "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2",
           !valid || pending
             ? "cursor-not-allowed bg-muted text-muted-foreground/50"
-            : "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]",
+            : "bg-primary text-primary-foreground shadow-sm hover:brightness-110 active:scale-[0.97]",
         )}
       >
         {pending ? (

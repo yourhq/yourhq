@@ -19,6 +19,10 @@ describe("analytics (enabled)", () => {
 
   beforeAll(async () => {
     process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN = "test-token";
+    Object.defineProperty(window, "location", {
+      value: { hostname: "app.yourhq.ai" },
+      writable: true,
+    });
     vi.resetModules();
     const mod = await import("@/lib/analytics/index");
     trackEvent = mod.trackEvent;
@@ -91,6 +95,10 @@ describe("analytics (disabled — no token)", () => {
 
   beforeAll(async () => {
     delete process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
+    Object.defineProperty(window, "location", {
+      value: { hostname: "app.yourhq.ai" },
+      writable: true,
+    });
     vi.resetModules();
     const mod = await import("@/lib/analytics/index");
     trackEvent = mod.trackEvent;

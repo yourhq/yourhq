@@ -59,7 +59,7 @@ export function StepWelcome({ initialName, onSubmit, pending }: StepWelcomeProps
     <div className="space-y-6">
       <StaggeredEntrance index={0}>
         <div className="space-y-2">
-          <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight">
+          <h1 className="text-[24px] md:text-[28px] font-semibold leading-[1.15] tracking-tight">
             What&apos;s your name?
           </h1>
           <p className="text-[14px] text-muted-foreground">
@@ -78,7 +78,7 @@ export function StepWelcome({ initialName, onSubmit, pending }: StepWelcomeProps
           }}
           placeholder="Your full name"
           autoFocus
-          className="flex h-11 w-full rounded-lg border border-border/60 bg-background px-3.5 text-[15px] outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"
+          className="flex h-11 w-full rounded-lg border border-border/60 bg-background px-3.5 text-[15px] outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
           onKeyDown={(e) => {
             if (e.key === "Enter") submit();
           }}
@@ -111,7 +111,7 @@ export function StepWelcome({ initialName, onSubmit, pending }: StepWelcomeProps
                     setEditingWorkspace(false);
                   }
                 }}
-                className="flex h-9 w-full max-w-[240px] rounded-md border border-border/60 bg-background px-2.5 text-[14px] font-medium outline-none transition-colors focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"
+                className="flex h-9 w-full max-w-[240px] rounded-md border border-border/60 bg-background px-2.5 text-[14px] font-medium outline-none transition-colors focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
               />
             ) : (
               <button
@@ -139,7 +139,7 @@ export function StepWelcome({ initialName, onSubmit, pending }: StepWelcomeProps
               "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2",
               !valid || pending
                 ? "cursor-not-allowed bg-muted text-muted-foreground/50"
-                : "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]",
+                : "bg-primary text-primary-foreground shadow-sm hover:brightness-110 active:scale-[0.97]",
             )}
           >
             {pending ? "Setting up…" : "Continue"}

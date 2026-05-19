@@ -56,7 +56,7 @@ function IntentCard({
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         "hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98]",
         selected
-          ? "border-foreground/60 bg-foreground/[0.04] ring-1 ring-foreground/10"
+          ? "border-primary/50 bg-primary/[0.04] ring-1 ring-primary/10"
           : "border-border/60 bg-card/40 hover:border-border hover:bg-card/70",
       )}
     >

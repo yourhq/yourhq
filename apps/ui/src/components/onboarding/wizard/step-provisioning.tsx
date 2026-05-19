@@ -200,7 +200,7 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
               ? "bg-status-success/10 text-status-success"
               : isPending
                 ? "bg-status-warning/10 text-status-warning"
-                : "bg-foreground text-background",
+                : "bg-primary/10 text-primary",
           )}
         >
           {isComplete ? (
@@ -226,7 +226,7 @@ export function StepProvisioning({ workspaceId, onComplete }: StepProvisioningPr
           <div
             className={cn(
               "h-full rounded-full transition-all duration-700 ease-out",
-              isComplete ? "bg-status-success" : isPending ? "bg-status-warning" : "bg-foreground",
+              isComplete ? "bg-status-success" : isPending ? "bg-status-warning" : "bg-primary",
             )}
             style={{ width: `${Math.max(progressPercent, isPending ? 5 : 0)}%` }}
           />

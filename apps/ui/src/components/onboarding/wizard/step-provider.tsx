@@ -212,7 +212,7 @@ export function StepProvider({
             "w-full flex items-center gap-3 rounded-xl border p-3.5 text-left transition-all duration-150 cursor-pointer",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             isSelected
-              ? "border-foreground/60 bg-foreground/[0.04] ring-1 ring-foreground/10"
+              ? "border-primary/50 bg-primary/[0.04] ring-1 ring-primary/10"
               : "border-border/60 bg-card/40 hover:border-border hover:bg-card/70",
           )}
         >
@@ -235,7 +235,7 @@ export function StepProvider({
             </div>
           )}
           {isSelected && oauthPhase.kind === "done" && (
-            <div className="flex h-4 w-4 items-center justify-center rounded-full bg-status-success text-white shrink-0">
+            <div className="flex h-4 w-4 items-center justify-center rounded-full bg-status-success text-primary-foreground shrink-0">
               <Check className="h-2.5 w-2.5" strokeWidth={3} />
             </div>
           )}
@@ -252,7 +252,7 @@ export function StepProvider({
                 placeholder="Paste your API key"
                 aria-label={`${p.displayName} API key`}
                 autoFocus
-                className="flex h-9 w-full rounded-lg border border-border/60 bg-background px-3 pr-9 text-[13px] font-mono outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"
+                className="flex h-9 w-full rounded-lg border border-border/60 bg-background px-3 pr-9 text-[13px] font-mono outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && canSubmit) handleSubmit();
                 }}
@@ -429,7 +429,7 @@ export function StepProvider({
                               value={pasted}
                               onChange={(e) => setPasted(e.target.value)}
                               placeholder="https://… or the code from the page"
-                              className="flex h-9 w-full rounded-lg border border-border/60 bg-background px-3 text-[11px] font-mono outline-none placeholder:text-muted-foreground/40 focus:border-foreground/40 focus:ring-1 focus:ring-foreground/10"
+                              className="flex h-9 w-full rounded-lg border border-border/60 bg-background px-3 text-[11px] font-mono outline-none placeholder:text-muted-foreground/40 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
                             />
                             <button
                               type="button"
@@ -492,7 +492,7 @@ export function StepProvider({
         <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70">
           AI Provider
         </div>
-        <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight">
+        <h1 className="text-[24px] md:text-[28px] font-semibold leading-[1.15] tracking-tight">
           Connect an AI provider
         </h1>
         <p className="max-w-[48ch] text-[14px] leading-relaxed text-muted-foreground">
@@ -548,7 +548,7 @@ export function StepProvider({
             type="button"
             onClick={handleOAuthContinue}
             disabled={pending}
-            className="group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]"
+            className="group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2 bg-primary text-primary-foreground shadow-sm hover:brightness-110 active:scale-[0.97]"
           >
             {pending ? "Saving…" : (
               <>
@@ -566,7 +566,7 @@ export function StepProvider({
               "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2",
               !canSubmit
                 ? "cursor-not-allowed bg-muted text-muted-foreground/50"
-                : "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]",
+                : "bg-primary text-primary-foreground shadow-sm hover:brightness-110 active:scale-[0.97]",
             )}
           >
             {validating ? (

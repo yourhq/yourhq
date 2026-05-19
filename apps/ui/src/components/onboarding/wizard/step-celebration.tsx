@@ -78,7 +78,7 @@ export function StepCelebration({
 
       {showContent && (
         <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-500">
-          <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight">
+          <h1 className="text-[24px] md:text-[28px] font-semibold leading-[1.15] tracking-tight">
             Welcome to {workspaceName || "your workspace"}
           </h1>
           {agentName && !needsManualLogin && (
@@ -96,7 +96,7 @@ export function StepCelebration({
             <button
               type="button"
               onClick={onContinue}
-              className="group inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-[13px] font-medium text-background transition-all hover:bg-foreground/90 active:scale-[0.97]"
+              className="group inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-[13px] font-medium text-primary-foreground shadow-sm transition-all hover:brightness-110 active:scale-[0.97]"
             >
               {needsManualLogin ? "Go to sign in" : "Go to dashboard"}
               <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
