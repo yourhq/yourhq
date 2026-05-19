@@ -29,7 +29,7 @@ export function buildGatewayOneLiner(input: BuildOneLinerInput): string {
   const q = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
 
   const lines = [
-    "curl -fsSL https://raw.githubusercontent.com/yourhq/yourhq/main/installer/install-gateway.sh",
+    "curl -fsSL https://install.yourhq.ai/gateway",
     `  | GATEWAY_TOKEN=${q(input.token)}`,
     `    SUPABASE_URL=${q(input.project.url)}`,
     `    SUPABASE_ANON_KEY=${q(input.project.anonKey)}`,

@@ -8,9 +8,10 @@ import {
   Eye,
   EyeOff,
   ChevronDown,
-  Copy,
+  ChevronUp,
   ExternalLink,
   CheckCircle2,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -25,6 +26,11 @@ import {
   pollCommandState,
   saveOAuthProvider,
 } from "./actions";
+import { StaggeredEntrance } from "./staggered-entrance";
+import {
+  OAuthInteractiveFlow,
+  type OAuthFlowContext,
+} from "@/components/connections/oauth-interactive-flow";
 
 const OAUTH_PROVIDERS = new Set([
   "openai-codex", "github-copilot", "google-gemini-cli", "minimax-portal",
@@ -34,8 +40,8 @@ const AUTH_SHAPE_LABELS: Record<string, string> = {
   api_key: "API key",
   oauth_paste: "Sign in",
   device_code: "Sign in",
-  cli_reuse: "Reuses CLI login",
-  local_url: "Local — no key needed",
+  cli_reuse: "CLI login",
+  local_url: "Local",
 };
 
 export interface StepProviderProps {
@@ -77,9 +83,7 @@ export function StepProvider({
   // OAuth interactive state
   const [oauthPhase, setOauthPhase] = useState<OAuthPhase>({ kind: "idle" });
   const [oauthError, setOauthError] = useState<string | null>(null);
-  const [pasted, setPasted] = useState("");
   const [submittingPaste, setSubmittingPaste] = useState(false);
-  const [copied, setCopied] = useState<"url" | "code" | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const recommended = PROVIDER_CATALOG.filter((p) => p.category === "recommended");
@@ -99,7 +103,6 @@ export function StepProvider({
       !validating &&
       !pending;
 
-  // Cleanup polling on unmount
   useEffect(() => {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
@@ -107,14 +110,12 @@ export function StepProvider({
   }, []);
 
   const handleSelectProvider = (id: string) => {
-    // Reset everything when switching providers
     if (pollRef.current) clearInterval(pollRef.current);
     setSelected(id);
     setApiKey("");
     setShowKey(false);
     setOauthPhase({ kind: "idle" });
     setOauthError(null);
-    setPasted("");
   };
 
   const handleSubmit = () => {
@@ -128,7 +129,6 @@ export function StepProvider({
 
     setOauthPhase({ kind: "starting", provider: entry, mode });
     setOauthError(null);
-    setPasted("");
 
     const r = await startOAuthFlow(entry.id, mode);
     if (!r.ok || !r.data) {
@@ -146,7 +146,6 @@ export function StepProvider({
       state: { stage: "starting" },
     });
 
-    // Poll for state changes
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = setInterval(async () => {
       const poll = await pollCommandState(commandId);
@@ -163,7 +162,6 @@ export function StepProvider({
       if (poll.data.status === "done") {
         if (pollRef.current) clearInterval(pollRef.current);
         setOauthPhase({ kind: "done", provider: entry });
-        // Save and advance
         await saveOAuthProvider(entry.id);
       } else if (poll.data.status === "failed") {
         if (pollRef.current) clearInterval(pollRef.current);
@@ -175,28 +173,20 @@ export function StepProvider({
     }, 1500);
   }, []);
 
-  const handlePaste = useCallback(async () => {
-    if (oauthPhase.kind !== "interactive" || !pasted.trim()) return;
+  const handlePaste = useCallback(async (value: string) => {
+    if (oauthPhase.kind !== "interactive" || !value) return;
     setSubmittingPaste(true);
-    const r = await submitOAuthPaste(oauthPhase.commandId, pasted.trim());
+    const r = await submitOAuthPaste(oauthPhase.commandId, value);
     setSubmittingPaste(false);
     if (!r.ok) {
       setOauthError(r.error ?? "Failed to submit code");
     }
-  }, [oauthPhase, pasted]);
+  }, [oauthPhase]);
 
   const handleOAuthContinue = useCallback(() => {
     if (oauthPhase.kind !== "done") return;
     onSubmit(oauthPhase.provider.id, "");
   }, [oauthPhase, onSubmit]);
-
-  async function copyToClipboard(value: string, key: "url" | "code") {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(key);
-      setTimeout(() => setCopied((c) => (c === key ? null : c)), 1500);
-    } catch {}
-  }
 
   const renderProvider = (p: ProviderCatalogEntry) => {
     const isSelected = selected === p.id;
@@ -209,50 +199,57 @@ export function StepProvider({
           aria-checked={isSelected}
           onClick={() => handleSelectProvider(p.id)}
           className={cn(
-            "w-full flex items-center gap-3 rounded-xl border p-3.5 text-left transition-all duration-150 cursor-pointer",
+            "w-full flex items-center gap-2.5 sm:gap-3 rounded-xl border px-3 sm:px-4 py-3 text-left transition-all duration-150 cursor-pointer",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             isSelected
               ? "border-primary/50 bg-primary/[0.04] ring-1 ring-primary/10"
               : "border-border/60 bg-card/40 hover:border-border hover:bg-card/70",
           )}
         >
-          <ProviderIcon
-            providerId={p.id}
-            className="h-5 w-5 shrink-0 text-foreground/70"
-          />
+          <div className={cn(
+            "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+            isSelected ? "bg-primary/10" : "bg-muted/60",
+          )}>
+            <ProviderIcon
+              providerId={p.id}
+              className="h-4.5 w-4.5 shrink-0 text-foreground/80"
+            />
+          </div>
           <div className="flex-1 min-w-0">
-            <span className="text-[14px] font-medium">{p.displayName}</span>
+            <div className="flex items-baseline gap-1.5 sm:gap-2 flex-wrap">
+              <span className="text-[13px] sm:text-[14px] font-medium">{p.displayName}</span>
+              <span className="text-[10px] sm:text-[11px] text-muted-foreground/50">
+                {AUTH_SHAPE_LABELS[p.authShape] ?? p.authShape}
+              </span>
+            </div>
             {p.blurb && (
-              <span className="ml-2 text-[12px] text-muted-foreground">{p.blurb}</span>
+              <p className="text-[12px] text-muted-foreground/70 leading-snug mt-0.5">{p.blurb}</p>
             )}
           </div>
-          <span className="text-[11px] text-muted-foreground/60 shrink-0">
-            {AUTH_SHAPE_LABELS[p.authShape] ?? p.authShape}
-          </span>
           {isSelected && oauthPhase.kind !== "done" && (
-            <div className="flex h-4 w-4 items-center justify-center rounded-full bg-foreground text-background shrink-0">
-              <Check className="h-2.5 w-2.5" strokeWidth={3} />
+            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shrink-0">
+              <Check className="h-3 w-3" strokeWidth={3} />
             </div>
           )}
           {isSelected && oauthPhase.kind === "done" && (
-            <div className="flex h-4 w-4 items-center justify-center rounded-full bg-status-success text-primary-foreground shrink-0">
-              <Check className="h-2.5 w-2.5" strokeWidth={3} />
+            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-status-success text-primary-foreground shrink-0">
+              <Check className="h-3 w-3" strokeWidth={3} />
             </div>
           )}
         </button>
 
         {/* API key input */}
         {isSelected && needsKey && (
-          <div className="px-4 pb-3 pt-2.5 space-y-2 animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="mx-2 sm:mx-3 border-x border-b border-border/40 rounded-b-lg px-3 sm:px-4 pb-4 pt-3 space-y-2.5 animate-in fade-in slide-in-from-top-1 duration-150">
             <div className="relative">
               <input
                 type={showKey ? "text" : "password"}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder="Paste your API key"
+                placeholder={`Paste your ${p.displayName} API key`}
                 aria-label={`${p.displayName} API key`}
                 autoFocus
-                className="flex h-9 w-full rounded-lg border border-border/60 bg-background px-3 pr-9 text-[13px] font-mono outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
+                className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 pr-9 text-[13px] font-mono outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && canSubmit) handleSubmit();
                 }}
@@ -260,7 +257,7 @@ export function StepProvider({
               <button
                 type="button"
                 onClick={() => setShowKey(!showKey)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/50 hover:text-foreground transition-colors"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/50 hover:text-foreground transition-colors"
                 aria-label={showKey ? "Hide API key" : "Show API key"}
               >
                 {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
@@ -271,9 +268,10 @@ export function StepProvider({
                 href={p.helpUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-block text-[11px] text-muted-foreground/70 hover:text-foreground transition-colors underline underline-offset-2"
+                className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/70 hover:text-foreground transition-colors"
               >
-                Get an API key →
+                Don&apos;t have a key? Get one here
+                <ExternalLink className="h-2.5 w-2.5" />
               </a>
             )}
             {!collectOnly && validationError && (
@@ -282,22 +280,22 @@ export function StepProvider({
               </p>
             )}
             {!collectOnly && validated && (
-              <p className="flex items-center gap-1.5 text-[12px] text-status-success animate-in fade-in duration-200">
-                <Check className="h-3 w-3" />
-                Connected
-              </p>
+              <div className="flex items-center gap-1.5 rounded-lg border border-status-success/30 bg-status-success/5 px-3 py-2 text-[12px] text-status-success animate-in fade-in duration-200">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Key validated — connected to {p.displayName}
+              </div>
             )}
           </div>
         )}
 
         {/* Local provider */}
         {isSelected && isLocal && (
-          <div className="px-4 pb-3 pt-2.5 animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="mx-2 sm:mx-3 border-x border-b border-border/40 rounded-b-lg px-3 sm:px-4 pb-4 pt-3 animate-in fade-in slide-in-from-top-1 duration-150">
             <p className="text-[12px] text-muted-foreground">
-              We&apos;ll auto-detect {p.displayName} running on your agent runtime. No API key needed.
+              HQ will auto-detect {p.displayName} running on your gateway. No API key needed.
             </p>
             {validationError && (
-              <p className="mt-1.5 text-[12px] text-destructive animate-in fade-in duration-150">
+              <p className="mt-2 text-[12px] text-destructive animate-in fade-in duration-150">
                 {validationError}
               </p>
             )}
@@ -306,7 +304,7 @@ export function StepProvider({
 
         {/* OAuth provider — collect-only deferred message */}
         {isSelected && providerIsOAuth && collectOnly && (
-          <div className="px-4 pb-3 pt-2.5 animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="mx-2 sm:mx-3 border-x border-b border-border/40 rounded-b-lg px-3 sm:px-4 pb-4 pt-3 animate-in fade-in slide-in-from-top-1 duration-150">
             <p className="text-[12px] text-muted-foreground">
               You&apos;ll sign in with {p.displayName} once your workspace is set up.
             </p>
@@ -315,14 +313,9 @@ export function StepProvider({
 
         {/* OAuth provider — inline interactive flow */}
         {isSelected && providerIsOAuth && !collectOnly && (
-          <div className="px-4 pb-3 pt-2.5 animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="mx-2 sm:mx-3 border-x border-b border-border/40 rounded-b-lg px-3 sm:px-4 pb-4 pt-3 animate-in fade-in slide-in-from-top-1 duration-150">
             {oauthPhase.kind === "idle" && (
               <div className="space-y-3">
-                <p className="text-[12px] text-muted-foreground">
-                  {p.authShape === "device_code"
-                    ? "You’ll get a short code and a URL. Enter the code on that page to connect."
-                    : "Click below to open the sign-in page. After signing in, you may need to paste the redirect URL back here."}
-                </p>
                 {oauthError && (
                   <p className="text-[12px] text-destructive animate-in fade-in duration-150">
                     {oauthError}
@@ -339,145 +332,32 @@ export function StepProvider({
               </div>
             )}
 
-            {oauthPhase.kind === "starting" && (
-              <div className="flex items-center gap-2 py-3 text-[12px] text-muted-foreground">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Starting sign-in flow…
-              </div>
-            )}
-
-            {oauthPhase.kind === "interactive" && (
-              <div className="space-y-3">
-                {oauthPhase.state.stage === "starting" && (
-                  <div className="flex items-center gap-2 py-3 text-[12px] text-muted-foreground">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Starting sign-in flow…
-                  </div>
-                )}
-
-                {(oauthPhase.state.stage === "url_ready" || oauthPhase.state.stage === "polling") && (
-                  <>
-                    <div className="space-y-1.5">
-                      <label className="text-[12px] font-medium text-foreground">
-                        Open this URL to sign in
-                      </label>
-                      <div className="flex gap-1.5">
-                        <input
-                          value={oauthPhase.state.url}
-                          readOnly
-                          className="flex h-9 w-full rounded-lg border border-border/60 bg-background px-3 text-[11px] font-mono outline-none"
-                          onFocus={(e) => e.currentTarget.select()}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard(oauthPhase.state.stage !== "starting" ? (oauthPhase.state as { url: string }).url : "", "url")}
-                          className="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border/60 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                          title="Copy URL"
-                        >
-                          {copied === "url" ? <CheckCircle2 className="h-3.5 w-3.5 text-status-success" /> : <Copy className="h-3.5 w-3.5" />}
-                        </button>
-                        <a
-                          href={oauthPhase.state.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="shrink-0 inline-flex h-9 items-center gap-1.5 rounded-lg border border-border/60 bg-foreground text-background px-3 text-[12px] font-medium hover:bg-foreground/90 transition-colors"
-                        >
-                          Open
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </div>
-                    </div>
-
-                    {oauthPhase.state.verificationCode && (
-                      <div className="space-y-1.5">
-                        <label className="text-[12px] font-medium text-foreground">
-                          Enter this code on that page
-                        </label>
-                        <div className="flex items-center gap-2">
-                          <code className="rounded-lg border border-border/60 bg-background px-3 py-2 font-mono text-[18px] tracking-[0.3em] text-foreground">
-                            {oauthPhase.state.verificationCode}
-                          </code>
-                          <button
-                            type="button"
-                            onClick={() => copyToClipboard(oauthPhase.state.stage !== "starting" ? ((oauthPhase.state as { verificationCode?: string }).verificationCode ?? "") : "", "code")}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                          >
-                            {copied === "code" ? <CheckCircle2 className="h-3 w-3 text-status-success" /> : <Copy className="h-3 w-3" />}
-                            {copied === "code" ? "Copied" : "Copy"}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {oauthPhase.mode === "device_code" ? (
-                      <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        Waiting for you to approve in your browser…
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                          Waiting for sign-in to complete…
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[11px] text-muted-foreground">
-                            Or paste the redirect URL manually
-                          </label>
-                          <div className="flex gap-1.5">
-                            <input
-                              value={pasted}
-                              onChange={(e) => setPasted(e.target.value)}
-                              placeholder="https://… or the code from the page"
-                              className="flex h-9 w-full rounded-lg border border-border/60 bg-background px-3 text-[11px] font-mono outline-none placeholder:text-muted-foreground/40 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
-                            />
-                            <button
-                              type="button"
-                              disabled={!pasted.trim() || submittingPaste}
-                              onClick={handlePaste}
-                              className={cn(
-                                "shrink-0 inline-flex h-9 items-center rounded-lg px-3 text-[12px] font-medium transition-colors",
-                                !pasted.trim() || submittingPaste
-                                  ? "cursor-not-allowed bg-muted text-muted-foreground/50"
-                                  : "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]",
-                              )}
-                            >
-                              {submittingPaste ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Submit"}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {oauthPhase.state.stage === "completed" && (
-                  <div className="flex items-center gap-2 rounded-lg border border-status-success/40 bg-status-success/5 px-3 py-2 text-[12px] text-status-success">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Signed in. Saving credential…
-                  </div>
-                )}
-
-                {oauthPhase.state.stage === "failed" && (
-                  <p className="text-[12px] text-destructive animate-in fade-in duration-150">
-                    {oauthPhase.state.error || "Sign-in failed."}
-                  </p>
-                )}
-
-                {oauthError && (
-                  <p className="text-[12px] text-destructive animate-in fade-in duration-150">
-                    {oauthError}
-                  </p>
-                )}
-              </div>
+            {(oauthPhase.kind === "starting" || oauthPhase.kind === "interactive") && (
+              <OAuthInteractiveFlow
+                state={
+                  oauthPhase.kind === "starting"
+                    ? { stage: "starting" }
+                    : oauthPhase.state
+                }
+                context={{
+                  providerDisplayName: p.displayName,
+                  mode: oauthPhase.mode,
+                  autoCallback:
+                    oauthPhase.kind === "interactive" &&
+                    oauthPhase.state.stage === "url_ready"
+                      ? oauthPhase.state.autoCallback
+                      : undefined,
+                }}
+                onPaste={handlePaste}
+                submittingPaste={submittingPaste}
+                error={oauthError}
+              />
             )}
 
             {oauthPhase.kind === "done" && (
-              <div className="space-y-2">
-                <p className="flex items-center gap-1.5 text-[12px] text-status-success animate-in fade-in duration-200">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  {p.displayName} connected
-                </p>
+              <div className="flex items-center gap-1.5 rounded-lg border border-status-success/30 bg-status-success/5 px-3 py-2 text-[12px] text-status-success animate-in fade-in duration-200">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                {p.displayName} connected
               </div>
             )}
           </div>
@@ -488,108 +368,122 @@ export function StepProvider({
 
   return (
     <div className="space-y-8">
-      <div className="space-y-3">
-        <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70">
-          AI Provider
-        </div>
-        <h1 className="text-[24px] md:text-[28px] font-semibold leading-[1.15] tracking-tight">
-          Connect an AI provider
-        </h1>
-        <p className="max-w-[48ch] text-[14px] leading-relaxed text-muted-foreground">
-          Your employees need an AI brain to think with. Pick a provider and
-          add your key — {isHosted
-            ? "it’s stored securely in your private workspace."
-            : "it stays on your gateway and HQ never sees it."}{" "}
-          You can connect more later in Settings.
-        </p>
-      </div>
-
-      <div role="radiogroup" aria-label="Choose AI provider" className="space-y-4">
+      <StaggeredEntrance index={0}>
         <div className="space-y-2">
-          {recommended.map(renderProvider)}
+          <h1 className="text-[24px] md:text-[28px] font-semibold leading-[1.15] tracking-tight">
+            Connect your AI provider
+          </h1>
+          <p className="max-w-[52ch] text-[14px] leading-relaxed text-muted-foreground">
+            Choose the model provider your agents will use.{" "}
+            {isHosted
+              ? "Your key is stored securely in your private workspace."
+              : "Your key stays on your gateway — HQ and the LLMs never see it."}{" "}
+            You can add more providers later in Settings.
+          </p>
         </div>
+      </StaggeredEntrance>
 
-        {showAll && (
-          <>
-            <div className="space-y-1.5">
-              <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/50 px-1 pt-2">
-                Local / Open-source
-              </div>
-              <div className="space-y-2">
-                {openModels.map(renderProvider)}
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/50 px-1 pt-2">
-                All providers
-              </div>
-              <div className="space-y-2">
-                {others.map(renderProvider)}
-              </div>
-            </div>
-          </>
-        )}
+      <StaggeredEntrance index={1}>
+        <div role="radiogroup" aria-label="Choose AI provider" className="space-y-2">
+          {recommended.map(renderProvider)}
 
-        {!showAll && (
+          {showAll && (
+            <>
+              <div className="pt-3 pb-1">
+                <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/50 px-1">
+                  Local / Open-source
+                </div>
+              </div>
+              {openModels.map(renderProvider)}
+
+              <div className="pt-3 pb-1">
+                <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/50 px-1">
+                  All providers
+                </div>
+              </div>
+              {others.map(renderProvider)}
+            </>
+          )}
+
           <button
             type="button"
-            onClick={() => setShowAll(true)}
-            className="flex items-center gap-1.5 text-[12px] text-muted-foreground/70 hover:text-foreground transition-colors px-1"
+            onClick={() => setShowAll(!showAll)}
+            className="flex items-center gap-1.5 text-[12px] text-muted-foreground/70 hover:text-foreground transition-colors px-1 pt-1"
           >
-            <ChevronDown className="h-3 w-3" />
-            Show all {openModels.length + others.length} providers
-          </button>
-        )}
-      </div>
-
-      <div className="flex items-center gap-3 pt-2">
-        {!collectOnly && oauthPhase.kind === "done" ? (
-          <button
-            type="button"
-            onClick={handleOAuthContinue}
-            disabled={pending}
-            className="group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2 bg-primary text-primary-foreground shadow-sm hover:brightness-110 active:scale-[0.97]"
-          >
-            {pending ? "Saving…" : (
+            {showAll ? (
               <>
-                Continue
-                <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-              </>
-            )}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-            className={cn(
-              "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2",
-              !canSubmit
-                ? "cursor-not-allowed bg-muted text-muted-foreground/50"
-                : "bg-primary text-primary-foreground shadow-sm hover:brightness-110 active:scale-[0.97]",
-            )}
-          >
-            {validating ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Validating…
-              </>
-            ) : pending ? (
-              "Saving…"
-            ) : isLocal ? (
-              <>
-                Detect &amp; continue
-                <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                <ChevronUp className="h-3 w-3" />
+                Show fewer providers
               </>
             ) : (
               <>
-                Continue
-                <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                <ChevronDown className="h-3 w-3" />
+                Show all {openModels.length + others.length} providers
               </>
             )}
           </button>
-        )}
-      </div>
+        </div>
+      </StaggeredEntrance>
+
+      <StaggeredEntrance index={2}>
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            {!collectOnly && oauthPhase.kind === "done" ? (
+              <button
+                type="button"
+                onClick={handleOAuthContinue}
+                disabled={pending}
+                className="group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2 bg-primary text-primary-foreground shadow-sm hover:brightness-110 active:scale-[0.97]"
+              >
+                {pending ? "Saving…" : (
+                  <>
+                    Continue
+                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                  </>
+                )}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+                className={cn(
+                  "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2",
+                  !canSubmit
+                    ? "cursor-not-allowed bg-muted text-muted-foreground/50"
+                    : "bg-primary text-primary-foreground shadow-sm hover:brightness-110 active:scale-[0.97]",
+                )}
+              >
+                {validating ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Validating key…
+                  </>
+                ) : pending ? (
+                  "Saving…"
+                ) : isLocal ? (
+                  <>
+                    Detect &amp; continue
+                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                  </>
+                ) : (
+                  <>
+                    Continue
+                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+
+          {!isHosted && (
+            <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground/50">
+              <Shield className="h-3 w-3" />
+              Your API key is stored locally on your gateway and never leaves your infrastructure.
+            </p>
+          )}
+        </div>
+      </StaggeredEntrance>
     </div>
   );
 }

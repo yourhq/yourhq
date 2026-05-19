@@ -1588,7 +1588,12 @@ Recommended process:
 1. On the UI host: run the installer normally.
 2. Open Settings → Gateways → Add Gateway.
 3. Enter a label and, optionally, a Tailscale auth key.
-4. Run the generated one-line installer on the gateway host.
+4. Copy the generated one-line installer and run it on the gateway host:
+   ```bash
+   curl -fsSL https://install.yourhq.ai/gateway \
+     | GATEWAY_TOKEN='...' SUPABASE_URL='...' ... bash
+   ```
+   The installer checks for Docker, writes `.env`, pulls images, and starts the gateway. If you prefer to inspect the script first, download it with `curl -fsSL https://install.yourhq.ai/gateway -o install-gateway.sh` and run it manually — it will prompt for any missing values.
 5. Keep the dialog open until the registration token is consumed and the gateway appears.
 
 Manual process:
@@ -2272,11 +2277,20 @@ A gateway is a Docker host that runs agents. One HQ workspace can have multiple 
   
 ### Copy the installer command
 
-    HQ mints a single-use registration token and generates a `curl | bash` installer command pre-loaded with your Supabase credentials and the token. Click **Copy**.
+    HQ mints a single-use registration token and generates a `curl | bash` installer command pre-loaded with your Supabase credentials and the token. The command looks like:
+
+    ```bash
+    curl -fsSL https://install.yourhq.ai/gateway \
+      | GATEWAY_TOKEN='...' SUPABASE_URL='...' \
+        SUPABASE_ANON_KEY='...' SUPABASE_SERVICE_ROLE_KEY='...' \
+        GATEWAY_LABEL='my-gateway' bash
+    ```
+
+    Click **Copy**.
 
     
 > 
-      The token is shown **once** and valid for 10 minutes. HQ stores only a hash — not the plaintext. If it expires, close the dialog and start over to generate a new one.
+      The token is shown **once** and valid for 15 minutes. HQ stores only a hash — not the plaintext. If it expires, close the dialog and start over to generate a new one.
     
 
   
@@ -2284,7 +2298,18 @@ A gateway is a Docker host that runs agents. One HQ workspace can have multiple 
   
 ### Run the command on the new host
 
-    SSH into the new machine and paste the command. It pulls Docker images, configures `.env`, and starts the stack. The gateway registers itself in your Supabase project using the token.
+    SSH into the new machine and paste the command. The installer (`install.yourhq.ai/gateway`) checks for Docker, writes `.env`, pulls the gateway images, and starts the stack. The gateway registers itself in your Supabase project using the token.
+
+    
+> 
+      If you prefer to inspect the script before running it, download it first:
+      ```bash
+      curl -fsSL https://install.yourhq.ai/gateway -o install-gateway.sh
+      bash install-gateway.sh
+      ```
+      When run without env vars, the script prompts for each required value interactively.
+    
+
   
 
   
@@ -2368,7 +2393,7 @@ The runner daemon has likely stopped. Check: `docker compose logs -f runner | ta
 The `dispatcher` or `runner` may not be running. Check all services: `docker compose ps`. If any show `Restarting`, tail their logs.
 
 **Token expired before you ran the command:**
-Close the Add Gateway dialog and open it again — this generates a fresh token with a new 10-minute window.
+Close the Add Gateway dialog and open it again — this generates a fresh token with a new 15-minute window.
 
 See also [Operations →](/self-host/operations), [Gateway boot sequence →](/self-host/gateway-boot)
 
@@ -2392,7 +2417,7 @@ Three credential paths are tried in order:
 
 **Path A: environment variables** — `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` already set in env. Used immediately, no waiting.
 
-**Path B: gateway token exchange** — For remote gateways installed via `install-gateway.sh`. If `GATEWAY_TOKEN` is set and `$OPENCLAW_HOME/.token-consumed` does not exist, the entrypoint calls `consume_gateway_token()` to exchange the one-time token for a gateway slug and UUID.
+**Path B: gateway token exchange** — For remote gateways installed via the gateway installer (`install.yourhq.ai/gateway`). If `GATEWAY_TOKEN` is set and `$OPENCLAW_HOME/.token-consumed` does not exist, the entrypoint calls `consume_gateway_token()` to exchange the one-time token for a gateway slug and UUID.
 
 - Requires: `GATEWAY_TOKEN`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`
 - On success: writes the assigned slug to `.gateway-slug` and marks the token consumed with `.token-consumed`
@@ -8357,7 +8382,7 @@ Without a remote, all of this still works locally — commits just don't leave t
 
 ### 2.7 Remote gateway provisioning
 
-These are only needed when installing a gateway on a **separate host** from the UI using `install-gateway.sh`. The normal co-located install doesn't use them.
+These are only needed when installing a gateway on a **separate host** from the UI using the gateway installer (`install.yourhq.ai/gateway`). The normal co-located install doesn't use them.
 
 - **`GATEWAY_TOKEN`** — **Optional, one-time**. A short-lived token minted in the UI (Settings → Gateways → Add Gateway). The gateway exchanges it for a stable `gateway_id` + slug on first boot via `consume_gateway_token()`. The exchange is one-shot — a `.token-consumed` marker file prevents re-exchange on subsequent boots. After the exchange, `GATEWAY_ID` is pinned to the assigned slug and persisted across reboots.
 

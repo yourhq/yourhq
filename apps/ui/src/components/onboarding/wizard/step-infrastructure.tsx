@@ -12,6 +12,7 @@ export interface InfraStatus {
   gateway: "idle" | "starting" | "polling" | "connected" | "error";
   gatewayError?: string | null;
   gatewayManualCmd?: string;
+  gatewayOneLiner?: string;
 }
 
 export interface SchemaInstallState {
@@ -312,19 +313,45 @@ function GatewayPollingMessage({ status }: { status: "starting" | "polling" }) {
     };
   }, [status]);
 
-  let message: string;
-  if (elapsed < 10) {
-    message = "Starting gateway…";
-  } else if (elapsed < 30) {
-    message = "Connecting to your database…";
-  } else {
-    message = "Taking longer than usual. Make sure Docker is running.";
-  }
+  const steps = [
+    { label: "Starting containers", threshold: 0 },
+    { label: "Connecting to your database", threshold: 10 },
+    { label: "Registering gateway", threshold: 20 },
+  ];
+  const slow = elapsed >= 40;
 
   return (
-    <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
-      <Loader2 className="h-3 w-3 animate-spin" />
-      <span>{message}</span>
+    <div className="rounded-xl border border-border/40 bg-card/20 p-4 space-y-3">
+      <div className="space-y-2">
+        {steps.map((step, i) => {
+          const active = elapsed >= step.threshold && (i === steps.length - 1 || elapsed < steps[i + 1].threshold);
+          const done = i < steps.length - 1 && elapsed >= steps[i + 1].threshold;
+          return (
+            <div key={step.label} className="flex items-center gap-2.5">
+              {done ? (
+                <div className="flex h-4 w-4 items-center justify-center rounded-full bg-status-success">
+                  <Check className="h-2.5 w-2.5 text-primary-foreground" strokeWidth={3} />
+                </div>
+              ) : active ? (
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              ) : (
+                <div className="h-4 w-4 rounded-full border border-border/60" />
+              )}
+              <span className={cn(
+                "text-[12px] transition-colors",
+                done ? "text-muted-foreground/50" : active ? "text-foreground font-medium" : "text-muted-foreground/40",
+              )}>
+                {step.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      {slow && (
+        <p className="text-[11px] text-status-warning animate-in fade-in duration-300">
+          Taking longer than usual — make sure Docker is running and try the command below if needed.
+        </p>
+      )}
     </div>
   );
 }
@@ -393,20 +420,26 @@ export function StepInfrastructure({
           Infrastructure
         </div>
         <h1 className="text-[24px] md:text-[28px] font-semibold leading-[1.15] tracking-tight">
-          Connect your database
+          {dbReady ? "Connect your gateway" : "Connect your infrastructure"}
         </h1>
         <p className="max-w-[52ch] text-[14px] leading-relaxed text-muted-foreground">
-          HQ uses{" "}
-          <a
-            href="https://supabase.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-medium text-foreground/80 underline decoration-border underline-offset-2 hover:decoration-foreground/40"
-          >
-            Supabase
-          </a>
-          {" "}(a free, open-source database) to store your workspace data.
-          You own everything — nothing leaves your project.
+          {dbReady ? (
+            "Your database is connected. Now set up the gateway — the process that runs your AI agents."
+          ) : (
+            <>
+              HQ uses{" "}
+              <a
+                href="https://supabase.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-foreground/80 underline decoration-border underline-offset-2 hover:decoration-foreground/40"
+              >
+                Supabase
+              </a>
+              {" "}(a free, open-source database) to store your workspace data.
+              You own everything — nothing leaves your project.
+            </>
+          )}
         </p>
       </div>
 
@@ -606,7 +639,7 @@ export function StepInfrastructure({
             )}>
               {gwReady ? <Check className="h-3 w-3" strokeWidth={3} /> : <Server className="h-3 w-3" />}
             </div>
-            <h2 className="text-[15px] font-semibold">Agent runtime</h2>
+            <h2 className="text-[15px] font-semibold">Gateway</h2>
             {gwReady && (
               <span className="rounded-full bg-status-success/10 px-2 py-0.5 text-[11px] font-medium text-status-success">
                 Connected
@@ -615,99 +648,190 @@ export function StepInfrastructure({
           </div>
 
           <p className="text-[13px] text-muted-foreground max-w-[52ch]">
-            The runtime is where your AI agents actually run — it connects to your database, manages workspaces, and handles browser automation.
+            The gateway is a lightweight process that runs your AI agents. It connects to your database and handles everything from task execution to browser automation.
           </p>
 
           {gwReady ? (
             <div className="rounded-xl border border-status-success/20 bg-status-success/[0.04] px-4 py-3">
               <div className="flex items-center gap-2 text-[13px] text-status-success">
                 <Check className="h-3.5 w-3.5" />
-                Agent runtime connected
+                Gateway connected
               </div>
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Placement selection cards */}
               <div role="radiogroup" aria-label="Gateway placement" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <button
                   type="button"
                   role="radio"
                   aria-checked={placement === "local"}
-                  onClick={() => {
-                    setPlacement("local");
-                    onChooseGateway("local");
-                  }}
+                  onClick={() => setPlacement("local")}
+                  disabled={status.gateway === "starting" || status.gateway === "polling"}
                   className={cn(
-                    "flex flex-col gap-2 rounded-xl border p-4 text-left transition-all",
+                    "flex flex-col gap-2.5 rounded-xl border p-4 text-left transition-all",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     placement === "local"
                       ? "border-primary/50 bg-primary/[0.04] ring-1 ring-primary/10"
                       : "border-border/60 bg-card/40 hover:border-border hover:bg-card/70",
+                    (status.gateway === "starting" || status.gateway === "polling") && placement !== "local" && "opacity-40 pointer-events-none",
                   )}
                 >
                   <div className="flex items-center gap-2.5">
                     <span className="text-[18px]">💻</span>
                     <span className="text-[13px] font-medium">This machine</span>
                   </div>
-                  <p className="text-[11px] text-muted-foreground/70">
-                    Runs via Docker on your computer. Good for trying things out.
+                  <p className="text-[12px] leading-relaxed text-muted-foreground/70">
+                    Runs via Docker on your computer. Best for trying things out and local development.
                   </p>
-                  <span className="inline-flex self-start rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                    Requires Docker
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      Docker required
+                    </span>
+                    <span className="text-[10px] text-muted-foreground/40">~2 min setup</span>
+                  </div>
                 </button>
 
                 <button
                   type="button"
                   role="radio"
                   aria-checked={placement === "remote"}
-                  onClick={() => {
-                    setPlacement("remote");
-                    onChooseGateway("remote");
-                  }}
+                  onClick={() => setPlacement("remote")}
+                  disabled={status.gateway === "starting" || status.gateway === "polling"}
                   className={cn(
-                    "flex flex-col gap-2 rounded-xl border p-4 text-left transition-all",
+                    "flex flex-col gap-2.5 rounded-xl border p-4 text-left transition-all",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     placement === "remote"
                       ? "border-primary/50 bg-primary/[0.04] ring-1 ring-primary/10"
                       : "border-border/60 bg-card/40 hover:border-border hover:bg-card/70",
+                    (status.gateway === "starting" || status.gateway === "polling") && placement !== "remote" && "opacity-40 pointer-events-none",
                   )}
                 >
                   <div className="flex items-center gap-2.5">
                     <span className="text-[18px]">☁️</span>
                     <span className="text-[13px] font-medium">Remote server</span>
                   </div>
-                  <p className="text-[11px] text-muted-foreground/70">
-                    Run on any Linux server for always-on agents.
+                  <p className="text-[12px] leading-relaxed text-muted-foreground/70">
+                    Deploy on any Linux server or VPS for always-on agents that run 24/7.
                   </p>
-                  <span className="inline-flex self-start rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                    Any Linux server
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      Any Linux server
+                    </span>
+                    <span className="text-[10px] text-muted-foreground/40">~5 min setup</span>
+                  </div>
                 </button>
               </div>
 
+              {/* Local: show command preview + start button before triggering */}
+              {placement === "local" && status.gateway === "idle" && (
+                <div className="rounded-xl border border-border/40 bg-card/20 p-4 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="space-y-1">
+                    <p className="text-[12px] font-medium text-foreground">
+                      We&apos;ll start the gateway via Docker
+                    </p>
+                    <p className="text-[11px] text-muted-foreground/60">
+                      Make sure Docker Desktop is running. This command starts the gateway containers:
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2.5">
+                    <code className="min-w-0 truncate text-[12px] md:text-[13px] font-mono text-foreground">
+                      docker compose --profile gateway up -d
+                    </code>
+                    <CopyButton text="docker compose --profile gateway up -d" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onChooseGateway("local")}
+                    className="group inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-[13px] font-medium text-primary-foreground shadow-sm transition-all hover:brightness-110 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2"
+                  >
+                    Start gateway
+                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                  </button>
+                </div>
+              )}
+
+              {/* Remote: pre-trigger — explain what happens, generate command */}
+              {placement === "remote" && status.gateway === "idle" && (
+                <div className="rounded-xl border border-border/40 bg-card/20 p-4 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="space-y-1">
+                    <p className="text-[12px] font-medium text-foreground">
+                      Install the gateway on your server
+                    </p>
+                    <p className="text-[11px] text-muted-foreground/60">
+                      We&apos;ll generate a one-time install command with your Supabase credentials
+                      baked in. You&apos;ll run it on your server via SSH.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onChooseGateway("remote")}
+                    className="group inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-[13px] font-medium text-primary-foreground shadow-sm transition-all hover:brightness-110 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2"
+                  >
+                    Generate install command
+                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                  </button>
+                </div>
+              )}
+
+              {/* Remote: post-trigger — show the personalized one-liner */}
+              {status.gatewayOneLiner && status.gateway !== "idle" && status.gateway !== "error" && (
+                <div className="rounded-xl border border-border/40 bg-card/20 p-4 space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="space-y-1">
+                    <p className="text-[12px] font-medium text-foreground">
+                      Run this on your server
+                    </p>
+                    <p className="text-[11px] text-muted-foreground/60">
+                      SSH into your Linux server and paste this command. It includes your
+                      Supabase credentials and a one-time registration token (expires in 15 min).
+                    </p>
+                  </div>
+                  <div className="relative rounded-lg border border-border/40 bg-muted/30">
+                    <div className="absolute right-2 top-2">
+                      <CopyButton text={status.gatewayOneLiner} />
+                    </div>
+                    <pre className="overflow-x-auto px-3 py-3 pr-10 text-[11px] leading-relaxed font-mono text-foreground whitespace-pre-wrap break-all">
+                      {status.gatewayOneLiner}
+                    </pre>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground/50">
+                    This page updates automatically once the gateway connects.
+                  </p>
+                </div>
+              )}
+
+              {/* Polling progress */}
               {(status.gateway === "starting" || status.gateway === "polling") && (
                 <GatewayPollingMessage status={status.gateway} />
               )}
 
+              {/* Error state */}
               {status.gateway === "error" && (
-                <div className="space-y-3">
+                <div className="space-y-3 animate-in fade-in duration-200">
                   {status.gatewayError && (
-                    <div className="flex items-start gap-2 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2.5 text-[12px] text-destructive">
-                      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                      <span>{status.gatewayError}</span>
+                    <div className="flex items-start gap-2 rounded-lg border border-status-warning/30 bg-status-warning/[0.04] px-3 py-2.5 text-[12px] text-foreground">
+                      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-warning" />
+                      <div className="space-y-0.5">
+                        <span>{status.gatewayError}</span>
+                        <p className="text-[11px] text-muted-foreground">
+                          {placement === "local"
+                            ? "Make sure Docker Desktop is running, then try the command below."
+                            : "Check that your server is accessible and Docker is installed."}
+                        </p>
+                      </div>
                     </div>
                   )}
                   {status.gatewayManualCmd && (
-                    <div className="rounded-xl border border-border/40 bg-card/30 p-4">
-                      <p className="mb-2 text-[12px] text-muted-foreground">
-                        Run this command from the directory where you installed HQ:
+                    <div className="rounded-xl border border-border/40 bg-card/20 p-4 space-y-3">
+                      <p className="text-[12px] font-medium text-foreground">
+                        Try running manually
                       </p>
                       <div className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2.5">
                         <code className="min-w-0 truncate text-[12px] md:text-[13px] font-mono text-foreground">{status.gatewayManualCmd}</code>
                         <CopyButton text={status.gatewayManualCmd} />
                       </div>
-                      <p className="mt-2 text-[11px] text-muted-foreground/50">
-                        Once the runtime starts, it will register automatically and this page will update.
+                      <p className="text-[11px] text-muted-foreground/50">
+                        This page updates automatically once the gateway connects.
                       </p>
                     </div>
                   )}
@@ -718,7 +842,7 @@ export function StepInfrastructure({
         </div>
       )}
 
-      {/* Continue — only appears once both DB and runtime are connected */}
+      {/* Continue — only appears once both DB and gateway are connected */}
       {canContinue && (
         <div className="pt-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <button

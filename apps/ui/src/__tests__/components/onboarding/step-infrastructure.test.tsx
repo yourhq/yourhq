@@ -30,10 +30,19 @@ describe("StepInfrastructure", () => {
 
   // ─── Heading and intro ────────────────────────────────────────────────────
 
-  it("renders heading and description", () => {
+  it("renders heading and description before DB connect", () => {
     render(<StepInfrastructure {...makeProps()} />);
-    expect(screen.getByText("Connect your database")).toBeInTheDocument();
+    expect(screen.getByText("Connect your infrastructure")).toBeInTheDocument();
     expect(screen.getByText(/nothing leaves your project/)).toBeInTheDocument();
+  });
+
+  it("updates heading after DB connects", () => {
+    render(
+      <StepInfrastructure
+        {...makeProps({ status: { db: "connected", gateway: "idle" } })}
+      />,
+    );
+    expect(screen.getByText("Connect your gateway")).toBeInTheDocument();
   });
 
   // ─── Setup guide ─────────────────────────────────────────────────────────
@@ -199,7 +208,7 @@ describe("StepInfrastructure", () => {
 
   it("gateway section hidden when DB not connected", () => {
     render(<StepInfrastructure {...makeProps()} />);
-    expect(screen.queryByText("Agent runtime")).not.toBeInTheDocument();
+    expect(screen.queryByText("Gateway")).not.toBeInTheDocument();
   });
 
   it("gateway section visible after DB connects", () => {
@@ -208,16 +217,16 @@ describe("StepInfrastructure", () => {
         {...makeProps({ status: { db: "connected", gateway: "idle" } })}
       />,
     );
-    expect(screen.getByText("Agent runtime")).toBeInTheDocument();
+    expect(screen.getByText("Gateway")).toBeInTheDocument();
   });
 
-  it("gateway section has runtime explanation", () => {
+  it("gateway section has explanation", () => {
     render(
       <StepInfrastructure
         {...makeProps({ status: { db: "connected", gateway: "idle" } })}
       />,
     );
-    expect(screen.getByText(/where your AI agents actually run/)).toBeInTheDocument();
+    expect(screen.getByText(/lightweight process that runs your AI agents/)).toBeInTheDocument();
   });
 
   it("gateway options show descriptions", () => {
@@ -227,10 +236,20 @@ describe("StepInfrastructure", () => {
       />,
     );
     expect(screen.getByText(/Runs via Docker/)).toBeInTheDocument();
-    expect(screen.getByText(/always-on agents/)).toBeInTheDocument();
+    expect(screen.getByText(/always-on agents that run 24\/7/)).toBeInTheDocument();
   });
 
-  it("calls onChooseGateway when local is selected", async () => {
+  it("gateway options show setup time hints", () => {
+    render(
+      <StepInfrastructure
+        {...makeProps({ status: { db: "connected", gateway: "idle" } })}
+      />,
+    );
+    expect(screen.getByText(/~2 min setup/)).toBeInTheDocument();
+    expect(screen.getByText(/~5 min setup/)).toBeInTheDocument();
+  });
+
+  it("selecting local shows command preview and start button without triggering", async () => {
     const onChooseGateway = vi.fn();
     const user = userEvent.setup();
     render(
@@ -242,10 +261,29 @@ describe("StepInfrastructure", () => {
       />,
     );
     await user.click(screen.getByText("This machine"));
+    expect(onChooseGateway).not.toHaveBeenCalled();
+    expect(screen.getByText(/start the gateway via Docker/)).toBeInTheDocument();
+    expect(screen.getByText(/docker compose/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /start gateway/i })).toBeInTheDocument();
+  });
+
+  it("calls onChooseGateway when local start button is clicked", async () => {
+    const onChooseGateway = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <StepInfrastructure
+        {...makeProps({
+          status: { db: "connected", gateway: "idle" },
+          onChooseGateway,
+        })}
+      />,
+    );
+    await user.click(screen.getByText("This machine"));
+    await user.click(screen.getByRole("button", { name: /start gateway/i }));
     expect(onChooseGateway).toHaveBeenCalledWith("local");
   });
 
-  it("calls onChooseGateway when remote is selected", async () => {
+  it("selecting remote shows generate command button without triggering", async () => {
     const onChooseGateway = vi.fn();
     const user = userEvent.setup();
     render(
@@ -257,7 +295,39 @@ describe("StepInfrastructure", () => {
       />,
     );
     await user.click(screen.getByText("Remote server"));
+    expect(onChooseGateway).not.toHaveBeenCalled();
+    expect(screen.getByText(/generate a one-time install command/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /generate install command/i })).toBeInTheDocument();
+  });
+
+  it("calls onChooseGateway when remote generate button is clicked", async () => {
+    const onChooseGateway = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <StepInfrastructure
+        {...makeProps({
+          status: { db: "connected", gateway: "idle" },
+          onChooseGateway,
+        })}
+      />,
+    );
+    await user.click(screen.getByText("Remote server"));
+    await user.click(screen.getByRole("button", { name: /generate install command/i }));
     expect(onChooseGateway).toHaveBeenCalledWith("remote");
+  });
+
+  it("shows personalized one-liner when remote is polling", () => {
+    const oneLiner = "curl -fsSL https://raw.githubusercontent.com/yourhq/yourhq/main/installer/install-gateway.sh | GATEWAY_TOKEN='abc' bash";
+    render(
+      <StepInfrastructure
+        {...makeProps({
+          status: { db: "connected", gateway: "polling", gatewayOneLiner: oneLiner },
+        })}
+      />,
+    );
+    expect(screen.getByText(/Run this on your server/)).toBeInTheDocument();
+    expect(screen.getByText(/one-time registration token/)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp("GATEWAY_TOKEN"))).toBeInTheDocument();
   });
 
   it("shows gateway connected state", () => {
@@ -266,7 +336,7 @@ describe("StepInfrastructure", () => {
         {...makeProps({ status: { db: "connected", gateway: "connected" } })}
       />,
     );
-    expect(screen.getByText("Agent runtime connected")).toBeInTheDocument();
+    expect(screen.getByText("Gateway connected")).toBeInTheDocument();
   });
 
   // ─── Continue button ──────────────────────────────────────────────────────
@@ -304,6 +374,49 @@ describe("StepInfrastructure", () => {
     );
     await user.click(screen.getByRole("button", { name: /continue/i }));
     expect(onContinue).toHaveBeenCalled();
+  });
+
+  // ─── Gateway polling and instructions ──────────────────────────────────
+
+  it("disables placement cards during polling", () => {
+    render(
+      <StepInfrastructure
+        {...makeProps({ status: { db: "connected", gateway: "polling" } })}
+      />,
+    );
+    const localBtn = screen.getByText("This machine").closest("button");
+    const remoteBtn = screen.getByText("Remote server").closest("button");
+    expect(localBtn).toBeDisabled();
+    expect(remoteBtn).toBeDisabled();
+  });
+
+  it("shows step-progress during polling", () => {
+    render(
+      <StepInfrastructure
+        {...makeProps({ status: { db: "connected", gateway: "polling" } })}
+      />,
+    );
+    expect(screen.getByText("Starting containers")).toBeInTheDocument();
+    expect(screen.getByText("Connecting to your database")).toBeInTheDocument();
+    expect(screen.getByText("Registering gateway")).toBeInTheDocument();
+  });
+
+  it("shows error with helpful guidance and manual command", () => {
+    render(
+      <StepInfrastructure
+        {...makeProps({
+          status: {
+            db: "connected",
+            gateway: "error",
+            gatewayError: "Could not connect to Docker.",
+            gatewayManualCmd: "docker compose --profile gateway up -d",
+          },
+        })}
+      />,
+    );
+    expect(screen.getByText("Could not connect to Docker.")).toBeInTheDocument();
+    expect(screen.getByText(/Docker is installed/)).toBeInTheDocument();
+    expect(screen.getByText("Try running manually")).toBeInTheDocument();
   });
 
   // ─── Schema install panel ────────────────────────────────────────────────

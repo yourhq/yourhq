@@ -116,7 +116,7 @@ export function WizardProgress({
       </div>
 
       {/* Mobile (<md): compact text + progress track */}
-      <div className="flex md:hidden flex-col items-end gap-1">
+      <div className="flex md:hidden flex-col items-center gap-1">
         <span className="text-[11px] text-muted-foreground tabular-nums">
           Step {currentIdx + 1} of {steps.length}
           <span className="mx-1.5 text-border">·</span>

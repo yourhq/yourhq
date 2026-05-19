@@ -15,7 +15,7 @@ Three credential paths are tried in order:
 
 **Path A: environment variables** — `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` already set in env. Used immediately, no waiting.
 
-**Path B: gateway token exchange** — For remote gateways installed via `install-gateway.sh`. If `GATEWAY_TOKEN` is set and `$OPENCLAW_HOME/.token-consumed` does not exist, the entrypoint calls `consume_gateway_token()` to exchange the one-time token for a gateway slug and UUID.
+**Path B: gateway token exchange** — For remote gateways installed via the gateway installer (`install.yourhq.ai/gateway`). If `GATEWAY_TOKEN` is set and `$OPENCLAW_HOME/.token-consumed` does not exist, the entrypoint calls `consume_gateway_token()` to exchange the one-time token for a gateway slug and UUID.
 
 - Requires: `GATEWAY_TOKEN`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`
 - On success: writes the assigned slug to `.gateway-slug` and marks the token consumed with `.token-consumed`

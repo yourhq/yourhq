@@ -9,7 +9,6 @@ import {
   RotateCw,
   CreditCard,
   ExternalLink,
-  Copy,
   CheckCircle2,
   Users,
   Globe,
@@ -39,6 +38,10 @@ import {
   pollCommandState,
   saveOAuthProvider,
 } from "./actions";
+import {
+  OAuthInteractiveFlow,
+  type OAuthFlowContext,
+} from "@/components/connections/oauth-interactive-flow";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -170,9 +173,7 @@ export function StepLaunch({
   // Provider connection state (for OAuth)
   const [oauthPhase, setOauthPhase] = useState<OAuthPhase>({ kind: "idle" });
   const [oauthError, setOauthError] = useState<string | null>(null);
-  const [pasted, setPasted] = useState("");
   const [submittingPaste, setSubmittingPaste] = useState(false);
-  const [copied, setCopied] = useState<"url" | "code" | null>(null);
   const oauthPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
 
@@ -375,7 +376,6 @@ export function StepLaunch({
   const handleStartOAuth = useCallback(async () => {
     setOauthPhase({ kind: "starting" });
     setOauthError(null);
-    setPasted("");
 
     const mode: "oauth_paste" | "device_code" =
       providerEntry?.authShape === "device_code" ? "device_code" : "oauth_paste";
@@ -430,23 +430,15 @@ export function StepLaunch({
     }, 1500);
   }, [providerId, providerEntry, handleProviderConnected]);
 
-  const handleOAuthPaste = useCallback(async () => {
-    if (oauthPhase.kind !== "interactive" || !pasted.trim()) return;
+  const handleOAuthPaste = useCallback(async (value: string) => {
+    if (oauthPhase.kind !== "interactive" || !value) return;
     setSubmittingPaste(true);
-    const r = await submitOAuthPaste(oauthPhase.commandId, pasted.trim());
+    const r = await submitOAuthPaste(oauthPhase.commandId, value);
     setSubmittingPaste(false);
     if (!r.ok) {
       setOauthError(r.error ?? "Failed to submit code");
     }
-  }, [oauthPhase, pasted]);
-
-  async function copyToClipboard(value: string, key: "url" | "code") {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(key);
-      setTimeout(() => setCopied((c) => (c === key ? null : c)), 1500);
-    } catch { /* noop */ }
-  }
+  }, [oauthPhase]);
 
   // ─── Agent creation (after provider connected) ─────────────────────────────
 
@@ -776,9 +768,6 @@ export function StepLaunch({
           <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden p-4 md:p-5 space-y-4">
             {oauthPhase.kind === "idle" && (
               <div className="space-y-3">
-                <p className="text-[12px] text-muted-foreground">
-                  Click below to sign in with {providerEntry?.displayName ?? "your provider"}.
-                </p>
                 {oauthError && (
                   <p className="text-[12px] text-destructive">{oauthError}</p>
                 )}
@@ -790,13 +779,6 @@ export function StepLaunch({
                   <ExternalLink className="h-3.5 w-3.5" />
                   Sign in with {providerEntry?.displayName}
                 </button>
-              </div>
-            )}
-
-            {oauthPhase.kind === "starting" && (
-              <div className="flex items-center gap-2 py-3 text-[12px] text-muted-foreground">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Starting sign-in flow…
               </div>
             )}
 
@@ -812,109 +794,26 @@ export function StepLaunch({
               </div>
             )}
 
-            {oauthPhase.kind === "interactive" && (
-              <div className="space-y-3">
-                {oauthPhase.state.stage === "starting" && (
-                  <div className="flex items-center gap-2 py-3 text-[12px] text-muted-foreground">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Starting sign-in flow…
-                  </div>
-                )}
-
-                {(oauthPhase.state.stage === "url_ready" || oauthPhase.state.stage === "polling") && (
-                  <>
-                    <div className="space-y-1.5">
-                      <label className="text-[12px] font-medium text-foreground">
-                        Open this URL to sign in
-                      </label>
-                      <div className="flex gap-1.5">
-                        <input
-                          value={oauthPhase.state.url}
-                          readOnly
-                          className="flex h-9 w-full min-w-0 rounded-lg border border-border/60 bg-background px-3 text-[11px] font-mono outline-none truncate"
-                          onFocus={(e) => e.currentTarget.select()}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard((oauthPhase.state as { url: string }).url, "url")}
-                          className="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border/60 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                          title="Copy URL"
-                        >
-                          {copied === "url" ? <CheckCircle2 className="h-3.5 w-3.5 text-status-success" /> : <Copy className="h-3.5 w-3.5" />}
-                        </button>
-                        <a
-                          href={oauthPhase.state.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="shrink-0 inline-flex h-9 items-center gap-1.5 rounded-lg border border-border/60 bg-foreground text-background px-3 text-[12px] font-medium hover:bg-foreground/90 transition-colors"
-                        >
-                          Open
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </div>
-                    </div>
-
-                    {oauthPhase.state.verificationCode && (
-                      <div className="space-y-1.5">
-                        <label className="text-[12px] font-medium text-foreground">
-                          Enter this code on that page
-                        </label>
-                        <div className="flex items-center gap-2">
-                          <code className="rounded-lg border border-border/60 bg-background px-3 py-2 font-mono text-[18px] tracking-[0.3em] text-foreground">
-                            {oauthPhase.state.verificationCode}
-                          </code>
-                          <button
-                            type="button"
-                            onClick={() => copyToClipboard((oauthPhase.state as { verificationCode?: string }).verificationCode ?? "", "code")}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                          >
-                            {copied === "code" ? <CheckCircle2 className="h-3 w-3 text-status-success" /> : <Copy className="h-3 w-3" />}
-                            {copied === "code" ? "Copied" : "Copy"}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      Waiting for sign-in to complete…
-                    </div>
-
-                    {providerEntry?.authShape !== "device_code" && (
-                      <div className="space-y-1.5">
-                        <label className="text-[11px] text-muted-foreground">
-                          Or paste the redirect URL manually
-                        </label>
-                        <div className="flex gap-1.5">
-                          <input
-                            value={pasted}
-                            onChange={(e) => setPasted(e.target.value)}
-                            placeholder="https://… or the code from the page"
-                            className="flex h-9 w-full rounded-lg border border-border/60 bg-background px-3 text-[11px] font-mono outline-none placeholder:text-muted-foreground/40 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
-                          />
-                          <button
-                            type="button"
-                            disabled={!pasted.trim() || submittingPaste}
-                            onClick={handleOAuthPaste}
-                            className={cn(
-                              "shrink-0 inline-flex h-9 items-center rounded-lg px-3 text-[12px] font-medium transition-colors",
-                              !pasted.trim() || submittingPaste
-                                ? "cursor-not-allowed bg-muted text-muted-foreground/50"
-                                : "bg-foreground text-background hover:bg-foreground/90",
-                            )}
-                          >
-                            {submittingPaste ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Submit"}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {oauthError && (
-                  <p className="text-[12px] text-destructive">{oauthError}</p>
-                )}
-              </div>
+            {(oauthPhase.kind === "starting" || oauthPhase.kind === "interactive") && (
+              <OAuthInteractiveFlow
+                state={
+                  oauthPhase.kind === "starting"
+                    ? { stage: "starting" }
+                    : oauthPhase.state
+                }
+                context={{
+                  providerDisplayName: providerEntry?.displayName ?? "your provider",
+                  mode: providerEntry?.authShape === "device_code" ? "device_code" : "oauth_paste",
+                  autoCallback:
+                    oauthPhase.kind === "interactive" &&
+                    oauthPhase.state.stage === "url_ready"
+                      ? oauthPhase.state.autoCallback
+                      : undefined,
+                }}
+                onPaste={handleOAuthPaste}
+                submittingPaste={submittingPaste}
+                error={oauthError}
+              />
             )}
 
             {oauthPhase.kind === "done" && (

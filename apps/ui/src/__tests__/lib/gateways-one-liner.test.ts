@@ -24,10 +24,9 @@ describe("buildGatewayOneLiner", () => {
     expect(result).toContain("GATEWAY_LABEL=");
   });
 
-  test("includes the curl command targeting the install script", () => {
+  test("includes the curl command targeting install.yourhq.ai/gateway", () => {
     const result = buildGatewayOneLiner(baseInput);
-    expect(result).toContain("curl -fsSL");
-    expect(result).toContain("install-gateway.sh");
+    expect(result).toContain("curl -fsSL https://install.yourhq.ai/gateway");
   });
 
   test("ends with bash", () => {

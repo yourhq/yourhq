@@ -2,19 +2,23 @@
 # =============================================================================
 # HQ gateway installer (remote host).
 #
-# Run from the UI's onboarding flow:
-#   curl -fsSL https://raw.githubusercontent.com/yourhq/yourhq/main/installer/install-gateway.sh \
-#     | GATEWAY_TOKEN=... SUPABASE_URL=... [GATEWAY_LABEL=...] [TAILSCALE_AUTH_KEY=...] bash
+# Typical usage (from the UI's onboarding flow — all vars pre-filled):
+#   curl -fsSL https://install.yourhq.ai/gateway \
+#     | GATEWAY_TOKEN=... SUPABASE_URL=... SUPABASE_ANON_KEY=... \
+#       SUPABASE_SERVICE_ROLE_KEY=... bash
 #
-# Required env:
+# Standalone usage (prompts for missing values interactively):
+#   curl -fsSL https://install.yourhq.ai/gateway -o install-gateway.sh
+#   bash install-gateway.sh
+#
+# Required (set via env or entered when prompted):
 #   GATEWAY_TOKEN              single-use token the UI minted (15 min TTL)
 #   SUPABASE_URL               the project's URL (public)
-#   SUPABASE_ANON_KEY          public anon key — used by the gateway to
-#                              call consume_gateway_token() on boot
-#   SUPABASE_SERVICE_ROLE_KEY  embedded into .env so this gateway can
-#                              talk to the project's REST/Realtime APIs
-#                              after token exchange. Stays on the
-#                              remote host — never sent to Supabase.
+#   SUPABASE_ANON_KEY          publishable key (anon key) — used by the
+#                              gateway to call consume_gateway_token()
+#   SUPABASE_SERVICE_ROLE_KEY  secret key (service role) — embedded into
+#                              .env for REST/Realtime access. Stays on
+#                              this host — never sent back to Supabase.
 #
 # Optional env:
 #   GATEWAY_LABEL        friendly name (default: hostname)
@@ -37,22 +41,44 @@ ok()   { printf "  %b✓%b %s\n" "$G" "$R" "$*"; }
 warn() { printf "  %b⚠%b %s\n" "$Y" "$R" "$*"; }
 err()  { printf "  %b✗%b %s\n" "$RED" "$R" "$*" >&2; }
 
-require_env() {
-  local name="$1"
-  if [ -z "${!name:-}" ]; then
-    err "$name is required. This script is meant to be invoked from the HQ onboarding UI, which sets it for you."
+prompt_env() {
+  local name="$1" label="$2" hint="${3:-}"
+  if [ -n "${!name:-}" ]; then return; fi
+  if [ ! -t 0 ]; then
+    err "$name is required but was not set and stdin is not a terminal (can't prompt)."
+    err "Re-run this script in an interactive terminal, or pass $name as an env var."
     exit 1
   fi
+  say ""
+  if [ -n "$hint" ]; then
+    say "  ${D}${hint}${R}"
+  fi
+  printf "  %b%s%b: " "$B" "$label" "$R"
+  read -r value
+  if [ -z "$value" ]; then
+    err "$label is required."
+    exit 1
+  fi
+  export "$name"="$value"
 }
-
-require_env GATEWAY_TOKEN
-require_env SUPABASE_URL
-require_env SUPABASE_ANON_KEY
-require_env SUPABASE_SERVICE_ROLE_KEY
 
 say ""
 say "${B}HQ gateway installer${R}"
 say "${D}This will install Docker (if missing) and start the agent runtime on this machine.${R}"
+
+# If all four required vars are set (e.g. from the onboarding one-liner), skip prompts.
+# Otherwise, prompt for any missing ones interactively.
+if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ] || [ -z "${GATEWAY_TOKEN:-}" ]; then
+  say ""
+  say "${D}Some required values are missing. You can find them in your HQ onboarding page${R}"
+  say "${D}or in your Supabase project under Settings → API Keys.${R}"
+fi
+
+prompt_env SUPABASE_URL          "Supabase project URL"       "e.g. https://abcdefghij.supabase.co"
+prompt_env SUPABASE_ANON_KEY     "Supabase publishable key"   "The anon/publishable key from Settings → API Keys"
+prompt_env SUPABASE_SERVICE_ROLE_KEY "Supabase secret key"    "The service_role/secret key from Settings → API Keys"
+prompt_env GATEWAY_TOKEN         "Gateway token"              "The one-time token from the HQ onboarding page"
+
 say ""
 
 # ── Docker preflight ────────────────────────────────────────────

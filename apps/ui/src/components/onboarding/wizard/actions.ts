@@ -17,6 +17,7 @@ import {
   runOneClickMigrationAction,
   confirmSchemaInstalledAction,
   type ActionResult,
+  type GatewayBootstrap,
 } from "@/app/onboarding/actions";
 
 export { prepareSchemaInstallAction, runOneClickMigrationAction, confirmSchemaInstalledAction };
@@ -157,19 +158,19 @@ export async function saveWorkspaceToRegistry(creds: {
 
 export async function setupGateway(
   placement: "local" | "remote",
-): Promise<ActionResult> {
+): Promise<ActionResult<GatewayBootstrap>> {
   await saveGatewaySetup({ placement });
 
   if (placement === "local") {
     const r = await startLocalGatewayAction();
     if (!r.ok) return { ok: false, error: r.error };
-    return { ok: true };
+    return { ok: true, data: r.data };
   }
 
-  // Remote: mint token — the caller handles polling
+  // Remote: mint token — the caller shows the one-liner and polls
   const r = await mintGatewayTokenAction({ label: "Gateway" });
   if (!r.ok) return { ok: false, error: r.error };
-  return { ok: true };
+  return { ok: true, data: r.data };
 }
 
 export async function advanceInfrastructure(): Promise<ActionResult> {

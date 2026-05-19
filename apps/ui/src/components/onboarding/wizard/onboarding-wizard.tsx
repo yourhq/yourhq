@@ -289,6 +289,26 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Dev-only: ?step=provider jumps to that step, ?dbConnected=1 fakes DB connected
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
+    const url = new URL(window.location.href);
+    let changed = false;
+    const devStep = url.searchParams.get("step") as WizardStep | null;
+    if (devStep && ["welcome", "intent", "infrastructure", "provider", "agent", "account", "payment", "provisioning", "launch"].includes(devStep)) {
+      goTo(devStep);
+      url.searchParams.delete("step");
+      changed = true;
+    }
+    if (url.searchParams.get("dbConnected") === "1") {
+      setInfraStatus((s) => ({ ...s, db: "connected" }));
+      url.searchParams.delete("dbConnected");
+      changed = true;
+    }
+    if (changed) window.history.replaceState({}, "", url.toString());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
@@ -398,11 +418,15 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
 
   const handleChooseGateway = useCallback(
     (placement: "local" | "remote") => {
-      setInfraStatus((s) => ({ ...s, gateway: "starting", gatewayError: null, gatewayManualCmd: undefined }));
+      setInfraStatus((s) => ({ ...s, gateway: "starting", gatewayError: null, gatewayManualCmd: undefined, gatewayOneLiner: undefined }));
       startTransition(async () => {
         const r = await setupGateway(placement);
         if (r.ok) {
-          setInfraStatus((s) => ({ ...s, gateway: "polling" }));
+          setInfraStatus((s) => ({
+            ...s,
+            gateway: "polling",
+            gatewayOneLiner: r.data?.oneLiner,
+          }));
           patch({ placement });
           const interval = setInterval(async () => {
             const poll = await import("@/app/onboarding/actions").then((m) => m.pollLocalGateway());
@@ -687,13 +711,10 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
           )}
           <HqLogo size={24} className="text-foreground" />
         </div>
-        <div className="hidden md:flex flex-1 justify-center px-8">
+        <div className="flex flex-1 justify-center px-4 md:px-8">
           <WizardProgress steps={progressSteps} currentStep={progressStep} />
         </div>
         <div className="flex items-center gap-3">
-          <kbd className="hidden lg:inline-block rounded-md border border-border/60 bg-muted/50 px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
-            Enter ↵
-          </kbd>
           <button
             type="button"
             onClick={handleSignOut}
@@ -702,9 +723,6 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
             <LogOut className="h-3 w-3" />
             <span className="hidden sm:inline">Sign out</span>
           </button>
-        </div>
-        <div className="md:hidden">
-          <WizardProgress steps={progressSteps} currentStep={progressStep} />
         </div>
       </header>
 
@@ -824,6 +842,8 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
               {step === "account" && (
                 <StepAccount
                   ownerName={data.preferredName ?? data.ownerName}
+                  agentName={data.agentName as string | undefined}
+                  agentEmoji={data.agentEmoji as string | undefined}
                   onSubmit={handleAccount}
                   pending={pending}
                   error={accountError}

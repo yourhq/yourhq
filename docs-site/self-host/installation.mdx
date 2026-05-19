@@ -119,7 +119,12 @@ Recommended process:
 1. On the UI host: run the installer normally.
 2. Open Settings → Gateways → Add Gateway.
 3. Enter a label and, optionally, a Tailscale auth key.
-4. Run the generated one-line installer on the gateway host.
+4. Copy the generated one-line installer and run it on the gateway host:
+   ```bash
+   curl -fsSL https://install.yourhq.ai/gateway \
+     | GATEWAY_TOKEN='...' SUPABASE_URL='...' ... bash
+   ```
+   The installer checks for Docker, writes `.env`, pulls images, and starts the gateway. If you prefer to inspect the script first, download it with `curl -fsSL https://install.yourhq.ai/gateway -o install-gateway.sh` and run it manually — it will prompt for any missing values.
 5. Keep the dialog open until the registration token is consumed and the gateway appears.
 
 Manual process:

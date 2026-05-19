@@ -13,7 +13,6 @@ import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
-  Copy,
   ExternalLink,
   Eye,
   EyeOff,
@@ -43,6 +42,7 @@ import {
 } from "@/app/dashboard/settings/connections/actions";
 import { useRealtime } from "@/hooks/use-realtime";
 import { ProviderIcon } from "./provider-icons";
+import { OAuthInteractiveFlow } from "./oauth-interactive-flow";
 
 interface AddConnectionDialogProps {
   open: boolean;
@@ -179,6 +179,7 @@ function AddConnectionDialogInner({
           mode={phase.mode}
           commandId={phase.commandId}
           gatewayId={gatewayId}
+          provider={phase.provider}
           onSuccess={() => {
             onAdded?.();
             setPhase({ kind: "done", provider: phase.provider });
@@ -857,6 +858,7 @@ function InteractivePhase({
   mode,
   commandId,
   gatewayId,
+  provider,
   onSuccess,
   onFailure,
   onCancel,
@@ -864,6 +866,7 @@ function InteractivePhase({
   mode: "oauth_paste" | "device_code";
   commandId: string;
   gatewayId: string;
+  provider: ProviderCatalogEntry;
   onSuccess: () => void;
   onFailure: (msg: string) => void;
   onCancel: () => void;
@@ -871,11 +874,9 @@ function InteractivePhase({
   const [state, setState] = useState<ConnectionCommandState>({
     stage: "starting",
   });
-  const [pasted, setPasted] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [copied, setCopied] = useState<"url" | "code" | null>(null);
+  const [pasteError, setPasteError] = useState<string | null>(null);
 
-  // Keep callback refs so the realtime effect stays mounted on the same key.
   const onSuccessRef = useRef(onSuccess);
   const onFailureRef = useRef(onFailure);
   useEffect(() => {
@@ -883,7 +884,6 @@ function InteractivePhase({
     onFailureRef.current = onFailure;
   });
 
-  // Polling fallback for state changes (realtime may lag for payload-only updates).
   useEffect(() => {
     let cancelled = false;
     const tick = async () => {
@@ -909,7 +909,6 @@ function InteractivePhase({
     };
   }, [commandId]);
 
-  // Realtime takes the same path; we just refetch to get the merged payload.
   useRealtime({
     table: "agent_commands",
     filter: `gateway_id=eq.${gatewayId}`,
@@ -926,178 +925,42 @@ function InteractivePhase({
     },
   });
 
-  async function copy(value: string, key: "url" | "code") {
+  const handlePaste = async (value: string) => {
+    if (!value) return;
+    setSubmitting(true);
+    setPasteError(null);
     try {
-      await navigator.clipboard.writeText(value);
-      setCopied(key);
-      setTimeout(() => setCopied((c) => (c === key ? null : c)), 1500);
-    } catch {}
-  }
+      const enq = await enqueueConnectionCommand({
+        gatewayId,
+        action: "auth_paste",
+        payload: {
+          parent_command_id: commandId,
+          value,
+        },
+      });
+      if (!enq.ok || !enq.data) {
+        setPasteError(enq.error ?? "Failed to submit code");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div>
-      <div className="px-5 py-4 space-y-3">
-        {state.stage === "starting" && (
-          <div className="flex items-center gap-2 py-6 text-[12px] text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Starting the sign-in flow…
-          </div>
-        )}
-
-        {(state.stage === "url_ready" || state.stage === "polling") && (
-          <>
-            <div className="space-y-1.5">
-              <Label className="text-[12px]">
-                {mode === "device_code" ? "Step 1 — open this URL" : "Step 1 — open this URL"}
-              </Label>
-              <div className="flex gap-1.5">
-                <Input
-                  value={state.url}
-                  readOnly
-                  className="font-mono text-[11px]"
-                  onFocus={(e) => e.currentTarget.select()}
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => copy(state.url, "url")}
-                  className="shrink-0 h-9 px-2.5"
-                  title="Copy"
-                >
-                  {copied === "url" ? (
-                    <CheckCircle2 className="h-3.5 w-3.5 text-status-success" />
-                  ) : (
-                    <Copy className="h-3.5 w-3.5" />
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  asChild
-                  className="shrink-0 h-9"
-                >
-                  <a href={state.url} target="_blank" rel="noreferrer">
-                    Open
-                    <ExternalLink className="ml-1 h-3 w-3" />
-                  </a>
-                </Button>
-              </div>
-            </div>
-
-            {state.verificationCode && (
-              <div className="space-y-1.5">
-                <Label className="text-[12px]">Step 2 — enter this code on that page</Label>
-                <div className="flex items-center gap-2">
-                  <code className="rounded-md border border-border/60 bg-background px-3 py-2 font-mono text-[18px] tracking-[0.3em] text-foreground">
-                    {state.verificationCode}
-                  </code>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => copy(state.verificationCode!, "code")}
-                    className="h-9"
-                  >
-                    {copied === "code" ? (
-                      <>
-                        <CheckCircle2 className="h-3.5 w-3.5 text-status-success mr-1.5" />
-                        Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3.5 w-3.5 mr-1.5" />
-                        Copy code
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {mode === "device_code" ? (
-              <div className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Waiting for you to approve in your browser…
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="space-y-1.5 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Waiting for you to finish signing in…
-                  </div>
-                  <p className="text-[10.5px] text-muted-foreground/70">
-                    If sign-in completes automatically, this dialog will close on its own.
-                  </p>
-                </div>
-
-                <div className="space-y-1.5 pt-1">
-                  <Label htmlFor="redirect" className="text-[12px]">
-                    Or paste the redirect URL manually
-                  </Label>
-                  <div className="flex gap-1.5">
-                    <Input
-                      id="redirect"
-                      value={pasted}
-                      onChange={(e) => setPasted(e.target.value)}
-                      placeholder="https://… or the code from the page"
-                      className="font-mono text-[11px]"
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={!pasted.trim() || submitting}
-                      onClick={async () => {
-                        const value = pasted.trim();
-                        if (!value) return;
-                        setSubmitting(true);
-                        try {
-                          const enq = await enqueueConnectionCommand({
-                            gatewayId,
-                            action: "auth_paste",
-                            payload: {
-                              parent_command_id: commandId,
-                              value,
-                            },
-                          });
-                          if (!enq.ok || !enq.data) {
-                            onFailure(enq.error ?? "Failed to submit code");
-                            return;
-                          }
-                        } finally {
-                          setSubmitting(false);
-                        }
-                      }}
-                      className="shrink-0 h-9"
-                    >
-                      {submitting ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        "Submit"
-                      )}
-                    </Button>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground/70">
-                    If the page doesn&apos;t load after signing in, copy the URL
-                    from your browser&apos;s address bar and paste it here.
-                  </p>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        {state.stage === "completed" && (
-          <div className="flex items-center gap-2 rounded-md border border-status-success/40 bg-status-success/5 px-3 py-2 text-[12px] text-status-success">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            Signed in. Saving credential…
-          </div>
-        )}
-
-        {state.stage === "failed" && (
-          <ErrorBanner message={state.error || "Sign-in failed."} />
-        )}
+      <div className="px-5 py-4">
+        <OAuthInteractiveFlow
+          state={state}
+          context={{
+            providerDisplayName: provider.displayName,
+            mode,
+            autoCallback:
+              state.stage === "url_ready" ? state.autoCallback : undefined,
+          }}
+          onPaste={handlePaste}
+          submittingPaste={submitting}
+          error={pasteError}
+        />
       </div>
 
       <ResponsiveDialogFooter className="px-5 py-3 border-t border-border/50">

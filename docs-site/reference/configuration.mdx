@@ -123,7 +123,7 @@ Without a remote, all of this still works locally — commits just don't leave t
 
 ### 2.7 Remote gateway provisioning
 
-These are only needed when installing a gateway on a **separate host** from the UI using `install-gateway.sh`. The normal co-located install doesn't use them.
+These are only needed when installing a gateway on a **separate host** from the UI using the gateway installer (`install.yourhq.ai/gateway`). The normal co-located install doesn't use them.
 
 - **`GATEWAY_TOKEN`** — **Optional, one-time**. A short-lived token minted in the UI (Settings → Gateways → Add Gateway). The gateway exchanges it for a stable `gateway_id` + slug on first boot via `consume_gateway_token()`. The exchange is one-shot — a `.token-consumed` marker file prevents re-exchange on subsequent boots. After the exchange, `GATEWAY_ID` is pinned to the assigned slug and persisted across reboots.
 
