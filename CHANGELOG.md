@@ -11,6 +11,32 @@ tagged release.
 
 ## [Unreleased]
 
+### Added
+
+- **Comprehensive test suite** — 2215 tests across hooks, lib, components, API routes, and gateway daemons. Vitest + React Testing Library for UI, pytest for Python.
+- **Release tooling** — `scripts/release.sh` automates version bumps, changelog, tagging, and GitHub Release creation. `update.sh` for self-hosted upgrades.
+- **Install script routing** — `install.yourhq.ai/gateway` serves the gateway-only installer alongside the main installer.
+- **Setup guide in onboarding** — enhanced database connection UI in StepInfrastructure with step-by-step Supabase setup guidance.
+
+### Changed
+
+- **Onboarding redesign** — updated wizard flow, new agent templates with refined roles and descriptions, improved auth form styling.
+- **Theme refinements** — updated color tokens for improved accessibility and consistency, new icons, manifest updates for theming support.
+- **Analytics scoped to production** — PostHog initialization restricted to production environments only.
+- **Responsive improvements** — component styles updated for better mobile and accessibility support.
+
+### Fixed
+
+- **CI pipeline** — deploy-hosted now waits for image publish to complete (fixes race condition). E2B Dockerfile fixed for SDK compatibility. Database migrations updated for improved extension handling.
+- **Docker images now public** — GHCR packages set to public for OSS install without authentication.
+
+### Infrastructure
+
+- Tag-only Docker image builds and deployments (no more builds on every push to main).
+- Branch protection on main: CI checks required, linear history enforced, no force pushes.
+- Dependabot tuned: monthly for Docker/pip/Actions, grouped updates, major versions ignored.
+- Sentry error tracking integrated across worker and gateway daemons (hosted-only).
+
 ## [0.1.0] — 2026-05-17
 
 Initial public release.
