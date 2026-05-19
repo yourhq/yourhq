@@ -82,7 +82,7 @@
 - [Local development](https://docs.yourhq.ai/development/local-development): Development setup, project structure, and common tasks.
 - [Repo structure](https://docs.yourhq.ai/development/repo-structure): Where major parts of the codebase live.
 - [Contributing](https://docs.yourhq.ai/development/contributing): Contribution flow for code, templates, docs, and bug reports.
-- [Testing](https://docs.yourhq.ai/development/testing): Staged test plan for validating the Docker stack.
+- [Testing](https://docs.yourhq.ai/development/testing): Automated test suite (Vitest, pytest, shell, DB contracts), CI pipeline, coverage thresholds, and manual Docker stack validation.
 - [Docs development](https://docs.yourhq.ai/development/docs): How to edit and preview the Mintlify documentation site.
 
 ## Security and troubleshooting

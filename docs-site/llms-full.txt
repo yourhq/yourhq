@@ -10268,6 +10268,39 @@ Source: https://docs.yourhq.ai/development/testing
 
 # Testing
 
+HQ has automated tests across four runtimes and a manual integration test plan for Docker stack validation.
+
+## Automated tests
+
+Run the full automated suite locally:
+
+```bash
+make test              # UI + Python + Shell (fast local gate, ~60s)
+make test-coverage     # Same, with coverage reports + threshold enforcement
+make ci-fast           # Lint + tests (mirrors the PR gate)
+```
+
+### What's tested
+
+| Runtime | Framework | Tests | What it covers |
+|---------|-----------|-------|----------------|
+| TypeScript (UI) | Vitest + jsdom + React Testing Library | ~2,270 | Hooks, lib modules, components, server actions, API routes |
+| Python (Gateway) | pytest | 208 | All gateway daemons (command runner, dispatcher, embedder, secrets sync, source sync, plugin runner, file processor) |
+| Shell (Scripts) | bash runner | 11 | Gateway lifecycle scripts |
+| Database | psql assertions (CI only) | ~50 | RLS policies, schema contracts, triggers |
+
+### CI pipeline
+
+Every PR runs 8 parallel jobs: `ui-lint`, `ui-test`, `ui-build`, `worker`, `python-lint`, `python-test`, `shellcheck`, `shell-test`. Pushes to `main` add `db-contracts` (live Postgres) and `coverage-report` with artifact upload.
+
+Coverage thresholds (statements: 40%, lines: 40%, branches: 35%, functions: 35%) are enforced in CI. If you add new source files, run `make test-coverage` locally to verify.
+
+### Writing tests
+
+See [`TESTING.md`](https://github.com/yourhq/yourhq/blob/main/TESTING.md) in the repo root for the full guide: test structure, mock patterns, factories, and rules.
+
+## Manual integration testing
+
 Staged test plan for validating the Docker stack. Each stage is independently testable; stop at the first failure, debug, retry that stage.
 
 ## Environment

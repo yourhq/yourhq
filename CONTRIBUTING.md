@@ -97,13 +97,16 @@ Templates live in the monorepo so they're versioned together. Breaking changes t
 
 Before opening a PR:
 
-- [ ] `docker compose -f docker-compose.yml -f docker-compose.dev.yml up` still boots the stack
+- [ ] `make test` passes (UI + Python + Shell tests)
 - [ ] `npx tsc --noEmit` passes (zero TS errors) in `apps/ui/`
 - [ ] `npm run lint` passes in `apps/ui/` (warnings OK, errors fail CI)
 - [ ] For gateway/template changes: `ruff check gateway/ templates/` and `ruff format --check gateway/ templates/` both pass
 - [ ] For gateway changes: `shellcheck gateway/entrypoint.sh gateway/scripts/*.sh` passes
+- [ ] If you added new source files: `make test-coverage` still passes thresholds
 - [ ] You haven't committed secrets, `.env`, or `*.pem` files
 - [ ] Commit messages describe *why*, not just *what*
+
+For the full testing guide (patterns, factories, writing new tests): see [TESTING.md](TESTING.md).
 
 Open your PR against `main`. CI runs automatically. A maintainer will review within a few days.
 
