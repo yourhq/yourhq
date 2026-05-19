@@ -25,7 +25,7 @@ err()   { printf "${RED}✗${NC} %s\n" "$*" >&2; }
 
 get_current_version() {
   if [ -f "$ENV_FILE" ]; then
-    grep -oP '^IMAGE_TAG=\K.*' "$ENV_FILE" 2>/dev/null || echo "latest"
+    grep '^IMAGE_TAG=' "$ENV_FILE" 2>/dev/null | sed 's/^IMAGE_TAG=//' | head -1 || echo "latest"
   else
     echo "latest"
   fi
@@ -37,13 +37,13 @@ get_latest_version() {
     err "Failed to check for updates (network error or no releases yet)"
     exit 1
   }
-  echo "$response" | grep -oP '"tag_name":\s*"\K[^"]+'
+  echo "$response" | grep -o '"tag_name":[^,]*' | head -1 | sed 's/.*"tag_name":[[:space:]]*"//;s/"//'
 }
 
 get_release_body() {
   local tag="$1"
   curl -fsSL "https://api.github.com/repos/${REPO}/releases/tags/${tag}" 2>/dev/null \
-    | grep -oP '"body":\s*"\K[^"]*' \
+    | grep -o '"body":[^}]*' | head -1 | sed 's/.*"body":[[:space:]]*"//;s/"[[:space:]]*$//' \
     | sed 's/\\n/\n/g; s/\\r//g' \
     | head -20
 }

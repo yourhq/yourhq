@@ -32,6 +32,8 @@ say "${D}Install HQ and start the UI. Onboarding continues in the browser.${R}"
 say ""
 
 # ── Docker preflight ────────────────────────────────────────
+DOCKER="docker"
+
 install_docker_linux() {
   info "Installing Docker via get.docker.com…"
   local sh_cmd="sh"
@@ -46,7 +48,7 @@ install_docker_linux() {
   curl -fsSL https://get.docker.com | $sh_cmd
   if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
     sudo usermod -aG docker "$USER" || true
-    warn "Added $USER to the 'docker' group. You may need to re-login or run 'newgrp docker'."
+    DOCKER="sudo docker"
   fi
   ok "Docker installed"
 }
@@ -68,13 +70,13 @@ if ! command -v docker >/dev/null 2>&1; then
   esac
 fi
 
-if ! docker compose version >/dev/null 2>&1; then
+if ! $DOCKER compose version >/dev/null 2>&1; then
   err "The 'docker compose' plugin is not available."
   say "  Install the Compose plugin: ${C}https://docs.docker.com/compose/install/${R}"
   exit 1
 fi
 
-ok "Docker $(docker --version | awk '{print $3}' | tr -d ,) + Compose $(docker compose version --short 2>/dev/null || echo unknown)"
+ok "Docker $($DOCKER --version | awk '{print $3}' | tr -d ,) + Compose $($DOCKER compose version --short 2>/dev/null || echo unknown)"
 
 # ── Target directory ────────────────────────────────────────
 TARGET="${YOURHQ_HOME:-$HOME/.yourhq}"
@@ -85,7 +87,7 @@ cd "$TARGET"
 YOURHQ_VERSION="${YOURHQ_VERSION:-}"
 if [ -z "$YOURHQ_VERSION" ]; then
   YOURHQ_VERSION=$(curl -fsSL "https://api.github.com/repos/yourhq/yourhq/releases/latest" 2>/dev/null \
-    | grep -oP '"tag_name":\s*"\K[^"]+' || echo "main")
+    | grep -o '"tag_name":[^,]*' | head -1 | sed 's/.*"tag_name":[[:space:]]*"//;s/"//' || echo "main")
 fi
 info "Version: $YOURHQ_VERSION"
 
@@ -181,12 +183,12 @@ fi
 # If no token is available, prompt the user.
 say ""
 info "Pulling UI image…"
-if ! docker compose pull ui 2>/dev/null; then
+if ! $DOCKER compose pull ui 2>/dev/null; then
   if [ -n "$GH_AUTH_TOKEN" ]; then
     info "Image pull failed — authenticating to ghcr.io…"
-    echo "$GH_AUTH_TOKEN" | docker login ghcr.io -u "token" --password-stdin 2>/dev/null && \
+    echo "$GH_AUTH_TOKEN" | $DOCKER login ghcr.io -u "token" --password-stdin 2>/dev/null && \
       ok "Logged in to ghcr.io" || { err "GHCR login failed. Check your token has read:packages scope."; exit 1; }
-    docker compose pull ui || { err "Image pull failed even after login."; exit 1; }
+    $DOCKER compose pull ui || { err "Image pull failed even after login."; exit 1; }
   else
     say ""
     err "Image pull failed — the package may be private."
@@ -200,7 +202,7 @@ if ! docker compose pull ui 2>/dev/null; then
 fi
 ok "Image pulled"
 info "Starting UI…"
-docker compose up -d ui
+$DOCKER compose up -d ui
 
 # ── Wait for UI ────────────────────────────────────────────
 info "Waiting for UI to come online…"
@@ -214,7 +216,7 @@ say ""
 if [ "$UI_OK" = 1 ]; then
   ok "UI is ready at ${C}http://localhost:3000${R}"
 else
-  warn "UI hasn't responded yet — check: ${C}docker compose logs -f ui${R}"
+  warn "UI hasn't responded yet — check: ${C}$DOCKER compose logs -f ui${R}"
 fi
 
 say ""
