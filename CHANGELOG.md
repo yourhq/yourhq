@@ -11,6 +11,20 @@ tagged release.
 
 ## [Unreleased]
 
+### Fixed
+
+- **API key provisioning** — `auth_set_api_key` now writes `auth-profiles.json` directly instead of piping to openclaw's interactive TUI prompt, which silently dropped keys. API keys set during onboarding (and from Settings → Connections) now reliably propagate to all agents.
+- **Gateway credential resolution** — `registry_config.py` read from `projects.json` but the UI writes `workspaces.json`. Gateway daemons (dispatcher, runner, embedder) would spin forever with "waiting for onboarding" on a fresh install. Added backward-compatible fallbacks for both naming conventions.
+- **Onboarding wizard flow** — connecting the gateway no longer prematurely finalizes onboarding, which was bouncing users to the login screen before they could set up a provider or create an agent.
+- **Installer portability** — replaced `grep -oP` (GNU-only) with portable `grep -o` + `sed` in `install.sh` and `update.sh`. Fixes version detection on macOS and minimal Linux installs.
+- **Docker socket detection** — installer now uses `sudo -n` (non-interactive) for Docker socket access, preventing hangs when run via `curl | bash` pipe.
+- **Auth propagation after provision** — `sync_to_shared_auth()` is now called after agent provisioning and uses a recursive filesystem walk to find auth files regardless of where openclaw writes them.
+
+### Changed
+
+- **E2B template build** — entrypoint detects hosted mode without Supabase credentials and exits cleanly for template snapshots instead of crashing. Dockerfile.e2b now copies the latest entrypoint.
+- **CI** — `deploy-hosted.yml` triggers Vercel UI deployment after worker deploy via Deploy Hook.
+
 ## [0.1.1] — 2026-05-18
 
 ### Added
