@@ -795,13 +795,8 @@ export async function pollRemoteGatewayToken(
 // ─── Advance past the gateway step → finalize → done ────────────────────
 //
 // Workspace identity was captured back at step 2; gateway is the last
-// piece of plumbing. Run finalizeOnboarding here so by the time the
-// Done screen lands, complete_setup has already populated the workspace
-// row, pipeline stages, fields, and streams.
-
 export async function advanceAfterGateway(): Promise<ActionResult> {
-  const fin = await finalizeOnboarding();
-  if (!fin.ok) return fin;
+  await patchOnboardingState({ step: "provider" });
   revalidatePath("/onboarding");
   return { ok: true };
 }

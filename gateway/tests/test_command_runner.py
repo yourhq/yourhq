@@ -485,3 +485,69 @@ def test_strip_ansi_removes_escape_sequences():
 
     assert strip_ansi("\x1b[32mhello\x1b[0m") == "hello"
     assert strip_ansi("\x1b[?25lhidden\x1b[?25h") == "hidden"
+
+
+def test_sync_to_shared_auth_finds_deeply_nested_auth(monkeypatch, tmp_path):
+    """sync_to_shared_auth should find auth-profiles.json even when written
+    to an unexpected subdirectory (e.g. gateway/agent/ instead of agents/*)."""
+    import command_runner as cr
+
+    state_dir = tmp_path / ".openclaw"
+    state_dir.mkdir()
+    monkeypatch.setenv("OPENCLAW_STATE_DIR", str(state_dir))
+    monkeypatch.setattr(cr, "HOME", str(tmp_path))
+
+    # Simulate openclaw writing auth to an unexpected nested path
+    deep_dir = state_dir / "gateway" / "agent"
+    deep_dir.mkdir(parents=True)
+    auth_data = {"profiles": {"openai:default": {"token": "sk-test"}}}
+    (deep_dir / "auth-profiles.json").write_text(json.dumps(auth_data))
+
+    cr.sync_to_shared_auth()
+
+    shared = state_dir / "shared-auth" / "auth-profiles.json"
+    assert shared.exists()
+    result = json.loads(shared.read_text())
+    assert result["profiles"]["openai:default"]["token"] == "sk-test"
+
+
+def test_sync_to_shared_auth_links_to_existing_agents(monkeypatch, tmp_path):
+    """When agents already exist, sync should symlink shared-auth into them."""
+    import command_runner as cr
+
+    state_dir = tmp_path / ".openclaw"
+    state_dir.mkdir()
+    monkeypatch.setenv("OPENCLAW_STATE_DIR", str(state_dir))
+    monkeypatch.setattr(cr, "HOME", str(tmp_path))
+
+    # Create an agent directory without auth
+    agent_dir = state_dir / "agents" / "my-agent" / "agent"
+    agent_dir.mkdir(parents=True)
+
+    # Auth file in a non-standard location
+    nested = state_dir / "default" / "agent"
+    nested.mkdir(parents=True)
+    auth_data = {"profiles": {"openai:default": {"token": "sk-test"}}}
+    (nested / "auth-profiles.json").write_text(json.dumps(auth_data))
+
+    cr.sync_to_shared_auth()
+
+    agent_auth = agent_dir / "auth-profiles.json"
+    assert agent_auth.is_symlink()
+    result = json.loads(agent_auth.read_text())
+    assert result["profiles"]["openai:default"]["token"] == "sk-test"
+
+
+def test_sync_to_shared_auth_skips_when_nothing_found(monkeypatch, tmp_path):
+    """sync_to_shared_auth should return gracefully when no auth files exist."""
+    import command_runner as cr
+
+    state_dir = tmp_path / ".openclaw"
+    state_dir.mkdir()
+    monkeypatch.setenv("OPENCLAW_STATE_DIR", str(state_dir))
+    monkeypatch.setattr(cr, "HOME", str(tmp_path))
+
+    cr.sync_to_shared_auth()
+
+    shared = state_dir / "shared-auth" / "auth-profiles.json"
+    assert not shared.exists()

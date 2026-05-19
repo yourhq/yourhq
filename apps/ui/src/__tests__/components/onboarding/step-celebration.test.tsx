@@ -119,4 +119,95 @@ describe("StepCelebration", () => {
     });
     expect(onContinue).not.toHaveBeenCalled();
   });
+
+  describe("needsManualLogin", () => {
+    it("does not auto-continue when needsManualLogin is true", () => {
+      const onContinue = vi.fn();
+      render(
+        <StepCelebration onContinue={onContinue} needsManualLogin />,
+      );
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(onContinue).not.toHaveBeenCalled();
+    });
+
+    it("shows Go to sign in button when needsManualLogin is true", () => {
+      const onContinue = vi.fn();
+      render(
+        <StepCelebration onContinue={onContinue} needsManualLogin />,
+      );
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(
+        screen.getByRole("button", { name: /go to sign in/i }),
+      ).toBeInTheDocument();
+    });
+
+    it("hides agent info when needsManualLogin is true", () => {
+      const onContinue = vi.fn();
+      render(
+        <StepCelebration
+          onContinue={onContinue}
+          agentName="Scout"
+          needsManualLogin
+        />,
+      );
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(screen.queryByText(/Scout is ready/)).not.toBeInTheDocument();
+    });
+
+    it("shows OSS manual login message when isHosted is false", () => {
+      const onContinue = vi.fn();
+      render(
+        <StepCelebration
+          onContinue={onContinue}
+          needsManualLogin
+          isHosted={false}
+        />,
+      );
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(
+        screen.getByText(/Sign in with the email and password/),
+      ).toBeInTheDocument();
+    });
+
+    it("shows hosted manual login message when isHosted is true", () => {
+      const onContinue = vi.fn();
+      render(
+        <StepCelebration
+          onContinue={onContinue}
+          needsManualLogin
+          isHosted
+        />,
+      );
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(
+        screen.getByText(/sent a sign-in link/),
+      ).toBeInTheDocument();
+    });
+
+    it("calls onContinue when Go to sign in is clicked", async () => {
+      const onContinue = vi.fn();
+      render(
+        <StepCelebration onContinue={onContinue} needsManualLogin />,
+      );
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      vi.useRealTimers();
+      const user = userEvent.setup();
+      await user.click(
+        screen.getByRole("button", { name: /go to sign in/i }),
+      );
+      expect(onContinue).toHaveBeenCalled();
+    });
+  });
 });

@@ -105,6 +105,12 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
+  if (!user && isDashboard) {
+    const url = request.nextUrl.clone();
+    url.pathname = isHosted ? AUTH_PATH : LOGIN_PATH;
+    return NextResponse.redirect(url);
+  }
+
   if (!user && !isDashboard && !isOnboarding && !isLogin) {
     const url = request.nextUrl.clone();
     url.pathname = isHosted ? AUTH_PATH : LOGIN_PATH;

@@ -1,7 +1,7 @@
-"""Read Supabase credentials from the UI's project registry.
+"""Read Supabase credentials from the UI's workspace registry.
 
-The UI manages a split-file registry at /config/projects.json (public)
-and /config/secrets.json (0600, service role keys). After Phase 2, users
+The UI manages a split-file registry at /config/workspaces.json (public)
+and /config/secrets.json (0600, service role keys). After onboarding, users
 connect Supabase via the browser onboarding screen, so the gateway side
 can't rely on SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY being set in .env
 before boot.
@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Optional
 
 CONFIG_DIR = Path(os.environ.get("HQ_CONFIG_DIR", "/config"))
-REGISTRY_PATH = CONFIG_DIR / "projects.json"
+REGISTRY_PATH = CONFIG_DIR / "workspaces.json"
 SECRETS_PATH = CONFIG_DIR / "secrets.json"
 
 
@@ -60,11 +60,11 @@ def read_from_registry() -> Optional[ResolvedConfig]:
     public = _load_json(REGISTRY_PATH)
     if not public or not isinstance(public, dict):
         return None
-    projects = public.get("projects") or []
+    projects = public.get("workspaces") or public.get("projects") or []
     if not projects:
         return None
 
-    active_id = public.get("activeProjectId")
+    active_id = public.get("activeWorkspaceId") or public.get("activeProjectId")
     project = None
     if active_id:
         project = next((p for p in projects if p.get("id") == active_id), None)
@@ -74,7 +74,7 @@ def read_from_registry() -> Optional[ResolvedConfig]:
         project = projects[0]
 
     secrets_file = _load_json(SECRETS_PATH) or {}
-    project_secrets = (secrets_file.get("projects") or {}).get(project["id"]) or {}
+    project_secrets = (secrets_file.get("workspaces") or secrets_file.get("projects") or {}).get(project["id"]) or {}
     service_role_key = project_secrets.get("serviceRoleKey")
 
     if not project.get("url") or not project.get("anonKey") or not service_role_key:

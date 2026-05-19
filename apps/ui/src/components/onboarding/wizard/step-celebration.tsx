@@ -8,6 +8,7 @@ interface StepCelebrationProps {
   agentName?: string;
   agentEmoji?: string;
   needsManualLogin?: boolean;
+  isHosted?: boolean;
   onContinue: () => void;
 }
 
@@ -16,6 +17,7 @@ export function StepCelebration({
   agentName,
   agentEmoji,
   needsManualLogin,
+  isHosted,
   onContinue,
 }: StepCelebrationProps) {
   const [showContent, setShowContent] = useState(false);
@@ -89,7 +91,9 @@ export function StepCelebration({
           )}
           {needsManualLogin && (
             <p className="text-[14px] text-muted-foreground">
-              We sent a sign-in link to your email. Check your inbox to access your workspace.
+              {isHosted
+                ? "We sent a sign-in link to your email. Check your inbox to access your workspace."
+                : "Your workspace is ready. Sign in with the email and password you just created."}
             </p>
           )}
           <div className="pt-4">

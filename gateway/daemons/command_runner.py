@@ -590,57 +590,50 @@ def handle_auth_set_api_key(cmd_id, payload):
     except Exception:
         pass
 
-    # paste-token writes the key into the auth store as <provider>:<profile_name>.
-    args = [
-        "openclaw",
-        "models",
-        "auth",
-        "paste-token",
-        "--provider",
-        provider,
-        "--profile-id",
-        profile_name,
-    ]
+    # Write auth-profiles.json directly. openclaw's paste-token uses an
+    # interactive TUI prompt that doesn't accept piped stdin, so we write
+    # the file ourselves — same approach handle_auth_remove uses to edit it.
+    state_dir = os.environ.get("OPENCLAW_STATE_DIR", os.path.join(HOME, ".openclaw"))
+    base_url = (payload.get("base_url") or "").strip()
+    profile_id = f"{provider}:{profile_name}"
+
+    import glob as _glob
+
+    auth_paths = _glob.glob(os.path.join(state_dir, "agents", "*", "agent", "auth-profiles.json"))
+    if not auth_paths:
+        # No auth-profiles.json exists yet — create one in the main agent dir.
+        main_auth_dir = os.path.join(state_dir, "agents", "main", "agent")
+        os.makedirs(main_auth_dir, exist_ok=True)
+        auth_paths = [os.path.join(main_auth_dir, "auth-profiles.json")]
+
     try:
-        result = subprocess.run(
-            args,
-            input=api_key + "\n",
-            capture_output=True,
-            text=True,
-            timeout=30,
-            env={**os.environ, "HOME": HOME},
-        )
-        # If the caller supplied a base_url (local_url providers like
-        # Ollama), write it into the auth store so openclaw connects to
-        # the right endpoint. We edit auth-profiles.json directly — same
-        # pattern handle_auth_remove uses.
-        base_url = (payload.get("base_url") or "").strip()
-        if base_url and result.returncode == 0:
-            state_dir = os.environ.get("OPENCLAW_STATE_DIR", os.path.join(HOME, ".openclaw"))
-            import glob as _glob
+        seen = set()
+        for path in auth_paths:
+            real = os.path.realpath(path)
+            if real in seen:
+                continue
+            seen.add(real)
 
-            for path in _glob.glob(os.path.join(state_dir, "agents", "*", "agent", "auth-profiles.json")):
-                real = os.path.realpath(path)
-                try:
-                    with open(real, "r") as f:
-                        doc = json.load(f)
-                    pid = f"{provider}:{profile_name}"
-                    profiles = doc.get("profiles", {})
-                    if pid in profiles:
-                        profiles[pid]["baseUrl"] = base_url
-                        tmp = real + ".tmp"
-                        with open(tmp, "w") as f:
-                            json.dump(doc, f, indent=2)
-                        os.replace(tmp, real)
-                        log(f"Set baseUrl={base_url} for {pid} in {real}")
-                except Exception as e:
-                    log(f"Failed to set baseUrl in {real}: {e}")
+            if os.path.exists(real):
+                with open(real, "r") as f:
+                    doc = json.load(f)
+            else:
+                doc = {"profiles": {}}
 
-        if result.returncode == 0:
-            sync_to_shared_auth()
-            _set_default_model_for_provider(provider, force=True)
+            profile_entry = {"provider": provider, "token": api_key}
+            if base_url:
+                profile_entry["baseUrl"] = base_url
+            doc.setdefault("profiles", {})[profile_id] = profile_entry
 
-        # Scrub the API key from the row immediately on completion.
+            tmp = real + ".tmp"
+            with open(tmp, "w") as f:
+                json.dump(doc, f, indent=2)
+            os.replace(tmp, real)
+            log(f"Wrote {profile_id} to {real}")
+
+        sync_to_shared_auth()
+        _set_default_model_for_provider(provider, force=True)
+
         scrubbed = {k: v for k, v in payload.items() if k not in ("api_key", "base_url")}
         scrubbed["api_key_scrubbed"] = True
         if base_url:
@@ -649,39 +642,18 @@ def handle_auth_set_api_key(cmd_id, payload):
             api_patch("agent_commands", cmd_id, {"payload": scrubbed})
         except Exception:
             pass
-        if result.returncode == 0:
-            api_rpc(
-                "complete_command",
-                {
-                    "p_command_id": cmd_id,
-                    "p_exit_code": 0,
-                    "p_stdout": (result.stdout or "")[-2000:],
-                    "p_stderr": (result.stderr or "")[-2000:],
-                },
-            )
-        else:
-            api_rpc(
-                "fail_command",
-                {
-                    "p_command_id": cmd_id,
-                    "p_exit_code": result.returncode,
-                    "p_stdout": (result.stdout or "")[-2000:],
-                    "p_stderr": (result.stderr or "")[-2000:],
-                    "p_error": f"openclaw exit {result.returncode}",
-                },
-            )
-    except subprocess.TimeoutExpired:
+
         api_rpc(
-            "fail_command",
+            "complete_command",
             {
                 "p_command_id": cmd_id,
-                "p_exit_code": None,
-                "p_stdout": None,
+                "p_exit_code": 0,
+                "p_stdout": f"Saved {profile_id}",
                 "p_stderr": None,
-                "p_error": "openclaw paste-token timed out",
             },
         )
     except Exception as e:
+        log(f"Failed to write auth-profiles.json: {e}")
         api_rpc(
             "fail_command",
             {
@@ -1305,12 +1277,23 @@ def sync_to_shared_auth():
     existing = [p for p in agent_auth_files if os.path.exists(p)]
 
     if not existing:
-        # openclaw may have written to a gateway-level auth location
         gateway_auth = os.path.join(state_dir, "auth-profiles.json")
         if os.path.exists(gateway_auth):
             existing = [gateway_auth]
-        else:
-            return
+
+    if not existing:
+        # Broad search: openclaw may write auth to a subdirectory we don't
+        # anticipate (e.g. gateway/agent/, a default profile dir, etc.).
+        # Walk the state dir to find any auth-profiles.json we missed.
+        for root, _dirs, files in os.walk(state_dir):
+            if "shared-auth" in root:
+                continue
+            if "auth-profiles.json" in files:
+                existing.append(os.path.join(root, "auth-profiles.json"))
+
+    if not existing:
+        log("sync_to_shared_auth: no auth-profiles.json found anywhere under " + state_dir)
+        return
 
     best = None
     best_mtime = 0
@@ -2011,6 +1994,7 @@ def execute_command(command_row):
             log(f"Command {cmd_id} completed successfully (exit 0)")
 
             if action == "provision":
+                sync_to_shared_auth()
                 try:
                     subprocess.run(
                         ["bash", "-c", "kill -HUP $(pgrep -f 'openclaw gateway run' | head -1) 2>/dev/null || true"],

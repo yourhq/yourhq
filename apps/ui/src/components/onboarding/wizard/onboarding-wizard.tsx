@@ -673,24 +673,47 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
           return;
         }
 
-        // Sign in client-side so the dashboard layout's getUser() finds a session
-        try {
-          const { createClient } = await import("@/lib/supabase/client");
-          const supabase = createClient();
-          await supabase.auth.signInWithPassword({
-            email: creds.email,
-            password: creds.password,
-          });
-        } catch {
-          // If sign-in fails the user can sign in manually from /login
+        // Sign in client-side so the dashboard layout's getUser() finds a session.
+        // The root layout's HqConfigProvider was rendered before the workspace existed,
+        // so createClient() returns a placeholder. Build the client directly from
+        // wizard state instead.
+        let signedIn = false;
+        const wsUrl = data.supabaseUrl as string | undefined;
+        const wsAnonKey = data.supabaseAnonKey as string | undefined;
+        const wsId = data.projectId as string | undefined;
+        if (wsUrl && wsAnonKey && wsId) {
+          try {
+            const { createBrowserClient } = await import("@supabase/ssr");
+            const { setHqConfig } = await import("@/lib/workspaces/hq-config-provider");
+            setHqConfig({
+              workspaceId: wsId,
+              url: wsUrl,
+              anonKey: wsAnonKey,
+              label: data.workspaceName as string ?? "My workspace",
+              emoji: "🏠",
+            });
+            const supabase = createBrowserClient(wsUrl, wsAnonKey, {
+              cookieOptions: { name: `hq-${wsId.slice(0, 8)}` },
+            });
+            const { error: signInError } = await supabase.auth.signInWithPassword({
+              email: creds.email,
+              password: creds.password,
+            });
+            signedIn = !signInError;
+          } catch {
+            // Fall through — user will be asked to sign in manually
+          }
         }
 
         identifyUser(creds.email, { email: creds.email });
 
+        if (!signedIn) {
+          setNeedsManualLogin(true);
+        }
         setShowCelebration(true);
       });
     },
-    [startTransition],
+    [startTransition, data.supabaseUrl, data.supabaseAnonKey, data.projectId, data.workspaceName],
   );
 
   // ─── Render ───
@@ -744,7 +767,8 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
               agentName={data.agentName as string | undefined}
               agentEmoji={data.agentEmoji as string | undefined}
               needsManualLogin={needsManualLogin}
-              onContinue={needsManualLogin ? () => window.location.assign("/auth") : navigateToTasks}
+              isHosted={isHosted}
+              onContinue={needsManualLogin ? () => window.location.assign(isHosted ? "/auth" : "/login") : navigateToTasks}
             />
           </div>
         ) : (

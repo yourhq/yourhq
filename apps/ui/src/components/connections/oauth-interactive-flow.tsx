@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Loader2,
   Copy,
   ExternalLink,
   CheckCircle2,
   AlertTriangle,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ConnectionCommandState } from "@/lib/connections/types";
@@ -58,10 +59,8 @@ function PreFlowGuidance({ context }: { context: OAuthFlowContext }) {
           We&apos;ll open {providerDisplayName} in a new tab.
         </GuidanceStep>
         <GuidanceStep n={2}>
-          Sign in.{" "}
-          <span className="text-foreground">
-            This will close on its own — nothing else to do.
-          </span>
+          Sign in — this should close on its own. If it doesn&apos;t,
+          we&apos;ll give you a way to paste the redirect URL manually.
         </GuidanceStep>
       </GuidanceBox>
     );
@@ -134,6 +133,8 @@ function DeadRedirectHint() {
 
 // ─── Main component ─────────────────────────────────────────────────
 
+const AUTO_CALLBACK_FALLBACK_MS = 15_000;
+
 export function OAuthInteractiveFlow({
   state,
   context,
@@ -145,11 +146,25 @@ export function OAuthInteractiveFlow({
   const [pasted, setPasted] = useState("");
   const [copied, setCopied] = useState<"url" | "code" | null>(null);
   const [pasteSubmitted, setPasteSubmitted] = useState(false);
+  const [showAutoCallbackFallback, setShowAutoCallbackFallback] = useState(false);
+  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { mode, autoCallback } = context;
   if (error && pasteSubmitted) {
     setPasteSubmitted(false);
   }
+
+  useEffect(() => {
+    if (autoCallback && (state.stage === "url_ready" || state.stage === "polling")) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setShowAutoCallbackFallback(false);
+      fallbackTimerRef.current = setTimeout(() => setShowAutoCallbackFallback(true), AUTO_CALLBACK_FALLBACK_MS);
+      return () => {
+        if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
+      };
+    }
+    setShowAutoCallbackFallback(false);
+  }, [autoCallback, state.stage]);
 
   const verifying = pasteSubmitted && !submittingPaste && state.stage !== "completed" && state.stage !== "failed";
 
@@ -249,14 +264,94 @@ export function OAuthInteractiveFlow({
               Waiting for you to approve in your browser…
             </div>
           ) : autoCallback ? (
-            <div className="space-y-1.5 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Waiting for sign-in to complete…
-              </div>
-              <p className="text-[10.5px] text-muted-foreground/70">
-                This will close automatically once you finish signing in.
-              </p>
+            <div className="space-y-3">
+              {!showAutoCallbackFallback ? (
+                <div className="space-y-1.5 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Waiting for sign-in to complete…
+                  </div>
+                  <p className="text-[10.5px] text-muted-foreground/70">
+                    This will close automatically once you finish signing in.
+                  </p>
+                </div>
+              ) : verifying ? (
+                <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5 text-[12px] text-foreground animate-in fade-in duration-200">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                  Verifying credentials — this can take a few seconds…
+                </div>
+              ) : (
+                <div className="rounded-lg border border-amber-500/20 bg-amber-500/[0.04] px-3.5 py-3 space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="flex items-start gap-2.5">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500/70" />
+                    <div className="space-y-1 text-[12px]">
+                      <p className="font-medium text-foreground">
+                        Sign-in not detected automatically
+                      </p>
+                      <p className="text-muted-foreground leading-relaxed">
+                        If you signed in and ended up on a page that won&apos;t load
+                        (or shows a 404), that&apos;s normal — it means the redirect wasn&apos;t
+                        captured. Copy the{" "}
+                        <span className="font-medium text-foreground">full URL</span> from
+                        that tab&apos;s address bar and paste it below.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-medium text-foreground">
+                      Paste the redirect URL
+                    </label>
+                    <div className="flex gap-1.5">
+                      <input
+                        value={pasted}
+                        onChange={(e) => setPasted(e.target.value)}
+                        placeholder="http://localhost:1455/callback?code=…"
+                        className="flex h-9 w-full min-w-0 rounded-lg border border-border/60 bg-background px-3 text-[11px] font-mono outline-none placeholder:text-muted-foreground/40 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && pasted.trim()) {
+                            setPasteSubmitted(true);
+                            onPaste(pasted.trim());
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        disabled={!pasted.trim() || submittingPaste}
+                        onClick={() => {
+                          if (pasted.trim()) {
+                            setPasteSubmitted(true);
+                            onPaste(pasted.trim());
+                          }
+                        }}
+                        className={cn(
+                          "shrink-0 inline-flex h-9 items-center rounded-lg px-3 text-[12px] font-medium transition-colors",
+                          !pasted.trim() || submittingPaste
+                            ? "cursor-not-allowed bg-muted text-muted-foreground/50"
+                            : "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]",
+                        )}
+                      >
+                        {submittingPaste ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          "Submit"
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {showAutoCallbackFallback && !verifying && (
+                <button
+                  type="button"
+                  onClick={() => setShowAutoCallbackFallback(false)}
+                  className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                >
+                  <ChevronDown className="h-3 w-3 rotate-180" />
+                  Still waiting — hide paste field
+                </button>
+              )}
             </div>
           ) : verifying ? (
             <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5 text-[12px] text-foreground animate-in fade-in duration-200">

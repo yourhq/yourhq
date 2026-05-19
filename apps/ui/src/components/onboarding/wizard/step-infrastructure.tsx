@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ArrowRight, Check, Loader2, AlertCircle, ExternalLink, Copy, CheckCheck, ChevronDown, Database, Server } from "lucide-react";
+import { ArrowRight, Check, Loader2, AlertCircle, ExternalLink, Copy, CheckCheck, ChevronDown, Database, Server, Zap, FileCode } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type GatewayPlacement = "local" | "remote";
@@ -37,14 +37,21 @@ export interface StepInfrastructureProps {
 
 const SUPABASE_REGIONS = [
   { value: "us-east-1", label: "US East (N. Virginia)" },
+  { value: "us-east-2", label: "US East (Ohio)" },
   { value: "us-west-1", label: "US West (N. California)" },
   { value: "us-west-2", label: "US West (Oregon)" },
+  { value: "ca-central-1", label: "Canada (Central)" },
   { value: "eu-west-1", label: "EU West (Ireland)" },
   { value: "eu-west-2", label: "EU West (London)" },
+  { value: "eu-west-3", label: "EU West (Paris)" },
   { value: "eu-central-1", label: "EU Central (Frankfurt)" },
-  { value: "ap-southeast-1", label: "Asia Pacific (Singapore)" },
-  { value: "ap-southeast-2", label: "Asia Pacific (Sydney)" },
-  { value: "ap-northeast-1", label: "Asia Pacific (Tokyo)" },
+  { value: "eu-central-2", label: "EU Central (Zurich)" },
+  { value: "eu-north-1", label: "EU North (Stockholm)" },
+  { value: "ap-south-1", label: "South Asia (Mumbai)" },
+  { value: "ap-southeast-1", label: "Southeast Asia (Singapore)" },
+  { value: "ap-southeast-2", label: "Oceania (Sydney)" },
+  { value: "ap-northeast-1", label: "Northeast Asia (Tokyo)" },
+  { value: "ap-northeast-2", label: "Northeast Asia (Seoul)" },
   { value: "sa-east-1", label: "South America (São Paulo)" },
 ];
 
@@ -155,23 +162,48 @@ function SchemaInstallPanel({
       </div>
 
       {/* Two-path layout: auto + manual side by side on desktop */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         {/* Auto-install path */}
-        <div className={cn(
-          "space-y-3 rounded-lg border p-4 transition-all",
-          !showManual
-            ? "border-foreground/20 bg-foreground/[0.02]"
-            : "border-border/40 bg-transparent cursor-pointer hover:border-border/60",
-        )}>
-          <button
-            type="button"
-            onClick={() => setShowManual(false)}
-            className="text-[12px] font-semibold text-foreground"
-          >
-            Automatic install
-          </button>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setShowManual(false)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowManual(false); } }}
+          className={cn(
+            "rounded-lg border p-4 transition-all",
+            !showManual
+              ? "border-foreground/20 bg-foreground/[0.02]"
+              : "border-border/40 bg-transparent cursor-pointer hover:border-border/60 hover:bg-foreground/[0.01]",
+          )}
+        >
+          <div className="flex items-center gap-2.5">
+            <div className={cn(
+              "flex h-7 w-7 items-center justify-center rounded-lg transition-colors",
+              !showManual ? "bg-primary/10 text-primary" : "bg-muted/60 text-muted-foreground/60",
+            )}>
+              <Zap className="h-3.5 w-3.5" />
+            </div>
+            <div className="flex-1">
+              <p className={cn(
+                "text-[12px] font-semibold",
+                !showManual ? "text-foreground" : "text-foreground/70",
+              )}>
+                Automatic install
+              </p>
+              {showManual && (
+                <p className="text-[11px] text-muted-foreground/50 mt-0.5">
+                  We handle everything — just provide your DB password
+                </p>
+              )}
+            </div>
+            {!showManual && (
+              <div className="flex h-4 w-4 items-center justify-center rounded-full bg-primary">
+                <Check className="h-2.5 w-2.5 text-primary-foreground" strokeWidth={3} />
+              </div>
+            )}
+          </div>
           {!showManual && (
-            <div className="space-y-3 animate-in fade-in duration-200">
+            <div className="mt-3 space-y-3 animate-in fade-in duration-200" onClick={(e) => e.stopPropagation()}>
               <div className="space-y-2">
                 <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
                   Region
@@ -225,21 +257,46 @@ function SchemaInstallPanel({
         </div>
 
         {/* Manual SQL path */}
-        <div className={cn(
-          "space-y-3 rounded-lg border p-4 transition-all",
-          showManual
-            ? "border-foreground/20 bg-foreground/[0.02]"
-            : "border-border/40 bg-transparent cursor-pointer hover:border-border/60",
-        )}>
-          <button
-            type="button"
-            onClick={() => setShowManual(true)}
-            className="text-[12px] font-semibold text-foreground"
-          >
-            Manual SQL
-          </button>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setShowManual(true)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowManual(true); } }}
+          className={cn(
+            "rounded-lg border p-4 transition-all",
+            showManual
+              ? "border-foreground/20 bg-foreground/[0.02]"
+              : "border-border/40 bg-transparent cursor-pointer hover:border-border/60 hover:bg-foreground/[0.01]",
+          )}
+        >
+          <div className="flex items-center gap-2.5">
+            <div className={cn(
+              "flex h-7 w-7 items-center justify-center rounded-lg transition-colors",
+              showManual ? "bg-primary/10 text-primary" : "bg-muted/60 text-muted-foreground/60",
+            )}>
+              <FileCode className="h-3.5 w-3.5" />
+            </div>
+            <div className="flex-1">
+              <p className={cn(
+                "text-[12px] font-semibold",
+                showManual ? "text-foreground" : "text-foreground/70",
+              )}>
+                Manual SQL
+              </p>
+              {!showManual && (
+                <p className="text-[11px] text-muted-foreground/50 mt-0.5">
+                  Copy and run the SQL yourself in Supabase
+                </p>
+              )}
+            </div>
+            {showManual && (
+              <div className="flex h-4 w-4 items-center justify-center rounded-full bg-primary">
+                <Check className="h-2.5 w-2.5 text-primary-foreground" strokeWidth={3} />
+              </div>
+            )}
+          </div>
           {showManual && (
-            <div className="space-y-3 animate-in fade-in duration-200">
+            <div className="mt-3 space-y-3 animate-in fade-in duration-200" onClick={(e) => e.stopPropagation()}>
               <p className="text-[12px] text-muted-foreground">
                 Open your Supabase SQL editor, paste the script below, and click{" "}
                 <span className="font-medium text-foreground">Run</span>.
