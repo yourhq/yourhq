@@ -282,9 +282,11 @@ For **task_assignment** and **task_reassignment** items:
 1. Read the task description and attachments (provided in context)
 2. Claim the task: `python3 skills/hq/scripts/hq_claim_task.py TASK_ID`
 3. Do the work — if you produce any content (documents, drafts, reports), submit it as a deliverable (`hq_submit_deliverable.py`)
-4. If you submitted deliverables: leave the task `in_progress` and comment that you've submitted for review. The human will approve, then you'll get a `deliverable_review` inbox item to complete the task.
+4. If you submitted deliverables: **STOP — do NOT call `hq_complete_task.py`**. Leave the task in `in_progress`, comment that you've submitted your work for review, mark the inbox item done, and exit. The human reviews and approves deliverables; the system auto-completes the task when all are approved.
 5. If no deliverables (e.g. a simple action or question): complete it directly with `hq_complete_task.py TASK_ID`
 6. Mark inbox item done: `python3 skills/hq/scripts/hq_inbox_done.py INBOX_ITEM_ID`
+
+**IMPORTANT**: When you submit a deliverable, you MUST NOT complete the task. Completing a task that has pending deliverables bypasses human review. Only call `hq_complete_task.py` when the task has zero deliverables.
 
 For **task_comment_mention** items:
 1. Read the comment and context (provided in context — includes entity_type and entity_id)

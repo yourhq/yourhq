@@ -16,6 +16,28 @@ if len(sys.argv) < 2:
 task_id = sys.argv[1]
 summary_msg = sys.argv[2] if len(sys.argv) > 2 else None
 
+pending_deliverables = api_get(
+    "entity_links",
+    {
+        "select": "id,label,review_status",
+        "owner_type": "eq.task",
+        "owner_id": f"eq.{task_id}",
+        "is_deliverable": "eq.true",
+        "review_status": "neq.approved",
+    },
+)
+if pending_deliverables:
+    labels = [d.get("label", "Untitled") for d in pending_deliverables]
+    output(
+        {
+            "error": "pending_deliverables",
+            "message": "Cannot complete task — deliverables are awaiting human review. "
+            "The task will auto-complete when all deliverables are approved.",
+            "pending": labels,
+        }
+    )
+    sys.exit(0)
+
 api_patch("tasks", task_id, {"status": "done"})
 audit(
     "tasks",
