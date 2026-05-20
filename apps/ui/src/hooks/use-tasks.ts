@@ -285,11 +285,26 @@ export function useTasks() {
     [statusFilter, streamFilter, priorityFilter, assigneeFilter, labelFilter, showArchived]
   );
 
+  const setTasksAndSyncEditing = useCallback<React.Dispatch<React.SetStateAction<Task[]>>>(
+    (update) => {
+      setTasks((prev) => {
+        const next = typeof update === "function" ? update(prev) : update;
+        setEditingTask((current) => {
+          if (!current) return current;
+          const fresh = next.find((t) => t.id === current.id);
+          return fresh ?? current;
+        });
+        return next;
+      });
+    },
+    []
+  );
+
   useRealtimeSync<Task>({
     table: "tasks",
     select: "*, stream:streams(id, name, color, icon), assignee_agent:agents!tasks_assignee_agent_id_fkey(id, name, slug, avatar_url, meta), series:task_series(id, cadence_type, interval_n, days_of_week, day_of_month, time_of_day, timezone)",
     items: tasks,
-    setItems: setTasks,
+    setItems: setTasksAndSyncEditing,
     filter: "parent_id=is.null",
     postProcess: taskPostProcess,
     shouldInclude: shouldIncludeTask,
@@ -455,13 +470,17 @@ export function useTasks() {
   }
 
   function closeForm() {
+    const wasEditing = !!editingTask;
     setShowForm(false);
     setEditingTask(null);
     updateUrl({ task: null });
+    if (wasEditing) fetchTasks();
   }
 
   function onFormSaved(createdTaskId?: string) {
-    closeForm();
+    setShowForm(false);
+    setEditingTask(null);
+    updateUrl({ task: null });
     fetchTasks().then(() => {
       if (createdTaskId) openTaskById(createdTaskId);
     });
@@ -471,13 +490,13 @@ export function useTasks() {
   // Used by deep-link handling when the page reads `?task=<id>`.
   const openTaskById = useCallback(
     async (id: string) => {
+      // Show local version immediately for responsiveness, then replace with fresh DB data
       const local = tasks.find((t) => t.id === id);
       if (local) {
         setEditingTask(local);
         setShowForm(true);
         setSelectedTask(null);
         updateUrl({ task: id });
-        return;
       }
       const { data } = await supabase
         .from("tasks")
@@ -487,10 +506,13 @@ export function useTasks() {
         .eq("id", id)
         .maybeSingle();
       if (data) {
-        setEditingTask(data as unknown as Task);
-        setShowForm(true);
-        setSelectedTask(null);
-        updateUrl({ task: id });
+        const task = data as unknown as Task;
+        setEditingTask(task);
+        if (!local) {
+          setShowForm(true);
+          setSelectedTask(null);
+          updateUrl({ task: id });
+        }
       }
     },
     [supabase, tasks, updateUrl]

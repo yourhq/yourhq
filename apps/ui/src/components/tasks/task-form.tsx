@@ -113,6 +113,35 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
   const { actions: seriesActions } = useTaskSeries();
   const editingSeriesId = editingTask?.series_id ?? null;
 
+  // Sync local state when editingTask prop receives a fresh version from the DB
+  // (e.g. openTaskById fetches after initial render with cached data)
+  const lastSyncedIdRef = useRef<string | null>(editingTask?.id ?? null);
+  const lastSyncedAtRef = useRef<string | null>(editingTask?.updated_at ?? null);
+  useEffect(() => {
+    if (!editingTask) return;
+    const sameId = editingTask.id === lastSyncedIdRef.current;
+    const sameVersion = editingTask.updated_at === lastSyncedAtRef.current;
+    if (sameId && sameVersion) return;
+    lastSyncedIdRef.current = editingTask.id;
+    lastSyncedAtRef.current = editingTask.updated_at ?? null;
+    if (!sameId || !sameVersion) {
+      setTitleRaw(editingTask.title ?? "");
+      setDescriptionRaw(editingTask.description ?? "");
+      setStatusRaw(editingTask.status ?? "todo");
+      setPriorityRaw(editingTask.priority ?? "medium");
+      setStreamIdRaw(editingTask.stream_id ?? "none");
+      setAssigneeRaw(
+        editingTask.assignee_type === "human"
+          ? "me"
+          : editingTask.assignee_agent_id ?? "none"
+      );
+      setDueDateRaw(editingTask.due_date ?? null);
+      setSavedTaskId(editingTask.id);
+      setModelOverrideRaw(editingTask.model_override ?? null);
+      setThinkingOverrideRaw(editingTask.thinking_override ?? null);
+    }
+  }, [editingTask]);
+
   // --- Auto-save infrastructure (only for existing tasks) ---
 
   const pendingFieldsRef = useRef<Record<string, unknown>>({});
