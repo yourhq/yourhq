@@ -555,7 +555,13 @@ def test_sync_secrets_preserves_entrypoint_creds_in_gateway_env(monkeypatch, tmp
             return [{"id": "gw-uuid"}]
         if "secrets" in table:
             return [
-                {"id": "s1", "agent_id": None, "key": "CUSTOM_TOKEN", "encrypted_value": "enc:my-token", "sync_status": "pending"},
+                {
+                    "id": "s1",
+                    "agent_id": None,
+                    "key": "CUSTOM_TOKEN",
+                    "encrypted_value": "enc:my-token",
+                    "sync_status": "pending",
+                },
             ]
         return []
 

@@ -81,7 +81,7 @@ CREATE INDEX IF NOT EXISTS idx_entity_links_deliverables
 CREATE INDEX IF NOT EXISTS idx_entity_links_submitted_by
   ON entity_links(submitted_by_agent_id) WHERE submitted_by_agent_id IS NOT NULL;
 
--- ── Notify agent when deliverable needs revision ──────────────────
+-- ── Auto-complete tasks when all deliverables approved, notify agent on revision/rejection ──
 
 CREATE OR REPLACE FUNCTION notify_deliverable_review()
 RETURNS TRIGGER
@@ -91,13 +91,40 @@ AS $$
 DECLARE
   v_agent RECORD;
   v_dedup_key text;
+  v_pending_count integer;
 BEGIN
   IF NEW.is_deliverable = false OR NEW.submitted_by_agent_id IS NULL THEN
     RETURN NEW;
   END IF;
 
-  IF OLD.review_status IS DISTINCT FROM NEW.review_status
-     AND NEW.review_status IN ('revision_requested', 'rejected') THEN
+  IF OLD.review_status IS NOT DISTINCT FROM NEW.review_status THEN
+    RETURN NEW;
+  END IF;
+
+  -- On approval: check if all deliverables on the task are now approved
+  -- and auto-complete the task if so.
+  IF NEW.review_status = 'approved' AND NEW.owner_type = 'task' THEN
+    SELECT count(*) INTO v_pending_count
+    FROM public.entity_links
+    WHERE owner_type = 'task'
+      AND owner_id = NEW.owner_id
+      AND is_deliverable = true
+      AND (review_status IS NULL OR review_status != 'approved');
+
+    IF v_pending_count = 0 THEN
+      UPDATE public.tasks
+      SET status = 'done',
+          completed_at = now(),
+          updated_at = now()
+      WHERE id = NEW.owner_id
+        AND status != 'done';
+    END IF;
+
+    RETURN NEW;
+  END IF;
+
+  -- On revision_requested or rejected: notify the agent via inbox
+  IF NEW.review_status IN ('revision_requested', 'rejected') THEN
     SELECT id, slug, tenant_id INTO v_agent
     FROM public.agents WHERE id = NEW.submitted_by_agent_id;
 
@@ -111,7 +138,7 @@ BEGIN
         v_agent.id,
         v_agent.slug,
         'deliverable_review',
-        CASE WHEN NEW.owner_type = 'task' THEN NEW.owner_id ELSE NULL END,
+        NEW.owner_id,
         CASE
           WHEN NEW.review_status = 'revision_requested'
             THEN 'Revision requested on deliverable: ' || COALESCE(NEW.label, 'Untitled')
@@ -137,6 +164,8 @@ DROP TRIGGER IF EXISTS entity_links_deliverable_review ON entity_links;
 CREATE TRIGGER entity_links_deliverable_review
   AFTER UPDATE OF review_status ON entity_links
   FOR EACH ROW EXECUTE FUNCTION notify_deliverable_review();
+
+GRANT EXECUTE ON FUNCTION notify_deliverable_review() TO authenticated, service_role;
 
 -- ── Grants ─────────────────────────────────────────────────────────
 
