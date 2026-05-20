@@ -185,7 +185,6 @@ def test_handle_new_item_enriches_task_assignment_with_blockers(monkeypatch):
     monkeypatch.setattr(mod, "SUPABASE_URL", "https://test.supabase.co")
     monkeypatch.setattr(mod, "SUPABASE_KEY", "test-key")
 
-
     with mod.LOCAL_AGENT_IDS_LOCK:
         mod.LOCAL_AGENT_IDS.clear()
         mod.LOCAL_AGENT_IDS.add("uuid-1")
@@ -250,7 +249,6 @@ def test_handle_new_item_no_blockers_no_enrichment(monkeypatch):
     monkeypatch.setattr(mod, "SUPABASE_URL", "https://test.supabase.co")
     monkeypatch.setattr(mod, "SUPABASE_KEY", "test-key")
 
-
     with mod.LOCAL_AGENT_IDS_LOCK:
         mod.LOCAL_AGENT_IDS.clear()
         mod.LOCAL_AGENT_IDS.add("uuid-1")
@@ -303,7 +301,6 @@ def test_handle_new_item_non_task_assignment_skips_enrichment(monkeypatch):
 
     monkeypatch.setattr(mod, "SUPABASE_URL", "https://test.supabase.co")
     monkeypatch.setattr(mod, "SUPABASE_KEY", "test-key")
-
 
     with mod.LOCAL_AGENT_IDS_LOCK:
         mod.LOCAL_AGENT_IDS.clear()
