@@ -206,9 +206,9 @@ python3 skills/hq/scripts/hq_submit_deliverable.py --task-id TASK_ID --type url 
 Use this when the task asks you to **produce something** — a document, a draft, a report, a PR. The human will review it (approve, request revision, or reject). Deliverables appear in a dedicated review section on the task.
 
 **When to use deliverables vs knowledge:**
-- The task says "write", "draft", "create", "produce", "prepare", or "submit" something → **deliverable** (`hq_submit_deliverable.py`)
-- You're saving research notes, reference material, or reusable info for later → **knowledge** (`hq_create_doc.py`)
-- You need to attach an existing document or link as context → **attachment** (`hq_attach_to_task.py`)
+- You produced content for a task (any task, any content) → **deliverable** (`hq_submit_deliverable.py`). This includes research summaries, drafts, reports, guides — anything the human should be able to review.
+- You're saving something independent of any task (learned a skill, noting reference material for later) → **knowledge** (`hq_create_doc.py`)
+- You need to attach an existing document or link as context for a task → **attachment** (`hq_attach_to_task.py`)
 
 ### Revise a deliverable after feedback
 ```bash
@@ -281,9 +281,10 @@ python3 skills/hq/scripts/hq_inbox_process.py --batch 3
 For **task_assignment** and **task_reassignment** items:
 1. Read the task description and attachments (provided in context)
 2. Claim the task: `python3 skills/hq/scripts/hq_claim_task.py TASK_ID`
-3. Do the work — if the task asks you to produce a document, draft, or work product, submit it as a deliverable (`hq_submit_deliverable.py`) so the human can review it
-4. Complete it: `python3 skills/hq/scripts/hq_complete_task.py TASK_ID`
-5. Mark inbox item done: `python3 skills/hq/scripts/hq_inbox_done.py INBOX_ITEM_ID`
+3. Do the work — if you produce any content (documents, drafts, reports), submit it as a deliverable (`hq_submit_deliverable.py`)
+4. If you submitted deliverables: leave the task `in_progress` and comment that you've submitted for review. The human will approve, then you'll get a `deliverable_review` inbox item to complete the task.
+5. If no deliverables (e.g. a simple action or question): complete it directly with `hq_complete_task.py TASK_ID`
+6. Mark inbox item done: `python3 skills/hq/scripts/hq_inbox_done.py INBOX_ITEM_ID`
 
 For **task_comment_mention** items:
 1. Read the comment and context (provided in context — includes entity_type and entity_id)
@@ -332,10 +333,11 @@ Routines are recurring agent behaviors — scheduled checks and event-driven rea
 ### Handling routine inbox items
 
 For **deliverable_review** items:
-1. Read the review feedback from `context.review_note` and `context.review_status`
-2. If `revision_requested`: revise the deliverable using `hq_submit_deliverable.py --update --deliverable-id DELIVERABLE_ID --title "..." --content "revised content"`
-3. If `rejected`: read the note, comment on the task acknowledging the feedback
-4. Mark inbox item done: `python3 skills/hq/scripts/hq_inbox_done.py INBOX_ITEM_ID`
+1. Read `context.review_status` and `context.review_note`
+2. If `approved`: check whether ALL deliverables on the task are now approved. If yes, complete the task with `hq_complete_task.py TASK_ID` and comment confirming completion. If other deliverables are still pending review, just acknowledge and wait.
+3. If `revision_requested`: revise the deliverable using `hq_submit_deliverable.py --update --deliverable-id DELIVERABLE_ID --title "..." --content "revised content"` incorporating the feedback from `review_note`
+4. If `rejected`: read the note, comment on the task acknowledging the feedback
+5. Mark inbox item done: `python3 skills/hq/scripts/hq_inbox_done.py INBOX_ITEM_ID`
 
 For **routine_schedule** items:
 1. Read the instruction from `context.instruction` — it tells you what to do
