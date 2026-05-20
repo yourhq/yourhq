@@ -353,7 +353,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
           setInfraStatus((s) => ({ ...s, db: "error", dbError: r.error }));
           return;
         }
-        patch({ supabaseUrl: url, supabaseAnonKey: anonKey });
+        patch({ supabaseUrl: url, supabaseAnonKey: anonKey, ...(r.workspaceId ? { projectId: r.workspaceId } : {}) });
         if (r.schemaNeeded) {
           dbCredsRef.current = { url, anonKey, serviceRoleKey };
           const prep = await prepareSchemaInstallAction({ url, anonKey, serviceRoleKey });
@@ -406,7 +406,8 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
     startTransition(async () => {
       const r = await confirmSchemaInstalledAction(creds);
       if (r.ok) {
-        await saveWorkspaceToRegistry(creds);
+        const wsId = await saveWorkspaceToRegistry(creds);
+        patch({ projectId: wsId });
         trackEvent("onboarding_db_connected", { schema_needed: true, method: "sql_editor" });
         setSchemaInstall({ phase: "idle" });
         setInfraStatus((s) => ({ ...s, db: "connected" }));

@@ -95,6 +95,7 @@ export interface ValidateDbResult extends ActionResult {
   schemaNeeded?: boolean;
   projectRef?: string | null;
   sqlEditorUrl?: string;
+  workspaceId?: string;
 }
 
 export async function validateAndConnectDb(input: {
@@ -128,18 +129,18 @@ export async function validateAndConnectDb(input: {
 
   // Schema is present — save the workspace to the registry so the gateway
   // step can look it up via getActiveWorkspaceWithSecrets().
-  await saveWorkspaceToRegistry(parsed.data);
+  const workspaceId = await saveWorkspaceToRegistry(parsed.data);
 
-  return { ok: true, schemaNeeded: false };
+  return { ok: true, schemaNeeded: false, workspaceId };
 }
 
 export async function saveWorkspaceToRegistry(creds: {
   url: string;
   anonKey: string;
   serviceRoleKey: string;
-}) {
+}): Promise<string> {
   const existing = await getActiveWorkspace();
-  if (existing?.url === creds.url) return;
+  if (existing?.url === creds.url) return existing.id;
 
   const workspace = await addWorkspace({
     label: "My workspace",
@@ -154,6 +155,7 @@ export async function saveWorkspaceToRegistry(creds: {
   jar.set(ACTIVE_WORKSPACE_COOKIE, workspace.id, ACTIVE_WORKSPACE_COOKIE_OPTIONS);
 
   await patchOnboardingState({ data: { projectId: workspace.id } });
+  return workspace.id;
 }
 
 export async function setupGateway(

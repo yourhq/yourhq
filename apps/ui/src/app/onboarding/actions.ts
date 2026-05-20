@@ -674,6 +674,11 @@ export interface GatewayBootstrap {
 }
 
 export async function startLocalGatewayAction(): Promise<ActionResult<GatewayBootstrap>> {
+  const state = await getOnboardingState();
+  if (state?.complete) {
+    return { ok: false, error: "Onboarding is already complete." };
+  }
+
   const available = await dockerAvailable();
   if (!available) {
     return {
@@ -1017,8 +1022,10 @@ export async function finalizeOnboarding(): Promise<ActionResult> {
   }
 
   await patchOnboardingState({ step: "done", complete: true });
-  revalidatePath("/");
-  revalidatePath("/onboarding");
+  // Only revalidate dashboard — the client wizard handles the transition
+  // from /onboarding (celebration screen → navigate). Revalidating
+  // /onboarding here causes a server redirect to /dashboard before the
+  // client-side sign-in completes, bouncing users to /login.
   revalidatePath("/dashboard");
   return { ok: true };
 }
