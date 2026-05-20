@@ -101,8 +101,6 @@ def test_wake_agent_passes_model_and_thinking_overrides(monkeypatch):
 
     monkeypatch.setattr(mod, "SUPABASE_URL", "https://test.supabase.co")
     monkeypatch.setattr(mod, "SUPABASE_KEY", "test-key")
-    monkeypatch.setattr(mod, "WORKSPACE_SLUG", "ws")
-
     captured_args = []
 
     def fake_popen(cmd, **kwargs):
@@ -141,7 +139,7 @@ def test_wake_agent_passes_model_and_thinking_overrides(monkeypatch):
     assert "--thinking" in cmd
     assert "high" in cmd
     assert "--agent" in cmd
-    assert "ws/agent-1" in cmd
+    assert "agent-1" in cmd
 
 
 def test_wake_agent_without_overrides(monkeypatch):
@@ -149,7 +147,6 @@ def test_wake_agent_without_overrides(monkeypatch):
 
     monkeypatch.setattr(mod, "SUPABASE_URL", "https://test.supabase.co")
     monkeypatch.setattr(mod, "SUPABASE_KEY", "test-key")
-    monkeypatch.setattr(mod, "WORKSPACE_SLUG", "ws")
 
     captured_args = []
 
@@ -187,7 +184,7 @@ def test_handle_new_item_enriches_task_assignment_with_blockers(monkeypatch):
 
     monkeypatch.setattr(mod, "SUPABASE_URL", "https://test.supabase.co")
     monkeypatch.setattr(mod, "SUPABASE_KEY", "test-key")
-    monkeypatch.setattr(mod, "WORKSPACE_SLUG", "ws")
+
 
     with mod.LOCAL_AGENT_IDS_LOCK:
         mod.LOCAL_AGENT_IDS.clear()
@@ -252,7 +249,7 @@ def test_handle_new_item_no_blockers_no_enrichment(monkeypatch):
 
     monkeypatch.setattr(mod, "SUPABASE_URL", "https://test.supabase.co")
     monkeypatch.setattr(mod, "SUPABASE_KEY", "test-key")
-    monkeypatch.setattr(mod, "WORKSPACE_SLUG", "ws")
+
 
     with mod.LOCAL_AGENT_IDS_LOCK:
         mod.LOCAL_AGENT_IDS.clear()
@@ -306,7 +303,7 @@ def test_handle_new_item_non_task_assignment_skips_enrichment(monkeypatch):
 
     monkeypatch.setattr(mod, "SUPABASE_URL", "https://test.supabase.co")
     monkeypatch.setattr(mod, "SUPABASE_KEY", "test-key")
-    monkeypatch.setattr(mod, "WORKSPACE_SLUG", "ws")
+
 
     with mod.LOCAL_AGENT_IDS_LOCK:
         mod.LOCAL_AGENT_IDS.clear()

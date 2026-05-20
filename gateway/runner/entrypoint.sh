@@ -6,13 +6,19 @@ GATEWAY_HOST="${OPENCLAW_GATEWAY_HOST:-gateway}"
 GATEWAY_PORT="${OPENCLAW_GATEWAY_PORT:-18789}"
 CONFIG_DIR="$HOME/.openclaw"
 LOCAL_CONFIG="$CONFIG_DIR/openclaw.json"
+PATCHED_CONFIG="$CONFIG_DIR/openclaw-runner.json"
 
-# If a shared config exists (mounted from gateway-state volume), layer our
-# remote-mode override on top. Otherwise create a minimal config.
-if [ -f "$LOCAL_CONFIG" ]; then
-  TMP=$(mktemp)
-  cp "$LOCAL_CONFIG" "$TMP"
-  python3 -c "
+# Wait for the gateway to write its config (shared volume).
+echo "[runner] Waiting for gateway config at $LOCAL_CONFIG ..."
+while [ ! -f "$LOCAL_CONFIG" ]; do
+  sleep 2
+done
+echo "[runner] Gateway config found"
+
+# Layer remote-mode override on top so `openclaw` commands connect to the
+# gateway container instead of trying localhost.
+cp "$LOCAL_CONFIG" "$PATCHED_CONFIG"
+python3 -c "
 import json, sys
 with open(sys.argv[1], 'r') as f:
     cfg = json.load(f)
@@ -22,8 +28,9 @@ cfg['gateway'].setdefault('remote', {})
 cfg['gateway']['remote']['url'] = 'ws://${GATEWAY_HOST}:${GATEWAY_PORT}'
 with open(sys.argv[1], 'w') as f:
     json.dump(cfg, f, indent=2)
-" "$TMP"
-  export OPENCLAW_CONFIG_PATH="$TMP"
-fi
+" "$PATCHED_CONFIG"
+
+export OPENCLAW_CONFIG_PATH="$PATCHED_CONFIG"
+echo "[runner] Patched config at $PATCHED_CONFIG (remote -> ws://$GATEWAY_HOST:$GATEWAY_PORT)"
 
 exec python3 /app/command_runner.py

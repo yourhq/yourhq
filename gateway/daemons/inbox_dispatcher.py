@@ -66,11 +66,6 @@ TENANT_ID = os.environ.get("TENANT_ID", DEFAULT_TENANT_ID)
 LOCAL_AGENT_IDS = set()
 LOCAL_AGENT_IDS_LOCK = threading.Lock()
 
-# Cached workspace slug — agents are registered in openclaw.json with
-# id = "<workspace-slug>/<agent-slug>", so the dispatcher must prepend
-# the workspace slug when invoking `openclaw agent --agent ...`.
-WORKSPACE_SLUG = None
-
 HEARTBEAT_INTERVAL = 30
 RECONNECT_DELAY = 5
 MAX_RECONNECT_DELAY = 60
@@ -124,24 +119,8 @@ def log(msg, level="info", **extra):
     print(json.dumps(entry, default=str), flush=True)
 
 
-def get_workspace_slug():
-    global WORKSPACE_SLUG
-    if WORKSPACE_SLUG is not None:
-        return WORKSPACE_SLUG
-    try:
-        rows = api_get("workspace", {"select": "slug", "limit": "1"})
-        WORKSPACE_SLUG = rows[0]["slug"] if rows and rows[0].get("slug") else ""
-        if WORKSPACE_SLUG:
-            log(f"Workspace slug: {WORKSPACE_SLUG}")
-    except Exception as e:
-        log(f"Failed to fetch workspace slug: {e}")
-        WORKSPACE_SLUG = ""
-    return WORKSPACE_SLUG
-
-
 def resolve_agent_id(agent_slug):
-    ws = get_workspace_slug()
-    return f"{ws}/{agent_slug}" if ws else agent_slug
+    return agent_slug
 
 
 def now_iso():
@@ -651,9 +630,6 @@ def main():
     wait_for_supabase_config()
 
     log(f"Starting inbox dispatcher for gateway={GATEWAY_ID}")
-
-    # Pre-fetch workspace slug so wake calls use the prefixed openclaw id.
-    get_workspace_slug()
 
     # Cache which agents are on this gateway.
     refresh_local_agents()
