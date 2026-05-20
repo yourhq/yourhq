@@ -62,7 +62,7 @@ export function AddGatewayDialog({
 }: AddGatewayDialogProps) {
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
-      <ResponsiveDialogContent className="sm:max-w-md p-0 gap-0">
+      <ResponsiveDialogContent className="sm:max-w-lg p-0 gap-0">
         {/* Mount the inner only while open so closing yields a clean tree
             on next open — no effect-driven reset needed. */}
         {open && (
@@ -342,19 +342,19 @@ function WaitingPhase({
 
   return (
     <>
-      <div className="px-5 py-4 space-y-3">
-        <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
-          <Terminal className="h-3.5 w-3.5" />
+      <div className="px-5 py-4 space-y-4">
+        <div className="flex items-center gap-2 text-caption text-muted-foreground">
+          <Terminal className="h-3.5 w-3.5 shrink-0" />
           Run this on the new gateway machine:
         </div>
-        <pre className="overflow-auto rounded-md border border-border/60 bg-background p-2.5 font-mono text-[10.5px] leading-relaxed text-foreground">
-          {bootstrap.oneLiner}
-        </pre>
-        <div className="flex items-center justify-between">
+        <div className="relative">
+          <pre className="overflow-x-auto rounded-md border border-border/60 bg-muted/30 px-3 py-2.5 font-mono text-[11px] leading-relaxed text-foreground whitespace-pre-wrap break-all">
+            {bootstrap.oneLiner}
+          </pre>
           <button
             type="button"
             onClick={onCopy}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background px-2 py-1 text-[11px] hover:bg-accent/60"
+            className="absolute top-2 right-2 inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background px-2 py-1 text-[11px] hover:bg-accent/60 shadow-sm"
           >
             {copied ? (
               <>
@@ -364,19 +364,20 @@ function WaitingPhase({
             ) : (
               <>
                 <Copy className="h-3 w-3" />
-                Copy command
+                Copy
               </>
             )}
           </button>
-          <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        </div>
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] text-muted-foreground/60">
+            Token expires in 15 min. Updates automatically when connected.
+          </p>
+          <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground shrink-0">
             <Loader2 className="h-3 w-3 animate-spin" />
-            Waiting for the gateway to connect…
+            Waiting…
           </span>
         </div>
-        <p className="text-[11px] text-muted-foreground/60">
-          Token expires in 15 min. The dialog updates automatically when the
-          gateway registers.
-        </p>
       </div>
 
       <ResponsiveDialogFooter className="px-5 py-3 border-t border-border/50">

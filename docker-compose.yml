@@ -24,6 +24,7 @@ name: ${COMPOSE_PROJECT:-yourhq}
 
 x-gateway-env: &gateway-env
   SUPABASE_URL: ${SUPABASE_URL}
+  SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
   SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
   EMBEDDER_URL: ${EMBEDDER_URL:-http://embedder:18801}
   # Override with a different fastembed-compatible model; non-default models download on first boot
@@ -119,6 +120,7 @@ services:
       GITHUB_REPO_NAME: ${GITHUB_REPO_NAME:-}
       TEMPLATES_SOURCE: ${TEMPLATES_SOURCE:-}
       # Files-API (gateway-side HTTP for the UI file browser)
+      GATEWAY_TOKEN: ${GATEWAY_TOKEN:-}
       GATEWAY_AUTH_TOKEN: ${GATEWAY_AUTH_TOKEN:-}
       FILES_API_BIND: ${FILES_API_BIND:-docker}
       FILES_API_PORT: ${FILES_API_PORT:-18790}

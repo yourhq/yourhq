@@ -98,7 +98,7 @@ DECLARE
   v_slug       text;
   v_label      text;
 BEGIN
-  v_token_hash := encode(digest(p_token, 'sha256'), 'hex');
+  v_token_hash := encode(extensions.digest(p_token, 'sha256'), 'hex');
 
   SELECT * INTO v_token_row
     FROM public.gateway_registration_tokens
