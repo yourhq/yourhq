@@ -610,20 +610,18 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
               </Select>
             </MicroTip>
 
-            {/* ── Thinking level — next to Assignee since it's agent-related ── */}
+            {/* ── Model + thinking overrides — next to Assignee since it's agent-related ── */}
             {isAgentAssigned && (
               <>
-                <span className="text-xs text-muted-foreground/70 py-1">Thinking</span>
-                <div>
-                  <TaskModelOverride
-                    modelOverride={modelOverride}
-                    thinkingOverride={thinkingOverride}
-                    onModelChange={setModelOverride}
-                    onThinkingChange={setThinkingOverride}
-                    agentId={assignee}
-                    agents={agents}
-                  />
-                </div>
+                <span className="text-xs text-muted-foreground/70 py-1">Model</span>
+                <TaskModelOverride
+                  modelOverride={modelOverride}
+                  thinkingOverride={thinkingOverride}
+                  onModelChange={setModelOverride}
+                  onThinkingChange={setThinkingOverride}
+                  agentId={assignee}
+                  agents={agents}
+                />
               </>
             )}
 

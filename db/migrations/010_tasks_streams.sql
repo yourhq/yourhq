@@ -428,12 +428,14 @@ BEGIN
       stream_id, title, description, priority,
       assignee_type, assignee_agent_id, tags,
       linked_entity_type, linked_entity_id,
+      model_override, thinking_override,
       series_id, series_occurrence_at, due_date,
       tenant_id
     ) VALUES (
       v_series.stream_id, v_series.title, v_series.description, v_series.priority,
       v_series.assignee_type, v_series.assignee_agent_id, v_series.tags,
       v_series.linked_entity_type, v_series.linked_entity_id,
+      v_series.model_override, v_series.thinking_override,
       v_series.id, v_occurrence_at, v_occurrence_at,
       v_series.tenant_id
     )
