@@ -61,20 +61,25 @@ def _resolve_agent_channel() -> str:
     return "telegram"
 
 
+def _load_env_file(path: Path):
+    if not path.is_file():
+        return
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        v = v.strip()
+        if len(v) >= 2 and v[0] == v[-1] and v[0] in ("'", '"'):
+            v = v[1:-1]
+        os.environ.setdefault(k.strip(), v)
+
+
 def _load_secrets():
+    secrets_base = Path(os.environ.get("OPENCLAW_HOME", str(Path.home() / ".openclaw"))) / "secrets"
+    _load_env_file(secrets_base / "gateway.env")
     slug = _resolve_agent_slug()
-    secrets_dir = Path(os.environ.get("OPENCLAW_HOME", str(Path.home() / ".openclaw"))) / "secrets" / "agents"
-    env_file = secrets_dir / f"{slug}.env"
-    if env_file.is_file():
-        for line in env_file.read_text().splitlines():
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            k, v = line.split("=", 1)
-            v = v.strip()
-            if len(v) >= 2 and v[0] == v[-1] and v[0] in ("'", '"'):
-                v = v[1:-1]
-            os.environ.setdefault(k.strip(), v)
+    _load_env_file(secrets_base / "agents" / f"{slug}.env")
 
 
 _load_secrets()

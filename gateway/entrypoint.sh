@@ -167,6 +167,21 @@ elif [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
   done
 fi
 
+# Write base Supabase creds to gateway.env so agent scripts (hq_base.py)
+# can read them.  secrets_sync will merge user-created secrets on top later.
+if [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
+  _secrets_dir="$OPENCLAW_HOME/secrets"
+  mkdir -p "$_secrets_dir"
+  chmod 700 "$_secrets_dir"
+  cat > "$_secrets_dir/gateway.env" <<GWEOF
+SUPABASE_URL=${SUPABASE_URL}
+SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+EMBEDDER_URL=${EMBEDDER_URL:-http://embedder:18801}
+EMBEDDER_MODEL=${EMBEDDER_MODEL:-BAAI/bge-small-en-v1.5}
+GWEOF
+  chmod 600 "$_secrets_dir/gateway.env"
+fi
+
 # ─────────────────────────────────────────────────────────────
 # 1 & 2. Git repo + templates + optional remote
 # ─────────────────────────────────────────────────────────────
