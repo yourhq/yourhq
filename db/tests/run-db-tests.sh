@@ -717,6 +717,170 @@ test_routine_next_occurrence_rpc() {
   assert_eq "$result" "true" "routine_next_occurrence returns non-null for monthly"
 }
 
+test_deliverable_auto_complete_trigger() {
+  echo "── deliverable auto-complete trigger ────────────────────────"
+
+  local result
+  result=$(run_sql_value "
+    DO \$\$
+    DECLARE
+      v_gw_id uuid;
+      v_agent_id uuid;
+      v_task_id uuid;
+      v_del1_id uuid;
+      v_del2_id uuid;
+      v_task_status text;
+      v_inbox_count int;
+    BEGIN
+      SELECT id INTO v_gw_id FROM gateways WHERE slug = 'default';
+
+      INSERT INTO agents (name, slug, gateway_id)
+      VALUES ('del-test-agent', 'del-test-agent', v_gw_id)
+      RETURNING id INTO v_agent_id;
+
+      INSERT INTO tasks (title, status)
+      VALUES ('Deliverable test task', 'in_progress')
+      RETURNING id INTO v_task_id;
+
+      -- Create two deliverables in draft state
+      INSERT INTO entity_links (owner_type, owner_id, target_type, label, is_deliverable, review_status, submitted_by_agent_id)
+      VALUES ('task', v_task_id, 'url', 'Deliverable 1', true, 'draft', v_agent_id)
+      RETURNING id INTO v_del1_id;
+
+      INSERT INTO entity_links (owner_type, owner_id, target_type, label, is_deliverable, review_status, submitted_by_agent_id)
+      VALUES ('task', v_task_id, 'url', 'Deliverable 2', true, 'draft', v_agent_id)
+      RETURNING id INTO v_del2_id;
+
+      -- Approve first deliverable — task should stay in_progress
+      UPDATE entity_links SET review_status = 'approved' WHERE id = v_del1_id;
+      SELECT status INTO v_task_status FROM tasks WHERE id = v_task_id;
+      ASSERT v_task_status = 'in_progress',
+        format('Task should stay in_progress after partial approval, got %s', v_task_status);
+
+      -- Approve second deliverable — task should auto-complete
+      UPDATE entity_links SET review_status = 'approved' WHERE id = v_del2_id;
+      SELECT status INTO v_task_status FROM tasks WHERE id = v_task_id;
+      ASSERT v_task_status = 'done',
+        format('Task should be done after all deliverables approved, got %s', v_task_status);
+
+      -- Clean up
+      DELETE FROM entity_links WHERE id IN (v_del1_id, v_del2_id);
+      DELETE FROM tasks WHERE id = v_task_id;
+      DELETE FROM agents WHERE id = v_agent_id;
+
+      RAISE NOTICE 'ok';
+    END \$\$;
+  " 2>&1)
+
+  if echo "$result" | grep -q "ok"; then
+    pass "auto-completes task when all deliverables approved"
+  else
+    fail "deliverable auto-complete: $result"
+  fi
+
+  # Test that revision_requested creates an inbox item
+  result=$(run_sql_value "
+    DO \$\$
+    DECLARE
+      v_gw_id uuid;
+      v_agent_id uuid;
+      v_task_id uuid;
+      v_del_id uuid;
+      v_inbox_count int;
+    BEGIN
+      SELECT id INTO v_gw_id FROM gateways WHERE slug = 'default';
+
+      INSERT INTO agents (name, slug, gateway_id)
+      VALUES ('del-inbox-agent', 'del-inbox-agent', v_gw_id)
+      RETURNING id INTO v_agent_id;
+
+      INSERT INTO tasks (title, status)
+      VALUES ('Inbox test task', 'in_progress')
+      RETURNING id INTO v_task_id;
+
+      INSERT INTO entity_links (owner_type, owner_id, target_type, label, is_deliverable, review_status, submitted_by_agent_id)
+      VALUES ('task', v_task_id, 'url', 'Draft doc', true, 'draft', v_agent_id)
+      RETURNING id INTO v_del_id;
+
+      -- Request revision — should create inbox item
+      UPDATE entity_links SET review_status = 'revision_requested', review_note = 'Please fix section 2' WHERE id = v_del_id;
+
+      SELECT count(*) INTO v_inbox_count
+      FROM agent_inbox_items
+      WHERE agent_id = v_agent_id
+        AND event_type = 'deliverable_review'
+        AND task_id = v_task_id;
+
+      ASSERT v_inbox_count = 1,
+        format('Should have 1 inbox item for revision_requested, got %s', v_inbox_count);
+
+      -- Clean up
+      DELETE FROM agent_inbox_items WHERE agent_id = v_agent_id;
+      DELETE FROM entity_links WHERE id = v_del_id;
+      DELETE FROM tasks WHERE id = v_task_id;
+      DELETE FROM agents WHERE id = v_agent_id;
+
+      RAISE NOTICE 'ok';
+    END \$\$;
+  " 2>&1)
+
+  if echo "$result" | grep -q "ok"; then
+    pass "revision_requested creates inbox item for agent"
+  else
+    fail "deliverable inbox notification: $result"
+  fi
+
+  # Test that approval does NOT create an inbox item
+  result=$(run_sql_value "
+    DO \$\$
+    DECLARE
+      v_gw_id uuid;
+      v_agent_id uuid;
+      v_task_id uuid;
+      v_del_id uuid;
+      v_inbox_count int;
+    BEGIN
+      SELECT id INTO v_gw_id FROM gateways WHERE slug = 'default';
+
+      INSERT INTO agents (name, slug, gateway_id)
+      VALUES ('del-no-inbox-agent', 'del-no-inbox-agent', v_gw_id)
+      RETURNING id INTO v_agent_id;
+
+      INSERT INTO tasks (title, status)
+      VALUES ('No inbox test task', 'in_progress')
+      RETURNING id INTO v_task_id;
+
+      INSERT INTO entity_links (owner_type, owner_id, target_type, label, is_deliverable, review_status, submitted_by_agent_id)
+      VALUES ('task', v_task_id, 'url', 'Approved doc', true, 'draft', v_agent_id)
+      RETURNING id INTO v_del_id;
+
+      -- Approve — should NOT create inbox item
+      UPDATE entity_links SET review_status = 'approved' WHERE id = v_del_id;
+
+      SELECT count(*) INTO v_inbox_count
+      FROM agent_inbox_items
+      WHERE agent_id = v_agent_id AND event_type = 'deliverable_review';
+
+      ASSERT v_inbox_count = 0,
+        format('Approval should not create inbox item, got %s', v_inbox_count);
+
+      -- Clean up
+      DELETE FROM agent_inbox_items WHERE agent_id = v_agent_id;
+      DELETE FROM entity_links WHERE id = v_del_id;
+      DELETE FROM tasks WHERE id = v_task_id;
+      DELETE FROM agents WHERE id = v_agent_id;
+
+      RAISE NOTICE 'ok';
+    END \$\$;
+  " 2>&1)
+
+  if echo "$result" | grep -q "ok"; then
+    pass "approval does NOT create inbox item (auto-complete only)"
+  else
+    fail "approval no-inbox check: $result"
+  fi
+}
+
 test_schema_version() {
   echo "── Schema version ───────────────────────────────────────────"
 
@@ -775,6 +939,8 @@ main() {
   test_routine_next_occurrence_rpc
   echo ""
   test_triggers_exist
+  echo ""
+  test_deliverable_auto_complete_trigger
   echo ""
   test_schema_version
   echo ""
