@@ -97,7 +97,7 @@ for _ in range(batch_size):
                 tasks = api_get(
                     "tasks",
                     {
-                        "select": "id,title,description,status,priority,tags,due_date,stream_id,meta",
+                        "select": "id,title,description,status,priority,tags,due_date,stream_id",
                         "id": f"eq.{item['task_id']}",
                         "limit": "1",
                     },

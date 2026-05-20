@@ -221,13 +221,39 @@ def _shell_quote(v: str) -> str:
     return "'" + v.replace("'", "'\\''") + "'"
 
 
-def _write_env_file(path: Path, env_vars: dict):
-    """Write key=value pairs to a .env file with secure permissions."""
+def _read_env_file(path: Path) -> dict[str, str]:
+    """Read key=value pairs from a .env file."""
+    result: dict[str, str] = {}
+    if not path.is_file():
+        return result
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        v = v.strip()
+        if len(v) >= 2 and v[0] == v[-1] and v[0] in ("'", '"'):
+            v = v[1:-1]
+        result[k.strip()] = v
+    return result
+
+
+def _write_env_file(path: Path, env_vars: dict, *, preserve_existing: bool = False):
+    """Write key=value pairs to a .env file with secure permissions.
+
+    When preserve_existing is True, existing keys not present in env_vars
+    are kept (e.g. base infra creds written by the entrypoint).
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     os.chmod(path.parent, 0o700)
 
+    merged = {}
+    if preserve_existing:
+        merged.update(_read_env_file(path))
+    merged.update(env_vars)
+
     lines = []
-    for k, v in sorted(env_vars.items()):
+    for k, v in sorted(merged.items()):
         lines.append(f"{k}={_shell_quote(v)}")
     path.write_text("\n".join(lines) + "\n" if lines else "")
     os.chmod(path, 0o600)
@@ -246,11 +272,6 @@ def _sync_secrets_inner():
 
     secrets = _fetch_secrets(gateway_db_id)
     if not secrets:
-        SECRETS_DIR.mkdir(parents=True, exist_ok=True)
-        os.chmod(SECRETS_DIR, 0o700)
-        gateway_env = SECRETS_DIR / "gateway.env"
-        if gateway_env.exists():
-            gateway_env.write_text("")
         if AGENTS_SECRETS_DIR.exists():
             for stale in AGENTS_SECRETS_DIR.glob("*.env"):
                 stale.unlink(missing_ok=True)
@@ -286,7 +307,7 @@ def _sync_secrets_inner():
     SECRETS_DIR.mkdir(parents=True, exist_ok=True)
     os.chmod(SECRETS_DIR, 0o700)
 
-    _write_env_file(SECRETS_DIR / "gateway.env", gateway_vars)
+    _write_env_file(SECRETS_DIR / "gateway.env", gateway_vars, preserve_existing=True)
 
     AGENTS_SECRETS_DIR.mkdir(parents=True, exist_ok=True)
     os.chmod(AGENTS_SECRETS_DIR, 0o700)

@@ -72,7 +72,9 @@ def _load_env_file(path: Path):
         v = v.strip()
         if len(v) >= 2 and v[0] == v[-1] and v[0] in ("'", '"'):
             v = v[1:-1]
-        os.environ.setdefault(k.strip(), v)
+        k = k.strip()
+        if not os.environ.get(k):
+            os.environ[k] = v
 
 
 def _load_secrets():

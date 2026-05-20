@@ -287,14 +287,14 @@ def test_sync_secrets_no_gateway_id(monkeypatch, tmp_path):
     ss._sync_secrets_inner()
 
 
-def test_sync_secrets_no_secrets_clears_files(monkeypatch, tmp_path):
+def test_sync_secrets_no_secrets_preserves_gateway_env(monkeypatch, tmp_path):
     import secrets_sync as ss
 
     secrets_dir = tmp_path / "secrets"
     agents_dir = secrets_dir / "agents"
     agents_dir.mkdir(parents=True)
     gateway_env = secrets_dir / "gateway.env"
-    gateway_env.write_text("OLD_KEY='old'")
+    gateway_env.write_text("SUPABASE_URL=https://example.supabase.co\n")
     stale = agents_dir / "stale-agent.env"
     stale.write_text("STALE='yes'")
 
@@ -314,7 +314,7 @@ def test_sync_secrets_no_secrets_clears_files(monkeypatch, tmp_path):
     monkeypatch.setattr(ss, "_api_get", fake_api_get)
     ss._sync_secrets_inner()
 
-    assert gateway_env.read_text() == ""
+    assert gateway_env.read_text() == "SUPABASE_URL=https://example.supabase.co\n"
     assert not stale.exists()
 
 
@@ -531,3 +531,44 @@ def test_start_secrets_sync_sets_globals(monkeypatch, tmp_path):
     assert ss._supabase_url == "https://my.supabase.co"
     assert ss._supabase_key == "my-key"
     assert ss._gateway_id == "gw-1"
+
+
+def test_sync_secrets_preserves_entrypoint_creds_in_gateway_env(monkeypatch, tmp_path):
+    import secrets_sync as ss
+
+    secrets_dir = tmp_path / "secrets"
+    agents_dir = secrets_dir / "agents"
+    secrets_dir.mkdir(parents=True)
+    gateway_env = secrets_dir / "gateway.env"
+    gateway_env.write_text(
+        "SUPABASE_URL=https://example.supabase.co\n"
+        "SUPABASE_SERVICE_ROLE_KEY=srk-123\n"
+        "EMBEDDER_URL=http://embedder:18801\n"
+    )
+
+    monkeypatch.setattr(ss, "SECRETS_DIR", secrets_dir)
+    monkeypatch.setattr(ss, "AGENTS_SECRETS_DIR", agents_dir)
+    monkeypatch.setattr(ss, "_decrypt", lambda v: v.replace("enc:", ""))
+
+    def fake_api_get(table, params):
+        if "gateways" in table:
+            return [{"id": "gw-uuid"}]
+        if "secrets" in table:
+            return [
+                {"id": "s1", "agent_id": None, "key": "CUSTOM_TOKEN", "encrypted_value": "enc:my-token", "sync_status": "pending"},
+            ]
+        return []
+
+    def fake_api_patch_many(table, fp, p):
+        pass
+
+    monkeypatch.setattr(ss, "_api_get", fake_api_get)
+    monkeypatch.setattr(ss, "_api_patch_many", fake_api_patch_many)
+
+    ss._sync_secrets_inner()
+
+    content = gateway_env.read_text()
+    assert "SUPABASE_URL=" in content and "example.supabase.co" in content
+    assert "SUPABASE_SERVICE_ROLE_KEY=" in content and "srk-123" in content
+    assert "EMBEDDER_URL=" in content and "embedder:18801" in content
+    assert "CUSTOM_TOKEN=" in content and "my-token" in content

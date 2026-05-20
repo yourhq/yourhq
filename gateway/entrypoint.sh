@@ -167,6 +167,14 @@ elif [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
   done
 fi
 
+# Ensure resolved creds are exported (registry fallback sets shell vars
+# but docker-compose may have injected empty env vars that shadow them).
+if [ -n "${SUPABASE_URL:-}" ]; then
+  export SUPABASE_URL
+  export SUPABASE_SERVICE_ROLE_KEY
+  export SUPABASE_ANON_KEY
+fi
+
 # Write base Supabase creds to gateway.env so agent scripts (hq_base.py)
 # can read them.  secrets_sync will merge user-created secrets on top later.
 if [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then

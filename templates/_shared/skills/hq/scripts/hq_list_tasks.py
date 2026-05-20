@@ -25,7 +25,7 @@ if args.mine and args.agent_id:
     sys.exit(1)
 
 params = {
-    "select": "id,title,description,status,priority,due_date,completed_at,stream_id,tags,created_at,updated_at,assignee_type,assignee_agent_id,parent_id,linked_entity_type,linked_entity_id,meta",
+    "select": "id,title,description,status,priority,due_date,completed_at,stream_id,tags,created_at,updated_at,assignee_type,assignee_agent_id,parent_id,linked_entity_type,linked_entity_id",
     "order": "priority.asc,created_at.asc",
     "limit": str(args.limit),
 }

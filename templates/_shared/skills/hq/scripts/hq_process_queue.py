@@ -45,7 +45,7 @@ if args.include_blocked:
 statuses.append("in_progress")
 
 params = {
-    "select": "id,title,description,status,priority,due_date,stream_id,tags,created_at,meta",
+    "select": "id,title,description,status,priority,due_date,stream_id,tags,created_at",
     "assignee_agent_id": f"eq.{agent_id}",
     "status": f"in.({','.join(statuses)})",
     "order": "priority.asc,created_at.asc",
