@@ -19,7 +19,10 @@ from hq_base import (
     api_patch,
     api_post,
     audit,
+    build_embedding_input,
     check_env,
+    content_for_storage,
+    generate_embedding,
     get_agent_id,
     now_iso,
     output,
@@ -56,14 +59,22 @@ if args.update and args.deliverable_id:
 
     link = link[0]
     if link["target_type"] == "knowledge_item" and link["target_id"] and args.content:
-        api_patch(
-            "knowledge_items",
-            link["target_id"],
-            {
-                "body": args.content,
-                "updated_at": now_iso(),
-            },
-        )
+        tiptap_json, plain_text = content_for_storage(args.content)
+        patch = {
+            "content": tiptap_json,
+            "plain_text": plain_text,
+            "updated_at": now_iso(),
+            "embedding_status": "pending",
+        }
+        try:
+            embedding_input = build_embedding_input(args.title, args.content, [])
+            emb = generate_embedding(embedding_input)
+            if emb:
+                patch["embedding"] = emb
+                patch["embedding_status"] = "indexed"
+        except Exception:
+            pass
+        api_patch("knowledge_items", link["target_id"], patch)
 
     api_patch(
         "entity_links",
@@ -100,15 +111,28 @@ if args.type == "page":
         output({"error": "content_required", "message": "--content is required for type 'page'"})
         sys.exit(1)
 
-    ki = api_post(
-        "knowledge_items",
-        {
-            "title": args.title,
-            "kind": "page",
-            "scope": "workspace",
-            "body": args.content,
-        },
-    )
+    tiptap_json, plain_text = content_for_storage(args.content)
+
+    ki_payload = {
+        "title": args.title,
+        "kind": "page",
+        "scope": "workspace",
+        "content": tiptap_json,
+        "plain_text": plain_text,
+        "embedding_status": "pending",
+        "processing_status": "done",
+    }
+
+    try:
+        embedding_input = build_embedding_input(args.title, args.content, [])
+        emb = generate_embedding(embedding_input)
+        if emb:
+            ki_payload["embedding"] = emb
+            ki_payload["embedding_status"] = "indexed"
+    except Exception:
+        pass
+
+    ki = api_post("knowledge_items", ki_payload)
     ki = ki[0] if isinstance(ki, list) else ki
 
     link = api_post(
