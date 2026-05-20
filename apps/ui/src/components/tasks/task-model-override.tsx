@@ -68,6 +68,7 @@ export function TaskModelOverride({
   useEffect(() => {
     const cached = connectionCache.get(gatewayId);
     if (cached && Date.now() - cached.ts < CACHE_TTL) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setConnections(cached.connections);
       return;
     }

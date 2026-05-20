@@ -2,11 +2,22 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { TaskRelation, TaskRelationType } from "@/lib/tasks/types";
+import type { TaskRelation, TaskRelationType, TaskStatus } from "@/lib/tasks/types";
 import { RELATION_TYPES } from "@/lib/tasks/types";
 import { logAudit } from "@/lib/audit/log";
 import { useRealtime } from "./use-realtime";
 import { toast } from "sonner";
+
+interface RpcRelationRow {
+  relation_id: string;
+  relation_type: TaskRelationType;
+  direction: "outgoing" | "incoming";
+  related_task_id: string;
+  related_title: string;
+  related_status: TaskStatus;
+  related_assignee_name: string | null;
+  created_at: string;
+}
 
 export function useTaskRelations(taskId: string | null) {
   const [relations, setRelations] = useState<TaskRelation[]>([]);
@@ -23,7 +34,26 @@ export function useTaskRelations(taskId: string | null) {
     });
 
     if (!error && data) {
-      setRelations(data as unknown as TaskRelation[]);
+      const mapped = (data as unknown as RpcRelationRow[]).map((row) => ({
+        id: row.relation_id,
+        created_at: row.created_at,
+        source_task_id: row.direction === "outgoing" ? taskId! : row.related_task_id,
+        target_task_id: row.direction === "outgoing" ? row.related_task_id : taskId!,
+        relation_type: row.direction === "incoming"
+          ? (RELATION_TYPES.find((r) => r.value === row.relation_type)?.inverse ?? row.relation_type)
+          : row.relation_type,
+        created_by_type: "human" as const,
+        created_by_agent_id: null,
+        related_task: {
+          id: row.related_task_id,
+          title: row.related_title,
+          status: row.related_status,
+          assignee_agent: row.related_assignee_name
+            ? { name: row.related_assignee_name }
+            : null,
+        },
+      }));
+      setRelations(mapped);
     }
     setLoading(false);
   }, [supabase, taskId]);

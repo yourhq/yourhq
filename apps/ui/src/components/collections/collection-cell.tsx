@@ -272,6 +272,12 @@ function DateCell({
 }) {
   const inputType = includeTime ? "datetime-local" : "date";
 
+  const inputValue = (() => {
+    if (!value) return "";
+    if (includeTime) return value.replace(/Z$/, "").replace(/:\d{2}(\.\d+)?$/, "").slice(0, 16);
+    return value.slice(0, 10);
+  })();
+
   if (readOnly) {
     return (
       <span className="text-body px-1.5">
@@ -283,7 +289,7 @@ function DateCell({
   return (
     <Input
       type={inputType}
-      value={value ?? ""}
+      value={inputValue}
       onChange={(e) => onChange(e.target.value || null)}
       className="h-7 text-body w-auto"
     />
@@ -300,7 +306,7 @@ function BooleanCell({
   readOnly?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-center">
+    <div className="flex items-center px-1.5 py-0.5">
       <Checkbox
         checked={!!value}
         onCheckedChange={(checked) => onChange(!!checked)}
