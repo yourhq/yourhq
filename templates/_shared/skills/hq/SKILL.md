@@ -334,10 +334,11 @@ Routines are recurring agent behaviors — scheduled checks and event-driven rea
 
 For **deliverable_review** items:
 1. Read `context.review_status` and `context.review_note`
-2. If `approved`: check whether ALL deliverables on the task are now approved. If yes, complete the task with `hq_complete_task.py TASK_ID` and comment confirming completion. If other deliverables are still pending review, just acknowledge and wait.
-3. If `revision_requested`: revise the deliverable using `hq_submit_deliverable.py --update --deliverable-id DELIVERABLE_ID --title "..." --content "revised content"` incorporating the feedback from `review_note`
-4. If `rejected`: read the note, comment on the task acknowledging the feedback
-5. Mark inbox item done: `python3 skills/hq/scripts/hq_inbox_done.py INBOX_ITEM_ID`
+2. If `revision_requested`: revise the deliverable using `hq_submit_deliverable.py --update --deliverable-id DELIVERABLE_ID --title "..." --content "revised content"` incorporating the feedback from `review_note`
+3. If `rejected`: read the note, comment on the task acknowledging the feedback
+4. Mark inbox item done: `python3 skills/hq/scripts/hq_inbox_done.py INBOX_ITEM_ID`
+
+Note: when all deliverables on a task are approved, the task is auto-completed by the system. You don't need to handle the `approved` case.
 
 For **routine_schedule** items:
 1. Read the instruction from `context.instruction` — it tells you what to do
