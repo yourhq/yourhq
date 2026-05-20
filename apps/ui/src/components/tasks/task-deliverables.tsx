@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useDeliverables } from "@/hooks/use-deliverables";
 import type { EntityLink } from "@/lib/entity-links/types";
 import { cn } from "@/lib/utils";
@@ -92,6 +93,7 @@ function DeliverableCard({
   deliverable: EntityLink;
   actions: ReturnType<typeof useDeliverables>["actions"];
 }) {
+  const router = useRouter();
   const [showRevisionInput, setShowRevisionInput] = useState(false);
   const [revisionNote, setRevisionNote] = useState("");
   const [actionType, setActionType] = useState<"revision" | "reject" | null>(null);
@@ -100,10 +102,15 @@ function DeliverableCard({
   const status = deliverable.review_status ?? "draft";
   const canReview = status === "draft" || status === "in_review";
   const title = deliverable.resolved_name ?? deliverable.label ?? "Deliverable";
+  const isClickable =
+    (deliverable.target_type === "url" && !!deliverable.url) ||
+    (deliverable.target_type === "knowledge_item" && !!deliverable.target_id);
 
   function openLink() {
     if (deliverable.target_type === "url" && deliverable.url) {
       window.open(deliverable.url, "_blank");
+    } else if (deliverable.target_type === "knowledge_item" && deliverable.target_id) {
+      router.push(`/dashboard/knowledge/${deliverable.target_id}`);
     }
   }
 
@@ -144,7 +151,7 @@ function DeliverableCard({
               onClick={openLink}
               className={cn(
                 "text-sm font-medium truncate text-left",
-                deliverable.url && "hover:underline cursor-pointer"
+                isClickable && "hover:underline cursor-pointer text-primary"
               )}
             >
               {title}

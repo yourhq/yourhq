@@ -3,6 +3,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { EntityLink } from "@/lib/entity-links/types";
 
+const mockPush = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
 const mockActions = {
   approve: vi.fn().mockResolvedValue({ error: null }),
   requestRevision: vi.fn().mockResolvedValue({ error: null }),
@@ -296,5 +301,38 @@ describe("TaskDeliverables", () => {
     });
     render(<TaskDeliverables taskId="t-1" />);
     expect(screen.getByText("My Doc")).toBeInTheDocument();
+  });
+
+  it("navigates to knowledge item when clicked", async () => {
+    const user = userEvent.setup();
+    mockUseDeliverables.mockReturnValue({
+      deliverables: [makeDeliverable({ target_type: "knowledge_item", target_id: "ki-123" })],
+      loading: false,
+      actions: mockActions,
+    });
+    render(<TaskDeliverables taskId="t-1" />);
+    await user.click(screen.getByText("Weekly Report"));
+    expect(mockPush).toHaveBeenCalledWith("/dashboard/knowledge/ki-123");
+  });
+
+  it("opens URL deliverables in new window", async () => {
+    const user = userEvent.setup();
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    mockUseDeliverables.mockReturnValue({
+      deliverables: [
+        makeDeliverable({
+          target_type: "url",
+          target_id: null,
+          url: "https://github.com/pr/1",
+          resolved_name: "PR #1",
+        }),
+      ],
+      loading: false,
+      actions: mockActions,
+    });
+    render(<TaskDeliverables taskId="t-1" />);
+    await user.click(screen.getByText("PR #1"));
+    expect(openSpy).toHaveBeenCalledWith("https://github.com/pr/1", "_blank");
+    openSpy.mockRestore();
   });
 });
