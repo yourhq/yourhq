@@ -191,11 +191,30 @@ Note: `hq_list_tasks.py --assignee-type human` is the more general version.
 python3 skills/hq/scripts/hq_complete_task.py TASK_ID
 ```
 
-### Attach a document/asset/URL to a task
+### Attach a reference to a task
 ```bash
-python3 skills/hq/scripts/hq_attach_to_task.py TASK_ID --type document --entity-id DOC_UUID
+python3 skills/hq/scripts/hq_attach_to_task.py TASK_ID --type knowledge_item --entity-id DOC_UUID
 python3 skills/hq/scripts/hq_attach_to_task.py TASK_ID --type url --url "https://example.com" --label "Reference"
 ```
+Use this for references — existing documents, links, or contacts that provide context for the task. These are NOT deliverables and don't go through review.
+
+### Submit a deliverable for review
+```bash
+python3 skills/hq/scripts/hq_submit_deliverable.py --task-id TASK_ID --type page --title "Blog post draft" --content "Your markdown content"
+python3 skills/hq/scripts/hq_submit_deliverable.py --task-id TASK_ID --type url --url "https://github.com/org/repo/pull/42" --title "PR #42"
+```
+Use this when the task asks you to **produce something** — a document, a draft, a report, a PR. The human will review it (approve, request revision, or reject). Deliverables appear in a dedicated review section on the task.
+
+**When to use deliverables vs knowledge:**
+- The task says "write", "draft", "create", "produce", "prepare", or "submit" something → **deliverable** (`hq_submit_deliverable.py`)
+- You're saving research notes, reference material, or reusable info for later → **knowledge** (`hq_create_doc.py`)
+- You need to attach an existing document or link as context → **attachment** (`hq_attach_to_task.py`)
+
+### Revise a deliverable after feedback
+```bash
+python3 skills/hq/scripts/hq_submit_deliverable.py --task-id TASK_ID --update --deliverable-id LINK_UUID --title "Blog post draft" --content "Revised content"
+```
+This updates the knowledge item content and resets the review status to `draft` so the human can re-review.
 
 ## Comments
 
@@ -262,7 +281,7 @@ python3 skills/hq/scripts/hq_inbox_process.py --batch 3
 For **task_assignment** and **task_reassignment** items:
 1. Read the task description and attachments (provided in context)
 2. Claim the task: `python3 skills/hq/scripts/hq_claim_task.py TASK_ID`
-3. Do the work
+3. Do the work — if the task asks you to produce a document, draft, or work product, submit it as a deliverable (`hq_submit_deliverable.py`) so the human can review it
 4. Complete it: `python3 skills/hq/scripts/hq_complete_task.py TASK_ID`
 5. Mark inbox item done: `python3 skills/hq/scripts/hq_inbox_done.py INBOX_ITEM_ID`
 
@@ -311,6 +330,12 @@ Sets task to `blocked`, posts a comment mentioning the workspace owner, sends Te
 Routines are recurring agent behaviors — scheduled checks and event-driven reactions. When a routine fires, it creates an inbox item that wakes you.
 
 ### Handling routine inbox items
+
+For **deliverable_review** items:
+1. Read the review feedback from `context.review_note` and `context.review_status`
+2. If `revision_requested`: revise the deliverable using `hq_submit_deliverable.py --update --deliverable-id DELIVERABLE_ID --title "..." --content "revised content"`
+3. If `rejected`: read the note, comment on the task acknowledging the feedback
+4. Mark inbox item done: `python3 skills/hq/scripts/hq_inbox_done.py INBOX_ITEM_ID`
 
 For **routine_schedule** items:
 1. Read the instruction from `context.instruction` — it tells you what to do
