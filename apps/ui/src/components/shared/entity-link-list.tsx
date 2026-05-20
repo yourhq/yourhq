@@ -128,7 +128,7 @@ function EntityLinkListDb({
   onCreatePage,
 }: EntityLinkListDbProps) {
   const { links: allLinks, actions } = useEntityLinks(ownerType, ownerId);
-  const links = allLinks.filter((l) => !l.is_deliverable);
+  const links = allLinks.filter((l) => !l.is_deliverable || l.review_status === "approved");
 
   return (
     <EntityLinkListInner

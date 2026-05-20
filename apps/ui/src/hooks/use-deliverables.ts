@@ -22,6 +22,7 @@ export function useDeliverables(taskId: string | null) {
       .eq("owner_type", "task")
       .eq("owner_id", taskId)
       .eq("is_deliverable", true)
+      .neq("review_status", "approved")
       .order("created_at", { ascending: true });
 
     if (error || !rows) {

@@ -95,17 +95,14 @@ describe("TaskDeliverables", () => {
     expect(screen.getByText("Loading deliverables...")).toBeInTheDocument();
   });
 
-  it("renders empty state when no deliverables", () => {
+  it("renders nothing when no pending deliverables", () => {
     mockUseDeliverables.mockReturnValue({
       deliverables: [],
       loading: false,
       actions: mockActions,
     });
-    render(<TaskDeliverables taskId="t-1" />);
-    expect(screen.getByText("No deliverables yet")).toBeInTheDocument();
-    expect(
-      screen.getByText("Agents submit work products here for review")
-    ).toBeInTheDocument();
+    const { container } = render(<TaskDeliverables taskId="t-1" />);
+    expect(container.innerHTML).toBe("");
   });
 
   it("renders deliverable with resolved name and status badge", () => {
