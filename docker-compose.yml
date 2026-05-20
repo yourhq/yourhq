@@ -37,6 +37,11 @@ x-gateway-env: &gateway-env
   # callback works and we let the auth flow auto-complete. Otherwise
   # we pre-occupy 1455 to force paste-mode.
   NETWORKING_MODE: ${NETWORKING_MODE:-local}
+  # Sidecar containers (dispatcher, runner) connect to the gateway via
+  # ws:// over Docker's internal network. OpenClaw rejects plaintext ws://
+  # to non-loopback addresses by default; this is safe here because the
+  # traffic never leaves the Docker bridge.
+  OPENCLAW_ALLOW_INSECURE_PRIVATE_WS: "1"
 
 services:
 
