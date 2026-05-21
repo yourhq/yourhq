@@ -15,6 +15,10 @@ One UI, many AI agents, your infrastructure.
 
 </div>
 
+<p align="center">
+  <img src="docs-site/images/screenshot.png" alt="HQ — agent detail page showing overview, personality, skills, knowledge, routines, and org chart" width="800" />
+</p>
+
 ---
 
 HQ is a self-hosted dashboard for running AI agents that do real work on your behalf: drafting outreach, managing contacts, handling tasks, browsing the web, talking over Telegram, Discord, or Slack, coordinating with each other, and keeping durable memory in their own workspaces. Your Supabase, your Docker hosts, your agents.
