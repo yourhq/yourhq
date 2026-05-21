@@ -236,7 +236,7 @@ export async function enqueueAgentCommand(
 
     const { data: agent } = await supabase
       .from("agents")
-      .select("id, slug, name, description, gateway_id")
+      .select("id, slug, name, description, gateway_id, meta")
       .eq("id", input.agentId)
       .single();
     if (!agent) throw new Error("Agent not found");
@@ -251,6 +251,8 @@ export async function enqueueAgentCommand(
       const p = (input.payload ?? {}) as Record<string, unknown>;
       if (!p.name && agent.name) p.name = agent.name;
       if (!p.description && agent.description) p.description = agent.description;
+      const tb = (agent.meta as Record<string, unknown> | null)?.template_branch;
+      if (!p.source_template && tb) p.source_template = tb;
       input.payload = p;
     }
   }
@@ -587,7 +589,7 @@ export async function connectAgentChannel(input: {
 
   const { data: agent } = await supabase
     .from("agents")
-    .select("id, slug, name, gateway_id")
+    .select("id, slug, name, gateway_id, meta")
     .eq("id", input.agentId)
     .single();
   if (!agent) return { ok: false, error: "Agent not found" };
@@ -645,6 +647,8 @@ export async function connectAgentChannel(input: {
 
   const payload: Record<string, unknown> = { channel: input.channel };
   if (agent.name) payload.name = agent.name;
+  const templateBranch = (agent.meta as Record<string, unknown> | null)?.template_branch;
+  if (templateBranch) payload.source_template = templateBranch;
   if (input.channel === "discord") {
     if (input.extras?.discord_server_id) payload.discord_server_id = input.extras.discord_server_id;
     if (input.extras?.discord_user_id) payload.discord_user_id = input.extras.discord_user_id;

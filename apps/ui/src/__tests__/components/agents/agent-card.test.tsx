@@ -109,7 +109,7 @@ describe("AgentRow", () => {
   it("links to agent detail page", () => {
     render(<AgentRow agent={makeAgent()} />);
     const link = screen.getByRole("link", { name: "Scout" });
-    expect(link).toHaveAttribute("href", "/dashboard/agents/a-1");
+    expect(link).toHaveAttribute("href", "/dashboard/agents/scout");
   });
 
   it("shows 'Never' when last_seen_at is null", () => {

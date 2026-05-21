@@ -606,7 +606,7 @@ function DirectReportsSection({
           return (
             <Link
               key={r.id}
-              href={`/dashboard/agents/${r.id}`}
+              href={`/dashboard/agents/${r.slug}`}
               className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent/30"
             >
               <span className="shrink-0 text-sm">

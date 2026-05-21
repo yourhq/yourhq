@@ -301,7 +301,7 @@ export function AgentModelSection({
 
       {/* Manage connections link */}
       <Link
-        href="/dashboard/settings/connections"
+        href={`/dashboard/settings/connections${gatewayId ? `?gateway=${gatewayId}` : ""}`}
         className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground/70 hover:text-foreground hover:underline"
       >
         <span className="inline-flex items-center gap-1.5 truncate">

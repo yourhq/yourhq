@@ -58,7 +58,7 @@ export function AgentNode({
     >
       {!asSelf && (
         <Link
-          href={`/dashboard/agents/${agent.id}`}
+          href={`/dashboard/agents/${agent.slug}`}
           className="absolute inset-0 rounded-md"
           aria-label={agent.name}
         />

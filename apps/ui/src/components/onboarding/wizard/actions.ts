@@ -274,12 +274,16 @@ export async function connectProvider(
   }
 
   // Fire the auth_set_api_key command on the gateway (admin client —
-  // no user session exists yet during onboarding)
+  // no user session exists yet during onboarding).
+  // Pick the most recently active gateway so the command goes to the
+  // one that was just set up during the infrastructure step, not
+  // whichever row happens to be first.
   try {
     const supabase = await createAdminClient();
     const { data: gw } = await supabase
       .from("gateways")
       .select("id")
+      .order("last_seen_at", { ascending: false, nullsFirst: false })
       .limit(1)
       .maybeSingle();
 
@@ -330,6 +334,7 @@ export async function startOAuthFlow(
     const { data: gw } = await supabase
       .from("gateways")
       .select("id")
+      .order("last_seen_at", { ascending: false, nullsFirst: false })
       .limit(1)
       .maybeSingle();
 
@@ -364,6 +369,7 @@ export async function submitOAuthPaste(
     const { data: gw } = await supabase
       .from("gateways")
       .select("id")
+      .order("last_seen_at", { ascending: false, nullsFirst: false })
       .limit(1)
       .maybeSingle();
 

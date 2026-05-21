@@ -108,7 +108,7 @@ export function AgentRow({
       style={depth > 0 ? { paddingLeft: `${12 + depth * 24}px` } : undefined}
     >
       <Link
-        href={`/dashboard/agents/${agent.id}`}
+        href={`/dashboard/agents/${agent.slug}`}
         className="absolute inset-0 rounded-md"
         aria-label={agent.name}
       />

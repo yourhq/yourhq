@@ -9,13 +9,22 @@ import { ConnectionsSettings } from "@/components/connections/connections-settin
 
 export const dynamic = "force-dynamic";
 
-export default async function ConnectionsSettingsPage() {
+export default async function ConnectionsSettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ gateway?: string }>;
+}) {
+  const { gateway: gatewayParam } = await searchParams;
   const r = await listGatewaysAction();
   const gateways = r.ok && r.data ? r.data : [];
 
-  // Pick the gateway to show first: prefer online, fall back to oldest.
+  // If a gateway ID was passed (e.g. from agent detail), use that.
+  // Otherwise prefer online, fall back to oldest.
   const initialGateway =
-    gateways.find((g) => g.status === "ready") ?? gateways[0] ?? null;
+    (gatewayParam ? gateways.find((g) => g.id === gatewayParam) : null) ??
+    gateways.find((g) => g.status === "ready") ??
+    gateways[0] ??
+    null;
 
   // Pre-load the cached connections for snappy first paint. The client
   // component triggers a fresh probe on mount so this is just to avoid

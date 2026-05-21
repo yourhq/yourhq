@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Check, ChevronUp, X, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 import { useOnboardingProgress } from "@/hooks/use-onboarding-progress";
 import { tier1Count, tier2Count } from "@/lib/onboarding/progress";
 import {
@@ -20,21 +21,29 @@ interface MissionItem {
   tier: 1 | 2;
 }
 
-const TIER1_ITEMS: MissionItem[] = [
-  { key: "agentCreated", label: "Create your first agent", description: "Go to Agents to create one", href: "/dashboard/agents", tier: 1 },
-  { key: "channelConnected", label: "Connect a channel", description: "Chat with your agent on Telegram, Discord, or Slack", href: "/dashboard/agents", tier: 1 },
-  { key: "taskAssigned", label: "Assign a task to an agent", description: "Create a task and assign it", href: "/dashboard/tasks", tier: 1 },
-  { key: "agentWorked", label: "Agent completes work", description: "Wait for your agent to finish a task", href: "/dashboard/tasks", tier: 1 },
-  { key: "knowledgeCreated", label: "Add knowledge", description: "Give your agents context to work with", href: "/dashboard/knowledge", tier: 1 },
-  { key: "dashboardExplored", label: "Explore the dashboard", description: "Visit a few different pages", href: "/dashboard", tier: 1 },
-];
+function buildItems(soloAgentSlug: string | null) {
+  const agentDetailHref = soloAgentSlug
+    ? `/dashboard/agents/${soloAgentSlug}`
+    : "/dashboard/agents";
 
-const TIER2_ITEMS: MissionItem[] = [
-  { key: "sourceConnected", label: "Connect a source", description: "Pull in data from Notion or Google Drive", href: "/dashboard/knowledge", tier: 2 },
-  { key: "routineCreated", label: "Create a routine", description: "Automate recurring agent work", href: "/dashboard/routines", tier: 2 },
-  { key: "desktopViewed", label: "View agent desktop", description: "See what your agent sees in the browser", href: "/dashboard/agents", tier: 2 },
-  { key: "secondAgentCreated", label: "Add a second agent", description: "Build your AI workforce", href: "/dashboard/agents", tier: 2 },
-];
+  const tier1: MissionItem[] = [
+    { key: "agentCreated", label: "Create your first agent", description: "Go to Agents to create one", href: "/dashboard/agents", tier: 1 },
+    { key: "channelConnected", label: "Connect a channel", description: "Chat with your agent on Telegram, Discord, or Slack", href: agentDetailHref, tier: 1 },
+    { key: "taskAssigned", label: "Assign a task to an agent", description: "Create a task and assign it", href: "/dashboard/tasks", tier: 1 },
+    { key: "agentWorked", label: "Agent completes work", description: "Wait for your agent to finish a task", href: "/dashboard/tasks", tier: 1 },
+    { key: "knowledgeCreated", label: "Add knowledge", description: "Give your agents context to work with", href: "/dashboard/knowledge", tier: 1 },
+    { key: "dashboardExplored", label: "Explore the dashboard", description: "Visit a few different pages", href: "/dashboard", tier: 1 },
+  ];
+
+  const tier2: MissionItem[] = [
+    { key: "sourceConnected", label: "Connect a source", description: "Pull in data from Notion or Google Drive", href: "/dashboard/knowledge", tier: 2 },
+    { key: "routineCreated", label: "Create a routine", description: "Automate recurring agent work", href: "/dashboard/routines", tier: 2 },
+    { key: "desktopViewed", label: "View agent desktop", description: "See what your agent sees in the browser", href: agentDetailHref, tier: 2 },
+    { key: "secondAgentCreated", label: "Add a second agent", description: "Build your AI workforce", href: "/dashboard/agents", tier: 2 },
+  ];
+
+  return { tier1, tier2 };
+}
 
 function MissionContent({
   items,
@@ -140,9 +149,30 @@ function MissionContent({
 export function MissionPanel() {
   const { progress, dismiss, isTier1Done } = useOnboardingProgress();
   const [expanded, setExpanded] = useState(true);
+  const [soloAgentSlug, setSoloAgentSlug] = useState<string | null>(null);
+
+  const supabase = useMemo(() => {
+    try { return createClient(); } catch { return null; }
+  }, []);
+
+  useEffect(() => {
+    if (!supabase) return;
+    let cancelled = false;
+    supabase
+      .from("agents")
+      .select("slug")
+      .limit(2)
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        if (data.length === 1) setSoloAgentSlug(data[0].slug as string);
+        else setSoloAgentSlug(null);
+      });
+    return () => { cancelled = true; };
+  }, [supabase]);
 
   if (!progress.wizardCompleted || progress.dismissedAt) return null;
 
+  const { tier1: TIER1_ITEMS, tier2: TIER2_ITEMS } = buildItems(soloAgentSlug);
   const showTier2 = isTier1Done;
   const items = showTier2 ? TIER2_ITEMS : TIER1_ITEMS;
   const counts = showTier2 ? tier2Count(progress) : tier1Count(progress);

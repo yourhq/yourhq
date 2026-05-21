@@ -620,7 +620,7 @@ def handle_auth_set_api_key(cmd_id, payload):
             else:
                 doc = {"profiles": {}}
 
-            profile_entry = {"provider": provider, "token": api_key}
+            profile_entry = {"type": "api_key", "provider": provider, "key": api_key}
             if base_url:
                 profile_entry["baseUrl"] = base_url
             doc.setdefault("profiles", {})[profile_id] = profile_entry

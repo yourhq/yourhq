@@ -100,7 +100,7 @@ describe("AgentBrowserTab", () => {
     render(<AgentBrowserTab slug="scout" />);
 
     await waitFor(() => {
-      const img = screen.getByAltText("Agent browser");
+      const img = screen.getByAltText("Live view of agent's browser");
       expect(img).toBeInTheDocument();
       expect(img).toHaveAttribute("src", "blob:screenshot");
     });
@@ -121,7 +121,7 @@ describe("AgentBrowserTab", () => {
     render(<AgentBrowserTab slug="scout" />);
 
     await waitFor(() => {
-      expect(screen.getByAltText("Agent browser")).toBeInTheDocument();
+      expect(screen.getByAltText("Live view of agent's browser")).toBeInTheDocument();
     });
 
     const pauseBtn = screen.getByTitle("Pause streaming");

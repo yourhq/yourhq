@@ -271,7 +271,11 @@ export function ConnectionsSettings({
                 <EmptyState
                   icon={Plug}
                   title="No connections yet"
-                  description="Add an API key or sign in with a provider so the agents on this gateway can use a model."
+                  description={
+                    gateways.length > 1
+                      ? `Connections are per-gateway. Add an API key so agents on ${activeGateway?.label ?? "this gateway"} can use a model.`
+                      : "Add an API key or sign in with a provider so your agents can use a model."
+                  }
                   action={{
                     label: "Add connection",
                     icon: Plus,

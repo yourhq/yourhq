@@ -218,13 +218,13 @@ describe("AgentDetailTabs", () => {
     expect(screen.getByRole("tab", { name: "Overview" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Secrets" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Files" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Browser" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Live Browser" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Activity" })).toBeInTheDocument();
   });
 
   it("hides Browser tab when no gateway_id", () => {
     render(<AgentDetailTabs agent={makeAgent({ gateway_id: null })} />);
-    expect(screen.queryByRole("tab", { name: "Browser" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Live Browser" })).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Overview" })).toBeInTheDocument();
   });
 
