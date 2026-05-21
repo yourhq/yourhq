@@ -13,8 +13,6 @@ tagged release.
 
 ## [0.1.3] — 2026-05-21
 
-## [0.1.3] — 2026-05-21
-
 ### Added
 
 - **Personality tab** — agent detail page now surfaces IDENTITY.md and SOUL.md as rich-text editors. Edit your agent's identity and soul inline, save commits to git, and the agent restarts automatically with the new personality applied.
@@ -124,7 +122,6 @@ Initial public release.
 - Gateway tokens hashed at rest; service-role key handling documented.
 
 [Unreleased]: https://github.com/yourhq/yourhq/compare/v0.1.3...HEAD
-[0.1.3]: https://github.com/yourhq/yourhq/compare/v0.1.3...v0.1.3
 [0.1.3]: https://github.com/yourhq/yourhq/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/yourhq/yourhq/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/yourhq/yourhq/compare/v0.1.0...v0.1.1
