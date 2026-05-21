@@ -743,12 +743,12 @@ test_deliverable_auto_complete_trigger() {
       RETURNING id INTO v_task_id;
 
       -- Create two deliverables in draft state
-      INSERT INTO entity_links (owner_type, owner_id, target_type, label, is_deliverable, review_status, submitted_by_agent_id)
-      VALUES ('task', v_task_id, 'url', 'Deliverable 1', true, 'draft', v_agent_id)
+      INSERT INTO entity_links (owner_type, owner_id, target_type, url, label, is_deliverable, review_status, submitted_by_agent_id)
+      VALUES ('task', v_task_id, 'url', 'https://example.com/doc1', 'Deliverable 1', true, 'draft', v_agent_id)
       RETURNING id INTO v_del1_id;
 
-      INSERT INTO entity_links (owner_type, owner_id, target_type, label, is_deliverable, review_status, submitted_by_agent_id)
-      VALUES ('task', v_task_id, 'url', 'Deliverable 2', true, 'draft', v_agent_id)
+      INSERT INTO entity_links (owner_type, owner_id, target_type, url, label, is_deliverable, review_status, submitted_by_agent_id)
+      VALUES ('task', v_task_id, 'url', 'https://example.com/doc2', 'Deliverable 2', true, 'draft', v_agent_id)
       RETURNING id INTO v_del2_id;
 
       -- Approve first deliverable — task should stay in_progress
@@ -798,8 +798,8 @@ test_deliverable_auto_complete_trigger() {
       VALUES ('Inbox test task', 'in_progress')
       RETURNING id INTO v_task_id;
 
-      INSERT INTO entity_links (owner_type, owner_id, target_type, label, is_deliverable, review_status, submitted_by_agent_id)
-      VALUES ('task', v_task_id, 'url', 'Draft doc', true, 'draft', v_agent_id)
+      INSERT INTO entity_links (owner_type, owner_id, target_type, url, label, is_deliverable, review_status, submitted_by_agent_id)
+      VALUES ('task', v_task_id, 'url', 'https://example.com/draft', 'Draft doc', true, 'draft', v_agent_id)
       RETURNING id INTO v_del_id;
 
       -- Request revision — should create inbox item
@@ -850,8 +850,8 @@ test_deliverable_auto_complete_trigger() {
       VALUES ('No inbox test task', 'in_progress')
       RETURNING id INTO v_task_id;
 
-      INSERT INTO entity_links (owner_type, owner_id, target_type, label, is_deliverable, review_status, submitted_by_agent_id)
-      VALUES ('task', v_task_id, 'url', 'Approved doc', true, 'draft', v_agent_id)
+      INSERT INTO entity_links (owner_type, owner_id, target_type, url, label, is_deliverable, review_status, submitted_by_agent_id)
+      VALUES ('task', v_task_id, 'url', 'https://example.com/approved', 'Approved doc', true, 'draft', v_agent_id)
       RETURNING id INTO v_del_id;
 
       -- Approve — should NOT create inbox item
