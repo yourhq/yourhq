@@ -165,10 +165,13 @@ if [ ! -f ".env" ]; then
   # Pin to the installed version (strip leading "v" for docker tags)
   PIN_TAG="${YOURHQ_VERSION#v}"
   [ "$PIN_TAG" = "main" ] && PIN_TAG="latest"
+  # Docker socket GID so the runner container can restart sibling containers
+  DOCKER_GID_VAL=$(stat -c '%g' /var/run/docker.sock 2>/dev/null || stat -f '%g' /var/run/docker.sock 2>/dev/null || echo "0")
   cat > .env <<ENVEOF
 COMPOSE_PROJECT=yourhq
 IMAGE_TAG=$PIN_TAG
 GATEWAY_AUTH_TOKEN=$GATEWAY_AUTH_TOKEN_VAL
+DOCKER_GID=$DOCKER_GID_VAL
 # Supabase creds come from the browser onboarding flow and are written
 # to the /config volume. The UI reads them at runtime; gateway services
 # inherit them from the same volume when they start.

@@ -208,6 +208,8 @@ services:
       # Git backup sweep: commits dirty worktrees + fast-forwards branches.
       # Set to 0 to disable (manual/event-driven commits still work).
       GIT_SYNC_INTERVAL: ${GIT_SYNC_INTERVAL:-1800}
+    group_add:
+      - "${DOCKER_GID:-0}"
     volumes:
       - gateway-state:/home/openclaw/.openclaw
       # Read-only view of the UI's project registry — same pattern as

@@ -144,13 +144,6 @@ export function AgentChannelCard({ agent, onAgentUpdated }: AgentChannelCardProp
 
     completeItem("channelConnected");
 
-    if (channelType === "slack") {
-      toast.success("Slack connected");
-      setPhase("connected");
-      onAgentUpdated?.();
-      return;
-    }
-
     setPhase("provisioning");
 
     if (r.provisionCommandId) {
@@ -160,13 +153,25 @@ export function AgentChannelCard({ agent, onAgentUpdated }: AgentChannelCardProp
         if (status === "completed" || status === "error" || Date.now() - startedAt > 120_000) {
           clearInterval(pollInterval);
           setProvisionDone(true);
-          setPhase("pairing");
+          if (channelType === "slack") {
+            toast.success("Slack connected");
+            setPhase("connected");
+            onAgentUpdated?.();
+          } else {
+            setPhase("pairing");
+          }
         }
       }, 3000);
       return () => clearInterval(pollInterval);
     } else {
       setProvisionDone(true);
-      setPhase("pairing");
+      if (channelType === "slack") {
+        toast.success("Slack connected");
+        setPhase("connected");
+        onAgentUpdated?.();
+      } else {
+        setPhase("pairing");
+      }
     }
   }, [agent.id, agent.slug, channelType, botToken, discordServerId, discordUserId, slackAppToken, slackBotToken, onAgentUpdated]);
 

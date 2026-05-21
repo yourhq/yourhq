@@ -163,6 +163,7 @@ GATEWAY_ID=${GATEWAY_SLUG}
 TAILSCALE_AUTH_KEY=${TAILSCALE_AUTH_KEY:-}
 TAILSCALE_EXIT_NODE=${TAILSCALE_EXIT_NODE:-}
 NOVNC_BIND=${NOVNC_BIND:-local}
+DOCKER_GID=$(stat -c '%g' /var/run/docker.sock 2>/dev/null || stat -f '%g' /var/run/docker.sock 2>/dev/null || echo "0")
 ENVEOF
 chmod 600 .env
 ok "Wrote .env at $INSTALL_DIR/.env"

@@ -58,8 +58,7 @@ export async function encryptSecret(plaintext: string): Promise<string> {
     cipher.final(),
   ]);
   const tag = cipher.getAuthTag();
-  return [
-    PREFIX,
+  return PREFIX + [
     iv.toString("base64url"),
     tag.toString("base64url"),
     ciphertext.toString("base64url"),
@@ -72,7 +71,8 @@ export async function decryptSecret(
   if (!value) return null;
   if (!value.startsWith(PREFIX)) return value;
 
-  const parts = value.slice(PREFIX.length).split(".");
+  let parts = value.slice(PREFIX.length).split(".");
+  if (parts.length === 4 && parts[0] === "") parts = parts.slice(1);
   if (parts.length !== 3) return null;
 
   const key = await getKey();

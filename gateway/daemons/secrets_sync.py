@@ -121,6 +121,8 @@ def _decrypt(ciphertext_str: str) -> Optional[str]:
         return None
 
     parts = ciphertext_str[len(PREFIX) :].split(".")
+    if len(parts) == 4 and parts[0] == "":
+        parts = parts[1:]
     if len(parts) != 3:
         return None
 
