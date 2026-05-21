@@ -33,16 +33,16 @@ Source: https://docs.yourhq.ai
 ## How HQ fits together
 
 ```
-Your browser  →  HQ UI (Next.js)  →  Your Supabase project  →  Gateway hosts  →  Agents
+Your browser  →  HQ dashboard  →  Your database  →  Gateway hosts  →  Agents
 ```
 
-The **UI** is where you manage everything: agents, tasks, CRM, knowledge, routines, collections, connections, and settings.
+The **dashboard** is where you manage everything: agents, tasks, CRM, knowledge, routines, and settings.
 
-**Supabase** is the shared database and auth system — owned by you, on your account.
+Your **database** (Supabase) stores all your data — owned by you, on your own account. On hosted, we handle this for you.
 
-**Gateways** are Docker hosts that run agents. One gateway is the default; you can add more on other machines.
+**Gateways** are the machines that run agents. One is included by default; you can add more on other machines for scale.
 
-**Agents** are long-lived workspaces: their own git branch, Chrome profile, messaging channel, and skills.
+**Agents** are persistent team members: each has its own profile, memory, browser, messaging channel, and skills — they remember everything across sessions.
 
   - **Run agents**: 
     Templates, memory, channels, knowledge, org chart, and delegation.
@@ -72,20 +72,20 @@ The **UI** is where you manage everything: agents, tasks, CRM, knowledge, routin
 
 ## Who HQ is for
 
-  - **Non-technical operators**: 
-    Sign up for hosted or use the installer. No coding required to create agents and manage your workspace.
+  - **Founders and operators**: 
+    Replace scattered AI tools with one workspace. Create agents from templates — no coding needed. CRM, tasks, and knowledge built in.
   
 
-  - **Technical self-hosters**: 
-    Clone, configure `.env`, run Docker Compose. Full control over every layer.
+  - **AI agencies**: 
+    Run agent fleets for multiple clients. Per-agent budgets, multi-gateway hosting, and data isolation between workspaces.
   
 
-  - **Agent builders**: 
-    Write templates, skills, and custom logic. The full template library and agent model are yours to extend.
+  - **Self-hosters**: 
+    Full control over your data and infrastructure. Run on a laptop, VPS, Raspberry Pi, or multiple hosts. Completely free.
   
 
   - **Developers and contributors**: 
-    Standard Next.js + Python stack. Fork it, customize it, submit PRs.
+    Standard Next.js + Python + Supabase stack. Write templates, plugins, and UI modules. Fork it, customize it, submit PRs.
   
 
 ---
@@ -107,11 +107,11 @@ HQ is open source — the same codebase powers both the self-hosted version and 
 
 Source: https://docs.yourhq.ai/concepts/why-hq
 
-> HQ is a product, not a framework. Here's the design philosophy and how it compares to CrewAI, AutoGen, and n8n.
+> HQ is a product, not a framework. Here's the design philosophy and how it compares to CrewAI, OpenAI Agents SDK, and n8n.
 
 HQ is an opinionated **product**: a self-hostable workspace where a fleet of long-lived AI agents does real work on infrastructure you control. It's not a library you import, not a framework you build on top of, and not a chat UI dressed up as a platform.
 
-This page explains the design choices that shape it, and how those choices compare to the tools people most often ask about: **CrewAI**, **AutoGen**, and **n8n**.
+This page explains the design choices that shape it, and how those choices compare to the tools people most often ask about: **CrewAI**, **OpenAI Agents SDK**, and **n8n**.
 
 ## The five choices that shape HQ
 
@@ -149,16 +149,17 @@ The agent runtime is [OpenClaw](https://openclaw.ai), an external runtime that h
 
 These tools all live near "AI agents" but solve different problems. The summary table first, then the honest version.
 
-| | **HQ** | **CrewAI** | **AutoGen** | **n8n** |
+| | **HQ** | **CrewAI** | **OpenAI Agents SDK** | **n8n** |
 |---|---|---|---|---|
-| **Shape** | Self-hosted product | Python framework | Python framework | Workflow automation tool |
+| **Shape** | Self-hosted product | Python framework | Python SDK | Workflow automation tool |
 | **You build with** | UI + templates | Code | Code | Visual workflow editor |
-| **Runs agents** | Long-lived, on your infra | In your Python process | In your Python process | One node at a time inside a workflow |
+| **Agents** | Long-lived, persistent, on your infra | Ephemeral crews in your process | Ephemeral runs via API | Steps inside a workflow |
 | **Workspace included?** | CRM, tasks, knowledge, routines | No | No | No (but rich integrations) |
 | **Persistence model** | Git branch + Postgres per agent | Whatever you build | Whatever you build | Workflow state |
-| **Self-hosted** | Yes (BYO Supabase) | Library — runs wherever you run it | Same | Yes |
+| **Model support** | Any provider (OpenAI, Anthropic, Gemini, Ollama, etc.) | Any provider | OpenAI only | Any provider (via nodes) |
+| **Self-hosted** | Yes (BYO Supabase) | Library — runs wherever | API-dependent (OpenAI hosted) | Yes |
 | **Multi-host execution** | First-class (multi-gateway) | No | No | No (single instance) |
-| **License** | Apache 2.0 | MIT | MIT | Sustainable Use License |
+| **License** | Apache 2.0 | Enterprise License | MIT | Sustainable Use License |
 
 ### vs. CrewAI
 
@@ -168,11 +169,11 @@ If you want **to write a multi-agent program**, CrewAI is a more direct fit than
 
 If you want **a UI your team logs into to manage a fleet of agents that do ongoing work** — with CRM, tasks, knowledge, and budgets already there — that's HQ. The two can coexist: an OpenClaw plugin can shell out to a CrewAI crew for a specific task, and HQ would manage the rest.
 
-### vs. AutoGen
+### vs. OpenAI Agents SDK
 
-AutoGen (from Microsoft Research) is similarly a framework: agents that converse with each other to complete tasks, with strong multi-agent conversation primitives. Like CrewAI, it's library-shaped — you build an app on top.
+OpenAI's Agents SDK provides primitives for building agent applications: tool use, handoffs between agents, guardrails, and tracing. It's well-designed but OpenAI-only — your agents call OpenAI models exclusively.
 
-The same trade applies: AutoGen is the right choice for **building a custom multi-agent application**. HQ is the right choice when you want **the application already built** and want to focus on configuring agents, integrating data sources, and getting work out the other end.
+The trade: the Agents SDK is the right choice for **building a custom agent app tightly integrated with OpenAI's ecosystem** (Codex, Responses API, built-in tools). HQ is the right choice when you want **the application already built**, model-agnostic (use Anthropic, Gemini, Ollama, or anything else), and running on your own infrastructure with persistent state across days.
 
 ### vs. n8n
 
@@ -186,7 +187,7 @@ A reasonable hybrid: use n8n upstream as the integration layer that drops events
 
 ## What HQ deliberately is not
 
-- **Not an agent framework.** If you want to build a custom multi-agent app in code, use CrewAI, AutoGen, or roll your own — the agent loop is OpenClaw, not us.
+- **Not an agent framework.** If you want to build a custom multi-agent app in code, use CrewAI, OpenAI's Agents SDK, or roll your own — the agent loop is OpenClaw, not us.
 - **Not a no-code workflow builder.** Routines and event triggers cover scheduled and reactive work, but the integration surface is much narrower than n8n's. We treat that as a feature, not a gap.
 - **Not a chatbot platform.** Conversation is a thin layer over agents that already exist. The unit of work is a task, an inbox item, or a routine — not a chat turn.
 - **Not multi-tenant by default.** Self-hosted HQ is single-tenant per Supabase project. The hosted variant runs the same code with multi-tenancy added on top — see [Hosted](/hosted/getting-started).
@@ -207,7 +208,7 @@ You probably want something else if:
 
 - You want to embed an agent inside an existing app (use a framework).
 - You want a visual workflow builder with hundreds of SaaS integrations (use n8n).
-- You want a managed cloud product with no infrastructure (use a hosted closed-source agent platform — or [HQ Hosted](/hosted/getting-started) when it's available).
+- You want a managed cloud product with no infrastructure (use [HQ Hosted](/hosted/getting-started) or another hosted agent platform).
 
   - **Architecture**: 
     How the UI, Supabase, gateways, and daemons fit together.
@@ -295,7 +296,7 @@ HQ is an open-source platform for running AI agents on your own infrastructure. 
     - ~5 min for Docker to pull images on first run (~1.5 GB)
     - ~2 min to connect your model provider and create the first agent
 
-    The onboarding wizard handles database setup automatically — no manual SQL needed.
+    The onboarding wizard runs database migrations and handles setup automatically — no manual SQL needed.
 
     See the [Quickstart →](/getting-started/quickstart)
   
@@ -326,6 +327,34 @@ HQ is an open-source platform for running AI agents on your own infrastructure. 
     It's the headquarters metaphor — one place where you manage everything. Short, memorable, hard to misspell.
   
 
+  
+    No. OpenClaw is the agent *runtime* — it handles the inner loop of executing prompts and tool calls. HQ is the *operations layer* around it: provisioning, lifecycle management, queues, knowledge base, CRM, tasks, routines, budgets, and the entire UI. Think of OpenClaw as the engine and HQ as the car, dashboard, and garage.
+
+    HQ is also model-agnostic — it works with any provider (OpenAI, Anthropic, Gemini, Ollama, etc.), not just one.
+  
+
+  
+    Short answer: different shapes for different problems.
+
+    - **CrewAI / OpenAI Agents SDK** are *code frameworks* — you write Python to orchestrate agents for a specific task. If you want to embed agents into an existing app, use those.
+    - **n8n** is a *workflow builder* — visual editor, hundreds of SaaS integrations, trigger-action patterns. If your problem is "when X happens, do Y in Z," use n8n.
+    - **HQ** is a *product* — a self-hosted workspace your team logs into. Agents persist across days with memory, files, and identity. CRM, tasks, knowledge, and routines are built in.
+
+    See [Why HQ →](/concepts/why-hq) for the full comparison.
+  
+
+  
+    The workspace modules (CRM, tasks, knowledge, collections) are tightly integrated — agents reference contacts, create tasks, search knowledge, and submit deliverables. You can ignore modules you don't need (just don't navigate to them), but removing them from the codebase would break the agent context system.
+
+    If you want agents without the workspace, a framework like CrewAI is a better fit.
+  
+
+  
+    $30/month per workspace. We handle database provisioning, gateway hosting, updates, and backups. Your data lives in a Supabase project we provision for you — isolated per workspace, not shared. You can export and self-host at any time.
+
+    The code is identical — hosted runs the same repo with `DEPLOYMENT_MODE=hosted`. No proprietary features, no lock-in.
+  
+
 ---
 
 ## Agents & models
@@ -344,11 +373,11 @@ HQ is an open-source platform for running AI agents on your own infrastructure. 
   
     HQ is model-agnostic. Agents use whatever provider you configure:
 
-    - **API key providers**: OpenAI, Anthropic, Gemini, DeepSeek, Mistral, Groq, OpenRouter, and 15+ more
+    - **API key providers**: OpenAI, Anthropic, Google Gemini, DeepSeek, Mistral, Groq, OpenRouter, and 15+ more
     - **OAuth providers**: OpenAI Codex, GitHub Copilot
     - **Local / self-hosted**: Ollama, LM Studio, vLLM, any OpenAI-compatible server
 
-    There is no default or required provider. You can set different models per agent.
+    There is no default or required provider. You can set different models per agent, and override the model per task.
 
     See [Connect a model provider →](/guides/connect-model-provider)
   
@@ -362,7 +391,7 @@ HQ is an open-source platform for running AI agents on your own infrastructure. 
   
 
   
-    Yes. Each agent has its own model selector on its detail page. A common pattern: use a frontier model (GPT-4o, Claude 3.5) for agents doing complex reasoning, and a cheap/fast model or Ollama for agents doing simple lookups.
+    Yes. Each agent has its own model selector on its detail page, and you can override the model per task. A common pattern: use a frontier model (Claude Opus, GPT-4.1) for agents doing complex reasoning, and a cheaper model or Ollama for agents doing simple lookups.
   
 
   
@@ -386,9 +415,9 @@ HQ is an open-source platform for running AI agents on your own infrastructure. 
   
 
   
-    HQ ships 17 built-in templates:
+    HQ ships 16 built-in templates:
 
-    `default`, `analytics`, `assistant`, `chief-of-staff`, `cmo`, `cofounder`, `crm-researcher`, `data-analyst`, `designer`, `ghostwriter`, `market-researcher`, `newsletter-editor`, `newsletter-writer`, `sales-copywriter`, `script-writer`, `social-strategist`, `social-writer`
+    `default`, `analytics`, `assistant`, `chief-of-staff`, `cmo`, `cofounder`, `crm-researcher`, `designer`, `ghostwriter`, `market-researcher`, `newsletter-editor`, `newsletter-writer`, `sales-copywriter`, `script-writer`, `social-strategist`, `social-writer`
 
     Each template comes with pre-loaded identity files, skills, and a personality. You pick one when creating an agent — you can customize everything afterward.
 
@@ -582,7 +611,7 @@ HQ is an open-source platform for running AI agents on your own infrastructure. 
   
 
   
-    Currently: the maintainers, beta testers, and early adopters who've discovered it. The project targets founders, solo operators, and small teams who want their AI agents to do real background work on their own infrastructure — not in a SaaS they don't control.
+    Founders, solo operators, and small teams who want their AI agents to do real background work on their own infrastructure — not in a SaaS they don't control. The project is early and growing; contributions and feedback from adopters shape the roadmap directly.
 
 ---
 
@@ -592,143 +621,45 @@ Source: https://docs.yourhq.ai/getting-started/roadmap
 
 # Roadmap
 
-Where HQ is now, what ships in v0.1, and what comes after.
+Where HQ is headed. For what's already shipped, see the [feature tour](../concepts/features) and [changelog](https://github.com/yourhq/yourhq/releases).
 
-## Shipped
+## v0.2 — Connectors & Hardening
 
-### Core platform
+HQ ships with one source connector (Notion). v0.2 is about proving the connector architecture generalizes and shoring up the rough edges from v0.1.
 
-- One repo (`yourhq/yourhq`) for UI, gateway, dispatcher, runner, templates, migrations, installer, and docs
-- `docker-compose.yml` stack with seven services (ui, gateway, dispatcher, runner, embedder, file-processor, plugin-runner) and Docker healthchecks on all of them
-- Interactive `installer/install.sh` with local, Tailscale, and public networking modes
-- Gateway runtime with OpenClaw, Chrome/Chromium, Xtigervnc, XFCE desktop, noVNC, and files API
-- `RUNTIME_MODE` env var (`docker` | `systemd` | `e2b`) for portable entrypoint behavior
-- Agent templates bundled into the gateway image (17 templates, each with a README)
-- Multi-arch GHCR images for amd64 and arm64
-- Multi-gateway database model with `gateways` table and `agents.gateway_id`
-- Tailscale as a host-level dependency, not a container dependency
+- **Source connector expansion** — Google Drive, Gmail, and improvements to the connector SDK to make community contributions frictionless.
+- **Test coverage hardening** — close the worker app coverage gap, expand UI component coverage, and add end-to-end install validation across platforms (VPS, M-series Mac, Raspberry Pi).
+- **Onboarding polish** — stabilize the first-run experience across all install paths. Auth propagation, gateway credential resolution, and login redirects all saw patches in v0.1.2–v0.1.3 and need to be solid.
+- **Task recurrence** — enable the recurrence system (built but currently disabled) with schedule presets and UI controls.
+- **Templates source UI** — let workspaces point at a custom git URL for their own template library instead of only the bundled set.
+- **Import existing OpenClaw** — bring an existing OpenClaw setup into HQ without starting over. Detect running agents, import their state, and register the host as an HQ gateway.
 
-### Multi-tenant schema
+## Next — Deeper Autonomy
 
-- `tenants` table with a fixed default UUID for single-tenant OSS installs
-- `tenant_id` foreign key on all ~30 tenant-owned tables with cascade deletes
-- Tenant-scoped unique constraints (e.g. `gateways(tenant_id, slug)` instead of `gateways(slug)`)
-- RLS policies scoped by `tenant_id` extracted from JWT `app_metadata`
-- All RPCs and triggers updated for tenant-aware leasing and filtering
-- Status enum unification: `ready`, `error`, `paused`, `provisioning`, `hibernating` for both agents and gateways
-- `_schema_version` tracking table (currently at v31)
-- `last_heartbeat_at` on `gateways` table
+Make agents meaningfully more capable and less dependent on human routing.
 
-### Workspace and onboarding
+- **Deeper OpenClaw integration** — channel hand-off (agent moves between Telegram → browser → Slack mid-task), richer browser automation, tighter lifecycle hooks.
+- **Agent-to-agent workflows** — define multi-agent coordination patterns so agents can chain work without human dispatch.
+- **More channels** — WhatsApp and Signal support for agent communication.
+- **Per-agent desktop view** — pause, takeover, and resume individual agents from the desktop modal, not just the whole gateway.
+- **Pretty tailnet URLs** — Tailscale Serve automation in the installer for clean `http://hq` access instead of ported URLs.
+- **Plugin ecosystem growth** — more built-in plugins beyond usage-alerts and better webhook plugin DX.
+- **Dev agent** — a built-in agent that can modify HQ itself — UI components, templates, configuration, workflows — so operators can customize their workspace through conversation instead of code.
 
-- First-boot onboarding in the browser
-- Workspace registry in `/config/workspaces.json` and `/config/secrets.json`
-- Runtime Supabase config injection with no `NEXT_PUBLIC_*` rebuild requirement
-- Workspace switcher and database settings
-- Supabase validation during onboarding
-- Account creation and sign-in flow
-- Unified onboarding wizard (welcome → intent → infrastructure → provider → first agent) with session persistence, progressive disclosure, and post-wizard mission panel
-- CRM, tasks, knowledge, routines, collections, notifications, activity, and settings pages
+## Future — Runtime Freedom
 
-### Gateway and provider operations
+Remove hard dependencies and give operators real choices.
 
-- Settings → Gateways UI with health indicators, stale heartbeat detection, and label editing
-- Single-use gateway registration tokens and generated installer command
-- URL override support for custom domains and reverse proxies
-- Desktop modal proxied through the UI — no exposed VNC port, auto-connects with the gateway's password
-- Desktop label in the UI (not "noVNC")
-- Pause and resume controls for both gateways and agents
-- Settings → Connections UI
-- API-key, OAuth-paste, device-code, CLI-reuse, and local URL provider auth flows
-- Provider list, removal, refresh, and default-model command support
-- Template update propagation ("Update agents" button dispatches `update_all` to the gateway)
+- **Hermes runtime support** — [Hermes](https://hermes-agent.nousresearch.com/) as an alternative agent runtime alongside OpenClaw. Requires a runtime abstraction layer in the gateway so operators can choose their execution engine.
+- **Supabase Local / Pure Postgres** — remove the Supabase dependency for self-hosters who want plain Postgres, making HQ deployable with just a database connection string.
+- **Community template marketplace** — discover, share, and fork agent templates across the community.
+- **Native apps** — macOS menu bar, iOS Shortcuts.
+- **Stronger per-agent isolation** — stricter security boundaries for multi-operator deployments.
 
-### Agent operations
-
-- Agent creation wizard from templates
-- Multi-channel support (Telegram, Discord, Slack, None) with per-channel credential provisioning and pairing
-- Agent file browser and editor
-- Agent operations and command history
-- Unified knowledge system with scope-based agent boot context (workspace pinned + agent-scoped items)
-- Collections for custom structured data
-- Entity links for universal cross-entity references
-- File processing pipeline for knowledge items
-- Source connections for external knowledge sync with plugin-based connector architecture
-- Source connector plugin system — manifest-driven providers, auto-discovery registry, generic OAuth, gateway-proxied browse/validate, optional write-back support, contributor template (`_template/`) and guide (`CONTRIBUTING-SOURCES.md`)
-- Agent triggers and inbox history
-- Schedule routines with cron presets (15 min to daily) via pg_cron
-- Inline model and provider default selection
-- Agent org chart through `reports_to_id`
-- Runtime delegation context for managers and direct reports
-- Per-agent LLM usage tracking and monthly budgets
-- Budget warning, exceeded notifications, and hard cutoff enforcement
-- Agent-initiated skill learning — agents autonomously create and update skills during work, with human visibility on the agent detail page and version history attribution in the knowledge editor
-- Task relations and dependencies — `blocked_by`, `blocks`, `relates_to`, `parent_of`, `child_of` with blocker highlighting, `notify_blocker_resolved` trigger, and dispatcher blocker enrichment
-- Labels — managed workspace labels with colors, inline creation, task form picker, list/board display, and toolbar filter
-- Deliverables — agent-submitted work products (page/URL/record) with human review workflow (approve, request revision, reject) in a dedicated task form tab
-- Task templates — reusable task group templates with dependency graphs, spawned from toolbar with preserved `blocked_by` relations
-- Overdue escalation — pg_cron auto-miss for overdue tasks with inbox notification for assigned agents and missed-task banner in UI
-- Agent delegation skill — `hq_delegate_task.py` for subtask creation with org-chart validation and `child_of` relation
-- HQ plugin system — event-driven hooks for tasks, agents, knowledge, inbox, routines, comments, secrets, usage, and budgets. Local Python plugins with SDK (state, secrets, Supabase queries) and webhook plugins (remote HTTP with HMAC signatures). Plugin runner daemon, Settings UI for management, built-in usage-alerts plugin, contributor template and guide
-
-### Observability and operations
-
-- Sentry error tracking across all runtimes (UI client/server/edge, worker, gateway daemons). **Hosted-only** — self-hosted installs never load the Sentry SDK, never send telemetry. Noise-filtered `beforeSend` to stay within free-tier budget
-- PostHog product analytics in the UI and worker. **Hosted-only** — self-hosted installs never load the PostHog SDK
-- System page with Commands, Inbox, and Audit Log tabs
-- Status, module, action, and actor filters across all log views
-- Realtime subscriptions and pagination on all log views
-- Structured JSON logging in both daemons (gateway_id and tenant_id in every line)
-- Schema version banner ("Update available") in the dashboard shell
-- `scripts/diagnostic-bundle.sh` for support triage
-
-### Docs and migration tooling
-
-- Docs site at `docs.yourhq.ai` (Mintlify) with self-host, concepts, and reference sections
-- Public deployment guide covering Tailscale Serve, Tailscale Funnel, Cloudflare Tunnel, and classic reverse proxies
-- Security hardening guide (Supabase auth gates, RLS, noVNC exposure, gateway auth tokens)
-- Per-template READMEs explaining intended role, tools, and first tasks
-- Migration runner CLI (`apps/migrate/`) with one-click and SQL editor fallback modes
-
-## Remaining for v0.1
-
-Small items to address before tagging. None are blockers, but they'd be good to ship.
-
-- **End-to-end install test** — fresh VPS, Codespaces, and M-series Mac. Manual checklist is fine for v0.1; automated test suite can follow.
-
-## Next (post-v0.1)
-
-- **Templates source UI** — switch between bundled templates and a custom git URL per workspace.
-- **Pretty tailnet URLs** — optional Tailscale Serve automation in the installer for `http://hq` instead of ported URLs.
-
-## Hosted Offering (shipped)
-
-Live at [app.yourhq.ai](https://app.yourhq.ai). Same monorepo, same images, controlled by `DEPLOYMENT_MODE=hosted` env var. Self-hosted code stays usable on its own.
-
-- Worker service (`apps/worker/`) — handles provisioning, billing, and sandbox lifecycle
-- UI at `app.yourhq.ai`
-- Per-user Supabase project provisioning via Management API
-- Cloud sandbox hosting for gateways (gateway Dockerfile runs with `RUNTIME_MODE=e2b`)
-- Stripe billing ($30/month per workspace, self-serve add/cancel)
-- Magic link authentication
-- Hosted registry backed by a master Supabase accounts database
-- noVNC proxy with sandbox access token injection (extends the `/desktop/` proxy already in OSS)
-- Onboarding flow that skips Supabase and gateway setup steps
-
-## Longer-Term Ideas
-
-- Free hosted tier with shared Supabase and tenant data portability (export → bundle → import)
-- Per-agent view in the desktop modal with pause, takeover, and resume
-- Agent-to-agent workflow builder
-- Native apps (macOS menu bar, iOS Shortcuts)
-- Community template marketplace
-- MCP-first integrations where they can replace direct plugins
-- Stronger per-agent isolation for operators who need stricter security boundaries
-
-## How To Influence The Roadmap
+## How to Influence the Roadmap
 
 - Open issues labeled `feature-request` with a clear use case.
-- Start discussions in `github.com/yourhq/yourhq/discussions`.
+- Start discussions in [github.com/yourhq/yourhq/discussions](https://github.com/yourhq/yourhq/discussions).
 - Send PRs for docs, templates, UI polish, gateway hardening, or well-scoped integrations.
 - For large architecture changes, open an issue first so the design can be discussed before implementation.
 
@@ -782,7 +713,7 @@ Go to [app.yourhq.ai](https://app.yourhq.ai) and click **Get started**. The onbo
 
     
 > 
-      **Not sure which to start with?** Anthropic Claude or OpenAI GPT-4o are the most capable general-purpose choices. You can add more providers in Settings → Connections later.
+      **Not sure which to start with?** Anthropic Claude Sonnet or OpenAI GPT-4.1 are the most capable general-purpose choices. You can add more providers in Settings → Connections later. [Compare providers →](/guides/connect-model-provider)
     
 
   
@@ -980,7 +911,10 @@ HQ hosted is the managed version of HQ at [app.yourhq.ai](https://app.yourhq.ai)
   
 
   
-    Not currently — there's no free trial or free tier. If you want to evaluate HQ without paying, the [self-hosted version](/getting-started/quickstart) is free and identical in features.
+    There's no free trial at the moment. Two options to evaluate:
+
+    - **Self-hosted version** — free, identical features, runs on any machine with Docker. [Get started →](/getting-started/quickstart)
+    - **Hosted sign-up** — $30/month, cancel anytime. You'll have agents running in under 2 minutes.
   
 
 ---
@@ -1075,9 +1009,9 @@ HQ hosted is the managed version of HQ at [app.yourhq.ai](https://app.yourhq.ai)
   
 
   
-    Not directly in the hosted version (you don't have filesystem access to the runtime). You can customize each agent's identity, memory, skills, and behavior through the UI after creation.
+    Yes — from the UI. After creating an agent, you can edit its identity, personality, memory, and skills directly from the agent detail page. The Personality tab lets you edit IDENTITY.md and SOUL.md with a rich-text editor, and changes apply immediately.
 
-    If you need full template customization, the self-hosted version gives you complete filesystem access.
+    For deeper customization (creating entirely new templates from scratch), the self-hosted version gives you full filesystem access to the template library.
   
 
 ---
@@ -1142,7 +1076,7 @@ You need three things. All are free to start.
   
 ### Disable public signup
 
-    Go to **Authentication → Providers → Email** and turn off "Enable email signup". This prevents anyone else from creating an account in your Supabase project.
+    Go to **Authentication → Providers → Email** and turn off "Enable email signup". This prevents strangers from creating accounts in your workspace — only the user you just created can log in.
   
 
   
@@ -1153,8 +1087,8 @@ You need three things. All are free to start.
     | Key | Where to find it | What it's for |
     |---|---|---|
     | **Project URL** | Top of the API page | How HQ finds your Supabase project |
-    | **Anon public key** | Under "Project API keys" | Browser-side auth |
-    | **Service role key** | Under "Project API keys" (secret — don't share) | Full database access for the gateway |
+    | **Anon public key** | Under "Project API keys" | Public identifier (safe to share) |
+    | **Service role key** | Under "Project API keys" (secret — don't share) | Master key with full database access — treat like a password |
 
     
 > 
@@ -1167,7 +1101,7 @@ You need three things. All are free to start.
 
 ## Step 2 — Install HQ
 
-Open a terminal on your Mac or Linux machine (on Windows, use WSL) and run:
+Open a terminal on your Mac or Linux machine (on Windows, use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) — Windows Subsystem for Linux) and run:
 
 ```bash
 curl -fsSL install.yourhq.ai | bash
@@ -1175,7 +1109,7 @@ curl -fsSL install.yourhq.ai | bash
 
 The installer will ask you a couple of questions:
 
-1. **GitHub sync** — skip this for now (press Enter). You can set it up later for off-site backup.
+1. **GitHub sync** — optional backup for agent files. Skip for now (press Enter) — you can enable it later in Settings.
 
 It pulls Docker images (~1.5 GB on first run — this takes a few minutes), starts the stack, and opens your browser.
 
@@ -1365,7 +1299,7 @@ HQ uses your own Supabase project as its database, auth system, real-time event 
     1. Browse to [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations) on GitHub
     2. Open `001_extensions.sql`, copy the SQL
     3. Paste into the SQL Editor, click **Run**
-    4. Repeat for `002`, `003` ... through `033`
+    4. Repeat for each file in filename order
 
     
 > 
@@ -1617,7 +1551,7 @@ See [Networking](/self-host/networking) for the networking model and topology di
 - **"Pull access denied" on GHCR**: only relevant if the repo is private. `docker login ghcr.io -u ` with a PAT that has `read:packages` scope.
 - **`docker compose up` fails with "port already in use"**: something else is on port 3000 on your host. Change `UI_HOST_PORT` in `.env`.
 - **Onboarding wizard 500s**: CSRF origin mismatch. Set `ALLOWED_ORIGINS` in `.env` to match the host you're accessing from. Restart the UI.
-- **Onboarding validator says a table/function doesn't exist**: the schema is incomplete. Re-run the one-click schema install from the onboarding wizard, or manually apply every file in `db/migrations/` (001 through 033) in filename order.
+- **Onboarding validator says a table/function doesn't exist**: the schema is incomplete. Re-run the one-click schema install from the onboarding wizard, or manually apply every file in `db/migrations/` in filename order.
 
 See [Troubleshooting](/troubleshooting/common-issues) for more.
 
@@ -2614,6 +2548,60 @@ Source: https://docs.yourhq.ai/self-host/operations
 
 > How to update, back up, monitor, and maintain your HQ install.
 
+## Production checklist
+
+Before relying on HQ for real work, walk through this list. Most items take under a minute.
+
+  
+### Pin image versions
+
+    Don't track `:latest` in production. Pin all images to the same release tag (e.g., `v0.1.3`) in your `.env`. See [Pinning image versions](#pinning-image-versions) below.
+  
+
+  
+### Disable Supabase email signup
+
+    In your Supabase project: **Authentication → Providers → Email** → disable "Allow new users to sign up." This prevents anyone with your Supabase URL from creating an account. Add users manually via the Supabase dashboard.
+  
+
+  
+### Enable MFA on your Supabase account
+
+    Your Supabase dashboard has full access to every table. Enable multi-factor auth in your Supabase account settings.
+  
+
+  
+### Use Tailscale or a reverse proxy
+
+    Default port bindings are loopback-only (localhost). To access HQ from other devices, use [Tailscale](/self-host/networking) (recommended — private, no port exposure) or a reverse proxy with TLS (Caddy, Cloudflare Tunnel, nginx).
+  
+
+  
+### Generate strong secrets
+
+    If you set `GATEWAY_AUTH_TOKEN` manually, use a strong random value: `openssl rand -hex 32`. Never reuse secrets across environments.
+  
+
+  
+### Set up backups
+
+    Back up your Supabase database, gateway state volume, and `.env` file. See [Backing up](#backing-up) below. At minimum, enable Supabase Pro backups or schedule a weekly `pg_dump`.
+  
+
+  
+### Set up monitoring
+
+    Check gateway heartbeats in **Settings → Gateways** and review command history in **Settings → System**. Set up log forwarding if your infrastructure supports it. See [Monitoring](#monitoring) below.
+  
+
+  
+### Review the security model
+
+    Read [Security model →](/concepts/security-model) and [SECURITY.md](https://github.com/yourhq/yourhq/blob/main/SECURITY.md) to understand trust boundaries — especially the Docker socket mount and service role key implications.
+  
+
+---
+
 ## Updating HQ
 
 Updating is a pull-and-restart — no rebuilds required.
@@ -3109,8 +3097,8 @@ HQ is model-agnostic with a bring-your-own-key approach. You connect your own AP
 
     | Provider | Get your key | Typical cost |
     |---|---|---|
-    | **OpenAI** (GPT-4o, o1, etc.) | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) | ~$0.01–0.06 per 1K tokens |
-    | **Anthropic** (Claude 3.5, 4.x) | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) | ~$0.003–0.075 per 1K tokens |
+    | **OpenAI** (GPT-4.1, o3, o4-mini) | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) | ~$0.01–0.06 per 1K tokens |
+    | **Anthropic** (Claude Opus, Sonnet, Haiku) | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) | ~$0.003–0.075 per 1K tokens |
     | **Google Gemini** | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) | ~$0.007 per 1K tokens |
     | **DeepSeek** | [platform.deepseek.com](https://platform.deepseek.com) | Very low cost |
     | **Mistral** | [console.mistral.ai](https://console.mistral.ai) | Competitive pricing |
@@ -3124,7 +3112,7 @@ HQ is model-agnostic with a bring-your-own-key approach. You connect your own AP
 
     
 > 
-      **Not sure which to start with?** OpenAI GPT-4o or Anthropic Claude 3.5 Sonnet are the most capable general-purpose choices. OpenRouter is useful if you want to experiment with many models without managing multiple keys.
+      **Not sure which to start with?** Anthropic Claude Sonnet or OpenAI GPT-4.1 are the most capable general-purpose choices. OpenRouter is useful if you want to experiment with many models without managing multiple keys.
     
 
   
@@ -3140,7 +3128,7 @@ HQ is model-agnostic with a bring-your-own-key approach. You connect your own AP
 
     
 > 
-      **OpenAI API key vs subscription:** Both serve the same models (GPT-5.4, GPT-5.5, o3, etc.). The API key bills per-token to your OpenAI platform account. The subscription route uses your ChatGPT Plus/Pro/Team credits — "free at the margin" if you already pay for a subscription. If you connect both, the model picker shows each model with "Subscription" and "API" labels so you can choose. Codex Mini is subscription-exclusive and only appears when the subscription connection is active.
+      **OpenAI API key vs subscription:** Both serve the same models (GPT-4.1, o3, o4-mini, etc.). The API key bills per-token to your OpenAI platform account. The subscription route uses your ChatGPT Plus/Pro/Team credits — "free at the margin" if you already pay for a subscription. If you connect both, the model picker shows each model with "Subscription" and "API" labels so you can choose. Codex Mini is subscription-exclusive and only appears when the subscription connection is active.
     
 
   
@@ -3976,8 +3964,8 @@ If an agent hits its hard cutoff mid-month, you can:
 
 Different models have very different costs per token. Per-agent model selection lets you optimize spend across your fleet:
 
-- Assign expensive reasoning models (Claude Opus, GPT-5.5 with high thinking) only to agents doing complex work
-- Use cheaper fast models (Gemini Flash, Haiku, o4-mini) for agents doing simple lookups or repetitive tasks
+- Assign expensive reasoning models (Claude Opus, GPT-4.1 with high thinking) only to agents doing complex work
+- Use cheaper fast models (Gemini Flash, Claude Haiku, GPT-4.1 mini) for agents doing simple lookups or repetitive tasks
 - Use per-task thinking overrides to temporarily boost reasoning for one-off complex tasks without increasing the agent's baseline cost
 
 Combined with budgets, this gives you precise control: set a generous budget for an agent running an expensive model, and a tight budget for agents on cheap models that shouldn't be doing much work.
@@ -4497,7 +4485,7 @@ The agent detail page includes:
 
 ## Agent Templates
 
-Templates are role-specific starting points for agents. The repository ships 17 templates: default, analytics, assistant, chief of staff, CMO, cofounder, CRM researcher, data analyst, designer, ghostwriter, market researcher, newsletter editor, newsletter writer, sales copywriter, script writer, social strategist, and social writer.
+Templates are role-specific starting points for agents. The repository ships 16 templates: default, analytics, assistant, chief of staff, CMO, cofounder, CRM researcher, designer, ghostwriter, market researcher, newsletter editor, newsletter writer, sales copywriter, script writer, social strategist, and social writer.
 
 Each template includes files such as:
 
@@ -4739,7 +4727,7 @@ For models that support extended reasoning (Claude, o-series), HQ exposes a thin
 
 ### Multi-route providers
 
-Some providers serve the same models through different billing paths. OpenAI models (GPT-5.4, GPT-5.5, o3, o4-mini) are available both via API key (pay-per-token) and via ChatGPT subscription (included in your plan). HQ handles this transparently:
+Some providers serve the same models through different billing paths. OpenAI models (GPT-4.1, o3, o4-mini) are available both via API key (pay-per-token) and via ChatGPT subscription (included in your plan). HQ handles this transparently:
 
 - **One connection:** Models appear under "OpenAI" with no qualifier.
 - **Both connections:** Each model appears twice with "Subscription" (preferred) and "API" route labels. Choose which billing path each agent uses.
@@ -5091,11 +5079,11 @@ Self-hosted code is unaffected — hosted routes are gated behind `DEPLOYMENT_MO
 
 ## 15. Where things are going
 
-- **Self-hosted hardening.** Better migration tooling, stronger validation around workspace setup, and clearer gateway health diagnostics.
-- **Integrations.** More MCP-first integrations, richer provider auth UX, optional email/calendar/Slack/Notion flows, and deeper routine primitives.
-- **Docs site.** The docs site at [docs.yourhq.ai](https://docs.yourhq.ai) is live and rendered from the `docs-site/` directory in this repo.
+- **Connectors & hardening.** More source connectors (Google Drive, Gmail), test coverage expansion, and onboarding polish.
+- **Deeper autonomy.** Richer OpenClaw integration (channel hand-off, browser delegation), agent-to-agent workflows, and more channels (WhatsApp, Signal).
+- **Runtime freedom.** Hermes as an alternative agent runtime, pure Postgres option (no Supabase dependency), and community template marketplace.
 
-Roadmap items should be tracked in [ROADMAP.md](/getting-started/roadmap) and issues, not as stale phase labels in docs.
+See the [roadmap](/getting-started/roadmap) for the full plan.
 
 ---
 
@@ -8649,13 +8637,16 @@ HQ stores shared state in one Supabase project per workspace. The SQL source of 
 | `025_modular_workspace.sql` | Modular workspace onboarding |
 | `026_secrets.sql` | Encrypted secrets (AES-256-GCM), RLS, Realtime, `source_connections.secret_id` FK |
 | `027_plugins.sql` | Plugin system: `hq_plugins`, `hq_plugin_events`, `hq_plugin_state`, `hq_plugin_event_queue` tables, `emit_plugin_event()` trigger function, event triggers, pg_cron cleanup jobs |
-| `027_source_plugin_support.sql` | Extensible source providers (drops hardcoded provider constraint), `writable` flag on `source_connections`, `source_write` command action |
 | `028_task_relations.sql` | Task dependencies and relations (`task_relations` table with `blocked_by`, `blocks`, `relates_to`, `parent_of`, `child_of`), `get_task_relations()` RPC, `notify_blocker_resolved` trigger |
 | `029_labels.sql` | Managed labels with color and description, `task_labels` junction table |
 | `030_task_templates.sql` | Reusable task group templates with dependency graphs (JSONB items) |
 | `031_overdue_escalation.sql` | pg_cron job to mark overdue tasks as `missed`, inbox notification for assigned agents |
 | `032_notification_gaps.sql` | Notifications for deliverable submissions and overdue task events |
 | `033_knowledge_chunk_pipeline.sql` | Knowledge chunk creation, embedding pipeline, and source item indexing fixes |
+| `034_crm_search_index.sql` | Full-text search index on CRM contacts and organizations |
+| `035_interactions_nullable_contact.sql` | Allow interactions without a linked contact |
+| `036_collection_agent_commands.sql` | Agent commands for collection record operations |
+| `037_source_plugin_support.sql` | Extended source connector plugin support |
 
 For a fresh Supabase project, the onboarding wizard handles schema installation automatically with a one-click install. You can also run all files in filename order from the SQL Editor manually.
 
@@ -8857,7 +8848,7 @@ Fresh project:
 
 1. Create a Supabase project.
 2. Open SQL Editor.
-3. Run the one-click schema install from the onboarding wizard, or manually run every `.sql` file in `db/migrations/` in filename order (`001` through `033`).
+3. Run the one-click schema install from the onboarding wizard, or manually run every `.sql` file in `db/migrations/` in filename order.
 4. Create an auth user and disable public signup unless needed.
 
 Existing project:
@@ -8876,7 +8867,7 @@ Source: https://docs.yourhq.ai/reference/migrations
 
 > Ordered Supabase migration files and how to apply them.
 
-Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations). Run them in filename order for a fresh project. There are currently 34 migration files (001–033).
+Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations). Run them in filename order for a fresh project. The onboarding wizard can apply them automatically via one-click schema install.
 
 ## Migration files
 
@@ -8909,13 +8900,16 @@ Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main
 | `025_modular_workspace.sql` | Modular workspace onboarding |
 | `026_secrets.sql` | Encrypted secrets (AES-256-GCM), agent/gateway scoping, Realtime, `source_connections.secret_id` FK |
 | `027_plugins.sql` | Plugin system: `hq_plugins`, `hq_plugin_events`, `hq_plugin_state`, `hq_plugin_event_queue`, event triggers, pg_cron cleanup |
-| `027_source_plugin_support.sql` | Extensible source providers, `writable` flag, `source_write` command action |
 | `028_task_relations.sql` | Task dependencies (`task_relations`), `get_task_relations()` RPC, `notify_blocker_resolved` trigger |
 | `029_labels.sql` | Managed labels with color/description, `task_labels` junction table |
 | `030_task_templates.sql` | Reusable task group templates with dependency graphs (JSONB items) |
 | `031_overdue_escalation.sql` | pg_cron job to mark overdue tasks `missed`, inbox notification for assigned agents |
 | `032_notification_gaps.sql` | Notifications for deliverable submissions and overdue task events |
 | `033_knowledge_chunk_pipeline.sql` | Knowledge chunk creation, embedding pipeline, and source item indexing fixes |
+| `034_crm_search_index.sql` | Full-text search index on CRM contacts and organizations |
+| `035_interactions_nullable_contact.sql` | Allow interactions without a linked contact |
+| `036_collection_agent_commands.sql` | Agent commands for collection record operations |
+| `037_source_plugin_support.sql` | Extended source connector plugin support |
 
 ## Migration CLI
 
@@ -10078,8 +10072,8 @@ yourhq/
   gateway/connectors/   Source connector plugins (one folder per provider + registry)
   gateway/plugins/      HQ plugin system (SDK, template, built-in plugins, contributor guide)
   gateway/daemons/      Python daemons (command runner, dispatcher, source sync, secrets sync, plugin runner, etc.)
-  db/migrations/        Supabase SQL migrations (001–033, 34 files)
-  templates/            Agent template library (17 templates)
+  db/migrations/        Supabase SQL migrations (001–037)
+  templates/            Agent template library (16 templates)
   installer/            Interactive install scripts (install.sh + install-gateway.sh)
   docs-site/            Mintlify documentation source (docs.yourhq.ai)
   scripts/              Operational and build scripts

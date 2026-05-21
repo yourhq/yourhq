@@ -69,8 +69,8 @@ If an agent hits its hard cutoff mid-month, you can:
 
 Different models have very different costs per token. Per-agent model selection lets you optimize spend across your fleet:
 
-- Assign expensive reasoning models (Claude Opus, GPT-5.5 with high thinking) only to agents doing complex work
-- Use cheaper fast models (Gemini Flash, Haiku, o4-mini) for agents doing simple lookups or repetitive tasks
+- Assign expensive reasoning models (Claude Opus, GPT-4.1 with high thinking) only to agents doing complex work
+- Use cheaper fast models (Gemini Flash, Claude Haiku, GPT-4.1 mini) for agents doing simple lookups or repetitive tasks
 - Use per-task thinking overrides to temporarily boost reasoning for one-off complex tasks without increasing the agent's baseline cost
 
 Combined with budgets, this gives you precise control: set a generous budget for an agent running an expensive model, and a tight budget for agents on cheap models that shouldn't be doing much work.

@@ -32,13 +32,15 @@ No vendor lock-in. No per-seat pricing. No data leaving your infrastructure.
 
 ## How HQ compares
 
-| | HQ | CrewAI / AutoGen | n8n |
-|---|---|---|---|
-| Shape | Self-hosted product (UI + workspace + agent fleet) | Python framework | Workflow automation tool |
-| What it gives you | Agents that exist continuously, with memory, files, and channels | Building blocks for a multi-agent program | Visual workflows triggered by events |
-| Workspace included | CRM, tasks, knowledge, routines, budgets | No (you build it) | No (rich integrations instead) |
+| | HQ | CrewAI | OpenAI Agents SDK | n8n |
+|---|---|---|---|---|
+| Shape | Self-hosted product (UI + workspace + agent fleet) | Python framework | Python SDK (OpenAI-only) | Workflow automation tool |
+| Agents | Long-lived, persistent, on your infra | Ephemeral crews in your process | Ephemeral runs via API | Steps inside a workflow |
+| Workspace included | CRM, tasks, knowledge, routines, budgets | No (you build it) | No (you build it) | No (rich integrations) |
+| Self-hosted | Yes (BYO Supabase) | Library — runs wherever | API-dependent | Yes |
+| License | Apache 2.0 | Enterprise License | MIT | Sustainable Use |
 
-If you want a *library* to build a multi-agent app, use CrewAI or AutoGen. If you want a workflow builder for SaaS automation, use n8n. If you want a workspace your team logs into to run a fleet of long-lived agents on your infrastructure, that's HQ. Long version: [Why HQ](https://docs.yourhq.ai/concepts/why-hq).
+If you want a *framework* to build a multi-agent app in code, use CrewAI or OpenAI's SDK. If you want a workflow builder for SaaS automation, use n8n. If you want a workspace your team logs into to run a fleet of long-lived agents on your infrastructure, that's HQ. Long version: [Why HQ](https://docs.yourhq.ai/concepts/why-hq).
 
 ## Install
 
@@ -61,7 +63,7 @@ Then in the browser: paste your Supabase URL + keys in the onboarding screen, si
 ### Prerequisites
 
 - Docker (installer can install it for you on Linux)
-- A Supabase project — [create a free one](https://supabase.com), then run the SQL migrations in [`db/migrations/`](db/migrations/) in order. You paste the URL + keys into the UI once it's up.
+- A Supabase project — [create a free one](https://supabase.com). You paste the URL + keys into the UI once it's up; migrations run automatically during onboarding.
 
 ### Manual install
 
@@ -115,7 +117,7 @@ apps/ui/         Next.js dashboard (App Router, Tailwind, shadcn)
 apps/migrate/    Database migration runner CLI
 gateway/         Gateway image, files API, daemons, lifecycle scripts
 templates/       Agent template library (16 templates)
-db/migrations/   Supabase SQL migrations (001–031)
+db/migrations/   Supabase SQL migrations (001–037)
 installer/       Interactive install scripts (install.sh + install-gateway.sh)
 docs-site/       Documentation source (docs.yourhq.ai)
 scripts/         Operational scripts (diagnostic bundle)
@@ -154,9 +156,9 @@ See [the networking docs](https://docs.yourhq.ai/self-host/networking) for deplo
 
 ## Current status
 
-HQ already includes the self-hosted stack, browser onboarding, multi-workspace registry, UI-driven gateway registration, provider connections, noVNC desktop access, agent templates, CRM, tasks (with relations/dependencies, labels, deliverables, templates, and overdue escalation), knowledge base, collections, routines, source connections (Notion), file processing pipeline, modular onboarding, agent usage budgets, agent reporting hierarchy, and encrypted secrets management.
+HQ is in active development at v0.1. The self-hosted stack, hosted offering at [app.yourhq.ai](https://app.yourhq.ai), and full operational workspace (CRM, tasks, knowledge, collections, routines, agent management, usage budgets, encrypted secrets, plugin system, and source connections) are all shipped and in use.
 
-The remaining roadmap is mostly hardening, polish, hosted deployment, and deeper integrations. See [the roadmap](https://docs.yourhq.ai/getting-started/roadmap).
+Next up: more source connectors (Google Drive, Gmail), test coverage hardening, deeper OpenClaw integration, and agent-to-agent workflows. See [the roadmap](https://docs.yourhq.ai/getting-started/roadmap).
 
 ## Contributing
 

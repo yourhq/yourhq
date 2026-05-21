@@ -20,7 +20,7 @@ description: "Common questions about HQ — what it is, how it works, and how to
     - ~5 min for Docker to pull images on first run (~1.5 GB)
     - ~2 min to connect your model provider and create the first agent
 
-    The onboarding wizard handles database setup automatically — no manual SQL needed.
+    The onboarding wizard runs database migrations and handles setup automatically — no manual SQL needed.
 
     See the [Quickstart →](/getting-started/quickstart)
   </Accordion>
@@ -51,6 +51,34 @@ description: "Common questions about HQ — what it is, how it works, and how to
     It's the headquarters metaphor — one place where you manage everything. Short, memorable, hard to misspell.
   </Accordion>
 
+  <Accordion title="Is this just a wrapper around OpenClaw / ChatGPT?">
+    No. OpenClaw is the agent *runtime* — it handles the inner loop of executing prompts and tool calls. HQ is the *operations layer* around it: provisioning, lifecycle management, queues, knowledge base, CRM, tasks, routines, budgets, and the entire UI. Think of OpenClaw as the engine and HQ as the car, dashboard, and garage.
+
+    HQ is also model-agnostic — it works with any provider (OpenAI, Anthropic, Gemini, Ollama, etc.), not just one.
+  </Accordion>
+
+  <Accordion title="How does this compare to CrewAI, OpenAI Agents SDK, or n8n?">
+    Short answer: different shapes for different problems.
+
+    - **CrewAI / OpenAI Agents SDK** are *code frameworks* — you write Python to orchestrate agents for a specific task. If you want to embed agents into an existing app, use those.
+    - **n8n** is a *workflow builder* — visual editor, hundreds of SaaS integrations, trigger-action patterns. If your problem is "when X happens, do Y in Z," use n8n.
+    - **HQ** is a *product* — a self-hosted workspace your team logs into. Agents persist across days with memory, files, and identity. CRM, tasks, knowledge, and routines are built in.
+
+    See [Why HQ →](/concepts/why-hq) for the full comparison.
+  </Accordion>
+
+  <Accordion title="Can I rip out the CRM / tasks / knowledge and just use the agents?">
+    The workspace modules (CRM, tasks, knowledge, collections) are tightly integrated — agents reference contacts, create tasks, search knowledge, and submit deliverables. You can ignore modules you don't need (just don't navigate to them), but removing them from the codebase would break the agent context system.
+
+    If you want agents without the workspace, a framework like CrewAI is a better fit.
+  </Accordion>
+
+  <Accordion title="What's the catch with the hosted version?">
+    $30/month per workspace. We handle database provisioning, gateway hosting, updates, and backups. Your data lives in a Supabase project we provision for you — isolated per workspace, not shared. You can export and self-host at any time.
+
+    The code is identical — hosted runs the same repo with `DEPLOYMENT_MODE=hosted`. No proprietary features, no lock-in.
+  </Accordion>
+
 </AccordionGroup>
 
 ---
@@ -73,11 +101,11 @@ description: "Common questions about HQ — what it is, how it works, and how to
   <Accordion title="What models can agents use?">
     HQ is model-agnostic. Agents use whatever provider you configure:
 
-    - **API key providers**: OpenAI, Anthropic, Gemini, DeepSeek, Mistral, Groq, OpenRouter, and 15+ more
+    - **API key providers**: OpenAI, Anthropic, Google Gemini, DeepSeek, Mistral, Groq, OpenRouter, and 15+ more
     - **OAuth providers**: OpenAI Codex, GitHub Copilot
     - **Local / self-hosted**: Ollama, LM Studio, vLLM, any OpenAI-compatible server
 
-    There is no default or required provider. You can set different models per agent.
+    There is no default or required provider. You can set different models per agent, and override the model per task.
 
     See [Connect a model provider →](/guides/connect-model-provider)
   </Accordion>
@@ -91,7 +119,7 @@ description: "Common questions about HQ — what it is, how it works, and how to
   </Accordion>
 
   <Accordion title="Can I use different models for different agents?">
-    Yes. Each agent has its own model selector on its detail page. A common pattern: use a frontier model (GPT-4o, Claude 3.5) for agents doing complex reasoning, and a cheap/fast model or Ollama for agents doing simple lookups.
+    Yes. Each agent has its own model selector on its detail page, and you can override the model per task. A common pattern: use a frontier model (Claude Opus, GPT-4.1) for agents doing complex reasoning, and a cheaper model or Ollama for agents doing simple lookups.
   </Accordion>
 
   <Accordion title="Can agents see each other and collaborate?">
@@ -115,9 +143,9 @@ description: "Common questions about HQ — what it is, how it works, and how to
   </Accordion>
 
   <Accordion title="What agent templates are included?">
-    HQ ships 17 built-in templates:
+    HQ ships 16 built-in templates:
 
-    `default`, `analytics`, `assistant`, `chief-of-staff`, `cmo`, `cofounder`, `crm-researcher`, `data-analyst`, `designer`, `ghostwriter`, `market-researcher`, `newsletter-editor`, `newsletter-writer`, `sales-copywriter`, `script-writer`, `social-strategist`, `social-writer`
+    `default`, `analytics`, `assistant`, `chief-of-staff`, `cmo`, `cofounder`, `crm-researcher`, `designer`, `ghostwriter`, `market-researcher`, `newsletter-editor`, `newsletter-writer`, `sales-copywriter`, `script-writer`, `social-strategist`, `social-writer`
 
     Each template comes with pre-loaded identity files, skills, and a personality. You pick one when creating an agent — you can customize everything afterward.
 
@@ -319,7 +347,7 @@ description: "Common questions about HQ — what it is, how it works, and how to
   </Accordion>
 
   <Accordion title="Who uses HQ?">
-    Currently: the maintainers, beta testers, and early adopters who've discovered it. The project targets founders, solo operators, and small teams who want their AI agents to do real background work on their own infrastructure — not in a SaaS they don't control.
+    Founders, solo operators, and small teams who want their AI agents to do real background work on their own infrastructure — not in a SaaS they don't control. The project is early and growing; contributions and feedback from adopters shape the roadmap directly.
   </Accordion>
 
 </AccordionGroup>

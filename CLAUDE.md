@@ -108,7 +108,7 @@ Plugins:
 
 ## Database
 
-`db/migrations/` contains 34 ordered migrations (001–033). Key tables:
+`db/migrations/` contains 37 ordered migrations (001–037). Key tables:
 
 - `gateways` — one row per gateway host. Seeded with a `default` row so single-gateway setups work immediately.
 - `agents` — agent definitions with `gateway_id`, `reports_to_id` hierarchy.
@@ -150,7 +150,6 @@ RLS: All tables use tenant-scoped policies via `current_tenant_id()` JWT claim. 
 
 ## Current Roadmap Shape
 
-- Shipped: self-hosted stack, browser onboarding, multi-workspace registry, UI-driven gateway registration, provider connections, noVNC modal, usage budgets, agent hierarchy, unified knowledge (pages/skills/files/sources), entity links, routines (schedule + event), collections (table/kanban/calendar views), file processing pipeline, source connections (Notion) with plugin-based connector architecture (manifest-driven, auto-discovery, generic OAuth, gateway-proxied browse/validate, optional write-back, contributor template + guide), modular onboarding, task calendar view, agent-initiated skill learning (auto-creation with version history), encrypted secrets management (AES-256-GCM, Settings UI + agent Secrets tab, gateway .env sync), task relations/dependencies (blocked_by, blocks, relates_to, parent_of, child_of with blocker resolution notifications), labels (managed colors, task picker, filter), deliverables (agent-submitted work products with review workflow: draft → approved/revision_requested/rejected), task templates (reusable task groups with dependency graphs), overdue escalation (pg_cron auto-miss + inbox notification), agent delegation skill (subtask creation with org-chart validation), HQ plugin system (event-driven hooks, local Python + webhook plugins, plugin runner daemon, SDK with state/secrets/supabase clients, Settings UI for management), and user-customizable theming (brand color + warmth + mode + per-token overrides via Settings → Appearance, OKLCH-based derivation engine, runtime CSS variable injection).
-- Shipped: comprehensive automated test suite — Vitest (190 files, ~2,270 tests) for UI hooks/lib/components, pytest (11 files, 208 tests) for gateway daemons, shell tests for lifecycle scripts, DB contract tests for RLS/schema — with CI enforcement (8-job PR gate + main-only coverage/DB gates) and coverage thresholds (40% statements/lines, 35% branches/functions).
-- Shipped (hosted): hosted offering live at app.yourhq.ai, Sentry error tracking across all runtimes (UI client/server/edge, worker, Python gateway daemons — hosted-only, never self-hosted), PostHog product analytics (hosted-only)
-- Next: Google Drive connector (validates plugin architecture with second provider), public deployment docs, richer pricing coverage, template docs, and docs site generation.
+- v0.2 (Connectors & Hardening): source connector expansion (Google Drive, Gmail, connector SDK improvements), test coverage hardening (worker app gap, UI component coverage, E2E install validation), onboarding polish, task recurrence enablement, templates source UI (custom git URLs per workspace), import existing OpenClaw setups into HQ.
+- Next (Deeper Autonomy): deeper OpenClaw integration (channel hand-off, browser delegation, lifecycle hooks), agent-to-agent workflows, WhatsApp/Signal channels, per-agent desktop view (pause/takeover/resume), pretty tailnet URLs, plugin ecosystem growth, dev agent (built-in agent that modifies HQ itself for operator customization).
+- Future (Runtime Freedom): Hermes as alternative agent runtime (requires gateway runtime abstraction), Supabase Local / pure Postgres option, community template marketplace, native apps (macOS menu bar, iOS Shortcuts), stronger per-agent isolation.

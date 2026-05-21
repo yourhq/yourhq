@@ -21,8 +21,8 @@ HQ is model-agnostic with a bring-your-own-key approach. You connect your own AP
 
     | Provider | Get your key | Typical cost |
     |---|---|---|
-    | **OpenAI** (GPT-4o, o1, etc.) | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) | ~$0.01–0.06 per 1K tokens |
-    | **Anthropic** (Claude 3.5, 4.x) | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) | ~$0.003–0.075 per 1K tokens |
+    | **OpenAI** (GPT-4.1, o3, o4-mini) | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) | ~$0.01–0.06 per 1K tokens |
+    | **Anthropic** (Claude Opus, Sonnet, Haiku) | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) | ~$0.003–0.075 per 1K tokens |
     | **Google Gemini** | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) | ~$0.007 per 1K tokens |
     | **DeepSeek** | [platform.deepseek.com](https://platform.deepseek.com) | Very low cost |
     | **Mistral** | [console.mistral.ai](https://console.mistral.ai) | Competitive pricing |
@@ -35,7 +35,7 @@ HQ is model-agnostic with a bring-your-own-key approach. You connect your own AP
     | **Cohere** | [dashboard.cohere.com](https://dashboard.cohere.com) | Command R and enterprise models |
 
     <Tip>
-      **Not sure which to start with?** OpenAI GPT-4o or Anthropic Claude 3.5 Sonnet are the most capable general-purpose choices. OpenRouter is useful if you want to experiment with many models without managing multiple keys.
+      **Not sure which to start with?** Anthropic Claude Sonnet or OpenAI GPT-4.1 are the most capable general-purpose choices. OpenRouter is useful if you want to experiment with many models without managing multiple keys.
     </Tip>
   </Tab>
   <Tab title="OAuth / interactive providers">
@@ -49,7 +49,7 @@ HQ is model-agnostic with a bring-your-own-key approach. You connect your own AP
     For these providers, HQ opens an interactive auth flow in the Connections UI. Follow the on-screen prompts.
 
     <Note>
-      **OpenAI API key vs subscription:** Both serve the same models (GPT-5.4, GPT-5.5, o3, etc.). The API key bills per-token to your OpenAI platform account. The subscription route uses your ChatGPT Plus/Pro/Team credits — "free at the margin" if you already pay for a subscription. If you connect both, the model picker shows each model with "Subscription" and "API" labels so you can choose. Codex Mini is subscription-exclusive and only appears when the subscription connection is active.
+      **OpenAI API key vs subscription:** Both serve the same models (GPT-4.1, o3, o4-mini, etc.). The API key bills per-token to your OpenAI platform account. The subscription route uses your ChatGPT Plus/Pro/Team credits — "free at the margin" if you already pay for a subscription. If you connect both, the model picker shows each model with "Subscription" and "API" labels so you can choose. Codex Mini is subscription-exclusive and only appears when the subscription connection is active.
     </Note>
   </Tab>
   <Tab title="Local / self-hosted">

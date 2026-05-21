@@ -3,7 +3,7 @@ title: "Migrations"
 description: "Ordered Supabase migration files and how to apply them."
 ---
 
-Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations). Run them in filename order for a fresh project. There are currently 34 migration files (001–033).
+Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main/db/migrations). Run them in filename order for a fresh project. The onboarding wizard can apply them automatically via one-click schema install.
 
 ## Migration files
 
@@ -36,13 +36,16 @@ Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main
 | `025_modular_workspace.sql` | Modular workspace onboarding |
 | `026_secrets.sql` | Encrypted secrets (AES-256-GCM), agent/gateway scoping, Realtime, `source_connections.secret_id` FK |
 | `027_plugins.sql` | Plugin system: `hq_plugins`, `hq_plugin_events`, `hq_plugin_state`, `hq_plugin_event_queue`, event triggers, pg_cron cleanup |
-| `027_source_plugin_support.sql` | Extensible source providers, `writable` flag, `source_write` command action |
 | `028_task_relations.sql` | Task dependencies (`task_relations`), `get_task_relations()` RPC, `notify_blocker_resolved` trigger |
 | `029_labels.sql` | Managed labels with color/description, `task_labels` junction table |
 | `030_task_templates.sql` | Reusable task group templates with dependency graphs (JSONB items) |
 | `031_overdue_escalation.sql` | pg_cron job to mark overdue tasks `missed`, inbox notification for assigned agents |
 | `032_notification_gaps.sql` | Notifications for deliverable submissions and overdue task events |
 | `033_knowledge_chunk_pipeline.sql` | Knowledge chunk creation, embedding pipeline, and source item indexing fixes |
+| `034_crm_search_index.sql` | Full-text search index on CRM contacts and organizations |
+| `035_interactions_nullable_contact.sql` | Allow interactions without a linked contact |
+| `036_collection_agent_commands.sql` | Agent commands for collection record operations |
+| `037_source_plugin_support.sql` | Extended source connector plugin support |
 
 ## Migration CLI
 

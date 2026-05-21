@@ -33,16 +33,16 @@ description: "Open-source AI operations HQ — self-hosted agents, CRM, tasks, k
 ## How HQ fits together
 
 ```
-Your browser  →  HQ UI (Next.js)  →  Your Supabase project  →  Gateway hosts  →  Agents
+Your browser  →  HQ dashboard  →  Your database  →  Gateway hosts  →  Agents
 ```
 
-The **UI** is where you manage everything: agents, tasks, CRM, knowledge, routines, collections, connections, and settings.
+The **dashboard** is where you manage everything: agents, tasks, CRM, knowledge, routines, and settings.
 
-**Supabase** is the shared database and auth system — owned by you, on your account.
+Your **database** (Supabase) stores all your data — owned by you, on your own account. On hosted, we handle this for you.
 
-**Gateways** are Docker hosts that run agents. One gateway is the default; you can add more on other machines.
+**Gateways** are the machines that run agents. One is included by default; you can add more on other machines for scale.
 
-**Agents** are long-lived workspaces: their own git branch, Chrome profile, messaging channel, and skills.
+**Agents** are persistent team members: each has its own profile, memory, browser, messaging channel, and skills — they remember everything across sessions.
 
 <CardGroup cols={3}>
   <Card title="Run agents" icon="robot" href="/concepts/agents">
@@ -70,17 +70,17 @@ The **UI** is where you manage everything: agents, tasks, CRM, knowledge, routin
 ## Who HQ is for
 
 <CardGroup cols={2}>
-  <Card title="Non-technical operators" icon="user">
-    Sign up for hosted or use the installer. No coding required to create agents and manage your workspace.
+  <Card title="Founders and operators" icon="user">
+    Replace scattered AI tools with one workspace. Create agents from templates — no coding needed. CRM, tasks, and knowledge built in.
   </Card>
-  <Card title="Technical self-hosters" icon="server">
-    Clone, configure `.env`, run Docker Compose. Full control over every layer.
+  <Card title="AI agencies" icon="building">
+    Run agent fleets for multiple clients. Per-agent budgets, multi-gateway hosting, and data isolation between workspaces.
   </Card>
-  <Card title="Agent builders" icon="wand-magic-sparkles">
-    Write templates, skills, and custom logic. The full template library and agent model are yours to extend.
+  <Card title="Self-hosters" icon="server">
+    Full control over your data and infrastructure. Run on a laptop, VPS, Raspberry Pi, or multiple hosts. Completely free.
   </Card>
   <Card title="Developers and contributors" icon="code">
-    Standard Next.js + Python stack. Fork it, customize it, submit PRs.
+    Standard Next.js + Python + Supabase stack. Write templates, plugins, and UI modules. Fork it, customize it, submit PRs.
   </Card>
 </CardGroup>
 

@@ -5,7 +5,7 @@
 ## Primary docs
 
 - [HQ documentation](https://docs.yourhq.ai): Human-readable documentation home.
-- [Why HQ](https://docs.yourhq.ai/concepts/why-hq): Design philosophy and honest comparison against CrewAI, AutoGen, and n8n. Read this if you're deciding whether HQ is the right fit.
+- [Why HQ](https://docs.yourhq.ai/concepts/why-hq): Design philosophy and honest comparison against CrewAI, OpenAI Agents SDK, and n8n. Read this if you're deciding whether HQ is the right fit.
 - [Choose your path](https://docs.yourhq.ai/getting-started/choose-your-path): Audience-based starting points — hosted, self-host, agent builders, developers, and security reviewers.
 - [What HQ includes](https://docs.yourhq.ai/concepts/features): Product tour of agents, per-agent model selection, secrets management, source connectors, CRM, tasks, documents, automations, gateways, usage, and budgets.
 - [Roadmap](https://docs.yourhq.ai/getting-started/roadmap): Shipped areas and planned work.
@@ -99,13 +99,16 @@
 
 ## Notes for AI agents
 
-- HQ is available as a hosted service (app.yourhq.ai) and as a self-hosted open-source project. Users may be on either — check context before assuming.
-- Supabase is the main state backbone. Hosted users get a dedicated Supabase project managed by the platform; self-hosted users bring their own.
+- HQ is available as a hosted service (app.yourhq.ai, $30/mo) and as a self-hosted open-source project (free). Users may be on either — check context before assuming.
+- Supabase is the main state backbone. Hosted users get a dedicated Supabase project managed by the platform; self-hosted users bring their own. Migrations run automatically during onboarding.
 - Gateway hosts run agents in Docker and store local agent worktrees, browser profiles, and OpenClaw state.
 - Each agent can run a different model and thinking level. Per-task overrides allow one-off reasoning depth changes without modifying agent defaults. Resolution order: task override → agent default → workspace default.
-- Tasks support relations/dependencies (blocked_by, blocks, relates_to, parent_of, child_of), labels with configurable colors, deliverables (agent-submitted work products with human review workflow), reusable templates with dependency graphs, and overdue escalation (auto-miss + inbox notification). Agents can delegate subtasks to direct reports via the org chart.
+- Agent personality (IDENTITY.md, SOUL.md) can be edited inline from the agent detail page's Personality tab.
+- Tasks support relations/dependencies (blocked_by, blocks, relates_to, parent_of, child_of), labels with configurable colors, deliverables (agent-submitted work products with human review workflow), reusable templates with dependency graphs, and overdue escalation (auto-miss + inbox notification). Tasks auto-complete when all deliverables are approved. Agents can delegate subtasks to direct reports via the org chart.
+- Agent URLs use slugs (`/agents/[slug]`) with automatic redirect from old UUID links.
 - Secrets (API keys, channel tokens, OAuth tokens) are encrypted with AES-256-GCM in the database and synced to gateways as per-agent .env files. Values are never in API responses, logs, or LLM context.
 - Multiple providers can serve the same models (e.g. OpenAI API key vs subscription). HQ unifies them transparently and lets users choose which billing path to use per agent.
 - Source connectors use a plugin architecture — each provider is a folder under `gateway/connectors/<provider>/` with a `manifest.json` and Python code. The manifest declares auth, UI metadata, and capabilities. Adding a new source requires only the provider folder; the platform auto-discovers it and handles secrets, OAuth, UI forms, sync scheduling, and embedding. See `CONTRIBUTING-SOURCES.md` for the contributor guide.
+- The UI supports customizable theming — brand color, warmth, dark/light mode, and per-token overrides via Settings → Appearance.
 - The docs are the best source for install, architecture, security, and operational behavior.
 - Use `https://docs.yourhq.ai/llms-full.txt` when a complete Markdown snapshot of the docs is needed.

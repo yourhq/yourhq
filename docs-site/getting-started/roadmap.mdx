@@ -1,141 +1,43 @@
 # Roadmap
 
-Where HQ is now, what ships in v0.1, and what comes after.
+Where HQ is headed. For what's already shipped, see the [feature tour](../concepts/features) and [changelog](https://github.com/yourhq/yourhq/releases).
 
-## Shipped
+## v0.2 — Connectors & Hardening
 
-### Core platform
+HQ ships with one source connector (Notion). v0.2 is about proving the connector architecture generalizes and shoring up the rough edges from v0.1.
 
-- One repo (`yourhq/yourhq`) for UI, gateway, dispatcher, runner, templates, migrations, installer, and docs
-- `docker-compose.yml` stack with seven services (ui, gateway, dispatcher, runner, embedder, file-processor, plugin-runner) and Docker healthchecks on all of them
-- Interactive `installer/install.sh` with local, Tailscale, and public networking modes
-- Gateway runtime with OpenClaw, Chrome/Chromium, Xtigervnc, XFCE desktop, noVNC, and files API
-- `RUNTIME_MODE` env var (`docker` | `systemd` | `e2b`) for portable entrypoint behavior
-- Agent templates bundled into the gateway image (17 templates, each with a README)
-- Multi-arch GHCR images for amd64 and arm64
-- Multi-gateway database model with `gateways` table and `agents.gateway_id`
-- Tailscale as a host-level dependency, not a container dependency
+- **Source connector expansion** — Google Drive, Gmail, and improvements to the connector SDK to make community contributions frictionless.
+- **Test coverage hardening** — close the worker app coverage gap, expand UI component coverage, and add end-to-end install validation across platforms (VPS, M-series Mac, Raspberry Pi).
+- **Onboarding polish** — stabilize the first-run experience across all install paths. Auth propagation, gateway credential resolution, and login redirects all saw patches in v0.1.2–v0.1.3 and need to be solid.
+- **Task recurrence** — enable the recurrence system (built but currently disabled) with schedule presets and UI controls.
+- **Templates source UI** — let workspaces point at a custom git URL for their own template library instead of only the bundled set.
+- **Import existing OpenClaw** — bring an existing OpenClaw setup into HQ without starting over. Detect running agents, import their state, and register the host as an HQ gateway.
 
-### Multi-tenant schema
+## Next — Deeper Autonomy
 
-- `tenants` table with a fixed default UUID for single-tenant OSS installs
-- `tenant_id` foreign key on all ~30 tenant-owned tables with cascade deletes
-- Tenant-scoped unique constraints (e.g. `gateways(tenant_id, slug)` instead of `gateways(slug)`)
-- RLS policies scoped by `tenant_id` extracted from JWT `app_metadata`
-- All RPCs and triggers updated for tenant-aware leasing and filtering
-- Status enum unification: `ready`, `error`, `paused`, `provisioning`, `hibernating` for both agents and gateways
-- `_schema_version` tracking table (currently at v31)
-- `last_heartbeat_at` on `gateways` table
+Make agents meaningfully more capable and less dependent on human routing.
 
-### Workspace and onboarding
+- **Deeper OpenClaw integration** — channel hand-off (agent moves between Telegram → browser → Slack mid-task), richer browser automation, tighter lifecycle hooks.
+- **Agent-to-agent workflows** — define multi-agent coordination patterns so agents can chain work without human dispatch.
+- **More channels** — WhatsApp and Signal support for agent communication.
+- **Per-agent desktop view** — pause, takeover, and resume individual agents from the desktop modal, not just the whole gateway.
+- **Pretty tailnet URLs** — Tailscale Serve automation in the installer for clean `http://hq` access instead of ported URLs.
+- **Plugin ecosystem growth** — more built-in plugins beyond usage-alerts and better webhook plugin DX.
+- **Dev agent** — a built-in agent that can modify HQ itself — UI components, templates, configuration, workflows — so operators can customize their workspace through conversation instead of code.
 
-- First-boot onboarding in the browser
-- Workspace registry in `/config/workspaces.json` and `/config/secrets.json`
-- Runtime Supabase config injection with no `NEXT_PUBLIC_*` rebuild requirement
-- Workspace switcher and database settings
-- Supabase validation during onboarding
-- Account creation and sign-in flow
-- Unified onboarding wizard (welcome → intent → infrastructure → provider → first agent) with session persistence, progressive disclosure, and post-wizard mission panel
-- CRM, tasks, knowledge, routines, collections, notifications, activity, and settings pages
+## Future — Runtime Freedom
 
-### Gateway and provider operations
+Remove hard dependencies and give operators real choices.
 
-- Settings → Gateways UI with health indicators, stale heartbeat detection, and label editing
-- Single-use gateway registration tokens and generated installer command
-- URL override support for custom domains and reverse proxies
-- Desktop modal proxied through the UI — no exposed VNC port, auto-connects with the gateway's password
-- Desktop label in the UI (not "noVNC")
-- Pause and resume controls for both gateways and agents
-- Settings → Connections UI
-- API-key, OAuth-paste, device-code, CLI-reuse, and local URL provider auth flows
-- Provider list, removal, refresh, and default-model command support
-- Template update propagation ("Update agents" button dispatches `update_all` to the gateway)
+- **Hermes runtime support** — [Hermes](https://hermes-agent.nousresearch.com/) as an alternative agent runtime alongside OpenClaw. Requires a runtime abstraction layer in the gateway so operators can choose their execution engine.
+- **Supabase Local / Pure Postgres** — remove the Supabase dependency for self-hosters who want plain Postgres, making HQ deployable with just a database connection string.
+- **Community template marketplace** — discover, share, and fork agent templates across the community.
+- **Native apps** — macOS menu bar, iOS Shortcuts.
+- **Stronger per-agent isolation** — stricter security boundaries for multi-operator deployments.
 
-### Agent operations
-
-- Agent creation wizard from templates
-- Multi-channel support (Telegram, Discord, Slack, None) with per-channel credential provisioning and pairing
-- Agent file browser and editor
-- Agent operations and command history
-- Unified knowledge system with scope-based agent boot context (workspace pinned + agent-scoped items)
-- Collections for custom structured data
-- Entity links for universal cross-entity references
-- File processing pipeline for knowledge items
-- Source connections for external knowledge sync with plugin-based connector architecture
-- Source connector plugin system — manifest-driven providers, auto-discovery registry, generic OAuth, gateway-proxied browse/validate, optional write-back support, contributor template (`_template/`) and guide (`CONTRIBUTING-SOURCES.md`)
-- Agent triggers and inbox history
-- Schedule routines with cron presets (15 min to daily) via pg_cron
-- Inline model and provider default selection
-- Agent org chart through `reports_to_id`
-- Runtime delegation context for managers and direct reports
-- Per-agent LLM usage tracking and monthly budgets
-- Budget warning, exceeded notifications, and hard cutoff enforcement
-- Agent-initiated skill learning — agents autonomously create and update skills during work, with human visibility on the agent detail page and version history attribution in the knowledge editor
-- Task relations and dependencies — `blocked_by`, `blocks`, `relates_to`, `parent_of`, `child_of` with blocker highlighting, `notify_blocker_resolved` trigger, and dispatcher blocker enrichment
-- Labels — managed workspace labels with colors, inline creation, task form picker, list/board display, and toolbar filter
-- Deliverables — agent-submitted work products (page/URL/record) with human review workflow (approve, request revision, reject) in a dedicated task form tab
-- Task templates — reusable task group templates with dependency graphs, spawned from toolbar with preserved `blocked_by` relations
-- Overdue escalation — pg_cron auto-miss for overdue tasks with inbox notification for assigned agents and missed-task banner in UI
-- Agent delegation skill — `hq_delegate_task.py` for subtask creation with org-chart validation and `child_of` relation
-- HQ plugin system — event-driven hooks for tasks, agents, knowledge, inbox, routines, comments, secrets, usage, and budgets. Local Python plugins with SDK (state, secrets, Supabase queries) and webhook plugins (remote HTTP with HMAC signatures). Plugin runner daemon, Settings UI for management, built-in usage-alerts plugin, contributor template and guide
-
-### Observability and operations
-
-- Sentry error tracking across all runtimes (UI client/server/edge, worker, gateway daemons). **Hosted-only** — self-hosted installs never load the Sentry SDK, never send telemetry. Noise-filtered `beforeSend` to stay within free-tier budget
-- PostHog product analytics in the UI and worker. **Hosted-only** — self-hosted installs never load the PostHog SDK
-- System page with Commands, Inbox, and Audit Log tabs
-- Status, module, action, and actor filters across all log views
-- Realtime subscriptions and pagination on all log views
-- Structured JSON logging in both daemons (gateway_id and tenant_id in every line)
-- Schema version banner ("Update available") in the dashboard shell
-- `scripts/diagnostic-bundle.sh` for support triage
-
-### Docs and migration tooling
-
-- Docs site at `docs.yourhq.ai` (Mintlify) with self-host, concepts, and reference sections
-- Public deployment guide covering Tailscale Serve, Tailscale Funnel, Cloudflare Tunnel, and classic reverse proxies
-- Security hardening guide (Supabase auth gates, RLS, noVNC exposure, gateway auth tokens)
-- Per-template READMEs explaining intended role, tools, and first tasks
-- Migration runner CLI (`apps/migrate/`) with one-click and SQL editor fallback modes
-
-## Remaining for v0.1
-
-Small items to address before tagging. None are blockers, but they'd be good to ship.
-
-- **End-to-end install test** — fresh VPS, Codespaces, and M-series Mac. Manual checklist is fine for v0.1; automated test suite can follow.
-
-## Next (post-v0.1)
-
-- **Templates source UI** — switch between bundled templates and a custom git URL per workspace.
-- **Pretty tailnet URLs** — optional Tailscale Serve automation in the installer for `http://hq` instead of ported URLs.
-
-## Hosted Offering (shipped)
-
-Live at [app.yourhq.ai](https://app.yourhq.ai). Same monorepo, same images, controlled by `DEPLOYMENT_MODE=hosted` env var. Self-hosted code stays usable on its own.
-
-- Worker service (`apps/worker/`) — handles provisioning, billing, and sandbox lifecycle
-- UI at `app.yourhq.ai`
-- Per-user Supabase project provisioning via Management API
-- Cloud sandbox hosting for gateways (gateway Dockerfile runs with `RUNTIME_MODE=e2b`)
-- Stripe billing ($30/month per workspace, self-serve add/cancel)
-- Magic link authentication
-- Hosted registry backed by a master Supabase accounts database
-- noVNC proxy with sandbox access token injection (extends the `/desktop/` proxy already in OSS)
-- Onboarding flow that skips Supabase and gateway setup steps
-
-## Longer-Term Ideas
-
-- Free hosted tier with shared Supabase and tenant data portability (export → bundle → import)
-- Per-agent view in the desktop modal with pause, takeover, and resume
-- Agent-to-agent workflow builder
-- Native apps (macOS menu bar, iOS Shortcuts)
-- Community template marketplace
-- MCP-first integrations where they can replace direct plugins
-- Stronger per-agent isolation for operators who need stricter security boundaries
-
-## How To Influence The Roadmap
+## How to Influence the Roadmap
 
 - Open issues labeled `feature-request` with a clear use case.
-- Start discussions in `github.com/yourhq/yourhq/discussions`.
+- Start discussions in [github.com/yourhq/yourhq/discussions](https://github.com/yourhq/yourhq/discussions).
 - Send PRs for docs, templates, UI polish, gateway hardening, or well-scoped integrations.
 - For large architecture changes, open an issue first so the design can be discussed before implementation.

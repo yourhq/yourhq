@@ -3,6 +3,39 @@ title: "Operations"
 description: "How to update, back up, monitor, and maintain your HQ install."
 ---
 
+## Production checklist
+
+Before relying on HQ for real work, walk through this list. Most items take under a minute.
+
+<Steps>
+  <Step title="Pin image versions">
+    Don't track `:latest` in production. Pin all images to the same release tag (e.g., `v0.1.3`) in your `.env`. See [Pinning image versions](#pinning-image-versions) below.
+  </Step>
+  <Step title="Disable Supabase email signup">
+    In your Supabase project: **Authentication → Providers → Email** → disable "Allow new users to sign up." This prevents anyone with your Supabase URL from creating an account. Add users manually via the Supabase dashboard.
+  </Step>
+  <Step title="Enable MFA on your Supabase account">
+    Your Supabase dashboard has full access to every table. Enable multi-factor auth in your Supabase account settings.
+  </Step>
+  <Step title="Use Tailscale or a reverse proxy">
+    Default port bindings are loopback-only (localhost). To access HQ from other devices, use [Tailscale](/self-host/networking) (recommended — private, no port exposure) or a reverse proxy with TLS (Caddy, Cloudflare Tunnel, nginx).
+  </Step>
+  <Step title="Generate strong secrets">
+    If you set `GATEWAY_AUTH_TOKEN` manually, use a strong random value: `openssl rand -hex 32`. Never reuse secrets across environments.
+  </Step>
+  <Step title="Set up backups">
+    Back up your Supabase database, gateway state volume, and `.env` file. See [Backing up](#backing-up) below. At minimum, enable Supabase Pro backups or schedule a weekly `pg_dump`.
+  </Step>
+  <Step title="Set up monitoring">
+    Check gateway heartbeats in **Settings → Gateways** and review command history in **Settings → System**. Set up log forwarding if your infrastructure supports it. See [Monitoring](#monitoring) below.
+  </Step>
+  <Step title="Review the security model">
+    Read [Security model →](/concepts/security-model) and [SECURITY.md](https://github.com/yourhq/yourhq/blob/main/SECURITY.md) to understand trust boundaries — especially the Docker socket mount and service role key implications.
+  </Step>
+</Steps>
+
+---
+
 ## Updating HQ
 
 Updating is a pull-and-restart — no rebuilds required.
