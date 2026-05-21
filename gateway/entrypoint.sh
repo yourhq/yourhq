@@ -356,6 +356,7 @@ if [ -f "$CONFIG" ]; then
     .browser.executablePath //= "/usr/bin/google-chrome-stable" |
     .browser.defaultProfile //= "openclaw" |
     .browser.noSandbox = true |
+    .browser.extraArgs = ((.browser.extraArgs // []) + ["--remote-allow-origins=*"] | unique) |
     .channels.telegram.enabled //= true |
     .channels.telegram.dmPolicy //= "pairing" |
     .channels.telegram.groupPolicy //= "open" |
@@ -373,6 +374,11 @@ if [ -d "$PLUGIN_SRC" ]; then
 fi
 
 mkdir -p "$SHARED_AUTH"
+
+# Suppress Chrome first-run dialog and default-browser prompt.
+CHROME_PROFILE_DIR="${HOME}/.config/google-chrome/openclaw"
+mkdir -p "$CHROME_PROFILE_DIR"
+touch "$CHROME_PROFILE_DIR/First Run"
 
 # ─────────────────────────────────────────────────────────────
 # 7. Xtigervnc + XFCE desktop on :1
@@ -609,7 +615,7 @@ else:
         "files_api": f"{base}:{files_port}",
         "novnc": f"{base}:6901/vnc.html?autoconnect=1&resize=remote",
     }
-    networking_mode = "local"
+    networking_mode = os.environ.get("NETWORKING_MODE", "local")
 vnc_pw = os.environ.get("REG_VNC_PW", "")
 meta = {
     "reachable_urls": meta_urls,

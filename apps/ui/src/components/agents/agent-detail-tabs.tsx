@@ -47,7 +47,6 @@ import { AgentFileBrowser } from "./agent-file-browser";
 import { AgentBrowserTab } from "./agent-browser-tab";
 import { RoutinesSection } from "@/components/routines/routines-section";
 import { OpenDesktopModal } from "@/components/gateways/open-desktop-modal";
-import { getGatewayDesktopUrlAction } from "@/app/dashboard/settings/gateways/actions";
 import { AgentModelSection } from "@/components/agents/agent-model-section";
 import { AgentOrgSlice } from "@/components/agents/agent-org-slice";
 import { AgentUsageRail } from "./agent-usage-rail";
@@ -108,23 +107,24 @@ export function AgentDetailTabs({
       gatewayLabel: null,
       loading: true,
     });
-    const r = await getGatewayDesktopUrlAction(agent.gateway_id);
-    if (!r.ok || !r.data) {
-      toast.error(r.error ?? "Couldn't fetch desktop URL");
-      setDesktop({
-        open: false,
-        novncUrl: null,
-        gatewayLabel: null,
-        loading: false,
-      });
-      return;
+    try {
+      const res = await fetch(`/api/gateways/${agent.gateway_id}/desktop`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        toast.error((body as { error?: string }).error ?? "Couldn't fetch desktop URL");
+        setDesktop({ open: false, novncUrl: null, gatewayLabel: null, loading: false });
+        return;
+      }
+      const { novncUrl, gatewayLabel } = (await res.json()) as {
+        novncUrl: string | null;
+        gatewayLabel: string;
+      };
+      setDesktop({ open: true, novncUrl, gatewayLabel, loading: false });
+    } catch (err) {
+      console.error("[openDesktop]", err);
+      toast.error("Failed to load desktop URL");
+      setDesktop({ open: false, novncUrl: null, gatewayLabel: null, loading: false });
     }
-    setDesktop({
-      open: true,
-      novncUrl: r.data.novncUrl,
-      gatewayLabel: r.data.gatewayLabel,
-      loading: false,
-    });
   };
 
   return (
@@ -203,7 +203,7 @@ export function AgentDetailTabs({
             <TabsTrigger value="secrets">Secrets</TabsTrigger>
             <TabsTrigger value="files">Files</TabsTrigger>
             {agent.gateway_id && (
-              <TabsTrigger value="browser">Browser</TabsTrigger>
+              <TabsTrigger value="browser">Live Browser</TabsTrigger>
             )}
             <TabsTrigger value="activity">Activity</TabsTrigger>
           </TabsList>

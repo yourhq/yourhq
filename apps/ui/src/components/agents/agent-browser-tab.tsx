@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Eye,
   Globe,
   Loader2,
   Maximize2,
@@ -283,8 +284,8 @@ export function AgentBrowserTab({ slug }: AgentBrowserTabProps) {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={screenshotUrl}
-              alt="Agent browser"
-              className="max-h-full max-w-full rounded-md border border-border/50 object-contain shadow-md"
+              alt="Live view of agent's browser"
+              className="max-h-full max-w-full select-none rounded-md border border-border/50 object-contain shadow-md"
               draggable={false}
             />
           </div>
@@ -296,10 +297,19 @@ export function AgentBrowserTab({ slug }: AgentBrowserTabProps) {
           </div>
         )}
 
-        {paused && screenshotUrl && (
+        {screenshotUrl && (
           <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-md bg-background/90 px-2 py-1 shadow-sm ring-1 ring-border/50 backdrop-blur-sm">
-            <Pause className="h-3 w-3 text-muted-foreground" />
-            <span className="text-[10px] font-medium text-muted-foreground">Paused</span>
+            {paused ? (
+              <>
+                <Pause className="h-3 w-3 text-muted-foreground" />
+                <span className="text-[10px] font-medium text-muted-foreground">Paused</span>
+              </>
+            ) : (
+              <>
+                <Eye className="h-3 w-3 text-muted-foreground" />
+                <span className="text-[10px] font-medium text-muted-foreground">Live view</span>
+              </>
+            )}
           </div>
         )}
       </div>

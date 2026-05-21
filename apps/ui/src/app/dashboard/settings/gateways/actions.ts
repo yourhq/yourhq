@@ -90,8 +90,6 @@ export async function getGatewayDesktopUrlAction(
   let novncUrl: string | null = meta.reachable_urls?.novnc ?? null;
   const overrideBase = meta.reachable_urls_override?.base?.trim();
 
-  // Hosted gateways that registered before URL resolution completed will
-  // have a localhost URL — discard it so the UI shows "not ready yet".
   if (
     novncUrl &&
     (meta.networking_mode ?? "local") !== "local" &&
@@ -113,9 +111,6 @@ export async function getGatewayDesktopUrlAction(
     }
   }
 
-  // Co-located gateways (local networking mode, no override): route
-  // through the /desktop/ rewrite proxy instead of hitting port 6901
-  // directly — that port is no longer exposed to the host.
   if (
     novncUrl &&
     !overrideBase &&

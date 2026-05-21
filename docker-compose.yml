@@ -153,9 +153,10 @@ services:
       # Files-API defaults to loopback-only so a bare `docker compose up` on
       # a cloud VM doesn't silently expose it. The installer flips this to
       # 0.0.0.0 when the user picks Tailscale or Public mode.
-      # noVNC is no longer exposed to the host — the UI proxies it through
-      # /api/novnc on the Docker internal network (gateway:6901).
       - "${FILES_API_HOST_PORT:-127.0.0.1:18790}:18790"
+      # noVNC: exposed only when NOVNC_HOST_PORT is set (remote/public
+      # gateways). Co-located setups proxy through the UI container instead.
+      - "${NOVNC_HOST_PORT:-127.0.0.1:6901}:6901"
 
   dispatcher:
     image: ${DISPATCHER_IMAGE:-ghcr.io/yourhq/yourhq-dispatcher:${IMAGE_TAG:-latest}}

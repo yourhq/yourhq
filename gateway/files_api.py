@@ -219,7 +219,12 @@ def _capture_screenshot(cdp_port: int, quality: int = 50) -> bytes | None:
         return None
 
     try:
-        ws = websocket.create_connection(ws_url, timeout=5)
+        ws = websocket.create_connection(
+            ws_url,
+            timeout=5,
+            origin=f"http://127.0.0.1:{cdp_port}",
+            suppress_origin=False,
+        )
         try:
             ws.send(
                 json.dumps(

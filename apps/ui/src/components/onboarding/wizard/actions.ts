@@ -613,9 +613,16 @@ export async function connectChannelAction(input: {
       }
     }
 
+    const { data: agentRow } = await supabase
+      .from("agents")
+      .select("name")
+      .eq("id", input.agentId)
+      .maybeSingle();
+
     const payload: Record<string, unknown> = {
       channel: input.channel,
     };
+    if (agentRow?.name) payload.name = agentRow.name;
     if (input.channel === "discord") {
       if (input.extras?.discord_server_id) payload.discord_server_id = input.extras.discord_server_id;
       if (input.extras?.discord_user_id) payload.discord_user_id = input.extras.discord_user_id;
