@@ -11,6 +11,34 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.1.3] — 2026-05-21
+
+### Added
+
+- **Personality tab** — agent detail page now surfaces IDENTITY.md and SOUL.md as rich-text editors. Edit your agent's identity and soul inline, save commits to git, and the agent restarts automatically with the new personality applied.
+- **Deliverable auto-complete** — when all deliverables on a task are approved, the task auto-completes. Revision requests and rejections notify the assigned agent via inbox.
+- **Clickable deliverables** — approved deliverables render as links in task detail; draft/pending ones show the review card.
+- **Task model overrides** — override the model and thinking budget per-task from the task form.
+- **Org chart always visible** — removed the 4-agent minimum for the org chart toggle. Shows an empty state with guidance when no reporting structure exists.
+
+### Fixed
+
+- **Slug-based agent URLs** — agent pages now live at `/agents/[slug]` instead of `/agents/[id]`. Old UUID links redirect automatically (activity feed, notifications, bookmarks all keep working).
+- **Create wizard simplified** — removed the channel setup step entirely. Gateway selector moved to the identity step. After creation, navigates directly to the new agent's detail page.
+- **Secrets sync** — `secrets_sync.py` now preserves existing gateway.env credentials (Supabase URL, keys) instead of overwriting them. Fixes agents losing database access after a secret is added.
+- **Agent detail page** — fixed desktop modal, live browser viewport, CDP screenshot capture, and provision name display.
+- **Remote gateway registration** — fixed token exchange flow and polished the add-gateway dialog.
+- **Collection cells** — datetime and boolean cells now render correctly; task relations mapping fixed.
+- **Dispatcher reliability** — agent wake was failing silently due to wrong agent ID lookup and broken remote config path.
+- **Login bounce** — prevented redirect loop after account creation in OSS onboarding.
+- **Docker networking** — allow plaintext ws:// between sidecar containers on the Docker bridge network.
+- **Task edits** — changes now reflect immediately in the list and modal after closing the editor.
+
+### Changed
+
+- **Dependencies** — React 19.2.6, Next.js 16.2.6, Tailwind 4.3, @supabase/supabase-js 2.106, @supabase/ssr 0.10, Zod 4.4, Vitest 4.1.7, and 15+ other updates.
+- **CDN session safety** — middleware and auth callback now forward cache-busting headers from @supabase/ssr 0.10, preventing CDN-cached auth responses from leaking sessions between users.
+
 ## [0.1.2] — 2026-05-19
 
 ### Fixed
@@ -93,7 +121,8 @@ Initial public release.
 - Vulnerability disclosure via `security@yourhq.ai`; trust model and known risks documented in [SECURITY.md](SECURITY.md).
 - Gateway tokens hashed at rest; service-role key handling documented.
 
-[Unreleased]: https://github.com/yourhq/yourhq/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/yourhq/yourhq/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/yourhq/yourhq/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/yourhq/yourhq/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/yourhq/yourhq/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/yourhq/yourhq/releases/tag/v0.1.0

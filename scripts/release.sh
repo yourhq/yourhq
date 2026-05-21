@@ -127,7 +127,12 @@ git push origin "$TAG"
 # ── GitHub Release ──────────────────────────────────────────
 
 info "Creating GitHub Release ..."
-gh release create "$TAG" --generate-notes --title "$TAG"
+if [ -f "/tmp/hq-release-notes.md" ]; then
+  gh release create "$TAG" --notes-file /tmp/hq-release-notes.md --title "$TAG"
+  rm -f /tmp/hq-release-notes.md
+else
+  gh release create "$TAG" --generate-notes --title "$TAG"
+fi
 
 info "Done! Release $TAG is live."
 info ""
