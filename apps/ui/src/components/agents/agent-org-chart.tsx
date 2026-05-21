@@ -7,6 +7,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { sortAgentsByStatus } from "@/components/agents/agent-card";
 import { AgentNode } from "@/components/agents/agent-node";
 import { layoutOrgTree } from "@/lib/agents/org-layout";
+import { Network } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AgentOrgChartProps {
@@ -29,6 +30,11 @@ export function AgentOrgChart({
 }: AgentOrgChartProps) {
   const mobile = useIsMobile();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  const hasHierarchy = useMemo(
+    () => agents.some((a) => a.reports_to_id != null),
+    [agents],
+  );
 
   const sortedAgents = useMemo(() => sortAgentsByStatus(agents), [agents]);
 
@@ -59,6 +65,23 @@ export function AgentOrgChart({
       else next.add(id);
       return next;
     });
+  }
+
+  if (!hasHierarchy) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-muted/50">
+          <Network className="h-5 w-5 text-muted-foreground" />
+        </div>
+        <p className="text-sm font-medium text-foreground">
+          No reporting structure yet
+        </p>
+        <p className="mt-1 max-w-[280px] text-xs text-muted-foreground">
+          Set &ldquo;Reports to&rdquo; on your agents to build an org chart. The
+          hierarchy will appear here automatically.
+        </p>
+      </div>
+    );
   }
 
   if (mobile) {

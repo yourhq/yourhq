@@ -131,13 +131,6 @@ function AgentsContent() {
     [agents.agents]
   );
 
-  const hasHierarchy = useMemo(
-    () =>
-      agents.agents.length >= 4 &&
-      agents.agents.some((a) => a.reports_to_id != null),
-    [agents.agents],
-  );
-
   const hasActiveFilters =
     searchQuery.trim() !== "" || statusFilter !== "all" || teamFilter !== "all";
 
@@ -250,8 +243,7 @@ function AgentsContent() {
 
             <div className="flex-1" />
 
-            {hasHierarchy && (
-              <ToggleGroup
+            <ToggleGroup
                 type="single"
                 value={viewMode}
                 onValueChange={(v) => v && changeViewMode(v as AgentsViewMode)}
@@ -273,7 +265,6 @@ function AgentsContent() {
                   <Network className="h-3.5 w-3.5" />
                 </ToggleGroupItem>
               </ToggleGroup>
-            )}
 
             <span className="text-[11px] text-muted-foreground tabular-nums">
               {isFiltered ? (

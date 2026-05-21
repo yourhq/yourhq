@@ -30,6 +30,8 @@ export interface OrgLayoutOptions {
   padY?: number;
   collapsed?: ReadonlySet<string>;
   sort?: (a: Agent, b: Agent) => number;
+  /** When set, inserts a synthetic root node that all parentless agents report to. */
+  syntheticRootId?: string;
 }
 
 const DEFAULTS = {
@@ -58,6 +60,7 @@ export function layoutOrgTree(
   const padY = opts.padY ?? DEFAULTS.padY;
   const collapsed = opts.collapsed ?? new Set<string>();
   const sort = opts.sort;
+  const syntheticRootId = opts.syntheticRootId;
 
   const byId = new Map(agents.map((a) => [a.id, a]));
   const childrenMap = new Map<string | null, Agent[]>();
@@ -70,6 +73,30 @@ export function layoutOrgTree(
   }
   if (sort) {
     for (const [, list] of childrenMap) list.sort(sort);
+  }
+
+  const naturalRoots = childrenMap.get(null) ?? [];
+
+  // If a synthetic root was requested, all natural roots become its children.
+  let syntheticAgent: Agent | undefined;
+  if (syntheticRootId && naturalRoots.length > 0) {
+    syntheticAgent = {
+      id: syntheticRootId,
+      name: "You",
+      slug: "__operator__",
+      status: "ready",
+      description: null,
+      reports_to_id: null,
+      gateway_id: null,
+      meta: null,
+      avatar_url: null,
+      tenant_id: "",
+      created_at: "",
+      updated_at: "",
+    } as Agent;
+    byId.set(syntheticRootId, syntheticAgent);
+    childrenMap.set(syntheticRootId, naturalRoots);
+    childrenMap.set(null, [syntheticAgent]);
   }
 
   const roots = childrenMap.get(null) ?? [];
