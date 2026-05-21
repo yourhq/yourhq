@@ -51,6 +51,7 @@ import { AgentModelSection } from "@/components/agents/agent-model-section";
 import { AgentOrgSlice } from "@/components/agents/agent-org-slice";
 import { AgentUsageRail } from "./agent-usage-rail";
 import { AgentSecretsTab } from "./agent-secrets-tab";
+import { AgentPersonalityTab } from "./agent-personality-tab";
 import { AgentKnowledgeSection } from "./agent-knowledge-section";
 import { InlineEdit } from "@/components/ui/inline-edit";
 import { updateAgent, toggleAgentPauseAction, deleteAgentAction } from "@/app/dashboard/agents/actions";
@@ -200,6 +201,9 @@ export function AgentDetailTabs({
         <div className="border-b border-border/60 px-5">
           <TabsList variant="line" className="h-9">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            {agent.gateway_id && (
+              <TabsTrigger value="personality">Personality</TabsTrigger>
+            )}
             <TabsTrigger value="secrets">Secrets</TabsTrigger>
             <TabsTrigger value="files">Files</TabsTrigger>
             {agent.gateway_id && (
@@ -223,6 +227,16 @@ export function AgentDetailTabs({
                   </div>
                 </div>
               </TabsContent>
+
+              {agent.gateway_id && (
+                <TabsContent value="personality" className="mt-0">
+                  <AgentPersonalityTab
+                    agentId={agent.id}
+                    slug={agent.slug}
+                    gatewayId={agent.gateway_id}
+                  />
+                </TabsContent>
+              )}
 
               <TabsContent value="secrets" className="mt-0">
                 <AgentSecretsTab

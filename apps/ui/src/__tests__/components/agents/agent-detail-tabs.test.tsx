@@ -62,6 +62,9 @@ vi.mock("./agent-usage-rail", () => ({
 vi.mock("./agent-secrets-tab", () => ({
   AgentSecretsTab: () => <div data-testid="agent-secrets-tab" />,
 }));
+vi.mock("@/components/agents/agent-personality-tab", () => ({
+  AgentPersonalityTab: () => <div data-testid="agent-personality-tab" />,
+}));
 vi.mock("./agent-knowledge-section", () => ({
   AgentKnowledgeSection: () => <div data-testid="agent-knowledge-section" />,
 }));
@@ -216,15 +219,17 @@ describe("AgentDetailTabs", () => {
   it("shows correct tabs when gateway is set", () => {
     render(<AgentDetailTabs agent={makeAgent()} />);
     expect(screen.getByRole("tab", { name: "Overview" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Personality" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Secrets" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Files" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Live Browser" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Activity" })).toBeInTheDocument();
   });
 
-  it("hides Browser tab when no gateway_id", () => {
+  it("hides gateway-dependent tabs when no gateway_id", () => {
     render(<AgentDetailTabs agent={makeAgent({ gateway_id: null })} />);
     expect(screen.queryByRole("tab", { name: "Live Browser" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Personality" })).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Overview" })).toBeInTheDocument();
   });
 
