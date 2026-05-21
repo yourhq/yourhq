@@ -86,14 +86,19 @@ export function layoutOrgTree(
       slug: "__operator__",
       status: "ready",
       description: null,
+      avatar_url: null,
+      last_seen_at: null,
       reports_to_id: null,
       gateway_id: null,
-      meta: null,
-      avatar_url: null,
-      tenant_id: "",
+      domains: [],
+      capabilities: null,
+      model: null,
+      thinking: null,
+      config: {},
+      meta: {},
       created_at: "",
       updated_at: "",
-    } as Agent;
+    };
     byId.set(syntheticRootId, syntheticAgent);
     childrenMap.set(syntheticRootId, naturalRoots);
     childrenMap.set(null, [syntheticAgent]);

@@ -171,4 +171,44 @@ describe("layoutOrgTree", () => {
     expect(result.nodes[0].x).toBe(50);
     expect(result.nodes[0].y).toBe(25);
   });
+
+  test("syntheticRootId inserts a root node with all orphans as children", () => {
+    const agents = [makeAgent({ id: "a1" }), makeAgent({ id: "a2" })];
+    const result = layoutOrgTree(agents, { syntheticRootId: "__root__" });
+
+    expect(result.nodes).toHaveLength(3);
+    const root = result.nodes.find((n) => n.agent.id === "__root__")!;
+    expect(root).toBeDefined();
+    expect(root.agent.name).toBe("You");
+    expect(root.hasChildren).toBe(true);
+
+    expect(result.edges).toHaveLength(2);
+    expect(result.edges.every((e) => e.fromId === "__root__")).toBe(true);
+    const childIds = result.edges.map((e) => e.toId).sort();
+    expect(childIds).toEqual(["a1", "a2"]);
+  });
+
+  test("syntheticRootId preserves existing hierarchy under the root", () => {
+    const agents = [
+      makeAgent({ id: "boss" }),
+      makeAgent({ id: "worker", reports_to_id: "boss" }),
+      makeAgent({ id: "solo" }),
+    ];
+    const result = layoutOrgTree(agents, { syntheticRootId: "__root__" });
+
+    expect(result.nodes).toHaveLength(4);
+
+    const rootEdges = result.edges.filter((e) => e.fromId === "__root__");
+    const rootChildIds = rootEdges.map((e) => e.toId).sort();
+    expect(rootChildIds).toEqual(["boss", "solo"]);
+
+    const bossEdges = result.edges.filter((e) => e.fromId === "boss");
+    expect(bossEdges).toHaveLength(1);
+    expect(bossEdges[0].toId).toBe("worker");
+  });
+
+  test("syntheticRootId with no agents produces empty layout", () => {
+    const result = layoutOrgTree([], { syntheticRootId: "__root__" });
+    expect(result.nodes).toHaveLength(0);
+  });
 });
