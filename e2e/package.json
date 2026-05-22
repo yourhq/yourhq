@@ -1,0 +1,17 @@
+{
+  "name": "@yourhq/e2e",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:full": "playwright test --grep-invert @demo",
+    "test:journeys": "playwright test journeys/",
+    "seed:demo": "playwright test scripts/seed-demo.ts",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.0",
+    "@supabase/supabase-js": "^2.49.0",
+    "dotenv": "^16.4.0"
+  }
+}
