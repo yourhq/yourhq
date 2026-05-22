@@ -756,18 +756,26 @@ export async function pollLocalGateway(): Promise<GatewayPollResult> {
   // heartbeat? That's the same thing a remote-gateway flow watches for.
   // Works whether the UI launched the compose profile itself OR the
   // user ran `docker compose --profile gateway up -d` manually.
+  //
+  // We require last_heartbeat_at (set by the daemon heartbeat loop) to
+  // be recent — not just last_seen_at (set by the entrypoint on boot).
+  // This ensures daemons are actually running, not just the container.
   try {
     const supabase = await createAdminClient();
     const { data } = await supabase
       .from("gateways")
-      .select("id, status, last_seen_at")
+      .select("id, status, last_seen_at, last_heartbeat_at")
       .neq("status", "error")
       .order("last_seen_at", { ascending: false, nullsFirst: false })
       .limit(1)
       .maybeSingle();
     if (data?.id && data.last_seen_at) {
-      const age = Date.now() - new Date(data.last_seen_at as string).getTime();
-      if (age < 120_000) {
+      const seenAge = Date.now() - new Date(data.last_seen_at as string).getTime();
+      const heartbeatAt = data.last_heartbeat_at as string | null;
+      const heartbeatAge = heartbeatAt
+        ? Date.now() - new Date(heartbeatAt).getTime()
+        : Infinity;
+      if (seenAge < 120_000 && heartbeatAge < 120_000) {
         return { status: "ready", gatewayId: data.id as string };
       }
     }
@@ -789,6 +797,22 @@ export async function pollRemoteGatewayToken(
 ): Promise<GatewayPollResult> {
   const r = await checkTokenConsumed(tokenId);
   if ("consumed" in r && r.consumed) {
+    // Token consumed means the entrypoint ran, but daemons may not be
+    // up yet. Check for a daemon heartbeat before reporting ready.
+    try {
+      const supabase = await createAdminClient();
+      const { data } = await supabase
+        .from("gateways")
+        .select("last_heartbeat_at")
+        .eq("id", r.gatewayId)
+        .maybeSingle();
+      const hbAt = data?.last_heartbeat_at as string | null;
+      if (!hbAt || Date.now() - new Date(hbAt).getTime() > 120_000) {
+        return { status: "pending" };
+      }
+    } catch {
+      // If we can't check, trust the token consumption
+    }
     return { status: "ready", gatewayId: r.gatewayId };
   }
   if ("expired" in r && r.expired) {

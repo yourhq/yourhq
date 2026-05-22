@@ -25,7 +25,7 @@ endif
 UI_DIR := apps/ui
 GW_DIR := gateway
 
-.PHONY: test test-ui test-python test-shell test-lint test-build test-db test-coverage test-e2e test-e2e-live seed-demo ci-fast ci-main
+.PHONY: test test-ui test-python test-shell test-lint test-build test-db test-coverage test-e2e test-e2e-live ci-fast ci-main
 
 # ── Fast local gate ──────────────────────────────────────────────────
 
@@ -82,8 +82,6 @@ test-e2e:
 test-e2e-live:
 	cd $(E2E_DIR) && E2E_LIVE=1 npx playwright test --project=setup --project=live
 
-seed-demo:
-	cd $(E2E_DIR) && npx playwright test scripts/seed-demo.ts
 
 # ── CI composite targets ────────────────────────────────────────────
 

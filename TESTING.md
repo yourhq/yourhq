@@ -165,8 +165,6 @@ cd e2e && npm run test:live
 # All specs
 cd e2e && npm run test:all
 
-# Seed demo data for recording walkthroughs
-cd e2e && npm run seed:demo
 ```
 
 ### Structure
@@ -188,8 +186,6 @@ e2e/
     solopreneur.spec.ts   # ICP: solo founder, task→agent→done (@live)
     agency-builder.spec.ts # ICP: multi-agent org hierarchy (@live)
     tinkerer.spec.ts      # ICP: knowledge + routines + audit (@live)
-  scripts/
-    seed-demo.ts          # Populate workspace with demo data
   BUGS.md               # Platform bugs found during E2E testing
 ```
 

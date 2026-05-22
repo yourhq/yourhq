@@ -352,6 +352,94 @@ def _sync_secrets_inner():
 
     _log(f"Synced {len(synced_ids)} secret(s) ({len(gateway_vars)} gateway, {len(agent_vars)} agent-scoped)")
 
+    # Bridge model-provider API keys into auth-profiles.json so OpenClaw
+    # can use them.  Secrets added via Settings → Secrets go to .env files
+    # but OpenClaw reads credentials from auth-profiles.json.
+    _sync_provider_keys_to_auth_profiles(gateway_vars)
+
+
+_PROVIDER_ENV_VARS: dict[str, str] = {
+    "ANTHROPIC_API_KEY": "anthropic",
+    "OPENAI_API_KEY": "openai",
+    "GEMINI_API_KEY": "google",
+    "DEEPSEEK_API_KEY": "deepseek",
+    "MISTRAL_API_KEY": "mistral",
+    "GROQ_API_KEY": "groq",
+    "XAI_API_KEY": "xai",
+    "OPENROUTER_API_KEY": "openrouter",
+    "TOGETHER_API_KEY": "together",
+    "FIREWORKS_API_KEY": "fireworks",
+    "CEREBRAS_API_KEY": "cerebras",
+    "PERPLEXITY_API_KEY": "perplexity",
+    "HF_TOKEN": "huggingface",
+    "DEEPINFRA_API_KEY": "deepinfra",
+}
+
+
+def _sync_provider_keys_to_auth_profiles(gateway_vars: dict):
+    """Write any model-provider API keys found in gateway_vars into the
+    shared auth-profiles.json so OpenClaw can discover them."""
+    import glob as _glob
+
+    provider_keys = {
+        _PROVIDER_ENV_VARS[k]: v
+        for k, v in gateway_vars.items()
+        if k in _PROVIDER_ENV_VARS and v
+    }
+    if not provider_keys:
+        return
+
+    shared_path = OPENCLAW_HOME / "shared-auth" / "auth-profiles.json"
+    shared_path.parent.mkdir(parents=True, exist_ok=True)
+
+    doc: dict = {"profiles": {}}
+    if shared_path.exists():
+        try:
+            doc = json.loads(shared_path.read_text())
+        except Exception:
+            doc = {"profiles": {}}
+
+    changed = False
+    for provider, key in provider_keys.items():
+        profile_id = f"{provider}:default"
+        existing = doc.get("profiles", {}).get(profile_id, {})
+        if existing.get("key") == key:
+            continue
+        doc.setdefault("profiles", {})[profile_id] = {
+            "type": "api_key",
+            "provider": provider,
+            "key": key,
+        }
+        changed = True
+
+    if not changed:
+        return
+
+    tmp = str(shared_path) + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(doc, f, indent=2)
+    os.replace(tmp, str(shared_path))
+    os.chmod(str(shared_path), 0o600)
+
+    # Symlink all agent auth-profiles.json → shared copy
+    state_dir = str(OPENCLAW_HOME)
+    agent_dirs = _glob.glob(os.path.join(state_dir, "agents", "*", "agent"))
+    shared_real = str(shared_path.resolve())
+    for agent_dir in agent_dirs:
+        target = os.path.join(agent_dir, "auth-profiles.json")
+        try:
+            if os.path.islink(target):
+                if os.path.realpath(target) == shared_real:
+                    continue
+                os.unlink(target)
+            elif os.path.exists(target):
+                os.unlink(target)
+            os.symlink(str(shared_path), target)
+        except Exception as e:
+            _log(f"Failed to link auth to {agent_dir}: {e}")
+
+    _log(f"Bridged {len(provider_keys)} provider key(s) to auth-profiles.json")
+
 
 # ── Background loop ───────────────────────────────────────────────────
 

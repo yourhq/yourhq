@@ -242,7 +242,7 @@ def wake_agent(agent_slug, agent_id, reason, tracker, context=None):
 
     message = (
         f"[inbox] {reason}\n\n"
-        f"Process your inbox:\n"
+        f"Process your inbox. Run each command exactly as shown (no cd, no bash -c wrapper):\n"
         f"1. python3 skills/hq/scripts/hq_inbox_process.py\n"
         f"2. Handle each item, then mark done or escalate\n"
         f"3. Continue until inbox is empty or batch limit reached"

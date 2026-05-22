@@ -446,6 +446,7 @@ export function StepLaunch({
       name: agentName,
       emoji: agentEmoji,
       templateBranch: agentTemplateBranch,
+      providerId,
     });
 
     if (!r.ok || !r.data) {

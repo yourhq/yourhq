@@ -518,7 +518,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
 
   const handleCreateAgent = useCallback(
     async (agentData: { name: string; emoji: string; templateBranch: string }) => {
-      const r = await createFirstAgent(agentData);
+      const r = await createFirstAgent({ ...agentData, providerId: data.providerId });
       if (!r.ok || !r.data) {
         setError(r.error ?? "Failed to create agent");
         return null;
@@ -554,7 +554,7 @@ export function OnboardingWizard({ isHosted, initialStep, initialData }: Onboard
 
       return { agentId, provisionCommandId };
     },
-    [patch, setError],
+    [patch, setError, data.providerId],
   );
 
   const handleSignOut = useCallback(async () => {

@@ -7,6 +7,8 @@ description: Connect to the HQ via Supabase. Use when you need to register yours
 
 You are connected to a Supabase-backed HQ. This skill provides helper scripts for all operations.
 
+**Important:** Run all commands exactly as shown — do not wrap them in `cd`, `bash -c`, or shell chaining (`&&`, `;`). Your working directory is already set to your workspace.
+
 ## Environment Variables
 
 These must be set in your environment:

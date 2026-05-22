@@ -31,7 +31,9 @@ export default async function OnboardingPage() {
   const initialStep =
     typeof state.data.hostedInitialStep === "string"
       ? (state.data.hostedInitialStep as WizardStep)
-      : undefined;
+      : (state.step as WizardStep) !== "welcome"
+        ? (state.step as WizardStep)
+        : undefined;
 
   const initialData = {
     ...(state.data as Record<string, unknown>),

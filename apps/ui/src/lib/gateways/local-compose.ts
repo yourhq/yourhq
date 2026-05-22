@@ -79,6 +79,12 @@ function composeArgs(...extra: string[]): string[] {
 }
 
 export async function startLocalGateway(): Promise<ComposeResult> {
+  // Remove stale containers from a previous run to avoid port/name conflicts
+  await run(
+    "docker",
+    composeArgs("rm", "-f", "-s",
+      "gateway", "dispatcher", "runner", "embedder", "file-processor"),
+  );
   return run(
     "docker",
     composeArgs("up", "-d", "--pull", "missing", "--no-build",
