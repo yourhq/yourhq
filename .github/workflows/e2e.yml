@@ -1,0 +1,66 @@
+name: E2E
+
+on:
+  workflow_dispatch:
+    inputs:
+      live:
+        description: "Run @live journey specs (real LLM calls, ~$2)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+  E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+  E2E_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
+
+jobs:
+  e2e-ui:
+    name: UI specs
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: e2e
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+          cache-dependency-path: e2e/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test --project=setup --project=chromium
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-ui-traces
+          path: e2e/test-results/
+          retention-days: 7
+
+  e2e-live:
+    name: ICP journeys (@live)
+    if: ${{ inputs.live }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: e2e
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+          cache-dependency-path: e2e/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: E2E_LIVE=1 npx playwright test --project=setup --project=live
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-live-traces
+          path: e2e/test-results/
+          retention-days: 14

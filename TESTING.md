@@ -22,7 +22,9 @@ Watch mode: `cd apps/ui && npx vitest src/__tests__/hooks/use-tasks.test.ts`
 | Python (Gateway) | pytest | 11 | 208 | `gateway/tests/` |
 | Shell (Scripts) | bash runner | 1 | 11 | `gateway/scripts/tests/` |
 | Database (Contracts) | psql assertions | 1 | ~50 | `db/tests/` |
-| **Total** | | **~203** | **~2,540** | |
+| E2E (UI specs) | Playwright | 11 | 50 | `e2e/specs/` |
+| E2E (ICP journeys) | Playwright | 3 | 21 | `e2e/journeys/` |
+| **Total** | | **~217** | **~2,610** | |
 
 ## CI pipeline
 
@@ -148,6 +150,71 @@ expect(status).toBe(200);
 **Python tests**: add to `gateway/tests/`. Use pytest fixtures in `conftest.py`. Mark tests that need external services with `@pytest.mark.integration`.
 
 **DB contract tests**: add assertions to `db/tests/run-db-tests.sh`. These run against a real Postgres in CI.
+
+## E2E tests (Playwright)
+
+End-to-end tests exercise the full stack through a real browser against a running HQ instance.
+
+```bash
+# UI-only specs ($0 cost, no LLM calls)
+cd e2e && npm test
+
+# ICP journey specs (real LLM execution, $2 Claude budget cap)
+cd e2e && npm run test:live
+
+# All specs
+cd e2e && npm run test:all
+
+# Seed demo data for recording walkthroughs
+cd e2e && npm run seed:demo
+```
+
+### Structure
+
+```
+e2e/
+  fixtures/
+    auth.fixture.ts       # Authenticated page session (cookies from setup)
+    supabase.ts           # Direct DB queries via service role
+    agent-execution.ts    # Polling helpers for inbox, usage, budgets
+    test-data.ts          # Constants for UI spec assertions
+  specs/
+    00-onboarding.spec.ts # Setup project: onboarding wizard
+    01-agents.spec.ts     # Agent CRUD
+    03-tasks.spec.ts      # Task lifecycle
+    ...                   # Other dashboard modules
+    10-channels.spec.ts   # Telegram channel pairing
+  journeys/
+    solopreneur.spec.ts   # ICP: solo founder, task→agent→done (@live)
+    agency-builder.spec.ts # ICP: multi-agent org hierarchy (@live)
+    tinkerer.spec.ts      # ICP: knowledge + routines + audit (@live)
+  scripts/
+    seed-demo.ts          # Populate workspace with demo data
+  BUGS.md               # Platform bugs found during E2E testing
+```
+
+### Tags
+
+- `@smoke` — critical-path subset, runs on every deploy
+- `@live` — requires real LLM API keys, excluded by default (run via `test:live`)
+
+### Environment
+
+Required in `e2e/.env` (gitignored):
+
+```
+E2E_SUPABASE_URL=...
+E2E_SUPABASE_SERVICE_ROLE_KEY=...
+E2E_BASE_URL=http://localhost:3000
+E2E_TELEGRAM_BOT_TOKEN=...        # Optional, for channel tests
+E2E_TELEGRAM_PAIRING_CODE=...     # Optional, set after /start
+```
+
+The LLM API keys (Anthropic, OpenAI) are configured in the running HQ instance, not in the E2E env file.
+
+### Budget enforcement
+
+Journey specs enforce cumulative spend < $2 per agent per run. If usage reporting is delayed or not configured, those assertions gracefully skip rather than fail.
 
 ## Manual integration testing
 
