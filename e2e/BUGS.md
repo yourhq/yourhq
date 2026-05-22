@@ -20,24 +20,21 @@ No API key found for provider "openai". Auth store: ~/.openclaw/agents/scout/age
 
 **Workaround:** Manually edit `openclaw.json` inside the gateway container and restart.
 
-### 2. Dispatcher runs `openclaw agent` locally, not via gateway API
+### 2. `OPENCLAW_GATEWAY_URL` env var bypasses gateway auth token
 
 **Impact:** Inbox items stay `pending` forever — agents never process tasks.
 
-The inbox dispatcher (`gateway/daemons/inbox_dispatcher.py`) wakes agents by running `subprocess.Popen(["openclaw", "agent", "--agent", slug, "--message", msg])` inside the dispatcher container. This command:
+**Status: FIXED** — removed `OPENCLAW_GATEWAY_URL` from `docker-compose.yml` (commit `9d764dc`).
 
-1. Tries to connect to the gateway WebSocket at `ws://127.0.0.1:18789` — **fails** ("gateway closed, abnormal closure") because port 18789 is inside the gateway container, not the dispatcher container
-2. Falls back to **embedded mode** — runs the agent locally inside the dispatcher container
-3. The embedded run succeeds (LLM responds), but the `hq-bootstrap` plugin isn't loaded in embedded context, so `hq_inbox_process.py` is never called
-4. Result: the inbox item stays `pending`, the task stays unmodified
+The dispatcher entrypoint already patches `openclaw-dispatcher.json` with `gateway.mode: "remote"` and `gateway.remote.url: ws://gateway:18789`, preserving the auth token. But when `OPENCLAW_GATEWAY_URL` was set as an env var, `openclaw agent` used the env var override which bypasses config-based auth, causing `"gateway url override requires explicit credentials"`. The agent then fell back to embedded mode where hq-bootstrap isn't loaded, so inbox items never got marked done in Supabase.
 
-The dispatcher logs `"Woke scout"` but the agent never actually processes the inbox.
+### 2b. Gateway exec preflight blocks agent inbox processing
 
-**Fix options:**
-- Set `GATEWAY_URL=http://gateway:18789` in the dispatcher's env so `openclaw agent` connects to the gateway container's WebSocket over the Docker bridge network
-- Or have the dispatcher call the gateway's HTTP API directly instead of shelling out to `openclaw agent`
+**Impact:** When the agent connects to the gateway successfully, OpenClaw's exec tool rejects `cd workspace && python3 hq_inbox_process.py` as "complex interpreter invocation." The agent can't run the inbox processing script through the gateway.
 
-**Workaround:** Run `openclaw agent` from inside the gateway container.
+The agent falls back to embedded mode where it runs successfully but without hq-bootstrap, so Supabase doesn't get updated.
+
+**Fix:** The hq-bootstrap plugin or the agent's system prompt should instruct using absolute paths (`python3 /absolute/path/to/hq_inbox_process.py`) instead of `cd && python3`. This is an OpenClaw security policy — it blocks shell command chaining to prevent injection.
 
 ### 3. `set_agent_model` command fails with "Missing agent_slug"
 
