@@ -12,6 +12,7 @@ export default defineConfig({
     "specs/**/*.spec.ts",
     "journeys/**/*.spec.ts",
   ],
+  grep: process.env.E2E_LIVE ? undefined : /^(?!.*@live)/,
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
@@ -40,10 +41,14 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
       dependencies: ["setup"],
-      testMatch: [
-        "specs/!(00-)*.spec.ts",
-        "journeys/**/*.spec.ts",
-      ],
+      testMatch: "specs/!(00-)*.spec.ts",
+    },
+    {
+      name: "live",
+      use: { ...devices["Desktop Chrome"] },
+      dependencies: ["setup"],
+      testMatch: "journeys/**/*.spec.ts",
+      timeout: 200_000,
     },
   ],
 });

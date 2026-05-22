@@ -2,10 +2,10 @@
   "name": "@yourhq/e2e",
   "private": true,
   "scripts": {
-    "test": "playwright test",
-    "test:smoke": "playwright test --grep @smoke",
-    "test:full": "playwright test --grep-invert @demo",
-    "test:journeys": "playwright test journeys/",
+    "test": "playwright test --project=setup --project=chromium",
+    "test:smoke": "playwright test --grep @smoke --project=setup --project=chromium",
+    "test:live": "E2E_LIVE=1 playwright test --project=setup --project=live",
+    "test:all": "E2E_LIVE=1 playwright test",
     "seed:demo": "playwright test scripts/seed-demo.ts",
     "report": "playwright show-report"
   },

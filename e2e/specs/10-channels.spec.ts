@@ -1,92 +1,112 @@
 import { test, expect } from "@playwright/test";
 import { test as authedTest } from "../fixtures/auth.fixture";
-import { AGENTS } from "../fixtures/test-data";
 
 authedTest.describe("Telegram channel pairing", () => {
   const telegramToken = process.env.E2E_TELEGRAM_BOT_TOKEN;
 
   authedTest(
-    "connect Telegram bot to agent",
+    "connect Telegram bot to Scout",
     async ({ authedPage: page }) => {
       authedTest.skip(!telegramToken, "E2E_TELEGRAM_BOT_TOKEN required");
+      authedTest.setTimeout(120_000);
 
+      // Navigate to Scout's detail page
       await page.goto("/dashboard/agents");
-      await page.getByText(AGENTS.scout.name).first().click();
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(500);
+      await page.getByRole("link", { name: "Scout" }).click();
+      await expect(page).toHaveURL(/\/dashboard\/agents\/scout/);
 
-      // Find channel / messaging section
-      const channelSection = page.getByText(/Channel|Messaging|Telegram/i).first();
-      const hasChannel = await channelSection
-        .isVisible({ timeout: 5_000 })
-        .catch(() => false);
-
-      if (hasChannel) {
-        await channelSection.click();
-
-        // Select Telegram
-        await page.getByText(/Telegram/i).first().click();
-
-        // Enter bot token
-        const tokenInput = page
-          .getByPlaceholder(/bot token/i)
-          .or(page.getByLabel(/Token/i));
-        await tokenInput.fill(telegramToken!);
-
-        await page
-          .getByRole("button", { name: /Connect|Save|Add/i })
-          .first()
-          .click();
-
-        // Wait for channel to be configured
-        await expect(
-          page.getByText(/Waiting for pairing|Send.*start|pairing code/i).first()
-        ).toBeVisible({ timeout: 30_000 });
-
-        // --- MANUAL STEP ---
-        // At this point, the tester must:
-        // 1. Open Telegram and DM the bot with /start
-        // 2. Copy the 6-digit pairing code
-        // 3. Enter it in the UI
-        //
-        // For automated runs, this test stops here.
-        // The pairing code entry is tested in the interactive flow below.
-        console.log(
-          "\n⚠️  MANUAL STEP: Send /start to the Telegram bot, then enter the pairing code in the UI.\n"
-        );
+      // Dismiss "Getting started" overlay if present
+      const dismissBtn = page.getByText("Don't show again");
+      const hasOverlay = await dismissBtn.isVisible({ timeout: 3_000 }).catch(() => false);
+      if (hasOverlay) {
+        await dismissBtn.click();
+        await page.waitForTimeout(500);
       }
+
+      // Check if already connected (shows "Connected via Telegram" + "Change" button)
+      const connected = page.getByText(/Connected via/i).first();
+      const isConnected = await connected.isVisible({ timeout: 3_000 }).catch(() => false);
+      if (isConnected) return;
+
+      // MESSAGING CHANNEL section shows Telegram / Discord / Slack cards
+      // Click the Telegram card (button element) to go to credentials phase
+      const telegramCard = page
+        .locator("button")
+        .filter({ hasText: "Telegram" })
+        .first();
+      await expect(telegramCard).toBeVisible({ timeout: 10_000 });
+      await telegramCard.click();
+      await page.waitForTimeout(500);
+
+      // Credentials phase: fill bot token (placeholder "123456789:ABCdefGHI…")
+      const tokenInput = page.getByPlaceholder(/123456789/);
+      await expect(tokenInput).toBeVisible({ timeout: 5_000 });
+      await tokenInput.fill(telegramToken!);
+
+      // Click "Connect" button
+      const connectBtn = page.getByRole("button", { name: /^Connect/ });
+      await expect(connectBtn).toBeEnabled({ timeout: 3_000 });
+      await connectBtn.click();
+
+      // Wait for provisioning → pairing phase (gateway provisions the bot, can take 30-90s)
+      // The pairing phase shows "Send /start" instructions and an OTP input
+      await expect(
+        page.getByText(/Send.*start|pairing|Enter the code|6-digit/i).first()
+      ).toBeVisible({ timeout: 90_000 });
+
+      console.log(
+        "\n⚠️  Send /start to the Telegram bot now, then set E2E_TELEGRAM_PAIRING_CODE and run the pairing test.\n"
+      );
     }
   );
 
   authedTest(
-    "approve pairing code (interactive)",
+    "complete pairing with code (interactive)",
     async ({ authedPage: page }) => {
       authedTest.skip(!telegramToken, "E2E_TELEGRAM_BOT_TOKEN required");
 
-      // This test expects the pairing code to be provided via env
       const pairingCode = process.env.E2E_TELEGRAM_PAIRING_CODE;
-      authedTest.skip(!pairingCode, "E2E_TELEGRAM_PAIRING_CODE required (set after /start)");
+      authedTest.skip(
+        !pairingCode,
+        "E2E_TELEGRAM_PAIRING_CODE required — set after sending /start to bot"
+      );
+      authedTest.setTimeout(90_000);
 
+      // Navigate to Scout detail page
       await page.goto("/dashboard/agents");
-      await page.getByText(AGENTS.scout.name).first().click();
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(500);
+      await page.getByRole("link", { name: "Scout" }).click();
 
-      // Find pairing code input
-      const codeInput = page
-        .getByPlaceholder(/pairing code|6-digit/i)
-        .or(page.getByLabel(/Code/i));
-      const hasCodeInput = await codeInput
-        .isVisible({ timeout: 10_000 })
+      // The OTP input uses InputOTP component (individual digit slots)
+      // Look for the OTP container or individual inputs
+      const otpInput = page.locator("[data-input-otp]").or(
+        page.locator("input[data-input-otp-mss]")
+      ).first();
+
+      const hasOtp = await otpInput
+        .isVisible({ timeout: 15_000 })
         .catch(() => false);
 
-      if (hasCodeInput) {
-        await codeInput.fill(pairingCode!);
-        await page
-          .getByRole("button", { name: /Approve|Verify|Pair/i })
-          .first()
-          .click();
+      if (hasOtp) {
+        // Type the 6-digit code (InputOTP handles individual characters)
+        await otpInput.focus();
+        await page.keyboard.type(pairingCode!, { delay: 100 });
+        await page.waitForTimeout(500);
 
-        // Verify channel shows as paired/connected
+        // Click submit/pair button if visible
+        const submitBtn = page
+          .getByRole("button", { name: /Pair|Verify|Submit|Approve/i })
+          .first();
+        const hasSubmit = await submitBtn.isVisible({ timeout: 3_000 }).catch(() => false);
+        if (hasSubmit) await submitBtn.click();
+
+        // Wait for "Paired!" or connected state
         await expect(
-          page.getByText(/Paired|Connected|Active/i).first()
-        ).toBeVisible({ timeout: 15_000 });
+          page.getByText(/Paired|Connected via/i).first()
+        ).toBeVisible({ timeout: 60_000 });
       }
     }
   );

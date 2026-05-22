@@ -178,6 +178,7 @@ services:
       <<: *gateway-env
       RECONCILE_INTERVAL: ${RECONCILE_INTERVAL:-60}
       WAKE_COOLDOWN: ${WAKE_COOLDOWN:-30}
+      OPENCLAW_GATEWAY_URL: ${OPENCLAW_GATEWAY_URL:-ws://gateway:18789}
     volumes:
       - gateway-state:/home/openclaw/.openclaw
       # Read-only view of the UI's project registry for the same reason as
