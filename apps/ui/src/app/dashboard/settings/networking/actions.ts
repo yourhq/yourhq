@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { requireAuth } from "@/lib/supabase/require-auth";
 import { setUiOrigins } from "@/lib/workspaces/registry";
 import { uiOriginSchema } from "@/lib/workspaces/schema";
 import { detectTailscale } from "@/lib/tailscale/detect";
@@ -12,6 +13,7 @@ const saveSchema = z.object({
 });
 
 export async function saveOrigins(input: z.infer<typeof saveSchema>) {
+  await requireAuth();
   const parsed = saveSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.message };
   await setUiOrigins(parsed.data.projectId, parsed.data.origins);
@@ -20,6 +22,7 @@ export async function saveOrigins(input: z.infer<typeof saveSchema>) {
 }
 
 export async function refreshTailscaleStatus() {
+  await requireAuth();
   const s = await detectTailscale();
   return {
     installed: s.installed,

@@ -12,18 +12,19 @@ const PREFIX = "enc:v1:";
 const HKDF_SALT = "yourhq-secrets-v1";
 const HKDF_INFO = "aes-256-gcm";
 
-let cachedKey: Buffer | null = null;
+const keyCache = new Map<string, Buffer>();
 
 async function getKey(): Promise<Buffer> {
-  if (cachedKey) return cachedKey;
-
   const hostedKey = process.env.HOSTED_SECRETS_KEY;
   if (hostedKey) {
+    const cached = keyCache.get("hosted");
+    if (cached) return cached;
+
     for (const encoding of ["base64url", "base64", "hex"] as const) {
       try {
         const key = Buffer.from(hostedKey, encoding);
         if (key.length === 32) {
-          cachedKey = key;
+          keyCache.set("hosted", key);
           return key;
         }
       } catch {
@@ -38,6 +39,10 @@ async function getKey(): Promise<Buffer> {
     throw new Error("No service role key available for secrets encryption");
   }
 
+  const cacheKey = workspace.id ?? "default";
+  const cached = keyCache.get(cacheKey);
+  if (cached) return cached;
+
   const derived = hkdfSync(
     "sha256",
     workspace.serviceRoleKey,
@@ -45,8 +50,9 @@ async function getKey(): Promise<Buffer> {
     HKDF_INFO,
     32,
   );
-  cachedKey = Buffer.from(derived);
-  return cachedKey;
+  const key = Buffer.from(derived);
+  keyCache.set(cacheKey, key);
+  return key;
 }
 
 export async function encryptSecret(plaintext: string): Promise<string> {

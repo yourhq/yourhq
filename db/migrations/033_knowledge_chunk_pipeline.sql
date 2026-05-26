@@ -109,7 +109,7 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION lease_knowledge_items_for_indexing(text, integer, integer) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION lease_knowledge_items_for_indexing(text, integer, integer) TO service_role;
 
 -- ── New: upsert_knowledge_chunks — replace chunks for an item ─────────────────
 -- Called by service_role only (embedder daemon). Not intended for authenticated users.

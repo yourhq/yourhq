@@ -54,7 +54,13 @@ DROP POLICY IF EXISTS "Service role full access" ON hq_plugins;
 CREATE POLICY "Service role full access" ON hq_plugins
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
-GRANT ALL ON hq_plugins TO authenticated, service_role;
+GRANT SELECT (
+  id, created_at, updated_at, tenant_id, plugin_id, name, description,
+  version, source, is_enabled, hooks, entry_module, webhook_url,
+  config, config_schema, capabilities, installed_by, meta
+) ON hq_plugins TO authenticated;
+GRANT INSERT, UPDATE, DELETE ON hq_plugins TO authenticated;
+GRANT ALL ON hq_plugins TO service_role;
 
 DO $$ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE hq_plugins;

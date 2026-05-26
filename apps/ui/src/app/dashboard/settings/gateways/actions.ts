@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAuth } from "@/lib/supabase/require-auth";
 import { mintGatewayToken, checkTokenConsumed } from "@/lib/gateways/mint-token";
 import { buildGatewayOneLiner } from "@/lib/gateways/one-liner";
 import { getActiveWorkspaceWithSecrets } from "@/lib/workspaces";
@@ -32,6 +33,7 @@ export interface GatewayActionResult<T = void> {
 export async function listGatewaysAction(): Promise<
   GatewayActionResult<Gateway[]>
 > {
+  await requireAuth();
   const supabase = await createAdminClient();
   const { data, error } = await supabase
     .from("gateways")
@@ -49,6 +51,7 @@ export async function listGatewaysAction(): Promise<
 export async function getGatewayAction(
   id: string,
 ): Promise<GatewayActionResult<Gateway>> {
+  await requireAuth();
   const supabase = await createAdminClient();
   const { data, error } = await supabase
     .from("gateways")
@@ -70,6 +73,7 @@ export async function getGatewayAction(
 export async function getGatewayDesktopUrlAction(
   gatewayId: string,
 ): Promise<GatewayActionResult<{ novncUrl: string | null; gatewayLabel: string }>> {
+  await requireAuth();
   const supabase = await createAdminClient();
   const { data, error } = await supabase
     .from("gateways")
@@ -135,6 +139,7 @@ export async function getGatewayDesktopUrlAction(
 export async function mintGatewayTokenForSettings(
   input: GatewayMintInput,
 ): Promise<GatewayActionResult<MintedGatewayBootstrap>> {
+  await requireAuth();
   const workspace = await getActiveWorkspaceWithSecrets();
   if (!workspace) {
     return { ok: false, error: "No workspace configured." };
@@ -174,6 +179,7 @@ export async function pollGatewayTokenAction(
     | { status: "ready"; gatewayId: string }
   >
 > {
+  await requireAuth();
   const r = await checkTokenConsumed(tokenId);
   if (r.consumed) {
     return { ok: true, data: { status: "ready", gatewayId: r.gatewayId } };
@@ -191,6 +197,7 @@ export async function pollGatewayTokenAction(
 export async function removeGatewayAction(
   gatewayId: string,
 ): Promise<GatewayActionResult> {
+  await requireAuth();
   const supabase = await createAdminClient();
   const { error } = await supabase
     .from("gateways")
@@ -211,6 +218,7 @@ export async function updateGatewayLabelAction(
   gatewayId: string,
   label: string,
 ): Promise<GatewayActionResult> {
+  await requireAuth();
   const trimmed = label.trim();
   if (!trimmed) return { ok: false, error: "Label is required." };
   if (trimmed.length > 80) return { ok: false, error: "Label is too long." };
@@ -240,6 +248,7 @@ export async function updateReachableUrlOverrideAction(
   gatewayId: string,
   baseUrl: string | null,
 ): Promise<GatewayActionResult> {
+  await requireAuth();
   const supabase = await createAdminClient();
   const { data: gw, error: getErr } = await supabase
     .from("gateways")
@@ -286,6 +295,7 @@ export async function toggleGatewayPauseAction(
   gatewayId: string,
   currentStatus: string,
 ): Promise<GatewayActionResult<{ newStatus: string }>> {
+  await requireAuth();
   const supabase = await createAdminClient();
   const newStatus = currentStatus === "paused" ? "ready" : "paused";
   const { error } = await supabase

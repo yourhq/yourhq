@@ -291,5 +291,18 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON collection_records TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON collection_records TO service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON collection_views TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON collection_views TO service_role;
+ALTER TABLE collection_templates ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "authenticated_read_collection_templates"
+  ON collection_templates FOR SELECT
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "service_role_all_collection_templates"
+  ON collection_templates FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
 GRANT SELECT ON collection_templates TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON collection_templates TO service_role;

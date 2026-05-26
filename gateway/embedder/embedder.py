@@ -34,6 +34,7 @@ except ImportError:
 
 HOST = os.environ.get("EMBEDDER_HOST", "0.0.0.0")
 PORT = int(os.environ.get("EMBEDDER_PORT", "18801"))
+EMBEDDER_AUTH_TOKEN = os.environ.get("EMBEDDER_AUTH_TOKEN", "")
 MODEL_NAME = os.environ.get("EMBEDDER_MODEL", "BAAI/bge-small-en-v1.5")
 CACHE_DIR = os.environ.get("EMBEDDER_CACHE_DIR", "/models")
 GATEWAY_ID = os.environ.get("GATEWAY_ID", "default")
@@ -455,6 +456,15 @@ def indexing_loop() -> None:
 class Handler(BaseHTTPRequestHandler):
     server_version = "HQEmbedder/1.0"
 
+    def _check_auth(self) -> bool:
+        if not EMBEDDER_AUTH_TOKEN:
+            return True
+        auth = self.headers.get("Authorization", "")
+        if auth == f"Bearer {EMBEDDER_AUTH_TOKEN}":
+            return True
+        self.respond_json({"error": "unauthorized"}, status=401)
+        return False
+
     def do_GET(self) -> None:
         if self.path != "/healthz":
             self.send_error(404)
@@ -479,6 +489,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         if self.path != "/embed":
             self.send_error(404)
+            return
+        if not self._check_auth():
             return
         try:
             length = int(self.headers.get("Content-Length", "0"))

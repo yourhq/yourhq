@@ -75,11 +75,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/ruff-action@v3
+      - uses: astral-sh/ruff-action@31a518504640beb4897d0b9f9e50a2a9196e75ba # v3.0.1
         with:
           args: "check gateway/ templates/"
           src: "."
-      - uses: astral-sh/ruff-action@v3
+      - uses: astral-sh/ruff-action@31a518504640beb4897d0b9f9e50a2a9196e75ba # v3.0.1
         with:
           args: "format --check gateway/ templates/"
           src: "."
@@ -98,16 +98,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
       - name: ShellCheck gateway scripts
-        uses: ludeeus/action-shellcheck@master
-        with:
-          scandir: "./gateway/scripts"
-          severity: warning
+        run: find ./gateway/scripts -name '*.sh' -exec shellcheck -S warning {} +
       - name: ShellCheck entrypoint + installer
-        uses: ludeeus/action-shellcheck@master
-        with:
-          additional_files: "./gateway/entrypoint.sh ./installer/install.sh"
-          severity: warning
+        run: shellcheck -S warning ./gateway/entrypoint.sh ./installer/install.sh
 
   shell-test:
     runs-on: ubuntu-latest

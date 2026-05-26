@@ -40,9 +40,11 @@ HQ is self-hosted admin software with tenant-scoped row-level security. Self-hos
 
 The gateway uses your Supabase service-role key to write directly to the database. Anyone with that key has full read/write access to every table. Keep it in `.env` on disk; never commit it; rotate it if leaked.
 
-### The Docker socket is mounted into the runner
+### The Docker socket is mounted into the runner and the UI
 
-The `runner` service mounts `/var/run/docker.sock` so it can execute `docker compose restart gateway`, `docker compose pull` (update), and similar actions triggered from the UI. **Any RCE in the runner is equivalent to root on the host.** This is by design — the alternative would be shelling out to SSH, which has its own risks. If this is unacceptable for your threat model, run HQ in a dedicated VM or don't expose the UI to untrusted users.
+Both the `runner` and the `ui` services mount `/var/run/docker.sock`. The runner uses it for `docker compose restart gateway`, `docker compose pull`, and similar lifecycle operations. The UI uses it during onboarding to start a local gateway via `docker compose --profile gateway up`. **Any RCE in either container is equivalent to root on the host.** This is by design — the alternative would be shelling out to SSH, which has its own risks. If this is unacceptable for your threat model, run HQ in a dedicated VM or don't expose the UI to untrusted users.
+
+The UI's `startLocalGatewayAction` is gated behind an onboarding-complete check — once onboarding finishes, the action returns 403. If you bind the UI to `0.0.0.0`, be aware that unauthenticated visitors can reach the onboarding flow (and therefore the Docker socket) until onboarding completes.
 
 A tighter future alternative is [docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy) with a narrowed action allowlist. Contributions welcome.
 
@@ -73,6 +75,8 @@ The one-line installer (`curl install.yourhq.ai | bash`) pipes untrusted input t
 3. Clone the repo and run `./installer/install.sh` directly.
 
 The installer itself invokes `curl | sh` from `get.docker.com` and `tailscale.com/install.sh` — we're not signing or pinning those scripts. They're canonical upstream install scripts. If you don't trust them, install Docker and Tailscale manually and skip the installer.
+
+The installer also reads any available GitHub authentication (`GH_TOKEN`, `GITHUB_TOKEN`, or `gh auth token`) to avoid rate limits when resolving the latest release tag. It does not store or transmit the token beyond that single API call.
 
 ### Agent capabilities
 

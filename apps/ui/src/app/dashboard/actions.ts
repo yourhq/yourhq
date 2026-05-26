@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireAuth } from "@/lib/supabase/require-auth";
 import type {
   DashboardStats,
   CrmStats,
@@ -577,6 +578,7 @@ async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
 // ── Main action ─────────────────────────────────────────────────────
 
 export async function fetchDashboardStats(): Promise<DashboardStats> {
+  await requireAuth();
   const [
     alerts,
     agentFleet,
@@ -631,6 +633,7 @@ export async function getSchemaVersionAction(): Promise<{
   current: number | null;
   expected: number;
 }> {
+  await requireAuth();
   const supabase = await createClient();
   const { data } = await supabase
     .from("_schema_version")

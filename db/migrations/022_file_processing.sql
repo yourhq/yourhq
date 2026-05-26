@@ -87,9 +87,9 @@ $$;
 
 -- ── Grants ────────────────────────────────────────────────────────
 
-GRANT EXECUTE ON FUNCTION public.lease_knowledge_items_for_processing(text, integer, integer) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.mark_knowledge_item_processed(uuid, text) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.mark_knowledge_item_processing_failed(uuid, text) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.lease_knowledge_items_for_processing(text, integer, integer) TO service_role;
+GRANT EXECUTE ON FUNCTION public.mark_knowledge_item_processed(uuid, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.mark_knowledge_item_processing_failed(uuid, text) TO service_role;
 
 -- ── Schema version ────────────────────────────────────────────────
 

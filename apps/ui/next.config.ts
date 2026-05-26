@@ -60,6 +60,10 @@ const nextConfig: NextConfig = {
           // /desktop/* so the noVNC iframe can load through the proxy.
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+          {
+            key: "Content-Security-Policy-Report-Only",
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-src 'self'",
+          },
           // Block MIME sniffing.
           { key: "X-Content-Type-Options", value: "nosniff" },
           // Force HTTPS for a year once seen (only takes effect on HTTPS

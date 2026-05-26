@@ -30,8 +30,9 @@ jobs:
 
       - name: Resolve image tag
         id: tag
+        env:
+          REF: ${{ github.event.workflow_run.head_branch || 'latest' }}
         run: |
-          REF="${{ github.event.workflow_run.head_branch || 'latest' }}"
           if [[ "$REF" == v* ]]; then
             echo "image_tag=${REF#v}" >> "$GITHUB_OUTPUT"
           else

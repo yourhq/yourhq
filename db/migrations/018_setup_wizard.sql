@@ -17,7 +17,17 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
+DECLARE
+  v_tenant uuid;
 BEGIN
+  -- Derive tenant from JWT when called by authenticated users;
+  -- only service_role may supply an arbitrary tenant_id.
+  IF current_setting('role', true) = 'service_role' THEN
+    v_tenant := p_tenant_id;
+  ELSE
+    v_tenant := public.current_tenant_id();
+  END IF;
+
   UPDATE public.workspace SET
     name = p_name,
     slug = p_slug,
@@ -27,11 +37,11 @@ BEGIN
     owner_timezone = nullif(p_timezone, ''),
     initialized = true,
     updated_at = now()
-  WHERE initialized = false AND tenant_id = p_tenant_id;
+  WHERE initialized = false AND tenant_id = v_tenant;
 
-  DELETE FROM public.pipeline_stages WHERE entity_type = 'contact' AND tenant_id = p_tenant_id;
-  DELETE FROM public.field_definitions WHERE entity_type = 'contact' AND tenant_id = p_tenant_id;
-  DELETE FROM public.streams WHERE tenant_id = p_tenant_id;
+  DELETE FROM public.pipeline_stages WHERE entity_type = 'contact' AND tenant_id = v_tenant;
+  DELETE FROM public.field_definitions WHERE entity_type = 'contact' AND tenant_id = v_tenant;
+  DELETE FROM public.streams WHERE tenant_id = v_tenant;
 
   INSERT INTO public.pipeline_stages (entity_type, stage_key, label, color, sort_order, is_terminal, is_default, tenant_id)
   SELECT
@@ -42,7 +52,7 @@ BEGIN
     coalesce((s->>'sort_order')::int, 0),
     coalesce((s->>'is_terminal')::bool, false),
     coalesce((s->>'is_default')::bool, false),
-    p_tenant_id
+    v_tenant
   FROM jsonb_array_elements(p_stages) AS s;
 
   INSERT INTO public.field_definitions (entity_type, field_key, field_type, label, field_group, sort_order, required, options, description, is_active, tenant_id)
@@ -59,7 +69,7 @@ BEGIN
          ELSE NULL END,
     nullif(f->>'description', ''),
     true,
-    p_tenant_id
+    v_tenant
   FROM jsonb_array_elements(p_fields) AS f;
 
   INSERT INTO public.streams (name, description, type, color, icon, sort_order, meta, tenant_id)
@@ -71,7 +81,7 @@ BEGIN
     st->>'icon',
     coalesce((st->>'sort_order')::int, 0),
     '{}'::jsonb,
-    p_tenant_id
+    v_tenant
   FROM jsonb_array_elements(p_streams) AS st;
 END;
 $$;

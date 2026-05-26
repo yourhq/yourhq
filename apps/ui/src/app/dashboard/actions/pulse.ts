@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireAuth } from "@/lib/supabase/require-auth";
 import type { PipelineStage } from "@/lib/fields/types";
 import type {
   CrmStats,
@@ -476,6 +477,7 @@ function determineDefaultTab(
 }
 
 export async function fetchWorkspacePulse(): Promise<WorkspacePulseData> {
+  await requireAuth();
   const [tasks, crm, spend, usage, gateways, commandQueue, inboxQueue] =
     await Promise.all([
       safe(fetchTaskStats, ZERO_TASKS),

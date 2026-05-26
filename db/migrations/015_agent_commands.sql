@@ -152,7 +152,7 @@ $$;
 
 -- ── Grants for RPCs ──────────────────────────────────────────────
 
-GRANT EXECUTE ON FUNCTION lease_command(integer, text) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION start_command(uuid) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION complete_command(uuid, integer, text, text) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION fail_command(uuid, integer, text, text, text) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION lease_command(integer, text) TO service_role;
+GRANT EXECUTE ON FUNCTION start_command(uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION complete_command(uuid, integer, text, text) TO service_role;
+GRANT EXECUTE ON FUNCTION fail_command(uuid, integer, text, text, text) TO service_role;

@@ -19,6 +19,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import struct
 import threading
 import time
@@ -37,6 +38,7 @@ HKDF_SALT = b"yourhq-secrets-v1"
 HKDF_INFO = b"aes-256-gcm"
 
 SYNC_INTERVAL = 300  # 5 minutes safety re-sync
+SAFE_SLUG_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$")
 
 # Module-level config — set by start_secrets_sync()
 _supabase_url = ""
@@ -296,7 +298,7 @@ def _sync_secrets_inner():
 
         if agent_id:
             slug = agent_slugs.get(agent_id)
-            if not slug:
+            if not slug or not SAFE_SLUG_RE.match(slug):
                 continue
             if slug not in agent_vars:
                 agent_vars[slug] = {}
@@ -321,13 +323,19 @@ def _sync_secrets_inner():
         if slug not in active_slugs and slug != "gateway":
             existing.unlink(missing_ok=True)
 
-    # Write per-agent files: gateway defaults merged with agent overrides
     all_agent_slugs = set(agent_vars.keys()) | set(agent_slugs.values())
     for slug in all_agent_slugs:
+        if not SAFE_SLUG_RE.match(slug):
+            _log(f"Skipping agent with invalid slug: {slug!r}")
+            continue
+        dest = (AGENTS_SECRETS_DIR / f"{slug}.env").resolve()
+        if not str(dest).startswith(str(AGENTS_SECRETS_DIR.resolve())):
+            _log(f"Path traversal blocked for slug: {slug!r}")
+            continue
         merged = dict(gateway_vars)
         if slug in agent_vars:
             merged.update(agent_vars[slug])
-        _write_env_file(AGENTS_SECRETS_DIR / f"{slug}.env", merged)
+        _write_env_file(dest, merged)
 
     # Mark synced secrets as active
     if synced_ids:
@@ -387,6 +395,7 @@ def _sync_provider_keys_to_auth_profiles(gateway_vars: dict):
 
     shared_path = OPENCLAW_HOME / "shared-auth" / "auth-profiles.json"
     shared_path.parent.mkdir(parents=True, exist_ok=True)
+    os.chmod(str(shared_path.parent), 0o700)
 
     doc: dict = {"profiles": {}}
     if shared_path.exists():
@@ -412,16 +421,27 @@ def _sync_provider_keys_to_auth_profiles(gateway_vars: dict):
         return
 
     tmp = str(shared_path) + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(doc, f, indent=2)
-    os.replace(tmp, str(shared_path))
-    os.chmod(str(shared_path), 0o600)
+    try:
+        with open(tmp, "w") as f:
+            json.dump(doc, f, indent=2)
+        os.replace(tmp, str(shared_path))
+        os.chmod(str(shared_path), 0o600)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
     # Symlink all agent auth-profiles.json → shared copy
     state_dir = str(OPENCLAW_HOME)
+    agents_base = os.path.realpath(os.path.join(state_dir, "agents"))
     agent_dirs = _glob.glob(os.path.join(state_dir, "agents", "*", "agent"))
     shared_real = str(shared_path.resolve())
     for agent_dir in agent_dirs:
+        if not os.path.realpath(agent_dir).startswith(agents_base + os.sep):
+            _log(f"Path traversal blocked for agent dir: {agent_dir!r}")
+            continue
         target = os.path.join(agent_dir, "auth-profiles.json")
         try:
             if os.path.islink(target):

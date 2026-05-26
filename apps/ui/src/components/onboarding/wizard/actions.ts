@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { patchOnboardingState, addWorkspace, getActiveWorkspace } from "@/lib/workspaces";
+import { getOnboardingState } from "@/lib/workspaces/registry";
 import { cookies } from "next/headers";
 import { ACTIVE_WORKSPACE_COOKIE, ACTIVE_WORKSPACE_COOKIE_OPTIONS } from "@/lib/workspaces/cookie";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -19,6 +20,14 @@ import {
   type ActionResult,
   type GatewayBootstrap,
 } from "@/app/onboarding/actions";
+
+async function requireOnboardingIncomplete<T = undefined>(): Promise<ActionResult<T> | null> {
+  const state = await getOnboardingState();
+  if (state?.complete) {
+    return { ok: false, error: "Onboarding is already complete." } as ActionResult<T>;
+  }
+  return null;
+}
 
 export { prepareSchemaInstallAction, runOneClickMigrationAction, confirmSchemaInstalledAction };
 
@@ -249,6 +258,9 @@ export async function connectProvider(
   provider: string,
   apiKey: string,
 ): Promise<ActionResult> {
+  const guard = await requireOnboardingIncomplete();
+  if (guard) return guard;
+
   // Local and OAuth providers — just record the choice (OAuth auth already
   // happened via the inline startOAuthFlow / InteractivePhase)
   if (SKIP_VALIDATION_PROVIDERS.has(provider) || OAUTH_PROVIDERS.has(provider)) {
@@ -329,6 +341,9 @@ export async function startOAuthFlow(
   provider: string,
   mode: "oauth_paste" | "device_code",
 ): Promise<ActionResult<{ commandId: string }>> {
+  const guard = await requireOnboardingIncomplete<{ commandId: string }>();
+  if (guard) return guard;
+
   try {
     const supabase = await createAdminClient();
     const { data: gw } = await supabase
@@ -364,6 +379,9 @@ export async function submitOAuthPaste(
   parentCommandId: string,
   value: string,
 ): Promise<ActionResult> {
+  const guard = await requireOnboardingIncomplete();
+  if (guard) return guard;
+
   try {
     const supabase = await createAdminClient();
     const { data: gw } = await supabase
@@ -396,6 +414,9 @@ export async function submitOAuthPaste(
 export async function pollCommandState(
   commandId: string,
 ): Promise<ActionResult<{ status: string; payload: Record<string, unknown> }>> {
+  const guard = await requireOnboardingIncomplete<{ status: string; payload: Record<string, unknown> }>();
+  if (guard) return guard;
+
   const supabase = await createAdminClient();
   const { data, error } = await supabase
     .from("agent_commands")
@@ -417,6 +438,9 @@ export async function pollCommandState(
 }
 
 export async function saveOAuthProvider(provider: string): Promise<ActionResult> {
+  const guard = await requireOnboardingIncomplete();
+  if (guard) return guard;
+
   try {
     const supabase = await createAdminClient();
     const { data: gw } = await supabase
@@ -459,6 +483,9 @@ export async function createFirstAgent(input: {
   templateBranch: string;
   providerId?: string;
 }): Promise<ActionResult<{ agentId: string; provisionCommandId?: string }>> {
+  const guard = await requireOnboardingIncomplete<{ agentId: string; provisionCommandId?: string }>();
+  if (guard) return guard;
+
   const slug = input.name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -550,6 +577,9 @@ export async function createFirstAgent(input: {
 export async function pollAgentProvisionStatus(
   commandId: string,
 ): Promise<"pending" | "completed" | "error"> {
+  const state = await getOnboardingState();
+  if (state?.complete) return "error";
+
   const supabase = await createAdminClient();
   const { data } = await supabase
     .from("agent_commands")
@@ -572,6 +602,9 @@ export async function connectChannelAction(input: {
   token: string;
   extras?: Record<string, string>;
 }): Promise<ActionResult<{ provisionCommandId: string }>> {
+  const guard = await requireOnboardingIncomplete<{ provisionCommandId: string }>();
+  if (guard) return guard;
+
   try {
     const { encryptSecret } = await import("@/lib/secrets/crypto");
     const supabase = await createAdminClient();
@@ -707,6 +740,9 @@ export async function submitPairingAction(input: {
   channel: string;
   pairingCode: string;
 }): Promise<ActionResult> {
+  const guard = await requireOnboardingIncomplete();
+  if (guard) return guard;
+
   try {
     const supabase = await createAdminClient();
     const { data: gw } = await supabase
@@ -784,6 +820,9 @@ export async function createAccountAndFinalize(input: {
   email: string;
   password: string;
 }): Promise<ActionResult> {
+  const guard = await requireOnboardingIncomplete();
+  if (guard) return guard;
+
   const {
     createAuthUserAction,
     finalizeOnboarding,

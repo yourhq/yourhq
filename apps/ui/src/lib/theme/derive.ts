@@ -105,10 +105,13 @@ export function deriveDarkTokens(
   };
 }
 
+const UNSAFE_CSS_VALUE = /[{}<>]|;\s*[a-zA-Z]|url\s*\(/i;
+
 export function buildCssOverrides(
   tokens: Partial<ThemeTokens>,
 ): string {
   return Object.entries(tokens)
+    .filter(([, value]) => typeof value === "string" && !UNSAFE_CSS_VALUE.test(value))
     .map(([key, value]) => `--${key}: ${value};`)
     .join("\n  ");
 }

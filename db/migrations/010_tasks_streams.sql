@@ -474,7 +474,7 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.spawn_due_task_instances() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.spawn_due_task_instances() TO service_role;
 
 -- Diagnostic helper for inspecting recurring-task state from the app.
 DROP FUNCTION IF EXISTS recurring_tasks_debug();
@@ -502,6 +502,7 @@ AS $$
     EXTRACT(EPOCH FROM (s.next_occurrence_at - now())),
     s.spawned_count, s.last_spawned_at, s.cadence_type, s.time_of_day, s.timezone
   FROM public.task_series s
+  WHERE s.tenant_id = public.current_tenant_id()
   ORDER BY s.created_at DESC;
 $$;
 
