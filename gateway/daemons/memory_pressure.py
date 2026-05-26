@@ -28,7 +28,7 @@ COMFORTABLE_BYTES = _COMFORTABLE_MB * 1024 * 1024
 # Backoff when critically low
 PRESSURE_BACKOFF_SECONDS = int(os.environ.get("HQ_MEMORY_BACKOFF_SECONDS", "30"))
 
-_last_notification_time: float = 0
+_last_notification_time: float | None = None
 _NOTIFICATION_COOLDOWN = 600  # 10 minutes between notifications
 
 
@@ -80,7 +80,7 @@ def emit_pressure_notification(
     """Create a dashboard notification when indexing is paused due to memory."""
     global _last_notification_time
     now = time.monotonic()
-    if now - _last_notification_time < _NOTIFICATION_COOLDOWN:
+    if _last_notification_time is not None and now - _last_notification_time < _NOTIFICATION_COOLDOWN:
         return
     _last_notification_time = now
 

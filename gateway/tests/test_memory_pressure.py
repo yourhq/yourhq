@@ -7,7 +7,7 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _reset_globals():
-    mp._last_notification_time = 0
+    mp._last_notification_time = None
     yield
 
 
