@@ -17,7 +17,7 @@ interface AgentOrgChartProps {
 }
 
 const NODE_W = 240;
-const NODE_H = 56;
+const NODE_H = 60;
 const GAP_X = 28;
 const GAP_Y = 48;
 const OPERATOR_ROOT_ID = "__operator_root__";

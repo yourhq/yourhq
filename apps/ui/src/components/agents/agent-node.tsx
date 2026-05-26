@@ -51,7 +51,7 @@ export function AgentNode({
       style={style}
       className={cn(
         "group relative flex items-center gap-2 rounded-md border border-border/60 bg-background transition-colors hover:bg-muted/30",
-        isPill ? "h-8 px-2 text-[12px]" : "h-[52px] px-2.5",
+        isPill ? "h-8 px-2 text-[12px]" : "min-h-[52px] py-2 px-2.5",
         asSelf && "ring-1 ring-foreground/20 bg-accent/40 hover:bg-accent/40",
         className,
       )}
@@ -104,15 +104,27 @@ export function AgentNode({
         title={status.label}
       />
 
-      {/* Name */}
-      <span
+      {/* Name + team */}
+      <div
         className={cn(
-          "min-w-0 flex-1 truncate font-medium text-foreground",
-          isPill ? "text-[12px]" : "text-[13px]",
+          "min-w-0 flex-1",
+          isPill ? "" : "flex flex-col justify-center gap-0.5",
         )}
       >
-        {agent.name}
-      </span>
+        <span
+          className={cn(
+            "truncate font-medium text-foreground",
+            isPill ? "text-[12px]" : "text-[13px] leading-tight",
+          )}
+        >
+          {agent.name}
+        </span>
+        {!isPill && meta.team && (
+          <span className="truncate text-[11px] leading-tight text-muted-foreground/60">
+            {meta.team}
+          </span>
+        )}
+      </div>
 
       {/* Slug + usage — only on the default size */}
       {!isPill && (
