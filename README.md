@@ -16,7 +16,9 @@ One UI, many AI agents, your infrastructure.
 </div>
 
 <p align="center">
-  <img src="docs-site/images/screenshot.png" alt="HQ — agent detail page showing overview, personality, skills, knowledge, routines, and org chart" width="800" />
+  <video src="https://github.com/yourhq/yourhq/raw/main/docs-site/images/demo.mp4" width="800" autoplay loop muted playsinline>
+    Your browser doesn't support video — <a href="docs-site/images/demo.mp4">download the demo</a>.
+  </video>
 </p>
 
 ---
