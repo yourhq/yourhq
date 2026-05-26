@@ -422,6 +422,8 @@ def test_handler_healthz(monkeypatch):
     assert body["model"] == "test-model"
     assert body["dimensions"] == 384
     assert body["model_status"] == "ready"
+    assert "effective_batch_size" in body
+    assert "configured_batch_size" in body
 
 
 def test_handler_healthz_404_wrong_path(monkeypatch):

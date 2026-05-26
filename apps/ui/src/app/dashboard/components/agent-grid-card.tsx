@@ -10,7 +10,7 @@ const STATUS_STYLES: Record<
 > = {
   ready: {
     dot: "bg-[var(--status-success)]",
-    label: "Online",
+    label: "Ready",
     labelColor: "text-[var(--status-success)]",
   },
   error: {

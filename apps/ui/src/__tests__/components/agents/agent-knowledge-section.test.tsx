@@ -61,6 +61,10 @@ const skillsData = [
 ];
 const auditsData: unknown[] = [];
 
+vi.mock("@/hooks/use-realtime", () => ({
+  useRealtime: () => {},
+}));
+
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
     from: (table: string) => {

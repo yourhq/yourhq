@@ -25,6 +25,7 @@ assert len(out) == 1 and len(out[0]) == 384, 'model output shape mismatch'; \
 COPY gateway/embedder/embedder.py /app/embedder.py
 COPY gateway/daemons/sentry_init.py /app/sentry_init.py
 COPY gateway/daemons/registry_config.py /app/registry_config.py
+COPY gateway/daemons/memory_pressure.py /app/memory_pressure.py
 
 RUN useradd -r -s /usr/sbin/nologin embedder && chown -R embedder:embedder /app /models
 

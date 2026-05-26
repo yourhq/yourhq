@@ -39,6 +39,21 @@ import urllib.request
 from pathlib import Path
 
 try:
+    from memory_pressure import (
+        PRESSURE_BACKOFF_SECONDS,
+        compute_batch_size,
+        emit_pressure_notification,
+        get_available_memory_bytes,
+        should_backoff,
+    )
+except ImportError:
+    compute_batch_size = None  # type: ignore[assignment]
+    emit_pressure_notification = None  # type: ignore[assignment]
+    get_available_memory_bytes = None  # type: ignore[assignment]
+    should_backoff = None  # type: ignore[assignment]
+    PRESSURE_BACKOFF_SECONDS = 30  # type: ignore[assignment]
+
+try:
     from registry_config import resolve as resolve_hq_config
 except ImportError:
     resolve_hq_config = None  # type: ignore[assignment]
@@ -287,11 +302,28 @@ def process_item(item: dict) -> None:
 
 
 def poll_cycle() -> int:
+    if callable(should_backoff) and should_backoff():
+        avail = get_available_memory_bytes() if callable(get_available_memory_bytes) else None
+        avail_mb = (avail or 0) // (1024 * 1024)
+        log(f"Memory critically low ({avail_mb} MB), pausing file processing")
+        if callable(emit_pressure_notification):
+            emit_pressure_notification("file_processor", SUPABASE_URL, SUPABASE_KEY, avail_mb)
+        time.sleep(PRESSURE_BACKOFF_SECONDS)
+        return 0
+
+    effective_batch = BATCH_SIZE
+    if callable(compute_batch_size):
+        effective_batch = compute_batch_size(BATCH_SIZE)
+        if effective_batch < BATCH_SIZE:
+            avail = get_available_memory_bytes() if callable(get_available_memory_bytes) else None
+            avail_mb = (avail or 0) // (1024 * 1024)
+            log(f"Memory pressure ({avail_mb} MB avail), reducing batch {BATCH_SIZE} -> {effective_batch}")
+
     items = supabase_rpc(
         "lease_knowledge_items_for_processing",
         {
             "p_gateway_slug": GATEWAY_SLUG,
-            "p_limit": BATCH_SIZE,
+            "p_limit": effective_batch,
             "p_lease_seconds": LEASE_SECONDS,
         },
     )

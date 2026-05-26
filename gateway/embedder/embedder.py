@@ -27,6 +27,21 @@ except ImportError:
     raise
 
 try:
+    from memory_pressure import (
+        PRESSURE_BACKOFF_SECONDS,
+        compute_batch_size,
+        emit_pressure_notification,
+        get_available_memory_bytes,
+        should_backoff,
+    )
+except ImportError:
+    compute_batch_size = None  # type: ignore[assignment]
+    emit_pressure_notification = None  # type: ignore[assignment]
+    get_available_memory_bytes = None  # type: ignore[assignment]
+    should_backoff = None  # type: ignore[assignment]
+    PRESSURE_BACKOFF_SECONDS = 30  # type: ignore[assignment]
+
+try:
     from registry_config import resolve as resolve_hq_config
 except ImportError:
     resolve_hq_config = None  # type: ignore[assignment]
@@ -413,13 +428,35 @@ def indexing_loop() -> None:
                 time.sleep(POLL_INTERVAL)
                 continue
 
-            # Index knowledge_items (new unified table)
+            if callable(should_backoff) and should_backoff():
+                avail = get_available_memory_bytes() if callable(get_available_memory_bytes) else None
+                avail_mb = (avail or 0) // (1024 * 1024)
+                log("memory critically low, pausing indexing", level="warning", available_mb=avail_mb)
+                if callable(emit_pressure_notification):
+                    emit_pressure_notification("embedder", SUPABASE_URL, SUPABASE_KEY, avail_mb)
+                time.sleep(PRESSURE_BACKOFF_SECONDS)
+                continue
+
+            effective_batch = BATCH_SIZE
+            if callable(compute_batch_size):
+                effective_batch = compute_batch_size(BATCH_SIZE)
+                if effective_batch < BATCH_SIZE:
+                    avail = get_available_memory_bytes() if callable(get_available_memory_bytes) else None
+                    avail_mb = (avail or 0) // (1024 * 1024)
+                    log(
+                        "memory pressure, reducing batch size",
+                        level="warning",
+                        effective_batch=effective_batch,
+                        configured_batch=BATCH_SIZE,
+                        available_mb=avail_mb,
+                    )
+
             items = (
                 rpc(
                     "lease_knowledge_items_for_indexing",
                     {
                         "p_gateway_slug": GATEWAY_ID,
-                        "p_limit": BATCH_SIZE,
+                        "p_limit": effective_batch,
                         "p_lease_seconds": LEASE_SECONDS,
                     },
                 )
@@ -469,6 +506,8 @@ class Handler(BaseHTTPRequestHandler):
         if self.path != "/healthz":
             self.send_error(404)
             return
+        avail = get_available_memory_bytes() if callable(get_available_memory_bytes) else None
+        eff_batch = compute_batch_size(BATCH_SIZE) if callable(compute_batch_size) else BATCH_SIZE
         self.respond_json(
             {
                 "ok": True,
@@ -483,6 +522,9 @@ class Handler(BaseHTTPRequestHandler):
                 "max_chunks": MAX_CHUNKS,
                 "adapters": ["knowledge_item"],
                 "supabase_configured": bool(SUPABASE_URL or resolve_config()),
+                "memory_available_mb": avail // (1024 * 1024) if avail else None,
+                "effective_batch_size": eff_batch,
+                "configured_batch_size": BATCH_SIZE,
             }
         )
 
