@@ -16,9 +16,9 @@ One UI, many AI agents, your infrastructure.
 </div>
 
 <p align="center">
-  <video src="https://github.com/yourhq/yourhq/raw/main/docs-site/images/demo.mp4" width="800" autoplay loop muted playsinline>
-    Your browser doesn't support video — <a href="docs-site/images/demo.mp4">download the demo</a>.
-  </video>
+  <a href="https://github.com/yourhq/yourhq/releases/download/v0.1.3/demo.mp4">
+    <img src="https://github.com/yourhq/yourhq/releases/download/v0.1.3/demo.gif" alt="HQ demo — dashboard, agents, tasks, knowledge, and live browser" width="800" />
+  </a>
 </p>
 
 ---
