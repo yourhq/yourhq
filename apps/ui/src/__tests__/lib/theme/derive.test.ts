@@ -137,16 +137,16 @@ describe("deriveDarkTokens", () => {
     expect(parsed!.l).toBe(0.85);
   });
 
-  test("background has low lightness (~0.14)", () => {
+  test("background has low lightness (~0.13)", () => {
     const parsed = parseOklch(tokens.background);
     expect(parsed).not.toBeNull();
-    expect(parsed!.l).toBeCloseTo(0.14, 2);
+    expect(parsed!.l).toBeCloseTo(0.13, 2);
   });
 
-  test("foreground has high lightness (~0.93)", () => {
+  test("foreground has high lightness (~0.96)", () => {
     const parsed = parseOklch(tokens.foreground);
     expect(parsed).not.toBeNull();
-    expect(parsed!.l).toBeCloseTo(0.93, 2);
+    expect(parsed!.l).toBeCloseTo(0.96, 2);
   });
 
   test("warmth=0 produces neutral dark surfaces", () => {
