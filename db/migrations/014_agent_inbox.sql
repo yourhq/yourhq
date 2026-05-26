@@ -52,7 +52,8 @@ CREATE POLICY "Service role full access" ON agent_inbox_items
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 -- Grants
-GRANT ALL ON agent_inbox_items TO authenticated, service_role;
+GRANT SELECT ON agent_inbox_items TO authenticated;
+GRANT ALL ON agent_inbox_items TO service_role;
 
 -- Realtime
 DO $$ BEGIN
@@ -195,10 +196,10 @@ CREATE TRIGGER tasks_enqueue_assignment
 
 -- ── Grants for RPCs ──────────────────────────────────────────────
 
-GRANT EXECUTE ON FUNCTION lease_inbox_item(uuid, integer) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION complete_inbox_item(uuid) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION fail_inbox_item(uuid, text) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION enqueue_task_assignment() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION lease_inbox_item(uuid, integer) TO service_role;
+GRANT EXECUTE ON FUNCTION complete_inbox_item(uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION fail_inbox_item(uuid, text) TO service_role;
+GRANT EXECUTE ON FUNCTION enqueue_task_assignment() TO service_role;
 
 -- ── Comment mention inbox items (moved from 011) ─────────────────
 
@@ -252,7 +253,7 @@ CREATE TRIGGER comments_enqueue_mentions
   WHEN (NEW.mentions IS NOT NULL AND array_length(NEW.mentions, 1) IS NOT NULL)
   EXECUTE FUNCTION enqueue_comment_mentions();
 
-GRANT EXECUTE ON FUNCTION enqueue_comment_mentions() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION enqueue_comment_mentions() TO service_role;
 
 -- ── Agent comment notifications (moved from 011) ─────────────────
 
@@ -293,4 +294,4 @@ CREATE TRIGGER comments_notify_agent
   WHEN (NEW.actor_type = 'agent')
   EXECUTE FUNCTION notify_agent_comment();
 
-GRANT EXECUTE ON FUNCTION notify_agent_comment() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION notify_agent_comment() TO service_role;

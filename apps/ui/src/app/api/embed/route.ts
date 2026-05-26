@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth, UnauthenticatedError } from "@/lib/supabase/require-auth";
 
 export const dynamic = "force-dynamic";
 
 const EMBEDDER_URL = process.env.EMBEDDER_URL || "http://embedder:18801";
 
 export async function POST(req: NextRequest) {
+  try {
+    await requireAuth();
+  } catch (e) {
+    if (e instanceof UnauthenticatedError)
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    throw e;
+  }
   try {
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== "object") {

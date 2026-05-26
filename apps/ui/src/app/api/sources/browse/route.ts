@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth, UnauthenticatedError } from "@/lib/supabase/require-auth";
 import { resolveGatewayFilesApi } from "@/lib/sources/gateway";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,13 @@ interface BrowseRequest {
 }
 
 export async function POST(req: NextRequest) {
+  try {
+    await requireAuth();
+  } catch (e) {
+    if (e instanceof UnauthenticatedError)
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    throw e;
+  }
   try {
     const { connection_id, parent_id, search } =
       (await req.json()) as BrowseRequest;

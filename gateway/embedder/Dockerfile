@@ -15,12 +15,20 @@ RUN apt-get update \
 COPY gateway/embedder/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
-RUN python -c "from fastembed import TextEmbedding; TextEmbedding(model_name='BAAI/bge-small-en-v1.5', cache_dir='/models')"
+RUN python -c "\
+from fastembed import TextEmbedding; \
+m = TextEmbedding(model_name='BAAI/bge-small-en-v1.5', cache_dir='/models'); \
+out = list(m.embed(['integrity check'])); \
+assert len(out) == 1 and len(out[0]) == 384, 'model output shape mismatch'; \
+"
 
 COPY gateway/embedder/embedder.py /app/embedder.py
 COPY gateway/daemons/sentry_init.py /app/sentry_init.py
 COPY gateway/daemons/registry_config.py /app/registry_config.py
 
+RUN useradd -r -s /usr/sbin/nologin embedder && chown -R embedder:embedder /app /models
+
 EXPOSE 18801
 
+USER embedder
 CMD ["python", "/app/embedder.py"]

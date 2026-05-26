@@ -15,6 +15,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAuth } from "@/lib/supabase/require-auth";
 import {
   CONNECTION_COMMAND_ACTIONS,
   type AgentCommand,
@@ -80,6 +81,7 @@ export async function waitForCommand(
   commandId: string,
   timeoutMs = 30_000,
 ): Promise<ActionResult<AgentCommand>> {
+  await requireAuth();
   const supabase = await createAdminClient();
   const start = Date.now();
   const interval = 500;
@@ -105,6 +107,7 @@ export async function waitForCommand(
 export async function getCommandAction(
   commandId: string,
 ): Promise<ActionResult<AgentCommand>> {
+  await requireAuth();
   const supabase = await createAdminClient();
   const { data, error } = await supabase
     .from("agent_commands")
@@ -122,6 +125,7 @@ export async function getCommandAction(
 export async function readConnectionsForGateway(
   gatewayId: string,
 ): Promise<ActionResult<{ connections: Connection[]; lastCheckedAt: string | null }>> {
+  await requireAuth();
   const supabase = await createAdminClient();
   const { data, error } = await supabase
     .from("agent_commands")

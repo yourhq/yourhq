@@ -385,6 +385,10 @@ export interface OneClickMigrationResult extends ActionResult {
 export async function runOneClickMigrationAction(
   input: z.infer<typeof oneClickSchema>,
 ): Promise<OneClickMigrationResult> {
+  const state = await getOnboardingState();
+  if (state?.complete) {
+    return { ok: false, error: "Onboarding is already complete." };
+  }
   const parsed = oneClickSchema.safeParse(input);
   if (!parsed.success) {
     const missing = parsed.error.issues.map((i) => i.path[0]).filter(Boolean);
@@ -560,6 +564,10 @@ export interface SaveProjectResult extends ActionResult {
 export async function saveProjectAction(
   input: z.infer<typeof saveProjectInputSchema>,
 ): Promise<SaveProjectResult> {
+  const state = await getOnboardingState();
+  if (state?.complete) {
+    return { ok: false, error: "Onboarding is already complete." };
+  }
   const parsed = saveProjectInputSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "Missing workspace label or creds." };
@@ -704,12 +712,12 @@ export async function startLocalGatewayAction(): Promise<ActionResult<GatewayBoo
 
 export async function mintGatewayTokenAction(input: {
   label?: string;
-  // Optional Tailscale auth key. When present, embedded into the
-  // remote-install one-liner so the gateway joins the user's tailnet
-  // on first boot.
   tailscaleAuthKey?: string;
 }): Promise<ActionResult<GatewayBootstrap>> {
   const state = await getOnboardingState();
+  if (state?.complete) {
+    return { ok: false, error: "Onboarding is already complete." };
+  }
   const projectId = (state.data.projectId as string | undefined) ?? null;
   const workspaceWithSecrets = await getActiveWorkspaceWithSecrets(projectId);
   if (!workspaceWithSecrets) {
@@ -752,6 +760,9 @@ export interface GatewayPollResult {
 }
 
 export async function pollLocalGateway(): Promise<GatewayPollResult> {
+  const state = await getOnboardingState();
+  if (state?.complete) return { status: "expired" };
+
   // Primary signal: is there a gateway row in Supabase with a recent
   // heartbeat? That's the same thing a remote-gateway flow watches for.
   // Works whether the UI launched the compose profile itself OR the
@@ -795,6 +806,9 @@ export async function pollLocalGateway(): Promise<GatewayPollResult> {
 export async function pollRemoteGatewayToken(
   tokenId: string,
 ): Promise<GatewayPollResult> {
+  const state = await getOnboardingState();
+  if (state?.complete) return { status: "expired" };
+
   const r = await checkTokenConsumed(tokenId);
   if ("consumed" in r && r.consumed) {
     // Token consumed means the entrypoint ran, but daemons may not be
@@ -875,6 +889,9 @@ import {
 
 export async function finalizeOnboarding(): Promise<ActionResult> {
   const state = await getOnboardingState();
+  if (state?.complete) {
+    return { ok: false, error: "Onboarding is already complete." };
+  }
   const data = state.data as Record<string, unknown>;
 
   const workspaceName =

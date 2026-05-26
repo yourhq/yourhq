@@ -165,7 +165,7 @@ CREATE TRIGGER entity_links_deliverable_review
   AFTER UPDATE OF review_status ON entity_links
   FOR EACH ROW EXECUTE FUNCTION notify_deliverable_review();
 
-GRANT EXECUTE ON FUNCTION notify_deliverable_review() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION notify_deliverable_review() TO service_role;
 
 -- ── Grants ─────────────────────────────────────────────────────────
 

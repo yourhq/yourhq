@@ -127,7 +127,7 @@ async function withLock<T>(fn: () => Promise<T>): Promise<T> {
 
 // ── Permission check ───────────────────────────────────────────────────
 
-const SECRETS_MODE = 0o644;
+const SECRETS_MODE = 0o640;
 
 async function ensureSecretsPermissions(): Promise<void> {
   try {

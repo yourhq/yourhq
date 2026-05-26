@@ -11,4 +11,7 @@ COPY gateway/daemons/file_processor.py /app/file_processor.py
 COPY gateway/daemons/sentry_init.py /app/sentry_init.py
 COPY gateway/daemons/registry_config.py /app/registry_config.py
 
+RUN useradd -r -s /usr/sbin/nologin processor && chown -R processor:processor /app
+
+USER processor
 CMD ["python", "/app/file_processor.py"]

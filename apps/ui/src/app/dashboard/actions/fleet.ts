@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireAuth } from "@/lib/supabase/require-auth";
 import type { AgentFleetEnriched } from "@/lib/types/dashboard";
 
 async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
@@ -22,6 +23,7 @@ const STATUS_PRIORITY: Record<string, number> = {
 };
 
 export async function fetchAgentFleetEnriched(): Promise<AgentFleetEnriched[]> {
+  await requireAuth();
   const supabase = await createClient();
 
   const todayStart = new Date();

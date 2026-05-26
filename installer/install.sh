@@ -184,7 +184,7 @@ NOVNC_HOST_PORT=127.0.0.1:6901
 FILES_API_HOST_PORT=127.0.0.1:18790
 NOVNC_BIND=local
 ENVEOF
-  chmod 644 .env
+  chmod 600 .env
   ok "Wrote $TARGET/.env"
 fi
 

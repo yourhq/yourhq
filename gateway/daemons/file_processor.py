@@ -76,10 +76,14 @@ def supabase_rpc(fn_name: str, params: dict) -> dict | list | None:
 
 
 def download_file(file_url: str) -> bytes:
+    bucket = "assets"
     if file_url.startswith("http"):
+        parsed = urllib.parse.urlparse(file_url)
+        supabase_parsed = urllib.parse.urlparse(SUPABASE_URL)
+        if parsed.hostname != supabase_parsed.hostname:
+            raise ValueError(f"Refusing to download from external host: {parsed.hostname}")
         url = file_url
     else:
-        bucket = "assets"
         path = file_url
         url = f"{SUPABASE_URL}/storage/v1/object/{bucket}/{urllib.parse.quote(path)}"
 

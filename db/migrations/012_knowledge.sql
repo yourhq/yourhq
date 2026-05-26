@@ -580,12 +580,12 @@ $$;
 
 -- ── RPC Grants ─────────────────────────────────────────────────────
 
-GRANT EXECUTE ON FUNCTION public.mark_knowledge_item_pending() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.mark_knowledge_item_pending() TO service_role;
 GRANT EXECUTE ON FUNCTION public.search_knowledge_items(extensions.vector, integer, text[], uuid, text) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.search_knowledge_items_text(text, integer, text[], uuid, text) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.lease_knowledge_items_for_indexing(text, integer, integer) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.mark_knowledge_item_indexed(uuid, extensions.vector, text, integer, text) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.mark_knowledge_item_failed(uuid, text) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.lease_knowledge_items_for_indexing(text, integer, integer) TO service_role;
+GRANT EXECUTE ON FUNCTION public.mark_knowledge_item_indexed(uuid, extensions.vector, text, integer, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.mark_knowledge_item_failed(uuid, text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.search_knowledge_chunks(extensions.vector, integer, text[], uuid, text, uuid) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.search_knowledge_chunks_text(text, integer, text[], uuid, text, uuid) TO authenticated, service_role;
 

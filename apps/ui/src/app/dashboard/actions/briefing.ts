@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireAuth } from "@/lib/supabase/require-auth";
 import type { BriefingSummary, BriefingAgentUpdate } from "@/lib/types/dashboard";
 
 async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
@@ -14,6 +15,7 @@ async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
 }
 
 export async function fetchBriefing(since: string): Promise<BriefingSummary> {
+  await requireAuth();
   const supabase = await createClient();
 
   const [

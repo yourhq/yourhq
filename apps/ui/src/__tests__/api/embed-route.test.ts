@@ -1,10 +1,16 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
+vi.mock("@/lib/supabase/require-auth", () => ({
+  requireAuth: vi.fn().mockResolvedValue({ id: "test-user", email: "test@example.com" }),
+  UnauthenticatedError: class UnauthenticatedError extends Error {
+    constructor() { super("Unauthorized"); this.name = "UnauthenticatedError"; }
+  },
+}));
+
 const originalFetch = globalThis.fetch;
 
 beforeEach(() => {
-  vi.restoreAllMocks();
   globalThis.fetch = originalFetch;
 });
 

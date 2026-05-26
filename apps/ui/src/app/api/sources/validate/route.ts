@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth, UnauthenticatedError } from "@/lib/supabase/require-auth";
 import { resolveGatewayFilesApi } from "@/lib/sources/gateway";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,13 @@ interface ValidateRequest {
 }
 
 export async function POST(req: NextRequest) {
+  try {
+    await requireAuth();
+  } catch (e) {
+    if (e instanceof UnauthenticatedError)
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    throw e;
+  }
   try {
     const { provider, credentials } = (await req.json()) as ValidateRequest;
 

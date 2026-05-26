@@ -292,6 +292,8 @@ def dispatch_webhook(pid: str, entry: dict, event):
     url = entry.get("url")
     if not url:
         raise ValueError("No webhook URL configured")
+    if not url.startswith("https://"):
+        raise ValueError(f"Webhook URL must use HTTPS: {url}")
 
     payload_str = json.dumps(event.to_dict())
 

@@ -130,7 +130,15 @@ CURL_AUTH=()
 if [ -n "$GH_AUTH_TOKEN" ]; then
   CURL_AUTH=(-H "Authorization: Bearer $GH_AUTH_TOKEN")
 fi
-REPO_RAW="${YOURHQ_REPO_RAW:-https://raw.githubusercontent.com/yourhq/yourhq/main}"
+
+YOURHQ_VERSION="${YOURHQ_VERSION:-}"
+if [ -z "$YOURHQ_VERSION" ]; then
+  YOURHQ_VERSION=$(curl -fsSL "${CURL_AUTH[@]}" "https://api.github.com/repos/yourhq/yourhq/releases/latest" 2>/dev/null \
+    | grep -o '"tag_name":[^,]*' | head -1 | sed 's/.*"tag_name":[[:space:]]*"//;s/"//' || echo "main")
+fi
+info "Version: $YOURHQ_VERSION"
+
+REPO_RAW="${YOURHQ_REPO_RAW:-https://raw.githubusercontent.com/yourhq/yourhq/${YOURHQ_VERSION}}"
 
 if [ ! -f "docker-compose.yml" ]; then
   if ! curl -fsSL "${CURL_AUTH[@]}" "$REPO_RAW/docker-compose.yml" -o docker-compose.yml; then

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireAuth } from "@/lib/supabase/require-auth";
 import { logAudit } from "@/lib/audit/log";
 import type { TriageItem } from "@/lib/types/dashboard";
 
@@ -17,6 +18,7 @@ async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
 // ── Fetch ──────────────────────────────────────────────────────────
 
 export async function fetchTriageItems(): Promise<TriageItem[]> {
+  await requireAuth();
   const supabase = await createClient();
   const today = new Date().toISOString().split("T")[0];
   const now = new Date().toISOString();
@@ -336,11 +338,8 @@ export async function fetchTriageItems(): Promise<TriageItem[]> {
 export async function approveDeliverable(
   deliverableId: string,
 ): Promise<{ ok: boolean; error?: string }> {
+  const user = await requireAuth();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Unauthorized" };
 
   const { error } = await supabase
     .from("entity_links")
@@ -368,11 +367,8 @@ export async function requestDeliverableRevision(
   deliverableId: string,
   note: string,
 ): Promise<{ ok: boolean; error?: string }> {
+  const user = await requireAuth();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Unauthorized" };
 
   const { error } = await supabase
     .from("entity_links")
@@ -401,11 +397,8 @@ export async function extendTaskDeadline(
   taskId: string,
   newDueDate: string,
 ): Promise<{ ok: boolean; error?: string }> {
+  const user = await requireAuth();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Unauthorized" };
 
   const { error } = await supabase
     .from("tasks")
@@ -428,11 +421,8 @@ export async function extendTaskDeadline(
 export async function retryFailedInboxItem(
   itemId: string,
 ): Promise<{ ok: boolean; error?: string }> {
+  await requireAuth();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Unauthorized" };
 
   const { error } = await supabase
     .from("agent_inbox_items")
@@ -460,11 +450,8 @@ export async function snoozeFollowUp(
   interactionId: string,
   untilDate: string,
 ): Promise<{ ok: boolean; error?: string }> {
+  await requireAuth();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Unauthorized" };
 
   const { error } = await supabase
     .from("interactions")
@@ -487,11 +474,8 @@ export async function snoozeFollowUp(
 export async function dismissTriageNotification(
   notificationId: string,
 ): Promise<{ ok: boolean; error?: string }> {
+  await requireAuth();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Unauthorized" };
 
   const { error } = await supabase
     .from("notifications")
