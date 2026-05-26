@@ -45,14 +45,14 @@ export default async function AgentDetailPage({
         .order("title", { ascending: true }),
       supabase
         .from("knowledge_item_agents")
-        .select("knowledge_item_id, knowledge_items:knowledge_item_id(id, title, kind, scope)")
+        .select("knowledge_item_id, knowledge_items:knowledge_item_id(id, title, kind, scope, archived_at)")
         .eq("agent_id", agent.id),
     ]);
 
-  type KnowledgeRef = { id: string; title: string; kind: string; scope: string };
+  type KnowledgeRef = { id: string; title: string; kind: string; scope: string; archived_at?: string | null };
   const agentItems = (agentJunction ?? [])
     .map((j: Record<string, unknown>) => j.knowledge_items as KnowledgeRef | null)
-    .filter((k): k is KnowledgeRef => k != null);
+    .filter((k): k is KnowledgeRef => k != null && !k.archived_at);
 
   const seen = new Set<string>();
   const contextItems: KnowledgeRef[] = [];

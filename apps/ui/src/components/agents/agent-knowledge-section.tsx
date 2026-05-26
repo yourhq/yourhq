@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BookOpen, Plus } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { useRealtime } from "@/hooks/use-realtime";
 import { Button } from "@/components/ui/button";
 
 interface SkillItem {
@@ -40,62 +41,68 @@ export function AgentKnowledgeSection({ agentId, agentSlug: _agentSlug }: Props)
   const [recentEdits, setRecentEdits] = useState<Map<string, AuditEntry>>(new Map());
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
+  const fetchSkills = useCallback(async () => {
+    const { data: junctions } = await supabase
+      .from("knowledge_item_agents")
+      .select("knowledge_item_id")
+      .eq("agent_id", agentId);
 
-    async function fetchSkills() {
-      const { data: junctions } = await supabase
-        .from("knowledge_item_agents")
-        .select("knowledge_item_id")
-        .eq("agent_id", agentId);
-
-      if (cancelled) return;
-
-      if (!junctions?.length) {
-        setItems([]);
-        setLoading(false);
-        return;
-      }
-
-      const itemIds = junctions.map((j: { knowledge_item_id: string }) => j.knowledge_item_id);
-      const { data } = await supabase
-        .from("knowledge_items")
-        .select("id, title, kind, scope, updated_at, created_at")
-        .in("id", itemIds)
-        .eq("kind", "skill")
-        .is("archived_at", null)
-        .order("updated_at", { ascending: false });
-
-      if (cancelled) return;
-      setItems((data ?? []) as SkillItem[]);
-
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - RECENCY_DAYS);
-
-      const { data: audits } = await supabase
-        .from("audit_log")
-        .select("entity_id, actor_type, actor_agent_id, action, summary, created_at")
-        .eq("entity_type", "knowledge_item")
-        .in("entity_id", itemIds)
-        .eq("actor_type", "agent")
-        .eq("actor_agent_id", agentId)
-        .gte("created_at", cutoff.toISOString())
-        .order("created_at", { ascending: false });
-
-      if (cancelled) return;
-      const editMap = new Map<string, AuditEntry>();
-      for (const a of (audits ?? []) as AuditEntry[]) {
-        if (!editMap.has(a.entity_id)) {
-          editMap.set(a.entity_id, a);
-        }
-      }
-      setRecentEdits(editMap);
+    if (!junctions?.length) {
+      setItems([]);
       setLoading(false);
+      return;
     }
 
-    fetchSkills();
-    return () => { cancelled = true; };
+    const itemIds = junctions.map((j: { knowledge_item_id: string }) => j.knowledge_item_id);
+    const { data } = await supabase
+      .from("knowledge_items")
+      .select("id, title, kind, scope, updated_at, created_at")
+      .in("id", itemIds)
+      .eq("kind", "skill")
+      .is("archived_at", null)
+      .order("updated_at", { ascending: false });
+
+    setItems((data ?? []) as SkillItem[]);
+
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - RECENCY_DAYS);
+
+    const { data: audits } = await supabase
+      .from("audit_log")
+      .select("entity_id, actor_type, actor_agent_id, action, summary, created_at")
+      .eq("entity_type", "knowledge_item")
+      .in("entity_id", itemIds)
+      .eq("actor_type", "agent")
+      .eq("actor_agent_id", agentId)
+      .gte("created_at", cutoff.toISOString())
+      .order("created_at", { ascending: false });
+
+    const editMap = new Map<string, AuditEntry>();
+    for (const a of (audits ?? []) as AuditEntry[]) {
+      if (!editMap.has(a.entity_id)) {
+        editMap.set(a.entity_id, a);
+      }
+    }
+    setRecentEdits(editMap);
+    setLoading(false);
   }, [supabase, agentId]);
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    fetchSkills();
+  }, [fetchSkills]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  useRealtime({
+    table: "knowledge_items",
+    onPayload: () => fetchSkills(),
+  });
+
+  useRealtime({
+    table: "knowledge_item_agents",
+    filter: `agent_id=eq.${agentId}`,
+    onPayload: () => fetchSkills(),
+  });
 
   const cutoffDate = useMemo(() => {
     const d = new Date();

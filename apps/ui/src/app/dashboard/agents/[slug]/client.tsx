@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Agent } from "@/lib/agents/types";
+import { useRealtime } from "@/hooks/use-realtime";
 import { AgentDetailTabs } from "@/components/agents/agent-detail-tabs";
 
 interface Props {
@@ -28,6 +29,24 @@ export function AgentDetailClient({
     router.refresh();
     setKey((k) => k + 1);
   }, [router]);
+
+  useRealtime({
+    table: "agents",
+    filter: `id=eq.${agent.id}`,
+    event: "UPDATE",
+    onPayload: () => handleUpdated(),
+  });
+
+  useRealtime({
+    table: "knowledge_items",
+    onPayload: () => router.refresh(),
+  });
+
+  useRealtime({
+    table: "knowledge_item_agents",
+    filter: `agent_id=eq.${agent.id}`,
+    onPayload: () => router.refresh(),
+  });
 
   return (
     <AgentDetailTabs
