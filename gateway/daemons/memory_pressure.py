@@ -32,6 +32,10 @@ _last_notification_time: float = 0
 _NOTIFICATION_COOLDOWN = 600  # 10 minutes between notifications
 
 
+def _urlopen(request: urllib.request.Request, timeout: int = 10) -> Any:
+    return urllib.request.urlopen(request, timeout=timeout)
+
+
 def get_available_memory_bytes() -> int | None:
     """Return available memory in bytes, or None if unreadable."""
     try:
@@ -111,6 +115,6 @@ def emit_pressure_notification(
         },
     )
     try:
-        urllib.request.urlopen(request, timeout=10)
+        _urlopen(request)
     except (urllib.error.URLError, OSError):
         pass

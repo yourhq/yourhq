@@ -114,7 +114,7 @@ class TestEmitPressureNotification:
 
             return FakeResp()
 
-        monkeypatch.setattr(mp.urllib.request, "urlopen", fake_urlopen)
+        monkeypatch.setattr(mp, "_urlopen", fake_urlopen)
         mp.emit_pressure_notification("embedder", "https://test.supabase.co", "key", 200)
 
         assert len(captured) == 1
@@ -140,7 +140,7 @@ class TestEmitPressureNotification:
 
             return FakeResp()
 
-        monkeypatch.setattr(mp.urllib.request, "urlopen", fake_urlopen)
+        monkeypatch.setattr(mp, "_urlopen", fake_urlopen)
         mp.emit_pressure_notification("embedder", "https://test.supabase.co", "key", 200)
         mp.emit_pressure_notification("embedder", "https://test.supabase.co", "key", 200)
 
@@ -154,6 +154,6 @@ class TestEmitPressureNotification:
         def fail(*a, **kw):
             raise urllib.error.URLError("network down")
 
-        monkeypatch.setattr(mp.urllib.request, "urlopen", fail)
+        monkeypatch.setattr(mp, "_urlopen", fail)
         mp.emit_pressure_notification("embedder", "https://test.supabase.co", "key", 200)
         # should not raise
