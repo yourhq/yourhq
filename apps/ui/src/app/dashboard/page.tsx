@@ -1,38 +1,46 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
-import { formatDistanceToNow } from "date-fns";
 import { AlertCircle, LayoutDashboard, Loader2, RefreshCw } from "lucide-react";
-import { fetchDashboardStats } from "./actions";
-import type { DashboardStats } from "@/lib/types/dashboard";
+import { fetchAgentFleetEnriched } from "./actions/fleet";
+import { fetchTriageItems } from "./actions/triage";
+import { fetchWorkspacePulse } from "./actions/pulse";
+import type {
+  AgentFleetEnriched,
+  TriageItem,
+  WorkspacePulseData,
+} from "@/lib/types/dashboard";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
-import { ActivityItem } from "@/components/activity/activity-item";
 
 import { FirstVisitHint } from "@/components/onboarding/first-visit-hint";
-import { AlertBanner } from "./components/alert-banner";
-import { StatStrip } from "./components/stat-strip";
-import { NeedsAttention } from "./components/needs-attention";
-import { AgentFleetCard } from "./components/agent-fleet-card";
-import { InfraCard } from "./components/infra-card";
-import { PipelineCard } from "./components/pipeline-card";
-import { TasksCard } from "./components/tasks-card";
-import { SpendCard } from "./components/spend-card";
+import { AgentFleetGrid } from "./components/agent-fleet-grid";
+import { TriageQueue } from "./components/triage-queue";
+import { WorkspacePulse } from "./components/workspace-pulse";
+import { ActivityStream } from "./components/activity-stream";
+import { BriefingBar } from "./components/briefing-bar";
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [fleet, setFleet] = useState<AgentFleetEnriched[]>([]);
+  const [triageItems, setTriageItems] = useState<TriageItem[]>([]);
+  const [pulseData, setPulseData] = useState<WorkspacePulseData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [fetchedNow, setFetchedNow] = useState(0);
+  const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchDashboardStats();
-      setStats(data);
-      setFetchedNow(Date.now());
+      const [fleetData, triage, pulse] = await Promise.all([
+        fetchAgentFleetEnriched(),
+        fetchTriageItems(),
+        fetchWorkspacePulse(),
+      ]);
+      setFleet(fleetData);
+      setTriageItems(triage);
+      setPulseData(pulse);
+      setFetchedAt(new Date());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to fetch stats");
     } finally {
@@ -44,27 +52,25 @@ export default function DashboardPage() {
     refresh();
   }, [refresh]);
 
+  const loaded = fetchedAt !== null;
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader
         icon={<LayoutDashboard className="h-4 w-4" />}
         title="Dashboard"
-        description={
-          stats
-            ? `Updated ${formatDistanceToNow(new Date(stats.fetchedAt), { addSuffix: true })}`
-            : "Loading workspace overview…"
-        }
         primaryAction={
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={refresh}
             disabled={loading}
+            className="h-7 text-muted-foreground/60 hover:text-foreground"
           >
             {loading ? (
-              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
             ) : (
-              <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+              <RefreshCw className="mr-1.5 h-3 w-3" />
             )}
             Refresh
           </Button>
@@ -72,87 +78,33 @@ export default function DashboardPage() {
       />
 
       <div className="flex-1 overflow-auto">
-        <div className="mx-auto w-full max-w-5xl p-5">
+        <div className="mx-auto w-full max-w-5xl px-5 pb-8 pt-4">
           <FirstVisitHint
             pageKey="dashboard"
             title="Welcome to your command center"
             description="This is your workspace overview — agent activity, tasks, and key metrics at a glance."
           />
-          {/* Loading skeleton */}
-          {loading && !stats && (
+
+          {loading && !loaded && (
             <div className="flex h-40 items-center justify-center">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/40" />
             </div>
           )}
 
-          {/* Error state */}
-          {error && !stats && (
-            <div className="flex items-center gap-2 rounded-md border border-[var(--status-error)]/40 bg-[var(--status-error)]/5 p-4 text-body text-[var(--status-error)]">
-              <AlertCircle className="h-4 w-4" />
+          {error && !loaded && (
+            <div className="flex items-center gap-2 rounded-lg border border-[var(--status-error)]/20 bg-[var(--status-error)]/5 px-4 py-3 text-[13px] text-[var(--status-error)]">
+              <AlertCircle className="h-3.5 w-3.5" />
               {error}
             </div>
           )}
 
-          {stats && (
+          {loaded && (
             <div className="space-y-5">
-              {/* Zone 1: Alert banner */}
-              <AlertBanner alerts={stats.alerts} />
-
-              {/* Zone 2: Stat strip */}
-              <StatStrip stats={stats} />
-
-              {/* Zone 3: Card grid */}
-              <div className="space-y-4">
-                {/* Row 1: Needs attention (full width) */}
-                <NeedsAttention items={stats.actionItems} />
-
-                {/* Row 2: Agents + Infrastructure */}
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <AgentFleetCard
-                    agents={stats.agentFleet}
-                    commandQueue={stats.commandQueue}
-                  />
-                  <InfraCard
-                    gateways={stats.gateways}
-                    commandQueue={stats.commandQueue}
-                    inboxQueue={stats.inboxQueue}
-                    now={fetchedNow}
-                  />
-                </div>
-
-                {/* Row 3: Pipeline + Tasks */}
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <PipelineCard crm={stats.crm} />
-                  <TasksCard tasks={stats.tasks} />
-                </div>
-
-                {/* Row 4: Spend (full width) */}
-                <SpendCard spend={stats.spend} />
-
-                {/* Row 5: Recent activity (full width) */}
-                <section className="rounded-md border border-border/60 bg-card p-5">
-                  <div className="mb-4 flex items-center justify-between">
-                    <h2 className="text-heading">Recent activity</h2>
-                    <Link
-                      href="/dashboard/activity"
-                      className="text-[11px] text-muted-foreground hover:text-foreground"
-                    >
-                      View all
-                    </Link>
-                  </div>
-                  {stats.recentActivity.length === 0 ? (
-                    <p className="text-body text-muted-foreground">
-                      No recent activity.
-                    </p>
-                  ) : (
-                    <div>
-                      {stats.recentActivity.map((entry) => (
-                        <ActivityItem key={entry.id} entry={entry} />
-                      ))}
-                    </div>
-                  )}
-                </section>
-              </div>
+              <BriefingBar />
+              <AgentFleetGrid agents={fleet} />
+              <TriageQueue initialItems={triageItems} />
+              {pulseData && <WorkspacePulse data={pulseData} />}
+              <ActivityStream />
             </div>
           )}
         </div>
