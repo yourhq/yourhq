@@ -218,7 +218,7 @@ export async function fetchTriageItems(): Promise<TriageItem[]> {
   };
   const budgetItems = budgetRes as unknown as BudgetRow[];
   const budgetAgentIds = budgetItems.map((b) => b.agent_id).filter(Boolean);
-  let budgetAgentMap = new Map<string, { name: string; emoji: string | null }>();
+  const budgetAgentMap = new Map<string, { name: string; emoji: string | null }>();
   if (budgetAgentIds.length > 0) {
     const { data: agentsData } = await supabase
       .from("agents")

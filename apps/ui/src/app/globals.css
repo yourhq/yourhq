@@ -169,30 +169,30 @@
 
 .dark {
   /* ── Surfaces — warm charcoal at hue 75 ──────────────
-     The desk in low light. Teal is the lamp, not the room. */
-  --background: oklch(0.14 0.005 75);
-  --foreground: oklch(0.93 0.004 75);
-  --card: oklch(0.17 0.005 75);
-  --card-foreground: oklch(0.93 0.004 75);
-  --popover: oklch(0.19 0.005 75);
-  --popover-foreground: oklch(0.93 0.004 75);
-  --muted: oklch(0.20 0.005 75);
-  --muted-foreground: oklch(0.60 0.008 75);
-  --accent: oklch(0.22 0.006 75);
-  --accent-foreground: oklch(0.93 0.004 75);
-  --secondary: oklch(0.21 0.005 75);
-  --secondary-foreground: oklch(0.90 0.004 75);
+     Clear depth ladder: sidebar(0.11) → bg(0.13) → card(0.19) → popover(0.21) */
+  --background: oklch(0.13 0.005 75);
+  --foreground: oklch(0.96 0.004 75);
+  --card: oklch(0.19 0.005 75);
+  --card-foreground: oklch(0.96 0.004 75);
+  --popover: oklch(0.21 0.005 75);
+  --popover-foreground: oklch(0.96 0.004 75);
+  --muted: oklch(0.22 0.005 75);
+  --muted-foreground: oklch(0.55 0.008 75);
+  --accent: oklch(0.24 0.006 75);
+  --accent-foreground: oklch(0.96 0.004 75);
+  --secondary: oklch(0.22 0.005 75);
+  --secondary-foreground: oklch(0.92 0.004 75);
 
   /* ── Brand — Pine teal, luminous on dark ─────────────── */
   --primary: oklch(0.72 0.085 175);
-  --primary-foreground: oklch(0.14 0.005 75);
+  --primary-foreground: oklch(0.13 0.005 75);
 
   /* ── Destructive ──────────────────────────────────────── */
   --destructive: oklch(0.65 0.18 25);
 
-  /* ── Borders — translucent white ──────────────────────── */
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 10%);
+  /* ── Borders — translucent white, slightly stronger ───── */
+  --border: oklch(1 0 0 / 11%);
+  --input: oklch(1 0 0 / 11%);
   --ring: oklch(0.72 0.085 175);
 
   /* ── Charts ───────────────────────────────────────────── */
@@ -203,19 +203,19 @@
   --chart-5: oklch(0.62 0.12 290);
 
   /* ── Sidebar — deepest surface ────────────────────────── */
-  --sidebar: oklch(0.12 0.006 75);
-  --sidebar-foreground: oklch(0.93 0.004 75);
+  --sidebar: oklch(0.11 0.006 75);
+  --sidebar-foreground: oklch(0.96 0.004 75);
   --sidebar-primary: oklch(0.72 0.085 175);
-  --sidebar-primary-foreground: oklch(0.14 0.005 75);
-  --sidebar-accent: oklch(0.21 0.006 75);
-  --sidebar-accent-foreground: oklch(0.93 0.004 75);
-  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-primary-foreground: oklch(0.13 0.005 75);
+  --sidebar-accent: oklch(0.20 0.006 75);
+  --sidebar-accent-foreground: oklch(0.96 0.004 75);
+  --sidebar-border: oklch(1 0 0 / 11%);
   --sidebar-ring: oklch(0.72 0.085 175);
 
   /* ── Surface state helpers ────────────────────────────── */
-  --surface-hover: oklch(1 0 0 / 5%);
-  --surface-selected: oklch(1 0 0 / 8%);
-  --border-strong: oklch(1 0 0 / 16%);
+  --surface-hover: oklch(1 0 0 / 6%);
+  --surface-selected: oklch(1 0 0 / 9%);
+  --border-strong: oklch(1 0 0 / 18%);
 
   /* ── Semantic status — luminous, not neon ─────────────── */
   --status-success: oklch(0.68 0.13 145);
@@ -223,7 +223,7 @@
   --status-error: oklch(0.66 0.17 25);
   --status-info: oklch(0.65 0.13 250);
   --status-progress: oklch(0.65 0.13 290);
-  --status-neutral: oklch(0.58 0.008 75);
+  --status-neutral: oklch(0.55 0.008 75);
 
   /* ── Priority ─────────────────────────────────────────── */
   --priority-urgent: oklch(0.66 0.17 25);
@@ -246,8 +246,8 @@
   --accent-sky: oklch(0.68 0.10 235);
 
   /* ── Text hierarchy ───────────────────────────────────── */
-  --text-secondary: oklch(0.60 0.008 75);
-  --text-tertiary: oklch(0.44 0.006 75);
+  --text-secondary: oklch(0.55 0.008 75);
+  --text-tertiary: oklch(0.42 0.006 75);
 }
 
 @layer base {

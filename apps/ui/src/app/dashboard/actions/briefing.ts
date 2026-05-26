@@ -109,7 +109,7 @@ export async function fetchBriefing(since: string): Promise<BriefingSummary> {
   }
 
   const agentIds = Array.from(agentTaskMap.keys());
-  let agentNameMap = new Map<string, { name: string; emoji: string | null }>();
+  const agentNameMap = new Map<string, { name: string; emoji: string | null }>();
   if (agentIds.length > 0) {
     const { data: agentsData } = await supabase
       .from("agents")

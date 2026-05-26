@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { AlertTriangle, ArrowRight } from "lucide-react";
@@ -27,7 +28,7 @@ export function PulseSystemTab({
   commandQueue: CommandQueueStats;
   inboxQueue: InboxQueueStats;
 }) {
-  const now = Date.now();
+  const [now] = useState(() => Date.now());
 
   return (
     <div>

@@ -14,7 +14,6 @@ export function useActivityStream() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     fetchActivityStream(0, PAGE_SIZE).then((result) => {
       if (cancelled) return;
       setEntries(result.entries);

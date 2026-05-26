@@ -354,7 +354,7 @@ async function fetchUsageBudgetData(): Promise<UsageBudgetData> {
   const budgets = (budgetRes.data ?? []) as unknown as BudgetRow[];
 
   const agentIds = budgets.map((b) => b.agent_id).filter(Boolean);
-  let agentMap = new Map<string, { name: string; emoji: string | null }>();
+  const agentMap = new Map<string, { name: string; emoji: string | null }>();
   if (agentIds.length > 0) {
     const { data: agentsData } = await supabase
       .from("agents")
