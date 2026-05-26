@@ -13,6 +13,24 @@ tagged release.
 
 ## [0.1.4] — 2026-05-26
 
+### Added
+
+- **Dashboard reimagined** — five-zone layout replaces the old vertically-stacked cards. Briefing bar greets you with what happened since your last visit. Agent fleet grid shows your team at a glance with live status dots. Triage queue surfaces items needing your decision with inline approve/retry/snooze actions. Workspace pulse merges tasks, pipeline, spend, and system health into a tabbed view. Activity stream groups events by time with agent emoji anchors.
+- **Memory-aware batch sizing** — embedder and file processor now check `/proc/meminfo` before each polling cycle and reduce batch size (or pause entirely) when RAM is low. A dashboard notification appears when indexing is throttled so the instance doesn't go unresponsive.
+- **Agent detail Realtime** — agent detail page live-updates via Supabase Realtime when agent status, knowledge items, or agent-knowledge assignments change.
+- **E2E test suite** — Playwright specs cover all dashboard modules across three ICP journeys (solopreneur, agency builder, technical tinkerer) with a demo seed script for reproducible test data.
+- **Security hardening** — comprehensive audit covering secret exposure, input validation, auth boundaries, and CI pipeline (gitleaks scanning on every push).
+- **Demo video** — README now features an animated demo hosted on GitHub Release assets.
+
+### Fixed
+
+- **Triage FK joins** — deliverables, contacts, and agent names in the triage queue now resolve correctly. Polymorphic `owner_id` joins replaced with separate queries; Supabase FK join object-vs-array shape handled consistently.
+- **Theme derive tokens** — dark mode background/foreground lightness values corrected (0.13/0.96).
+- **Org chart layout** — agent node height adjusted for better display with longer names and roles.
+- **Agent desktop** — added missing Chrome flags to the noVNC desktop shortcut.
+- **Dispatcher** — removed stale `OPENCLAW_GATEWAY_URL` env var that caused connection failures.
+- **CI** — switched from paid gitleaks GitHub Action to the free CLI, fixed shellcheck and ruff lint violations.
+
 ## [0.1.3] — 2026-05-21
 
 ### Added
