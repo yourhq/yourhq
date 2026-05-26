@@ -49,7 +49,7 @@ export async function fetchTriageItems(): Promise<TriageItem[]> {
         const r = await supabase
           .from("entity_links")
           .select(
-            "id, label, created_at, review_status, owner_id, submitted_by_agent:agents!entity_links_submitted_by_agent_id_fkey(name, meta), owner_task:tasks!entity_links_owner_id_fkey(title)",
+            "id, label, created_at, review_status, owner_id, owner_type, submitted_by_agent_id",
           )
           .eq("is_deliverable", true)
           .eq("review_status", "in_review")
@@ -156,22 +156,41 @@ export async function fetchTriageItems(): Promise<TriageItem[]> {
     created_at: string;
     review_status: string;
     owner_id: string;
-    submitted_by_agent: { name: string; meta: Record<string, unknown> | null }[] | null;
-    owner_task: { title: string }[] | null;
+    owner_type: string | null;
+    submitted_by_agent_id: string | null;
   };
-  for (const d of deliverableRes as unknown as DeliverableRow[]) {
-    const agent = d.submitted_by_agent?.[0] ?? null;
-    const task = d.owner_task?.[0] ?? null;
+  const deliverables = deliverableRes as unknown as DeliverableRow[];
+  const delAgentIds = deliverables.map((d) => d.submitted_by_agent_id).filter(Boolean) as string[];
+  const delTaskIds = deliverables.filter((d) => d.owner_type === "task").map((d) => d.owner_id);
+  const delAgentMap = new Map<string, { name: string; emoji: string | null }>();
+  const delTaskMap = new Map<string, string>();
+  if (delAgentIds.length > 0) {
+    const { data: agentsData } = await supabase
+      .from("agents").select("id, name, meta").in("id", delAgentIds);
+    for (const a of (agentsData ?? []) as { id: string; name: string; meta: Record<string, unknown> | null }[]) {
+      delAgentMap.set(a.id, { name: a.name, emoji: (a.meta?.emoji as string) ?? null });
+    }
+  }
+  if (delTaskIds.length > 0) {
+    const { data: tasksData } = await supabase
+      .from("tasks").select("id, title").in("id", delTaskIds);
+    for (const t of (tasksData ?? []) as { id: string; title: string }[]) {
+      delTaskMap.set(t.id, t.title);
+    }
+  }
+  for (const d of deliverables) {
+    const agent = d.submitted_by_agent_id ? delAgentMap.get(d.submitted_by_agent_id) : null;
+    const taskTitle = delTaskMap.get(d.owner_id);
     items.push({
       id: `deliverable-${d.id}`,
       type: "deliverable_review",
       title: d.label ?? "Deliverable",
-      subtitle: task?.title ? `on "${task.title}"` : null,
+      subtitle: taskTitle ? `on "${taskTitle}"` : null,
       href: "/dashboard/tasks",
       urgency: 2,
       timestamp: d.created_at,
       agentName: agent?.name ?? null,
-      agentEmoji: (agent?.meta?.emoji as string) ?? null,
+      agentEmoji: agent?.emoji ?? null,
       entityId: d.id,
       entityType: "entity_link",
       actions: [
@@ -182,14 +201,15 @@ export async function fetchTriageItems(): Promise<TriageItem[]> {
   }
 
   // Failed agent work
+  type AgentJoin = { name: string; meta: Record<string, unknown> | null };
   type FailedRow = {
     id: string;
     summary: string | null;
     created_at: string;
-    agent: { name: string; meta: Record<string, unknown> | null }[] | null;
+    agent: AgentJoin | AgentJoin[] | null;
   };
   for (const f of failedRes as unknown as FailedRow[]) {
-    const agent = f.agent?.[0] ?? null;
+    const agent = Array.isArray(f.agent) ? f.agent[0] : f.agent;
     items.push({
       id: `failed-${f.id}`,
       type: "failed_work",
@@ -255,13 +275,16 @@ export async function fetchTriageItems(): Promise<TriageItem[]> {
     contact_id: string;
     next_action: string | null;
     next_action_date: string;
-    contact: { name: string }[] | null;
+    contact: { name: string } | { name: string }[] | null;
   };
   for (const row of followUpRes as unknown as FollowUpRow[]) {
+    const contactName = Array.isArray(row.contact)
+      ? row.contact[0]?.name
+      : row.contact?.name;
     items.push({
       id: `followup-${row.id}`,
       type: "follow_up",
-      title: row.contact?.[0]?.name ?? "Unknown contact",
+      title: contactName ?? "Unknown contact",
       subtitle: row.next_action,
       href: `/dashboard/contacts/${row.contact_id}`,
       urgency: 4,
