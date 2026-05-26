@@ -381,11 +381,7 @@ def _sync_provider_keys_to_auth_profiles(gateway_vars: dict):
     shared auth-profiles.json so OpenClaw can discover them."""
     import glob as _glob
 
-    provider_keys = {
-        _PROVIDER_ENV_VARS[k]: v
-        for k, v in gateway_vars.items()
-        if k in _PROVIDER_ENV_VARS and v
-    }
+    provider_keys = {_PROVIDER_ENV_VARS[k]: v for k, v in gateway_vars.items() if k in _PROVIDER_ENV_VARS and v}
     if not provider_keys:
         return
 

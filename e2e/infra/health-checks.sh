@@ -23,7 +23,7 @@ run_cmd() {
     ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
         ${SSH_KEY:+-i "$SSH_KEY"} "$SSH_TARGET" "$@"
   else
-    eval "$@"
+    bash -c "$*"
   fi
 }
 

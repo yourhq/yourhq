@@ -14,7 +14,7 @@ rcmd() {
   if [[ -n "$SSH_TARGET" ]]; then
     ssh $SSH_OPTS "$SSH_TARGET" "$@"
   else
-    eval "$@"
+    bash -c "$*"
   fi
 }
 
