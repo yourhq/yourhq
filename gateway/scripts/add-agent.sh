@@ -357,7 +357,7 @@ cat > "$SHORTCUT_FILE" << SHORTCUT
 Version=1.0
 Type=Application
 Name=Chrome (${AGENT_NAME_DISPLAY})
-Exec=/usr/bin/google-chrome-stable --no-sandbox --disable-dev-shm-usage --user-data-dir=$HOME/.openclaw/browser/${BROWSER_PROFILE}/user-data --remote-debugging-port=${CDP_PORT}
+Exec=/usr/bin/google-chrome-stable --no-sandbox --disable-dev-shm-usage --user-data-dir=$HOME/.openclaw/browser/${BROWSER_PROFILE}/user-data --remote-debugging-port=${CDP_PORT} --remote-allow-origins=* --no-first-run --no-default-browser-check
 Icon=google-chrome
 Terminal=false
 SHORTCUT
