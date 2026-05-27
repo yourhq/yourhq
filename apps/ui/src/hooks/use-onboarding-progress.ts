@@ -23,7 +23,14 @@ const PAGE_KEY_MAP: Record<string, string> = {
 };
 
 export function useOnboardingProgress() {
-  const [progress, setProgress] = useState<OnboardingProgress>(loadProgress);
+  const [progress, setProgress] = useState<OnboardingProgress>(() => ({
+    wizardCompleted: false,
+    tier1: { agentCreated: false, channelConnected: false, taskAssigned: false, agentWorked: false, knowledgeCreated: false, dashboardExplored: false },
+    tier2: { sourceConnected: false, routineCreated: false, desktopViewed: false, secondAgentCreated: false },
+    pagesVisited: [],
+    microTipsSeen: [],
+    dismissedAt: null,
+  }));
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const pathnameRef = useRef(pathname);

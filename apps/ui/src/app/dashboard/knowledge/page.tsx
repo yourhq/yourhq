@@ -64,10 +64,13 @@ function KnowledgeContent() {
         );
       });
   }, [supabase]);
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    if (typeof window === "undefined") return "list";
-    return (localStorage.getItem(VIEW_KEY) as ViewMode) ?? "list";
-  });
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+
+  useEffect(() => {
+    const stored = localStorage.getItem(VIEW_KEY) as ViewMode | null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (stored) setViewMode(stored);
+  }, []);
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
 

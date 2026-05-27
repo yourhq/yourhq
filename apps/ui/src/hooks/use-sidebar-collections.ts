@@ -49,8 +49,8 @@ export function useSidebarCollections() {
   const [collections, setCollections] = useState<SidebarCollection[]>([]);
   const [templates, setTemplates] = useState<CollectionTemplate[]>([]);
   const [loading, setLoading] = useState(true);
-  const [pinnedIds, setPinnedIds] = useState<Set<string>>(readPinned);
-  const [expanded, setExpanded] = useState(readExpanded);
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
 
   const fetch = useCallback(async () => {
@@ -74,6 +74,8 @@ export function useSidebarCollections() {
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
+    setPinnedIds(readPinned());
+    setExpanded(readExpanded());
     fetch();
     fetchTemplates();
   }, [fetch, fetchTemplates]);
