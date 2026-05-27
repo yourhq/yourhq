@@ -10,9 +10,9 @@
     { "source": "/discord", "destination": "https://discord.gg/HwAkyyY3Ee" }
   ],
   "colors": {
-    "primary": "#111827",
-    "light": "#F9FAFB",
-    "dark": "#0B1220"
+    "primary": "#1F7A6E",
+    "light": "#4FA89B",
+    "dark": "#1F7A6E"
   },
   "favicon": "/images/favicon.svg",
   "logo": {
