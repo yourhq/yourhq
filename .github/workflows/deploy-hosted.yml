@@ -20,12 +20,12 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
         with:
           role-to-assume: ${{ secrets.AWS_ECR_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
 
-      - uses: aws-actions/amazon-ecr-login@v2
+      - uses: aws-actions/amazon-ecr-login@fa648b43de3d4d023bcb3f89ed6940096949c419 # v2
         id: ecr-login
 
       - name: Resolve image tag
@@ -40,7 +40,7 @@ jobs:
           fi
 
       - name: Deploy to ECS Express
-        uses: aws-actions/amazon-ecs-deploy-express-service@v1
+        uses: aws-actions/amazon-ecs-deploy-express-service@2088fb17efe80c13c2e40a6a1a7e4a4b12f88041 # v1
         with:
           service-name: yourhq-worker
           image: ${{ steps.ecr-login.outputs.registry }}/${{ vars.ECR_WORKER_REPOSITORY || 'yourhq-worker' }}:${{ steps.tag.outputs.image_tag }}
