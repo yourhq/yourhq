@@ -19,6 +19,10 @@
         "href": "https://github.com/yourhq/yourhq"
       },
       {
+        "label": "Discord",
+        "href": "https://discord.gg/HwAkyyY3Ee"
+      },
+      {
         "label": "Website",
         "href": "https://yourhq.ai"
       }
@@ -31,7 +35,9 @@
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/yourhq/yourhq"
+      "github": "https://github.com/yourhq/yourhq",
+      "discord": "https://discord.gg/HwAkyyY3Ee",
+      "x": "https://x.com/yourhq_ai"
     }
   },
   "navigation": {

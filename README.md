@@ -6,12 +6,13 @@
 
 One UI, many AI agents, your infrastructure.
 
-[Website](https://yourhq.ai) · [Install](#install) · [Docs](https://docs.yourhq.ai) · [Why HQ](https://docs.yourhq.ai/concepts/why-hq) · [Roadmap](https://docs.yourhq.ai/getting-started/roadmap)
+[Website](https://yourhq.ai) · [Install](#install) · [Docs](https://docs.yourhq.ai) · [Why HQ](https://docs.yourhq.ai/concepts/why-hq) · [Roadmap](https://docs.yourhq.ai/getting-started/roadmap) · [Discord](https://discord.gg/HwAkyyY3Ee)
 
 [![CI](https://img.shields.io/github/actions/workflow/status/yourhq/yourhq/ci.yml?branch=main&label=CI)](https://github.com/yourhq/yourhq/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/yourhq/yourhq?include_prereleases&label=release&sort=semver)](https://github.com/yourhq/yourhq/releases)
 [![License](https://img.shields.io/github/license/yourhq/yourhq)](LICENSE)
 [![Discussions](https://img.shields.io/github/discussions/yourhq/yourhq)](https://github.com/yourhq/yourhq/discussions)
+[![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/HwAkyyY3Ee)
 
 </div>
 
@@ -177,6 +178,7 @@ Most PR-friendly areas:
 
 ## Community & support
 
+- **Discord**: [discord.gg/HwAkyyY3Ee](https://discord.gg/HwAkyyY3Ee)
 - **Issues**: [github.com/yourhq/yourhq/issues](https://github.com/yourhq/yourhq/issues)
 - **Discussions**: [github.com/yourhq/yourhq/discussions](https://github.com/yourhq/yourhq/discussions)
 - **Security reports**: see [SECURITY.md](SECURITY.md) (don't file public issues for security)

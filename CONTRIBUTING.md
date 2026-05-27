@@ -7,6 +7,7 @@ Thanks for wanting to help. This doc covers the contribution flow — code, temp
 - [Good first issues](https://github.com/yourhq/yourhq/labels/good%20first%20issue)
 - [Help wanted](https://github.com/yourhq/yourhq/labels/help%20wanted)
 - [Roadmap](https://docs.yourhq.ai/getting-started/roadmap)
+- [Discord](https://discord.gg/HwAkyyY3Ee) — ask questions, discuss ideas
 
 ## Ways to contribute
 
