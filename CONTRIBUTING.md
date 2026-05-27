@@ -139,6 +139,17 @@ Once merged to `main`:
 
 We don't do per-PR release notes. Significant changes get called out in the GitHub release notes when we cut a tag.
 
+## AI-assisted contributions
+
+We welcome PRs that used AI tools (Copilot, Claude, ChatGPT, etc.) during development. A few ground rules:
+
+- **You are responsible for what you submit.** Review AI-generated code the same way you'd review code from a colleague. If it's wrong, the PR is wrong — "the AI wrote it" isn't a defense.
+- **Disclose significant AI use.** If a PR is substantially AI-generated (not just autocomplete), note it in the PR description. This helps reviewers calibrate their review.
+- **No bulk AI-generated PRs.** Don't open 10 "fix typo" or "add docstring" PRs that an LLM generated in a batch. One thoughtful PR beats ten low-effort ones.
+- **Tests must pass.** AI-generated code that doesn't pass `make test` will be closed without review.
+
+We use AI tools ourselves — CLAUDE.md and AGENTS.md exist for exactly this reason. The bar is quality, not origin.
+
 ## Code of conduct
 
 Be kind. See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).

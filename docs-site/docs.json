@@ -2,6 +2,13 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "HQ",
+  "redirects": [
+    { "source": "/faq", "destination": "/getting-started/faq" },
+    { "source": "/roadmap", "destination": "/getting-started/roadmap" },
+    { "source": "/changelog", "destination": "/getting-started/changelog" },
+    { "source": "/community", "destination": "/getting-started/community" },
+    { "source": "/discord", "destination": "https://discord.gg/HwAkyyY3Ee" }
+  ],
   "colors": {
     "primary": "#111827",
     "light": "#F9FAFB",
@@ -49,6 +56,8 @@
           "concepts/why-hq",
           "getting-started/choose-your-path",
           "getting-started/faq",
+          "getting-started/changelog",
+          "getting-started/community",
           "getting-started/roadmap"
         ]
       },
