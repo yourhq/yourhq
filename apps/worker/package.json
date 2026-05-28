@@ -10,11 +10,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@hono/node-server": "^2.0.3",
+    "@hono/node-server": "^2.0.4",
     "@sentry/node": "^9.47.1",
-    "@supabase/supabase-js": "^2.106.1",
+    "@supabase/supabase-js": "^2.106.2",
     "e2b": "^1.4.0",
-    "hono": "^4.12.21",
+    "hono": "^4.12.23",
     "posthog-node": "^4.0.0",
     "resend": "^4.2.0",
     "stripe": "^17.7.0"
