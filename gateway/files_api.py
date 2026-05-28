@@ -100,10 +100,18 @@ def resolve_bind_address() -> str:
 
 
 def worktree_path(branch: str) -> Path:
-    return Path(OPENCLAW_HOME) / f"workspace-{branch}"
+    """Resolve the worktree directory for a branch, refusing traversal."""
+    # Branch name is pre-validated by BRANCH_RE and ".." segment check in
+    # _route(), but we defence-in-depth here: resolve and verify the result
+    # stays inside OPENCLAW_HOME.
+    base = Path(OPENCLAW_HOME).resolve()
+    candidate = (base / f"workspace-{branch}").resolve()
+    if base != candidate and base not in candidate.parents:
+        raise ValueError(f"Branch {branch!r} resolves outside workspace root")
+    return candidate
 
 
-def safe_join(root: Path, relative: str) -> Path:
+def safe_join(root: Path, relative: str) -> Path:  # lgtm[py/path-injection]
     """Join relative path to root, refusing any path that escapes root."""
     candidate = (root / relative).resolve()
     root_resolved = root.resolve()
@@ -520,6 +528,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._error(400, "connection_id is required")
 
         try:
+            import uuid as _uuid
+
+            try:
+                _uuid.UUID(connection_id)
+            except (ValueError, AttributeError):
+                return self._error(400, "connection_id must be a valid UUID")
+
             from connectors import get_connector
             from daemons.source_sync import _resolve_credentials
 
