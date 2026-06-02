@@ -488,13 +488,13 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
 
   return (
     <div className="flex w-full flex-col items-center pt-8">
-      <div className="mb-8 w-full max-w-lg">
-        <WizardProgress steps={progressSteps} currentStep={step} />
-      </div>
-
       <div className={cn(
-        layout === "narrow" ? "w-full max-w-lg" : "w-full max-w-3xl",
+        "w-full transition-all duration-300",
+        layout === "narrow" ? "max-w-lg" : "max-w-3xl",
       )}>
+        <div className="mb-8">
+          <WizardProgress steps={progressSteps} currentStep={step} />
+        </div>
         {!isFirst && step !== "provisioning" && step !== "done" && (
           <button
             type="button"
