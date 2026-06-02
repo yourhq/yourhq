@@ -311,28 +311,34 @@ export async function registerNewWorkspaceDb(input: {
 export async function mintNewWorkspaceGatewayToken(input?: {
   label?: string;
 }): Promise<ActionResult<{ oneLiner: string; tokenId: string; expiresAt: string }>> {
-  const workspace = await getActiveWorkspaceWithSecrets();
-  if (!workspace) {
-    return { ok: false, error: "No workspace configured yet. Connect a database first." };
+  try {
+    const jar = await cookies();
+    const hint = jar.get(ACTIVE_WORKSPACE_COOKIE)?.value ?? null;
+    const workspace = await getActiveWorkspaceWithSecrets(hint);
+    if (!workspace) {
+      return { ok: false, error: "No workspace configured yet. Connect a database first." };
+    }
+
+    const label = (input?.label ?? "Gateway").trim() || "Gateway";
+    const minted = await mintGatewayToken({ label });
+
+    const oneLiner = buildGatewayOneLiner({
+      token: minted.token,
+      label,
+      project: workspace,
+    });
+
+    return {
+      ok: true,
+      data: {
+        oneLiner,
+        tokenId: minted.tokenId,
+        expiresAt: minted.expiresAt,
+      },
+    };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
   }
-
-  const label = (input?.label ?? "Gateway").trim() || "Gateway";
-  const minted = await mintGatewayToken({ label });
-
-  const oneLiner = buildGatewayOneLiner({
-    token: minted.token,
-    label,
-    project: workspace,
-  });
-
-  return {
-    ok: true,
-    data: {
-      oneLiner,
-      tokenId: minted.tokenId,
-      expiresAt: minted.expiresAt,
-    },
-  };
 }
 
 // ─── (c) Poll for gateway heartbeat ─────────────────────────────────────
@@ -759,7 +765,9 @@ export async function finalizeNewWorkspace(input: {
   workspaceSlug?: string | null;
   ownerName?: string;
 }): Promise<ActionResult> {
-  const workspace = await getActiveWorkspaceWithSecrets();
+  const jar = await cookies();
+  const hint = jar.get(ACTIVE_WORKSPACE_COOKIE)?.value ?? null;
+  const workspace = await getActiveWorkspaceWithSecrets(hint);
   if (!workspace) {
     return { ok: false, error: "No workspace configured. Connect a database first." };
   }
