@@ -20,7 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { AGENT_EMOJIS, AGENT_EMOJI_LABELS } from "@/lib/agents/emoji-grid";
 import { StaggeredEntrance } from "./staggered-entrance";
-import type { AgentTemplate } from "./onboarding-wizard";
+import type { AgentTemplate } from "@/lib/agents/roster";
 
 /* ── Constants ─────────────────────────────────────────────────────── */
 

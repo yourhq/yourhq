@@ -41,6 +41,13 @@ const AUTH_SHAPE_LABELS: Record<string, string> = {
   local_url: "Local",
 };
 
+export interface StepProviderActions {
+  startOAuthFlow: typeof startOAuthFlow;
+  submitOAuthPaste: typeof submitOAuthPaste;
+  pollCommandState: typeof pollCommandState;
+  saveOAuthProvider: typeof saveOAuthProvider;
+}
+
 export interface StepProviderProps {
   onSubmit: (provider: string, apiKey: string) => void;
   pending: boolean;
@@ -49,6 +56,7 @@ export interface StepProviderProps {
   validationError?: string | null;
   isHosted?: boolean;
   collectOnly?: boolean;
+  actions?: StepProviderActions;
 }
 
 type OAuthPhase =
@@ -71,7 +79,9 @@ export function StepProvider({
   validationError,
   isHosted,
   collectOnly,
+  actions,
 }: StepProviderProps) {
+  const oauthActions = actions ?? { startOAuthFlow, submitOAuthPaste, pollCommandState, saveOAuthProvider };
   const [selected, setSelected] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
@@ -127,7 +137,7 @@ export function StepProvider({
     setOauthPhase({ kind: "starting", provider: entry, mode });
     setOauthError(null);
 
-    const r = await startOAuthFlow(entry.id, mode);
+    const r = await oauthActions.startOAuthFlow(entry.id, mode);
     if (!r.ok || !r.data) {
       setOauthError(r.error ?? "Failed to start sign-in");
       setOauthPhase({ kind: "idle" });
@@ -145,7 +155,7 @@ export function StepProvider({
 
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = setInterval(async () => {
-      const poll = await pollCommandState(commandId);
+      const poll = await oauthActions.pollCommandState(commandId);
       if (!poll.ok || !poll.data) return;
 
       const cs = (poll.data.payload?.connection_state ?? null) as ConnectionCommandState | null;
@@ -159,7 +169,7 @@ export function StepProvider({
       if (poll.data.status === "done") {
         if (pollRef.current) clearInterval(pollRef.current);
         setOauthPhase({ kind: "done", provider: entry });
-        await saveOAuthProvider(entry.id);
+        await oauthActions.saveOAuthProvider(entry.id);
       } else if (poll.data.status === "failed") {
         if (pollRef.current) clearInterval(pollRef.current);
         setOauthError(
@@ -168,12 +178,13 @@ export function StepProvider({
         setOauthPhase({ kind: "idle" });
       }
     }, 1500);
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [oauthActions]);
 
   const handlePaste = useCallback(async (value: string) => {
     if (oauthPhase.kind !== "interactive" || !value) return;
     setSubmittingPaste(true);
-    const r = await submitOAuthPaste(oauthPhase.commandId, value);
+    const r = await oauthActions.submitOAuthPaste(oauthPhase.commandId, value);
     setSubmittingPaste(false);
     if (!r.ok) {
       setOauthError(r.error ?? "Failed to submit code");

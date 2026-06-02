@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS _schema_version (
   applied_at  timestamptz NOT NULL DEFAULT now(),
   description text
 );
+ALTER TABLE _schema_version DISABLE ROW LEVEL SECURITY;
 GRANT SELECT ON _schema_version TO authenticated, service_role;
 
 INSERT INTO _schema_version (version, description)
