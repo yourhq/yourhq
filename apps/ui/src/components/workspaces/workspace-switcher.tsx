@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, Check, ChevronsUpDown, Settings } from "lucide-react";
@@ -12,7 +11,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { AddWorkspaceDialog } from "./add-workspace-dialog";
 import { cn } from "@/lib/utils";
 
 
@@ -46,10 +44,9 @@ export function WorkspaceSwitcher({
   activeWorkspaceId,
   workspaces,
   showLabels = true,
-  isHosted = false,
+  isHosted: _isHosted = false,
 }: Props) {
   const router = useRouter();
-  const [addOpen, setAddOpen] = useState(false);
   const active =
     workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[0] ?? null;
 
@@ -62,21 +59,6 @@ export function WorkspaceSwitcher({
         {showLabels && (
           <span className="truncate text-[13px] font-semibold tracking-tight text-foreground">
             HQ
-          </span>
-        )}
-      </div>
-    );
-  }
-
-  if (workspaces.length <= 1) {
-    return (
-      <div className="flex h-12 shrink-0 items-center gap-2 px-3">
-        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted text-[13px]">
-          {active.emoji}
-        </div>
-        {showLabels && (
-          <span className="truncate text-[13px] font-semibold tracking-tight text-foreground">
-            {active.label}
           </span>
         )}
       </div>
@@ -140,11 +122,7 @@ export function WorkspaceSwitcher({
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onSelect={() => {
-                if (isHosted) {
-                  router.push("/new-workspace");
-                } else {
-                  setAddOpen(true);
-                }
+                router.push("/new-workspace");
               }}
               className="gap-2"
             >
@@ -160,13 +138,6 @@ export function WorkspaceSwitcher({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <AddWorkspaceDialog
-        open={addOpen}
-        onOpenChange={setAddOpen}
-        onAdded={() => {
-          window.location.reload();
-        }}
-      />
     </>
   );
 }

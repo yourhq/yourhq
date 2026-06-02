@@ -325,7 +325,7 @@ function SidebarInner({
 
   return (
     <>
-      {/* Workspace switcher (renders as a plain label when ≤1 workspace) */}
+      {/* Workspace switcher */}
       <WorkspaceSwitcher
         activeWorkspaceId={activeWorkspaceId}
         workspaces={workspaces}

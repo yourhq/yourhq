@@ -1,30 +1,60 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, Loader2, AlertCircle, CreditCard, Eye, EyeOff, Copy, CheckCheck, ExternalLink } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Loader2,
+  AlertCircle,
+  CreditCard,
+  Eye,
+  EyeOff,
+  Copy,
+  CheckCheck,
+  ExternalLink,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StaggeredEntrance } from "@/components/onboarding/wizard/staggered-entrance";
 import { WizardProgress } from "@/components/onboarding/wizard/wizard-progress";
 import { StepProvisioning } from "@/components/onboarding/wizard/step-provisioning";
+import { StepIntent } from "@/components/onboarding/wizard/step-intent";
+import { StepProvider, type StepProviderActions } from "@/components/onboarding/wizard/step-provider";
+import { StepAgent } from "@/components/onboarding/wizard/step-agent";
+import { AGENT_ROSTER, INTENT_TO_AGENT_KEY } from "@/lib/agents/roster";
 import {
   validateNewWorkspaceDb,
   confirmNewWorkspaceSchema,
-  createOssWorkspace,
   createHostedWorkspaceCheckout,
+  registerNewWorkspaceDb,
+  mintNewWorkspaceGatewayToken,
+  pollNewWorkspaceGateway,
+  startLocalNewWorkspaceGateway,
+  connectNewWorkspaceProvider,
+  startNewWorkspaceOAuth,
+  submitNewWorkspaceOAuthPaste,
+  pollNewWorkspaceCommandState,
+  saveNewWorkspaceOAuthProvider,
+  createNewWorkspaceAgent,
+  pollNewWorkspaceAgentProvision,
+  finalizeNewWorkspace,
 } from "@/app/new-workspace/actions";
 import { verifyAutoLogin } from "@/components/onboarding/wizard/hosted-actions";
 
-type Step = "name" | "database" | "account" | "payment" | "provisioning" | "done";
+type Step = "name" | "intent" | "database" | "gateway" | "provider" | "agent" | "account" | "payment" | "provisioning" | "done";
 
-const OSS_STEPS: Step[] = ["name", "database", "account", "done"];
+const OSS_STEPS: Step[] = ["name", "intent", "database", "gateway", "provider", "agent", "account", "done"];
 const HOSTED_STEPS: Step[] = ["name", "payment", "provisioning", "done"];
 
 const OSS_PROGRESS = [
   { key: "name", label: "Name" },
+  { key: "intent", label: "Focus" },
   { key: "database", label: "Database" },
+  { key: "gateway", label: "Gateway" },
+  { key: "provider", label: "AI" },
+  { key: "agent", label: "Agent" },
   { key: "account", label: "Account" },
-  { key: "done", label: "Done" },
 ];
 
 const HOSTED_PROGRESS = [
@@ -34,10 +64,30 @@ const HOSTED_PROGRESS = [
   { key: "done", label: "Done" },
 ];
 
+const STEP_LAYOUT: Record<string, "narrow" | "wide"> = {
+  name: "narrow",
+  intent: "narrow",
+  database: "narrow",
+  gateway: "wide",
+  provider: "wide",
+  agent: "wide",
+  account: "narrow",
+  payment: "narrow",
+  provisioning: "narrow",
+  done: "narrow",
+};
+
 interface Props {
   isHosted: boolean;
   email?: string;
 }
+
+const newWorkspaceOAuthActions: StepProviderActions = {
+  startOAuthFlow: startNewWorkspaceOAuth,
+  submitOAuthPaste: submitNewWorkspaceOAuthPaste,
+  pollCommandState: pollNewWorkspaceCommandState,
+  saveOAuthProvider: saveNewWorkspaceOAuthProvider,
+};
 
 export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
   const searchParams = useSearchParams();
@@ -51,13 +101,35 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
 
   // Wizard data
   const [label, setLabel] = useState("");
-  const [emoji, setEmoji] = useState("🏠");
+  const [emoji, setEmoji] = useState("\u{1F3E0}");
+  const [intentKey, setIntentKey] = useState<string | null>(null);
   const [dbUrl, setDbUrl] = useState("");
   const [anonKey, setAnonKey] = useState("");
   const [serviceRoleKey, setServiceRoleKey] = useState("");
+  const [_workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [accountEmail, setAccountEmail] = useState(initialEmail ?? "");
   const [password, setPassword] = useState("");
   const [hostedWorkspaceId, setHostedWorkspaceId] = useState<string | null>(null);
+
+  // Gateway state
+  const [gatewayPlacement, setGatewayPlacement] = useState<"local" | "remote" | null>(null);
+  const [gatewayStatus, setGatewayStatus] = useState<"idle" | "starting" | "polling" | "connected" | "error">("idle");
+  const [gatewayError, setGatewayError] = useState<string | null>(null);
+  const [gatewayOneLiner, setGatewayOneLiner] = useState<string | null>(null);
+  const [_gatewayTokenId, setGatewayTokenId] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Provider state
+  const [providerId, setProviderId] = useState<string | null>(null);
+  const [validating, setValidating] = useState(false);
+  const [validated, setValidated] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  // Agent state
+  const [provisionStatus, setProvisionStatus] = useState<"idle" | "provisioning" | "ready" | "error">("idle");
+  const [provisionError, setProvisionError] = useState<string | null>(null);
+  const [agentName, setAgentName] = useState<string | null>(null);
+  const [agentEmoji, setAgentEmoji] = useState<string | null>(null);
 
   // DB validation state
   const [dbStatus, setDbStatus] = useState<"idle" | "validating" | "schema-needed" | "connected" | "error">("idle");
@@ -65,6 +137,20 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
   const [schemaSql, setSchemaSql] = useState<string | null>(null);
   const [sqlEditorUrl, setSqlEditorUrl] = useState<string | null>(null);
   const [schemaConfirming, setSchemaConfirming] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (step !== "provider") {
+      setValidating(false);
+      setValidated(false);
+      setValidationError(null);
+    }
+  }, [step]);
 
   const advance = useCallback(() => {
     const idx = steps.indexOf(step);
@@ -110,6 +196,14 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
     setStep(steps[1]);
   }, [label, steps]);
 
+  // ─── Intent step ───
+  const handleIntent = useCallback((key: string) => {
+    setIntentKey(key);
+    setDirection("forward");
+    setError(null);
+    setStep("database");
+  }, []);
+
   // ─── Database step (OSS) ───
   const handleValidateDb = useCallback(() => {
     setDbStatus("validating");
@@ -152,17 +246,160 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
     });
   }, [dbUrl, anonKey, serviceRoleKey, startTransition]);
 
-  // ─── Account step (OSS) ───
-  const handleCreateWorkspace = useCallback(() => {
+  const handleDbContinue = useCallback(() => {
     startTransition(async () => {
-      const r = await createOssWorkspace({
+      const r = await registerNewWorkspaceDb({
         label: label.trim(),
         emoji,
         url: dbUrl.trim(),
         anonKey: anonKey.trim(),
         serviceRoleKey: serviceRoleKey.trim(),
+      });
+      if (!r.ok) {
+        setError(r.error ?? "Failed to register workspace");
+        return;
+      }
+      setWorkspaceId(r.data?.workspaceId ?? null);
+      advance();
+    });
+  }, [label, emoji, dbUrl, anonKey, serviceRoleKey, startTransition, advance]);
+
+  // ─── Gateway step ───
+  const handleChooseGateway = useCallback((placement: "local" | "remote") => {
+    setGatewayPlacement(placement);
+    setGatewayStatus("starting");
+    setGatewayError(null);
+    setGatewayOneLiner(null);
+
+    startTransition(async () => {
+      if (placement === "local") {
+        const r = await startLocalNewWorkspaceGateway();
+        if (!r.ok) {
+          setGatewayStatus("error");
+          setGatewayError(r.error ?? "Failed to start gateway");
+        } else {
+          setGatewayStatus("polling");
+        }
+      } else {
+        const r = await mintNewWorkspaceGatewayToken();
+        if (!r.ok || !r.data) {
+          setGatewayStatus("error");
+          setGatewayError(r.error ?? "Failed to mint token");
+          return;
+        }
+        setGatewayOneLiner(r.data.oneLiner);
+        setGatewayTokenId(r.data.tokenId);
+        setGatewayStatus("polling");
+      }
+
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = setInterval(async () => {
+        const poll = await pollNewWorkspaceGateway();
+        if (poll.ok && poll.data?.status === "ready") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          setGatewayStatus("connected");
+        }
+      }, 3000);
+    });
+  }, [startTransition]);
+
+  const handleGatewaySkip = useCallback(() => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    advance();
+  }, [advance]);
+
+  const handleGatewayContinue = useCallback(() => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    advance();
+  }, [advance]);
+
+  // ─── Provider step ───
+  const handleProvider = useCallback((provider: string, apiKey: string) => {
+    setValidating(true);
+    setValidationError(null);
+    startTransition(async () => {
+      const r = await connectNewWorkspaceProvider(provider, apiKey);
+      setValidating(false);
+      if (r.ok) {
+        setValidated(true);
+        setProviderId(provider);
+        setTimeout(() => advance(), 600);
+      } else {
+        setValidationError(r.error ?? "Could not validate key");
+      }
+    });
+  }, [startTransition, advance]);
+
+  // ─── Agent step ───
+  const getRecommendedKey = (): string => {
+    const key = intentKey ?? "organized";
+    return INTENT_TO_AGENT_KEY[key] ?? "assistant";
+  };
+
+  const handleCreateAgent = useCallback(
+    async (agentData: { name: string; emoji: string; templateBranch: string }) => {
+      const r = await createNewWorkspaceAgent({
+        agentName: agentData.name,
+        agentEmoji: agentData.emoji,
+        templateBranch: agentData.templateBranch,
+        providerId: providerId ?? undefined,
+      });
+      if (!r.ok || !r.data) {
+        setError(r.error ?? "Failed to create agent");
+        return null;
+      }
+
+      const { agentId, provisionCommandId } = r.data;
+      setAgentName(agentData.name);
+      setAgentEmoji(agentData.emoji);
+      setProvisionStatus("provisioning");
+
+      if (provisionCommandId) {
+        const startedAt = Date.now();
+        const interval = setInterval(async () => {
+          const status = await pollNewWorkspaceAgentProvision(provisionCommandId);
+          if (status === "completed") {
+            clearInterval(interval);
+            setProvisionStatus("ready");
+          } else if (status === "error") {
+            clearInterval(interval);
+            setProvisionStatus("error");
+            setProvisionError("Agent provisioning failed");
+          } else if (Date.now() - startedAt > 120_000) {
+            clearInterval(interval);
+            setProvisionStatus("ready");
+          }
+        }, 3000);
+      }
+
+      return { agentId, provisionCommandId };
+    },
+    [providerId],
+  );
+
+  const agentDoneFired = useRef(false);
+  useEffect(() => {
+    if (step !== "agent") {
+      agentDoneFired.current = false;
+      return;
+    }
+    if (agentDoneFired.current) return;
+    if (provisionStatus === "ready" || provisionStatus === "error") {
+      agentDoneFired.current = true;
+      const timer = setTimeout(() => advance(), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [step, provisionStatus, advance]);
+
+  // ─── Account step (OSS) ───
+  const handleCreateWorkspace = useCallback(() => {
+    startTransition(async () => {
+      const r = await finalizeNewWorkspace({
         email: accountEmail.trim(),
         password,
+        contextPresetKey: intentKey,
+        workspaceName: label.trim() || "My Workspace",
+        ownerName: "",
       });
       if (!r.ok) {
         setError(r.error ?? "Failed to create workspace");
@@ -180,7 +417,7 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
       }
       advance();
     });
-  }, [label, emoji, dbUrl, anonKey, serviceRoleKey, accountEmail, password, startTransition, advance]);
+  }, [accountEmail, password, intentKey, label, startTransition, advance]);
 
   // ─── Payment step (Hosted) ───
   const handlePaymentCheckout = useCallback(async () => {
@@ -212,6 +449,7 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
 
   const currentIndex = steps.indexOf(step);
   const isFirst = currentIndex === 0;
+  const layout = STEP_LAYOUT[step] ?? "narrow";
 
   return (
     <div className="flex w-full flex-col items-center pt-8">
@@ -219,7 +457,9 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
         <WizardProgress steps={progressSteps} currentStep={step} />
       </div>
 
-      <div className="w-full max-w-lg">
+      <div className={cn(
+        layout === "narrow" ? "w-full max-w-lg" : "w-full max-w-3xl",
+      )}>
         {!isFirst && step !== "provisioning" && step !== "done" && (
           <button
             type="button"
@@ -257,6 +497,15 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
             />
           )}
 
+          {step === "intent" && (
+            <StepIntent
+              ownerName=""
+              initialKey={intentKey}
+              onSubmit={handleIntent}
+              pending={pending}
+            />
+          )}
+
           {step === "database" && (
             <DatabaseStep
               dbUrl={dbUrl}
@@ -272,7 +521,44 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
               schemaConfirming={schemaConfirming}
               onValidate={handleValidateDb}
               onConfirmSchema={handleConfirmSchema}
-              onContinue={advance}
+              onContinue={handleDbContinue}
+              pending={pending}
+            />
+          )}
+
+          {step === "gateway" && (
+            <GatewayStep
+              status={gatewayStatus}
+              error={gatewayError}
+              placement={gatewayPlacement}
+              oneLiner={gatewayOneLiner}
+              onChoose={handleChooseGateway}
+              onSkip={handleGatewaySkip}
+              onContinue={handleGatewayContinue}
+              pending={pending}
+            />
+          )}
+
+          {step === "provider" && (
+            <StepProvider
+              onSubmit={handleProvider}
+              pending={pending}
+              validating={validating}
+              validated={validated}
+              validationError={validationError}
+              isHosted={false}
+              collectOnly={false}
+              actions={newWorkspaceOAuthActions}
+            />
+          )}
+
+          {step === "agent" && (
+            <StepAgent
+              roster={AGENT_ROSTER}
+              recommendedKey={getRecommendedKey()}
+              onCreateAgent={handleCreateAgent}
+              provisionStatus={provisionStatus}
+              provisionError={provisionError}
               pending={pending}
             />
           )}
@@ -307,6 +593,8 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
           {step === "done" && (
             <DoneStep
               workspaceName={label.trim() || "My Workspace"}
+              agentName={agentName}
+              agentEmoji={agentEmoji}
               onGoToDashboard={() => {
                 window.location.href = "/dashboard";
               }}
@@ -491,7 +779,7 @@ function DatabaseStep({
             onChange={(e) => onAnonKeyChange(e.target.value)}
             spellCheck={false}
             autoComplete="off"
-            placeholder="eyJhbGciOi…"
+            placeholder="eyJhbGciOi..."
             className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 font-mono text-[12px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
           />
         </div>
@@ -507,7 +795,7 @@ function DatabaseStep({
             onChange={(e) => onServiceRoleKeyChange(e.target.value)}
             spellCheck={false}
             autoComplete="off"
-            placeholder="eyJhbGciOi…"
+            placeholder="eyJhbGciOi..."
             className="flex h-10 w-full rounded-lg border border-border/60 bg-background px-3 font-mono text-[12px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-primary/40 focus:ring-1 focus:ring-primary/10"
           />
         </div>
@@ -540,7 +828,7 @@ function DatabaseStep({
           {schemaSql && (
             <div className="relative">
               <pre className="max-h-40 overflow-auto rounded-md bg-muted/50 p-3 text-[11px] font-mono text-muted-foreground">
-                {schemaSql.slice(0, 500)}{schemaSql.length > 500 ? "…" : ""}
+                {schemaSql.slice(0, 500)}{schemaSql.length > 500 ? "..." : ""}
               </pre>
               <button
                 type="button"
@@ -565,7 +853,7 @@ function DatabaseStep({
             {schemaConfirming ? (
               <>
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Verifying…
+                Verifying...
               </>
             ) : (
               "Verify schema"
@@ -597,7 +885,7 @@ function DatabaseStep({
             {status === "validating" ? (
               <>
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Validating…
+                Validating...
               </>
             ) : (
               <>
@@ -610,13 +898,274 @@ function DatabaseStep({
           <button
             type="button"
             onClick={onContinue}
-            className="group inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-[13px] font-medium text-background transition-all hover:bg-foreground/90 active:scale-[0.97]"
+            disabled={pending}
+            className={cn(
+              "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium transition-all",
+              pending
+                ? "cursor-not-allowed bg-muted text-muted-foreground/50"
+                : "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97]",
+            )}
+          >
+            {pending ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Registering...
+              </>
+            ) : (
+              <>
+                Continue
+                <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              </>
+            )}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Gateway Step ─────────────────────────────────────────────────────────
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }}
+      className="rounded p-1 text-muted-foreground/60 transition-colors hover:text-foreground"
+      aria-label="Copy"
+    >
+      {copied ? <CheckCheck className="h-3.5 w-3.5 text-status-success" /> : <Copy className="h-3.5 w-3.5" />}
+    </button>
+  );
+}
+
+function GatewayStep({
+  status,
+  error,
+  placement,
+  oneLiner,
+  onChoose,
+  onSkip,
+  onContinue,
+  pending,
+}: {
+  status: "idle" | "starting" | "polling" | "connected" | "error";
+  error: string | null;
+  placement: "local" | "remote" | null;
+  oneLiner: string | null;
+  onChoose: (placement: "local" | "remote") => void;
+  onSkip: () => void;
+  onContinue: () => void;
+  pending: boolean;
+}) {
+  const isActive = status === "polling" || status === "starting";
+  const [tick, setTick] = useState(0);
+  const startRef = useRef(0);
+
+  useEffect(() => {
+    if (!isActive) return;
+    startRef.current = tick;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive]);
+
+  const elapsed = isActive ? tick - startRef.current : 0;
+
+  return (
+    <div className="space-y-8">
+      <div className="space-y-3">
+        <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70">
+          Gateway
+        </div>
+        <h1 className="text-[24px] md:text-[28px] font-semibold leading-[1.15] tracking-tight">
+          Connect your gateway
+        </h1>
+        <p className="max-w-[52ch] text-[14px] leading-relaxed text-muted-foreground">
+          The gateway is a lightweight process that runs your AI agents. It connects to your database
+          and handles everything from task execution to browser automation.
+        </p>
+      </div>
+
+      {status === "connected" ? (
+        <div className="space-y-5">
+          <div className="rounded-xl border border-status-success/20 bg-status-success/[0.04] px-4 py-3">
+            <div className="flex items-center gap-2 text-[13px] text-status-success">
+              <Check className="h-3.5 w-3.5" />
+              Gateway connected
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onContinue}
+            disabled={pending}
+            className="group inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-[13px] font-medium text-primary-foreground shadow-sm transition-all hover:brightness-110 active:scale-[0.97]"
           >
             Continue
             <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
           </button>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          <div role="radiogroup" aria-label="Gateway placement" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={placement === "local"}
+              onClick={() => status === "idle" && onChoose("local")}
+              disabled={status !== "idle"}
+              className={cn(
+                "flex flex-col gap-2.5 rounded-xl border p-4 text-left transition-all",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                placement === "local"
+                  ? "border-primary/50 bg-primary/[0.04] ring-1 ring-primary/10"
+                  : "border-border/60 bg-card/40 hover:border-border hover:bg-card/70",
+                status !== "idle" && placement !== "local" && "opacity-40 pointer-events-none",
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="text-[18px]">{"\u{1F4BB}"}</span>
+                <span className="text-[13px] font-medium">This machine</span>
+              </div>
+              <p className="text-[12px] leading-relaxed text-muted-foreground/70">
+                Runs via Docker on your computer. Best for trying things out and local development.
+              </p>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  Docker required
+                </span>
+                <span className="text-[10px] text-muted-foreground/40">~2 min setup</span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              role="radio"
+              aria-checked={placement === "remote"}
+              onClick={() => status === "idle" && onChoose("remote")}
+              disabled={status !== "idle"}
+              className={cn(
+                "flex flex-col gap-2.5 rounded-xl border p-4 text-left transition-all",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                placement === "remote"
+                  ? "border-primary/50 bg-primary/[0.04] ring-1 ring-primary/10"
+                  : "border-border/60 bg-card/40 hover:border-border hover:bg-card/70",
+                status !== "idle" && placement !== "remote" && "opacity-40 pointer-events-none",
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="text-[18px]">{"☁️"}</span>
+                <span className="text-[13px] font-medium">Remote server</span>
+              </div>
+              <p className="text-[12px] leading-relaxed text-muted-foreground/70">
+                Deploy on any Linux server or VPS for always-on agents that run 24/7.
+              </p>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  Any Linux server
+                </span>
+                <span className="text-[10px] text-muted-foreground/40">~5 min setup</span>
+              </div>
+            </button>
+          </div>
+
+          {oneLiner && (status === "polling" || status === "starting") && (
+            <div className="rounded-xl border border-border/40 bg-card/20 p-4 space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="space-y-1">
+                <p className="text-[12px] font-medium text-foreground">
+                  Run this on your server
+                </p>
+                <p className="text-[11px] text-muted-foreground/60">
+                  SSH into your Linux server and paste this command. It includes your
+                  Supabase credentials and a one-time registration token (expires in 15 min).
+                </p>
+              </div>
+              <div className="relative rounded-lg border border-border/40 bg-muted/30">
+                <div className="absolute right-2 top-2">
+                  <CopyButton text={oneLiner} />
+                </div>
+                <pre className="overflow-x-auto px-3 py-3 pr-10 text-[11px] leading-relaxed font-mono text-foreground whitespace-pre-wrap break-all">
+                  {oneLiner}
+                </pre>
+              </div>
+              <p className="text-[11px] text-muted-foreground/50">
+                This page updates automatically once the gateway connects.
+              </p>
+            </div>
+          )}
+
+          {(status === "starting" || status === "polling") && !oneLiner && (
+            <div className="rounded-xl border border-border/40 bg-card/20 p-4 space-y-3">
+              <div className="space-y-2">
+                {[
+                  { label: "Starting containers", threshold: 0 },
+                  { label: "Connecting to your database", threshold: 10 },
+                  { label: "Registering gateway", threshold: 20 },
+                ].map((s, i, arr) => {
+                  const active = elapsed >= s.threshold && (i === arr.length - 1 || elapsed < arr[i + 1].threshold);
+                  const done = i < arr.length - 1 && elapsed >= arr[i + 1].threshold;
+                  return (
+                    <div key={s.label} className="flex items-center gap-2.5">
+                      {done ? (
+                        <div className="flex h-4 w-4 items-center justify-center rounded-full bg-status-success">
+                          <Check className="h-2.5 w-2.5 text-primary-foreground" strokeWidth={3} />
+                        </div>
+                      ) : active ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      ) : (
+                        <div className="h-4 w-4 rounded-full border border-border/60" />
+                      )}
+                      <span className={cn(
+                        "text-[12px] transition-colors",
+                        done ? "text-muted-foreground/50" : active ? "text-foreground font-medium" : "text-muted-foreground/40",
+                      )}>
+                        {s.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              {elapsed >= 40 && (
+                <p className="text-[11px] text-status-warning animate-in fade-in duration-300">
+                  Taking longer than usual — make sure Docker is running.
+                </p>
+              )}
+            </div>
+          )}
+
+          {(status === "polling" || status === "starting") && (
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+              <span className="text-[12px] text-muted-foreground">Waiting for gateway to come online...</span>
+            </div>
+          )}
+
+          {status === "error" && error && (
+            <div className="flex items-start gap-2 rounded-lg border border-status-warning/30 bg-status-warning/[0.04] px-3 py-2.5 text-[12px] text-foreground">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-warning" />
+              <div className="space-y-0.5">
+                <span>{error}</span>
+                <p className="text-[11px] text-muted-foreground">
+                  Make sure Docker is running, then try again.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={onSkip}
+            className="text-[13px] text-muted-foreground/60 transition-colors hover:text-foreground"
+          >
+            Skip for now — I&apos;ll add a gateway later from Settings
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -718,7 +1267,7 @@ function AccountStep({
         {pending ? (
           <>
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Creating workspace…
+            Creating workspace...
           </>
         ) : (
           <>
@@ -813,9 +1362,13 @@ function PaymentStep({
 
 function DoneStep({
   workspaceName,
+  agentName,
+  agentEmoji,
   onGoToDashboard,
 }: {
   workspaceName: string;
+  agentName?: string | null;
+  agentEmoji?: string | null;
   onGoToDashboard: () => void;
 }) {
   const [showContent, setShowContent] = useState(false);
@@ -851,7 +1404,11 @@ function DoneStep({
             {workspaceName} is ready
           </h1>
           <p className="text-[14px] text-muted-foreground">
-            Your new workspace has been created. Switch to it from the sidebar.
+            {agentName
+              ? `Your workspace and ${agentEmoji ?? ""} ${agentName} have been set up.`
+              : "Your new workspace has been created."
+            }
+            {" "}Switch to it from the sidebar.
           </p>
           <div className="pt-4">
             <button
