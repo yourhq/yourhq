@@ -14,6 +14,8 @@ import {
   Copy,
   CheckCheck,
   ExternalLink,
+  Zap,
+  FileCode,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StaggeredEntrance } from "@/components/onboarding/wizard/staggered-entrance";
@@ -26,6 +28,8 @@ import { AGENT_ROSTER, INTENT_TO_AGENT_KEY } from "@/lib/agents/roster";
 import {
   validateNewWorkspaceDb,
   confirmNewWorkspaceSchema,
+  runNewWorkspaceOneClickMigration,
+  extractProjectRefFromUrl,
   createHostedWorkspaceCheckout,
   registerNewWorkspaceDb,
   mintNewWorkspaceGatewayToken,
@@ -137,6 +141,10 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
   const [schemaSql, setSchemaSql] = useState<string | null>(null);
   const [sqlEditorUrl, setSqlEditorUrl] = useState<string | null>(null);
   const [schemaConfirming, setSchemaConfirming] = useState(false);
+  const [projectRef, setProjectRef] = useState<string | null>(null);
+  const [migrationRunning, setMigrationRunning] = useState(false);
+  const [migrationError, setMigrationError] = useState<string | null>(null);
+  const [migrationHint, setMigrationHint] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -208,7 +216,12 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
   const handleValidateDb = useCallback(() => {
     setDbStatus("validating");
     setDbError(null);
+    setMigrationError(null);
+    setMigrationHint(null);
     startTransition(async () => {
+      const ref = await extractProjectRefFromUrl(dbUrl.trim());
+      setProjectRef(ref);
+
       const r = await validateNewWorkspaceDb({
         url: dbUrl.trim(),
         anonKey: anonKey.trim(),
@@ -223,6 +236,7 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
         setDbStatus("schema-needed");
         setSchemaSql(r.data.sql ?? null);
         setSqlEditorUrl(r.data.sqlEditorUrl ?? null);
+        if (r.data.projectRef) setProjectRef(r.data.projectRef);
       } else {
         setDbStatus("connected");
       }
@@ -245,6 +259,27 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
       }
     });
   }, [dbUrl, anonKey, serviceRoleKey, startTransition]);
+
+  const handleRunOneClick = useCallback((region: string, dbPassword: string) => {
+    if (!projectRef) return;
+    setMigrationRunning(true);
+    setMigrationError(null);
+    setMigrationHint(null);
+    startTransition(async () => {
+      const r = await runNewWorkspaceOneClickMigration({
+        projectRef,
+        region,
+        dbPassword,
+      });
+      setMigrationRunning(false);
+      if (r.ok) {
+        setDbStatus("connected");
+      } else {
+        setMigrationError(r.error ?? "Migration failed");
+        setMigrationHint(r.hint ?? null);
+      }
+    });
+  }, [projectRef, startTransition]);
 
   const handleDbContinue = useCallback(() => {
     startTransition(async () => {
@@ -519,8 +554,13 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
               schemaSql={schemaSql}
               sqlEditorUrl={sqlEditorUrl}
               schemaConfirming={schemaConfirming}
+              projectRef={projectRef}
+              migrationRunning={migrationRunning}
+              migrationError={migrationError}
+              migrationHint={migrationHint}
               onValidate={handleValidateDb}
               onConfirmSchema={handleConfirmSchema}
+              onRunOneClick={handleRunOneClick}
               onContinue={handleDbContinue}
               pending={pending}
             />
@@ -696,6 +736,279 @@ function NameStep({
 
 // ── Database Step (OSS) ────────────────────────────────────────────────────
 
+const SUPABASE_REGIONS = [
+  { value: "us-east-1", label: "US East (N. Virginia)" },
+  { value: "us-east-2", label: "US East (Ohio)" },
+  { value: "us-west-1", label: "US West (N. California)" },
+  { value: "us-west-2", label: "US West (Oregon)" },
+  { value: "ca-central-1", label: "Canada (Central)" },
+  { value: "eu-west-1", label: "EU West (Ireland)" },
+  { value: "eu-west-2", label: "EU West (London)" },
+  { value: "eu-west-3", label: "EU West (Paris)" },
+  { value: "eu-central-1", label: "EU Central (Frankfurt)" },
+  { value: "eu-central-2", label: "EU Central (Zurich)" },
+  { value: "eu-north-1", label: "EU North (Stockholm)" },
+  { value: "ap-south-1", label: "South Asia (Mumbai)" },
+  { value: "ap-southeast-1", label: "Southeast Asia (Singapore)" },
+  { value: "ap-southeast-2", label: "Oceania (Sydney)" },
+  { value: "ap-northeast-1", label: "Northeast Asia (Tokyo)" },
+  { value: "ap-northeast-2", label: "Northeast Asia (Seoul)" },
+  { value: "sa-east-1", label: "South America (Sao Paulo)" },
+];
+
+function SchemaInstallPanelNW({
+  schemaSql,
+  sqlEditorUrl,
+  schemaConfirming,
+  migrationRunning,
+  migrationError,
+  migrationHint,
+  projectRef,
+  onRunOneClick,
+  onConfirmSchema,
+}: {
+  schemaSql: string | null;
+  sqlEditorUrl: string | null;
+  schemaConfirming: boolean;
+  migrationRunning: boolean;
+  migrationError: string | null;
+  migrationHint: string | null;
+  projectRef: string | null;
+  onRunOneClick: (region: string, dbPassword: string) => void;
+  onConfirmSchema: () => void;
+}) {
+  const [showManual, setShowManual] = useState(false);
+  const [region, setRegion] = useState("us-east-1");
+  const [dbPassword, setDbPassword] = useState("");
+
+  const busy = migrationRunning || schemaConfirming;
+
+  return (
+    <div className="space-y-4 rounded-xl border border-status-warning/30 bg-status-warning/[0.04] px-4 py-4">
+      <div className="flex items-start gap-2">
+        <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-warning" />
+        <div className="space-y-0.5">
+          <p className="text-[13px] font-medium text-foreground">Your database needs HQ&apos;s tables</p>
+          <p className="text-[12px] text-muted-foreground">
+            HQ needs to create its tables in your Supabase database.
+            This is automatic and takes about 30 seconds, or you can run the SQL manually.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        {/* Auto-install path */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setShowManual(false)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowManual(false); } }}
+          className={cn(
+            "rounded-lg border p-4 transition-all",
+            !showManual
+              ? "border-foreground/20 bg-foreground/[0.02]"
+              : "border-border/40 bg-transparent cursor-pointer hover:border-border/60 hover:bg-foreground/[0.01]",
+          )}
+        >
+          <div className="flex items-center gap-2.5">
+            <div className={cn(
+              "flex h-7 w-7 items-center justify-center rounded-lg transition-colors",
+              !showManual ? "bg-primary/10 text-primary" : "bg-muted/60 text-muted-foreground/60",
+            )}>
+              <Zap className="h-3.5 w-3.5" />
+            </div>
+            <div className="flex-1">
+              <p className={cn(
+                "text-[12px] font-semibold",
+                !showManual ? "text-foreground" : "text-foreground/70",
+              )}>
+                Automatic install
+              </p>
+              {showManual && (
+                <p className="text-[11px] text-muted-foreground/50 mt-0.5">
+                  We handle everything — just provide your DB password
+                </p>
+              )}
+            </div>
+            {!showManual && (
+              <div className="flex h-4 w-4 items-center justify-center rounded-full bg-primary">
+                <Check className="h-2.5 w-2.5 text-primary-foreground" strokeWidth={3} />
+              </div>
+            )}
+          </div>
+          {!showManual && (
+            <div className="mt-3 space-y-3 animate-in fade-in duration-200" onClick={(e) => e.stopPropagation()}>
+              <div className="space-y-2">
+                <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
+                  Region
+                </label>
+                <select
+                  value={region}
+                  onChange={(e) => setRegion(e.target.value)}
+                  disabled={busy}
+                  className="flex h-9 w-full rounded-md border border-border/60 bg-background px-3 text-[13px] outline-none transition-colors focus:border-primary/40 focus:ring-1 focus:ring-primary/10 disabled:opacity-50"
+                >
+                  {SUPABASE_REGIONS.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
+                  Database password
+                </label>
+                <input
+                  type="password"
+                  value={dbPassword}
+                  onChange={(e) => setDbPassword(e.target.value)}
+                  placeholder="Your Supabase database password"
+                  disabled={busy}
+                  className="flex h-9 w-full rounded-md border border-border/60 bg-background px-3 text-[13px] font-mono outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-primary/40 focus:ring-1 focus:ring-primary/10 disabled:opacity-50"
+                />
+                <p className="text-[11px] text-muted-foreground/60">
+                  Set when you created the project. Find it in Settings {"->"} Database.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => onRunOneClick(region, dbPassword)}
+                disabled={busy || !dbPassword.trim() || !projectRef}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-[12px] font-medium transition-all",
+                  busy || !dbPassword.trim() || !projectRef
+                    ? "cursor-not-allowed bg-muted text-muted-foreground/50"
+                    : "bg-foreground/[0.08] text-foreground hover:bg-foreground/[0.13]",
+                )}
+              >
+                {migrationRunning ? (
+                  <><Loader2 className="h-3 w-3 animate-spin" />Installing...</>
+                ) : "Install schema"}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Manual SQL path */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setShowManual(true)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowManual(true); } }}
+          className={cn(
+            "rounded-lg border p-4 transition-all",
+            showManual
+              ? "border-foreground/20 bg-foreground/[0.02]"
+              : "border-border/40 bg-transparent cursor-pointer hover:border-border/60 hover:bg-foreground/[0.01]",
+          )}
+        >
+          <div className="flex items-center gap-2.5">
+            <div className={cn(
+              "flex h-7 w-7 items-center justify-center rounded-lg transition-colors",
+              showManual ? "bg-primary/10 text-primary" : "bg-muted/60 text-muted-foreground/60",
+            )}>
+              <FileCode className="h-3.5 w-3.5" />
+            </div>
+            <div className="flex-1">
+              <p className={cn(
+                "text-[12px] font-semibold",
+                showManual ? "text-foreground" : "text-foreground/70",
+              )}>
+                Manual SQL
+              </p>
+              {!showManual && (
+                <p className="text-[11px] text-muted-foreground/50 mt-0.5">
+                  Copy and run the SQL yourself in Supabase
+                </p>
+              )}
+            </div>
+            {showManual && (
+              <div className="flex h-4 w-4 items-center justify-center rounded-full bg-primary">
+                <Check className="h-2.5 w-2.5 text-primary-foreground" strokeWidth={3} />
+              </div>
+            )}
+          </div>
+          {showManual && (
+            <div className="mt-3 space-y-3 animate-in fade-in duration-200" onClick={(e) => e.stopPropagation()}>
+              <p className="text-[12px] text-muted-foreground">
+                Open your Supabase SQL editor, paste the script below, and click{" "}
+                <span className="font-medium text-foreground">Run</span>.
+              </p>
+
+              {sqlEditorUrl && (
+                <a
+                  href={sqlEditorUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-card/40 px-3 py-2 text-[12px] font-medium text-foreground transition-colors hover:bg-card/70"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Open SQL editor
+                </a>
+              )}
+
+              {schemaSql && (
+                <div className="relative rounded-lg border border-border/40 bg-muted/30">
+                  <div className="absolute right-2 top-2">
+                    <CopyButtonInline text={schemaSql} />
+                  </div>
+                  <pre className="max-h-40 overflow-y-auto px-3 py-3 pr-8 text-[11px] leading-relaxed text-muted-foreground">
+                    {schemaSql.slice(0, 600)}{schemaSql.length > 600 ? "\n...(truncated)" : ""}
+                  </pre>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={onConfirmSchema}
+                disabled={busy}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-[12px] font-medium transition-all",
+                  busy
+                    ? "cursor-not-allowed bg-muted text-muted-foreground/50"
+                    : "bg-foreground/[0.08] text-foreground hover:bg-foreground/[0.13]",
+                )}
+              >
+                {schemaConfirming ? (
+                  <><Loader2 className="h-3 w-3 animate-spin" />Checking...</>
+                ) : "I ran it — verify"}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {migrationError && (
+        <div className="space-y-0.5">
+          <p className="text-[12px] text-destructive">{migrationError}</p>
+          {migrationHint && (
+            <p className="text-[11px] text-muted-foreground">{migrationHint}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CopyButtonInline({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }}
+      className="rounded p-1 text-muted-foreground/60 transition-colors hover:text-foreground"
+      aria-label="Copy"
+    >
+      {copied ? <CheckCheck className="h-3.5 w-3.5 text-status-success" /> : <Copy className="h-3.5 w-3.5" />}
+    </button>
+  );
+}
+
 function DatabaseStep({
   dbUrl,
   anonKey,
@@ -708,8 +1021,13 @@ function DatabaseStep({
   schemaSql,
   sqlEditorUrl,
   schemaConfirming,
+  projectRef,
+  migrationRunning,
+  migrationError,
+  migrationHint,
   onValidate,
   onConfirmSchema,
+  onRunOneClick,
   onContinue,
   pending,
 }: {
@@ -724,20 +1042,17 @@ function DatabaseStep({
   schemaSql: string | null;
   sqlEditorUrl: string | null;
   schemaConfirming: boolean;
+  projectRef: string | null;
+  migrationRunning: boolean;
+  migrationError: string | null;
+  migrationHint: string | null;
   onValidate: () => void;
   onConfirmSchema: () => void;
+  onRunOneClick: (region: string, dbPassword: string) => void;
   onContinue: () => void;
   pending: boolean;
 }) {
-  const [copied, setCopied] = useState(false);
   const credsValid = dbUrl.includes("supabase") && anonKey.length >= 20 && serviceRoleKey.length >= 20;
-
-  const handleCopySql = () => {
-    if (!schemaSql) return;
-    navigator.clipboard.writeText(schemaSql);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   return (
     <div className="space-y-6">
@@ -809,57 +1124,17 @@ function DatabaseStep({
       )}
 
       {status === "schema-needed" && (
-        <div className="space-y-3 rounded-lg border border-status-warning/30 bg-status-warning/5 p-4">
-          <p className="text-[13px] font-medium text-foreground">Schema required</p>
-          <p className="text-[12px] text-muted-foreground">
-            Run the SQL below in your Supabase SQL editor, then click &ldquo;Verify&rdquo;.
-          </p>
-          {sqlEditorUrl && (
-            <a
-              href={sqlEditorUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-[12px] text-foreground underline underline-offset-2"
-            >
-              Open SQL editor
-              <ExternalLink className="h-3 w-3" />
-            </a>
-          )}
-          {schemaSql && (
-            <div className="relative">
-              <pre className="max-h-40 overflow-auto rounded-md bg-muted/50 p-3 text-[11px] font-mono text-muted-foreground">
-                {schemaSql.slice(0, 500)}{schemaSql.length > 500 ? "..." : ""}
-              </pre>
-              <button
-                type="button"
-                onClick={handleCopySql}
-                className="absolute right-2 top-2 rounded-md bg-background/80 p-1.5 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {copied ? <CheckCheck className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-              </button>
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={onConfirmSchema}
-            disabled={schemaConfirming}
-            className={cn(
-              "inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12px] font-medium transition-all",
-              schemaConfirming
-                ? "cursor-wait bg-muted text-muted-foreground/50"
-                : "bg-primary text-primary-foreground shadow-sm hover:brightness-110",
-            )}
-          >
-            {schemaConfirming ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Verifying...
-              </>
-            ) : (
-              "Verify schema"
-            )}
-          </button>
-        </div>
+        <SchemaInstallPanelNW
+          schemaSql={schemaSql}
+          sqlEditorUrl={sqlEditorUrl}
+          schemaConfirming={schemaConfirming}
+          migrationRunning={migrationRunning}
+          migrationError={migrationError}
+          migrationHint={migrationHint}
+          projectRef={projectRef}
+          onRunOneClick={onRunOneClick}
+          onConfirmSchema={onConfirmSchema}
+        />
       )}
 
       {status === "connected" && (
