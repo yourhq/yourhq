@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sparkles, AlertCircle, Check, ArrowRight, Mail } from "lucide-react";
-import { hostedLoginAction } from "./actions";
+import { hostedLoginAction, loginAcrossWorkspaces } from "./actions";
 import { cn } from "@/lib/utils";
 import { trackEvent, identifyUser } from "@/lib/analytics";
 
@@ -29,28 +28,20 @@ export function LoginForm({ mode }: { mode: "oss" | "hosted" }) {
     setError(null);
     trackEvent("login_submitted", { mode: "oss" });
 
-    let supabase;
-    try {
-      supabase = createClient();
-    } catch {
-      setError("Workspace not configured — complete setup first.");
-      setLoading(false);
-      return;
-    }
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const result = await loginAcrossWorkspaces(email, password);
 
-    if (error) {
-      trackEvent("login_failed", { mode: "oss", error: error.message });
-      setError(error.message);
+    if (!result.ok) {
+      trackEvent("login_failed", { mode: "oss", error: result.error });
+      setError(result.error ?? "Something went wrong.");
       setLoading(false);
       return;
     }
 
     identifyUser(email, { email });
-    trackEvent("login_succeeded", { mode: "oss" });
+    trackEvent("login_succeeded", {
+      mode: "oss",
+      matchedWorkspaces: result.matchedWorkspaceIds.length,
+    });
     router.push("/dashboard");
     router.refresh();
   }
