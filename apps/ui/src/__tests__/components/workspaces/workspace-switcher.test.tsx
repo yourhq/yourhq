@@ -17,8 +17,8 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-vi.mock("./add-workspace-dialog", () => ({
-  AddWorkspaceDialog: () => null,
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 import {
@@ -45,7 +45,7 @@ describe("WorkspaceSwitcher", () => {
     expect(screen.getByText("HQ")).toBeInTheDocument();
   });
 
-  it("renders single workspace as static label (no dropdown)", () => {
+  it("renders single workspace with dropdown (always shows switcher)", () => {
     const ws = makeWorkspace();
     render(
       <WorkspaceSwitcher activeWorkspaceId="ws-1" workspaces={[ws]} />
@@ -53,8 +53,8 @@ describe("WorkspaceSwitcher", () => {
     expect(screen.getByText("My Workspace")).toBeInTheDocument();
     expect(screen.getByText("🏠")).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /Switch workspace/ })
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: /Switch workspace/ })
+    ).toBeInTheDocument();
   });
 
   it("renders dropdown trigger when multiple workspaces", () => {

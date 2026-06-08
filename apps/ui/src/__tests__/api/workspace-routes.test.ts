@@ -3,6 +3,13 @@ import { NextRequest } from "next/server";
 import { resetServerMocks, getServerClient } from "../helpers/server-mock";
 import "../helpers/server-mock";
 
+const mockTargetAuth = {
+  getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } }, error: null }),
+};
+vi.mock("@supabase/ssr", () => ({
+  createServerClient: vi.fn(() => ({ auth: mockTargetAuth })),
+}));
+
 vi.mock("@/lib/workspaces/registry", () => ({
   getRegistry: vi.fn().mockResolvedValue({
     workspaces: [],
@@ -239,8 +246,15 @@ describe("POST /api/workspaces/switch", () => {
   });
 
   test("returns 401 when user is not authenticated (OSS mode)", async () => {
-    const client = getServerClient();
-    client.auth.getUser.mockResolvedValue({
+    const { getWorkspace } = await import("@/lib/workspaces/registry");
+    vi.mocked(getWorkspace).mockResolvedValue({
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      label: "Test Workspace",
+      url: "https://test.supabase.co",
+      anonKey: "test-anon-key-that-is-long-enough",
+    } as never);
+
+    mockTargetAuth.getUser.mockResolvedValue({
       data: { user: null },
       error: { message: "Not authenticated" },
     });
@@ -280,8 +294,7 @@ describe("POST /api/workspaces/switch", () => {
   });
 
   test("switches workspace successfully (OSS mode)", async () => {
-    const client = getServerClient();
-    client.auth.getUser.mockResolvedValue({
+    mockTargetAuth.getUser.mockResolvedValue({
       data: { user: { id: "user-1", email: "test@test.com" } },
       error: null,
     });
@@ -290,6 +303,8 @@ describe("POST /api/workspaces/switch", () => {
     vi.mocked(getWorkspace).mockResolvedValue({
       id: "550e8400-e29b-41d4-a716-446655440000",
       label: "Test Workspace",
+      url: "https://test.supabase.co",
+      anonKey: "test-anon-key-that-is-long-enough",
     } as never);
     vi.mocked(setActiveWorkspace).mockResolvedValue(undefined);
 
