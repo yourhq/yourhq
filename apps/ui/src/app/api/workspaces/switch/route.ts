@@ -5,8 +5,8 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
 import { getWorkspace, setActiveWorkspace } from "@/lib/workspaces/registry";
 import {
   ACTIVE_WORKSPACE_COOKIE,
@@ -47,19 +47,41 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, workspaceId: parsed.data.workspaceId });
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
   const workspace = await getWorkspace(parsed.data.workspaceId);
   if (!workspace) {
     return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
   }
-  await setActiveWorkspace(parsed.data.workspaceId);
+
   const jar = await cookies();
+  const cookiePrefix = `hq-${workspace.id.slice(0, 8)}`;
+
+  const targetSupabase = createServerClient(workspace.url, workspace.anonKey, {
+    cookieOptions: { name: cookiePrefix },
+    cookies: {
+      getAll() {
+        return jar.getAll();
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            jar.set(name, value, options),
+          );
+        } catch {
+          // Called from a context where cookies can't be set — safe to ignore.
+        }
+      },
+    },
+  });
+
+  const {
+    data: { user },
+  } = await targetSupabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  await setActiveWorkspace(parsed.data.workspaceId);
   jar.set(
     ACTIVE_WORKSPACE_COOKIE,
     parsed.data.workspaceId,
