@@ -4,6 +4,7 @@ import { cookies, headers } from "next/headers";
 import { randomBytes, createHash } from "crypto";
 import { z } from "zod";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
 import { addWorkspace, getWorkspace, getWorkspaceSecrets } from "@/lib/workspaces/registry";
 import { getPostHogClient } from "@/lib/posthog-server";
 import {
@@ -838,6 +839,27 @@ export async function finalizeNewWorkspace(
   }
 
   const jar = await cookies();
+
+  const cookiePrefix = `hq-${workspaceId.slice(0, 8)}`;
+  const authClient = createServerClient(ws.url, ws.anonKey, {
+    cookieOptions: { name: cookiePrefix },
+    cookies: {
+      getAll() {
+        return jar.getAll();
+      },
+      setAll(cookiesToSet) {
+        for (const cookie of cookiesToSet) {
+          jar.set(cookie.name, cookie.value, cookie.options);
+        }
+      },
+    },
+  });
+
+  await authClient.auth.signInWithPassword({
+    email: input.email,
+    password: input.password,
+  });
+
   jar.set(ACTIVE_WORKSPACE_COOKIE, workspaceId, ACTIVE_WORKSPACE_COOKIE_OPTIONS);
 
   return { ok: true };
