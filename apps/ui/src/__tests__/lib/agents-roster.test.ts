@@ -29,7 +29,7 @@ describe("agent roster", () => {
 
   it("INTENT_TO_AGENT_KEY maps to valid roster keys", () => {
     const rosterKeys = new Set(AGENT_ROSTER.map((a) => a.key));
-    for (const [intent, agentKey] of Object.entries(INTENT_TO_AGENT_KEY)) {
+    for (const [, agentKey] of Object.entries(INTENT_TO_AGENT_KEY)) {
       expect(rosterKeys.has(agentKey)).toBe(true);
     }
   });
