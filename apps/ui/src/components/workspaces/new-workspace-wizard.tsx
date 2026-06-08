@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -86,13 +86,6 @@ interface Props {
   email?: string;
 }
 
-const newWorkspaceOAuthActions: StepProviderActions = {
-  startOAuthFlow: startNewWorkspaceOAuth,
-  submitOAuthPaste: submitNewWorkspaceOAuthPaste,
-  pollCommandState: pollNewWorkspaceCommandState,
-  saveOAuthProvider: saveNewWorkspaceOAuthProvider,
-};
-
 export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
   const searchParams = useSearchParams();
   const steps = isHosted ? HOSTED_STEPS : OSS_STEPS;
@@ -110,7 +103,7 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
   const [dbUrl, setDbUrl] = useState("");
   const [anonKey, setAnonKey] = useState("");
   const [serviceRoleKey, setServiceRoleKey] = useState("");
-  const [_workspaceId, setWorkspaceId] = useState<string | null>(null);
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [accountEmail, setAccountEmail] = useState(initialEmail ?? "");
   const [password, setPassword] = useState("");
   const [hostedWorkspaceId, setHostedWorkspaceId] = useState<string | null>(null);
@@ -145,6 +138,17 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
   const [migrationRunning, setMigrationRunning] = useState(false);
   const [migrationError, setMigrationError] = useState<string | null>(null);
   const [migrationHint, setMigrationHint] = useState<string | null>(null);
+
+  const oauthActions: StepProviderActions = useMemo(() => ({
+    startOAuthFlow: (provider, mode) =>
+      startNewWorkspaceOAuth(workspaceId!, provider, mode),
+    submitOAuthPaste: (parentCommandId, value) =>
+      submitNewWorkspaceOAuthPaste(workspaceId!, parentCommandId, value),
+    pollCommandState: (commandId) =>
+      pollNewWorkspaceCommandState(workspaceId!, commandId),
+    saveOAuthProvider: (provider) =>
+      saveNewWorkspaceOAuthProvider(workspaceId!, provider),
+  }), [workspaceId]);
 
   useEffect(() => {
     return () => {
@@ -316,7 +320,7 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
           setGatewayStatus("polling");
         }
       } else {
-        const r = await mintNewWorkspaceGatewayToken();
+        const r = await mintNewWorkspaceGatewayToken(workspaceId!);
         if (!r.ok || !r.data) {
           setGatewayStatus("error");
           setGatewayError(r.error ?? "Failed to mint token");
@@ -329,14 +333,14 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
 
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = setInterval(async () => {
-        const poll = await pollNewWorkspaceGateway();
+        const poll = await pollNewWorkspaceGateway(workspaceId!);
         if (poll.ok && poll.data?.status === "ready") {
           if (pollRef.current) clearInterval(pollRef.current);
           setGatewayStatus("connected");
         }
       }, 3000);
     });
-  }, [startTransition]);
+  }, [startTransition, workspaceId]);
 
   const handleGatewaySkip = useCallback(() => {
     if (pollRef.current) clearInterval(pollRef.current);
@@ -353,7 +357,7 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
     setValidating(true);
     setValidationError(null);
     startTransition(async () => {
-      const r = await connectNewWorkspaceProvider(provider, apiKey);
+      const r = await connectNewWorkspaceProvider(workspaceId!, provider, apiKey);
       setValidating(false);
       if (r.ok) {
         setValidated(true);
@@ -363,7 +367,7 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
         setValidationError(r.error ?? "Could not validate key");
       }
     });
-  }, [startTransition, advance]);
+  }, [startTransition, advance, workspaceId]);
 
   // ─── Agent step ───
   const getRecommendedKey = (): string => {
@@ -373,7 +377,7 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
 
   const handleCreateAgent = useCallback(
     async (agentData: { name: string; emoji: string; templateBranch: string }) => {
-      const r = await createNewWorkspaceAgent({
+      const r = await createNewWorkspaceAgent(workspaceId!, {
         agentName: agentData.name,
         agentEmoji: agentData.emoji,
         templateBranch: agentData.templateBranch,
@@ -390,9 +394,10 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
       setProvisionStatus("provisioning");
 
       if (provisionCommandId) {
+        const wsId = workspaceId!;
         const startedAt = Date.now();
         const interval = setInterval(async () => {
-          const status = await pollNewWorkspaceAgentProvision(provisionCommandId);
+          const status = await pollNewWorkspaceAgentProvision(wsId, provisionCommandId);
           if (status === "completed") {
             clearInterval(interval);
             setProvisionStatus("ready");
@@ -409,7 +414,7 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
 
       return { agentId, provisionCommandId };
     },
-    [providerId],
+    [providerId, workspaceId],
   );
 
   const agentDoneFired = useRef(false);
@@ -429,7 +434,7 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
   // ─── Account step (OSS) ───
   const handleCreateWorkspace = useCallback(() => {
     startTransition(async () => {
-      const r = await finalizeNewWorkspace({
+      const r = await finalizeNewWorkspace(workspaceId!, {
         email: accountEmail.trim(),
         password,
         contextPresetKey: intentKey,
@@ -452,7 +457,7 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
       }
       advance();
     });
-  }, [accountEmail, password, intentKey, label, startTransition, advance]);
+  }, [accountEmail, password, intentKey, label, startTransition, advance, workspaceId]);
 
   // ─── Payment step (Hosted) ───
   const handlePaymentCheckout = useCallback(async () => {
@@ -588,7 +593,7 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
               validationError={validationError}
               isHosted={false}
               collectOnly={false}
-              actions={newWorkspaceOAuthActions}
+              actions={oauthActions}
             />
           )}
 

@@ -1,8 +1,10 @@
 "use server";
 
 import { cookies, headers } from "next/headers";
+import { randomBytes, createHash } from "crypto";
 import { z } from "zod";
-import { addWorkspace, getActiveWorkspaceWithSecrets } from "@/lib/workspaces/registry";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { addWorkspace, getWorkspace, getWorkspaceSecrets } from "@/lib/workspaces/registry";
 import { getPostHogClient } from "@/lib/posthog-server";
 import {
   ACTIVE_WORKSPACE_COOKIE,
@@ -15,12 +17,24 @@ import { workerFetch } from "@/lib/worker-client";
 import {
   createWorkspaceSessionValue,
 } from "@/lib/workspaces/hosted-registry";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { mintGatewayToken } from "@/lib/gateways/mint-token";
 import { buildGatewayOneLiner } from "@/lib/gateways/one-liner";
 import { dockerAvailable, startLocalGateway, localGatewayStatus } from "@/lib/gateways/local-compose";
 import { runCompleteSetup } from "@/lib/setup/run-complete-setup";
 import { parseSupabaseUrl } from "@/lib/workspaces/parse-url";
+
+async function getWorkspaceWithSecretsById(workspaceId: string) {
+  const workspace = await getWorkspace(workspaceId);
+  if (!workspace) throw new Error(`Workspace ${workspaceId} not found in registry`);
+  const secrets = await getWorkspaceSecrets(workspaceId);
+  if (!secrets) throw new Error(`Secrets for workspace ${workspaceId} not found`);
+  return { ...workspace, ...secrets };
+}
+
+function createAdminClientForWorkspace(url: string, serviceRoleKey: string) {
+  return createSupabaseClient(url, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
 
 interface ActionResult<T = undefined> {
   ok: boolean;
@@ -300,40 +314,51 @@ export async function registerNewWorkspaceDb(input: {
     makeDefault: false,
   });
 
-  const jar = await cookies();
-  jar.set(ACTIVE_WORKSPACE_COOKIE, workspace.id, ACTIVE_WORKSPACE_COOKIE_OPTIONS);
-
   return { ok: true, data: { workspaceId: workspace.id } };
 }
 
 // ─── (b) Mint gateway token ─────────────────────────────────────────────
 
-export async function mintNewWorkspaceGatewayToken(input?: {
-  label?: string;
-}): Promise<ActionResult<{ oneLiner: string; tokenId: string; expiresAt: string }>> {
+export async function mintNewWorkspaceGatewayToken(
+  workspaceId: string,
+  input?: { label?: string },
+): Promise<ActionResult<{ oneLiner: string; tokenId: string; expiresAt: string }>> {
   try {
-    const jar = await cookies();
-    const hint = jar.get(ACTIVE_WORKSPACE_COOKIE)?.value ?? null;
-    const workspace = await getActiveWorkspaceWithSecrets(hint);
-    if (!workspace) {
-      return { ok: false, error: "No workspace configured yet. Connect a database first." };
-    }
+    const ws = await getWorkspaceWithSecretsById(workspaceId);
+    const supabase = createAdminClientForWorkspace(ws.url, ws.serviceRoleKey);
 
     const label = (input?.label ?? "Gateway").trim() || "Gateway";
-    const minted = await mintGatewayToken({ label });
+    const plaintext = randomBytes(24).toString("hex");
+    const tokenHash = createHash("sha256").update(plaintext).digest("hex");
+    const ttl = 15;
+    const expiresAt = new Date(Date.now() + ttl * 60 * 1000).toISOString();
+
+    const { data, error } = await supabase
+      .from("gateway_registration_tokens")
+      .insert({
+        token_hash: tokenHash,
+        label,
+        expires_at: expiresAt,
+      })
+      .select("id, expires_at")
+      .single();
+
+    if (error || !data) {
+      throw new Error(`Failed to mint gateway token: ${error?.message ?? "unknown error"}`);
+    }
 
     const oneLiner = buildGatewayOneLiner({
-      token: minted.token,
+      token: plaintext,
       label,
-      project: workspace,
+      project: ws,
     });
 
     return {
       ok: true,
       data: {
         oneLiner,
-        tokenId: minted.tokenId,
-        expiresAt: minted.expiresAt,
+        tokenId: data.id as string,
+        expiresAt: data.expires_at as string,
       },
     };
   } catch (err) {
@@ -343,11 +368,14 @@ export async function mintNewWorkspaceGatewayToken(input?: {
 
 // ─── (c) Poll for gateway heartbeat ─────────────────────────────────────
 
-export async function pollNewWorkspaceGateway(): Promise<
+export async function pollNewWorkspaceGateway(
+  workspaceId: string,
+): Promise<
   ActionResult<{ status: "ready" | "pending"; gatewayId?: string }>
 > {
   try {
-    const supabase = await createAdminClient();
+    const ws = await getWorkspaceWithSecretsById(workspaceId);
+    const supabase = createAdminClientForWorkspace(ws.url, ws.serviceRoleKey);
     const { data } = await supabase
       .from("gateways")
       .select("id, status, last_seen_at, last_heartbeat_at")
@@ -468,6 +496,7 @@ const OAUTH_PROVIDERS = new Set([
 ]);
 
 export async function connectNewWorkspaceProvider(
+  workspaceId: string,
   provider: string,
   apiKey: string,
 ): Promise<ActionResult> {
@@ -492,7 +521,8 @@ export async function connectNewWorkspaceProvider(
   }
 
   try {
-    const supabase = await createAdminClient();
+    const ws = await getWorkspaceWithSecretsById(workspaceId);
+    const supabase = createAdminClientForWorkspace(ws.url, ws.serviceRoleKey);
     const { data: gw } = await supabase
       .from("gateways")
       .select("id")
@@ -528,11 +558,13 @@ export async function connectNewWorkspaceProvider(
 }
 
 export async function startNewWorkspaceOAuth(
+  workspaceId: string,
   provider: string,
   mode: "oauth_paste" | "device_code",
 ): Promise<ActionResult<{ commandId: string }>> {
   try {
-    const supabase = await createAdminClient();
+    const ws = await getWorkspaceWithSecretsById(workspaceId);
+    const supabase = createAdminClientForWorkspace(ws.url, ws.serviceRoleKey);
     const { data: gw } = await supabase
       .from("gateways")
       .select("id")
@@ -563,11 +595,13 @@ export async function startNewWorkspaceOAuth(
 }
 
 export async function submitNewWorkspaceOAuthPaste(
+  workspaceId: string,
   parentCommandId: string,
   value: string,
 ): Promise<ActionResult> {
   try {
-    const supabase = await createAdminClient();
+    const ws = await getWorkspaceWithSecretsById(workspaceId);
+    const supabase = createAdminClientForWorkspace(ws.url, ws.serviceRoleKey);
     const { data: gw } = await supabase
       .from("gateways")
       .select("id")
@@ -596,9 +630,11 @@ export async function submitNewWorkspaceOAuthPaste(
 }
 
 export async function pollNewWorkspaceCommandState(
+  workspaceId: string,
   commandId: string,
 ): Promise<ActionResult<{ status: string; payload: Record<string, unknown> }>> {
-  const supabase = await createAdminClient();
+  const ws = await getWorkspaceWithSecretsById(workspaceId);
+  const supabase = createAdminClientForWorkspace(ws.url, ws.serviceRoleKey);
   const { data, error } = await supabase
     .from("agent_commands")
     .select("status, payload, error_message")
@@ -619,10 +655,12 @@ export async function pollNewWorkspaceCommandState(
 }
 
 export async function saveNewWorkspaceOAuthProvider(
-  provider: string,
+  workspaceId: string,
+  _provider: string,
 ): Promise<ActionResult> {
   try {
-    const supabase = await createAdminClient();
+    const ws = await getWorkspaceWithSecretsById(workspaceId);
+    const supabase = createAdminClientForWorkspace(ws.url, ws.serviceRoleKey);
     const { data: gw } = await supabase
       .from("gateways")
       .select("id")
@@ -655,13 +693,16 @@ const PROVIDER_DEFAULT_MODELS: Record<string, string> = {
   sglang: "sglang/default",
 };
 
-export async function createNewWorkspaceAgent(input: {
-  agentName: string;
-  agentSlug?: string;
-  agentEmoji: string;
-  templateBranch: string;
-  providerId?: string;
-}): Promise<ActionResult<{ agentId: string; provisionCommandId?: string }>> {
+export async function createNewWorkspaceAgent(
+  workspaceId: string,
+  input: {
+    agentName: string;
+    agentSlug?: string;
+    agentEmoji: string;
+    templateBranch: string;
+    providerId?: string;
+  },
+): Promise<ActionResult<{ agentId: string; provisionCommandId?: string }>> {
   const slug = (input.agentSlug ?? input.agentName)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -669,7 +710,8 @@ export async function createNewWorkspaceAgent(input: {
     .slice(0, 30) || "agent";
 
   try {
-    const supabase = await createAdminClient();
+    const ws = await getWorkspaceWithSecretsById(workspaceId);
+    const supabase = createAdminClientForWorkspace(ws.url, ws.serviceRoleKey);
 
     const { data: wsRow } = await supabase
       .from("workspace")
@@ -740,9 +782,11 @@ export async function createNewWorkspaceAgent(input: {
 }
 
 export async function pollNewWorkspaceAgentProvision(
+  workspaceId: string,
   commandId: string,
 ): Promise<"pending" | "completed" | "error"> {
-  const supabase = await createAdminClient();
+  const ws = await getWorkspaceWithSecretsById(workspaceId);
+  const supabase = createAdminClientForWorkspace(ws.url, ws.serviceRoleKey);
   const { data } = await supabase
     .from("agent_commands")
     .select("status")
@@ -757,24 +801,23 @@ export async function pollNewWorkspaceAgentProvision(
 
 // ─── (g) Finalize new workspace ─────────────────────────────────────────
 
-export async function finalizeNewWorkspace(input: {
-  email: string;
-  password: string;
-  contextPresetKey?: string | null;
-  workspaceName: string;
-  workspaceSlug?: string | null;
-  ownerName?: string;
-}): Promise<ActionResult> {
-  const jar = await cookies();
-  const hint = jar.get(ACTIVE_WORKSPACE_COOKIE)?.value ?? null;
-  const workspace = await getActiveWorkspaceWithSecrets(hint);
-  if (!workspace) {
-    return { ok: false, error: "No workspace configured. Connect a database first." };
-  }
+export async function finalizeNewWorkspace(
+  workspaceId: string,
+  input: {
+    email: string;
+    password: string;
+    contextPresetKey?: string | null;
+    workspaceName: string;
+    workspaceSlug?: string | null;
+    ownerName?: string;
+  },
+): Promise<ActionResult> {
+  const ws = await getWorkspaceWithSecretsById(workspaceId);
+  const supabase = createAdminClientForWorkspace(ws.url, ws.serviceRoleKey);
 
   const userResult = await createAuthUser({
-    url: workspace.url,
-    serviceRoleKey: workspace.serviceRoleKey,
+    url: ws.url,
+    serviceRoleKey: ws.serviceRoleKey,
     email: input.email,
     password: input.password,
   });
@@ -783,7 +826,6 @@ export async function finalizeNewWorkspace(input: {
     return { ok: false, error: userResult.error ?? "Failed to create account" };
   }
 
-  const supabase = await createAdminClient();
   const result = await runCompleteSetup(supabase, {
     workspaceName: input.workspaceName,
     workspaceSlug: input.workspaceSlug,
@@ -794,6 +836,9 @@ export async function finalizeNewWorkspace(input: {
   if (!result.ok) {
     return { ok: false, error: result.error };
   }
+
+  const jar = await cookies();
+  jar.set(ACTIVE_WORKSPACE_COOKIE, workspaceId, ACTIVE_WORKSPACE_COOKIE_OPTIONS);
 
   return { ok: true };
 }
