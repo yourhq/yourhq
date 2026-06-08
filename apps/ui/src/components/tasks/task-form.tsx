@@ -110,6 +110,7 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
   const [modelOverride, setModelOverrideRaw] = useState<string | null>(editingTask?.model_override ?? null);
   const [thinkingOverride, setThinkingOverrideRaw] = useState<string | null>(editingTask?.thinking_override ?? null);
   const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
+  const [inboxFailed, setInboxFailed] = useState(false);
   const { actions: seriesActions } = useTaskSeries();
   const editingSeriesId = editingTask?.series_id ?? null;
 
@@ -296,6 +297,26 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
       if (data) setAgents(data as Agent[]);
     });
   }, [supabase]);
+
+  // Check for failed inbox items when the task is agent-assigned
+  const hasAgentAssignee = assignee !== "none" && assignee !== "me";
+  useEffect(() => {
+    if (!savedTaskId || !hasAgentAssignee) {
+      setInboxFailed(false);
+      return;
+    }
+    supabase
+      .from("agent_inbox_items")
+      .select("id, status, attempt_count")
+      .eq("task_id", savedTaskId)
+      .eq("status", "failed")
+      .gte("attempt_count", 3)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .then(({ data }) => {
+        setInboxFailed(!!data?.length);
+      });
+  }, [savedTaskId, hasAgentAssignee, supabase]);
 
   // Auto-resize title
   useEffect(() => {
@@ -507,6 +528,15 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
         <ResponsiveDialogDescription className="sr-only">
           Create or edit a task with title, description, status, priority, stream, assignee, and due date.
         </ResponsiveDialogDescription>
+
+        {/* Agent inbox failure banner */}
+        {inboxFailed && assigneeAgent && (
+          <div className="flex items-center gap-2 bg-destructive/10 border-b border-destructive/20 px-4 sm:px-5 py-2 text-xs text-destructive shrink-0">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            <span>{assigneeAgent.name} failed to process this task after multiple attempts.</span>
+            {/* TODO: add retry action that resets the inbox item and re-queues */}
+          </div>
+        )}
 
         {/* Missed task banner */}
         {isMissed && editingTask?.due_date && (

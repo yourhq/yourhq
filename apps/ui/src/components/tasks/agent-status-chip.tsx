@@ -1,20 +1,30 @@
 "use client";
 
 import type { Task } from "@/lib/tasks/types";
-import { Bot, CheckCircle2 } from "lucide-react";
+import { Bot, CheckCircle2, AlertTriangle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface AgentStatusChipProps {
   task: Task;
   compact?: boolean;
+  inboxFailed?: boolean;
 }
 
-export function AgentStatusChip({ task, compact }: AgentStatusChipProps) {
+export function AgentStatusChip({ task, compact, inboxFailed }: AgentStatusChipProps) {
   if (task.assignee_type !== "agent" || !task.assignee_agent) return null;
 
   const name = task.assignee_agent.name;
   const emoji = task.assignee_agent.meta?.emoji as string | undefined;
+
+  if (inboxFailed) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] text-[var(--status-error)]">
+        <AlertTriangle className="h-3 w-3" />
+        {!compact && <span className="truncate max-w-[120px]">{name} failed</span>}
+      </span>
+    );
+  }
 
   if (task.status === "done" && task.completed_at) {
     return (
