@@ -61,7 +61,7 @@ def test_should_wake_returns_false_when_budget_hard_exceeded(tracker, monkeypatc
         if "agents" in table:
             return [{"status": "active"}]
         if "agent_inbox_items" in table:
-            if "leased" in str(params):
+            if params.get("status") == "eq.leased":
                 return []
             return [{"id": "item-1"}]
         if "agent_budgets" in table:
@@ -115,7 +115,7 @@ def test_wake_agent_passes_model_and_thinking_overrides(monkeypatch):
         if "agents" in table:
             return [{"status": "active"}]
         if "agent_inbox_items" in table:
-            if "leased" in str(params):
+            if params.get("status") == "eq.leased":
                 return []
             return [{"id": "item-1"}]
         if "agent_budgets" in table:
@@ -162,7 +162,7 @@ def test_wake_agent_without_overrides(monkeypatch):
         if "agents" in table:
             return [{"status": "active"}]
         if "agent_inbox_items" in table:
-            if "leased" in str(params):
+            if params.get("status") == "eq.leased":
                 return []
             return [{"id": "item-1"}]
         if "agent_budgets" in table:
@@ -204,7 +204,7 @@ def test_handle_new_item_enriches_task_assignment_with_blockers(monkeypatch):
         if "agents" in table:
             return [{"status": "active"}]
         if "agent_inbox_items" in table:
-            if "leased" in str(params):
+            if params.get("status") == "eq.leased":
                 return []
             return [{"id": "item-1"}]
         if "agent_budgets" in table:
@@ -259,7 +259,7 @@ def test_handle_new_item_no_blockers_no_enrichment(monkeypatch):
         if "agents" in table:
             return [{"status": "active"}]
         if "agent_inbox_items" in table:
-            if "leased" in str(params):
+            if params.get("status") == "eq.leased":
                 return []
             return [{"id": "item-1"}]
         if "agent_budgets" in table:
@@ -315,7 +315,7 @@ def test_handle_new_item_non_task_assignment_skips_enrichment(monkeypatch):
         if "agents" in table:
             return [{"status": "active"}]
         if "agent_inbox_items" in table:
-            if "leased" in str(params):
+            if params.get("status") == "eq.leased":
                 return []
             return [{"id": "item-1"}]
         if "agent_budgets" in table:
@@ -402,8 +402,6 @@ def test_should_wake_returns_false_when_no_actionable_work(monkeypatch):
         if "agents" in table:
             return [{"status": "active"}]
         if "agent_inbox_items" in table:
-            if "leased" in str(params):
-                return []
             return []
         if "agent_budgets" in table:
             return []
@@ -427,7 +425,7 @@ def test_should_wake_returns_false_when_active_lease(monkeypatch):
         if "agents" in table:
             return [{"status": "active"}]
         if "agent_inbox_items" in table:
-            if "leased" in str(params):
+            if params.get("status") == "eq.leased":
                 return [{"id": "leased-item"}]
             return [{"id": "item-1"}]
         if "agent_budgets" in table:

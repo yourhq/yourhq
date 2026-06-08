@@ -209,7 +209,7 @@ class WakeTracker:
                 {
                     "select": "id",
                     "agent_id": f"eq.{agent_id}",
-                    "or": "(status.eq.pending,and(status.eq.failed,attempt_count.lt.3))",
+                    "or": f"(status.eq.pending,and(status.eq.failed,attempt_count.lt.3),and(status.eq.leased,leased_until.lt.{now_iso()}))",
                     "limit": "1",
                 },
             )
@@ -350,7 +350,7 @@ def reconcile(tracker):
             "agent_inbox_items",
             {
                 "select": "agent_slug,agent_id",
-                "or": "(status.eq.pending,and(status.eq.failed,attempt_count.lt.3))",
+                "or": f"(status.eq.pending,and(status.eq.failed,attempt_count.lt.3),and(status.eq.leased,leased_until.lt.{now_iso()}))",
                 "limit": "100",
             },
         )

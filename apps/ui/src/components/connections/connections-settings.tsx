@@ -164,10 +164,17 @@ export function ConnectionsSettings({
       return;
     }
     if (w.data.status === "failed") {
-      toast.error(w.data.error_message ?? "Remove failed");
-      return;
+      const errMsg = (w.data.error_message ?? "").toLowerCase();
+      const alreadyGone = errMsg.includes("not found") || errMsg.includes("no connection") || errMsg.includes("no such");
+      if (alreadyGone) {
+        toast.success("Connection was already removed from the gateway");
+      } else {
+        toast.error(w.data.error_message ?? "Remove failed");
+        return;
+      }
+    } else {
+      toast.success("Connection removed");
     }
-    toast.success("Connection removed");
     setRemoving(null);
     await refresh();
   }, [refresh]);
