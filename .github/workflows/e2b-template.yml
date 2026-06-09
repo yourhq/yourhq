@@ -1,9 +1,17 @@
 name: Build E2B gateway template
 
+# Runs AFTER "Publish images" finishes, never in parallel with it.
+# The template's Dockerfile.e2b does `FROM ghcr.io/yourhq/yourhq-gateway:latest`,
+# so the gateway base image must already be republished before this builds —
+# otherwise the template ends up FROM a stale base (this once shipped a
+# template running an old OpenClaw despite a correct base build). Triggering
+# on workflow_run guarantees the ordering; build-template.mjs uses skipCache()
+# so the base layer is always re-pulled fresh.
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_run:
+    workflows: ["Publish images"]
+    types:
+      - completed
   workflow_dispatch:
 
 permissions:
@@ -16,8 +24,18 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # On workflow_run, only proceed if the upstream publish succeeded.
+    # workflow_dispatch always proceeds (manual re-run / cache-bust).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          # workflow_run checks out the default branch by default; pin to the
+          # exact commit that was published so the template build script and
+          # Dockerfile match the released images.
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
