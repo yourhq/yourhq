@@ -39,7 +39,16 @@ export function parseModelsStatus(
   try {
     doc = JSON.parse(stdout);
   } catch {
-    return [];
+    // openclaw >=5.x can print "Config warnings:" lines to stdout before the
+    // JSON document. Recover by slicing from the first "{" to the last "}".
+    const start = stdout.indexOf("{");
+    const end = stdout.lastIndexOf("}");
+    if (start === -1 || end <= start) return [];
+    try {
+      doc = JSON.parse(stdout.slice(start, end + 1));
+    } catch {
+      return [];
+    }
   }
   if (!doc || typeof doc !== "object") return [];
 

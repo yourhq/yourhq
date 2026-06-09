@@ -23,7 +23,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     LC_ALL=C.UTF-8 \
     DISPLAY=:1 \
     HOME=/home/openclaw \
-    OPENCLAW_VERSION=v2026.4.12 \
+    OPENCLAW_VERSION=v2026.6.1 \
     NOVNC_VERSION=1.5.0 \
     TARGETARCH=amd64
 

@@ -551,3 +551,94 @@ def test_sync_to_shared_auth_skips_when_nothing_found(monkeypatch, tmp_path):
 
     shared = state_dir / "shared-auth" / "auth-profiles.json"
     assert not shared.exists()
+
+
+def test_auth_set_default_uses_models_set(monkeypatch):
+    """openclaw 5.x: default model is set via `models set <target>` (the
+    legacy `set-default` subcommand was removed)."""
+    import subprocess
+
+    import command_runner as cr
+
+    runs = []
+    rpc_calls = []
+
+    def fake_run(args, **kwargs):
+        runs.append(list(args))
+        return subprocess.CompletedProcess(args, 0, stdout="ok", stderr="")
+
+    def fake_rpc(fn, payload=None):
+        rpc_calls.append((fn, payload))
+        return None
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(cr, "api_rpc", fake_rpc)
+
+    cr.handle_auth_set_default("cmd-sd-1", {"provider": "openai-codex"})
+
+    assert len(runs) == 1
+    assert runs[0] == ["openclaw", "models", "set", "openai-codex"]
+    assert "set-default" not in runs[0]
+    assert any(fn == "complete_command" for fn, _ in rpc_calls)
+
+
+def test_auth_set_default_failure(monkeypatch):
+    """`models set` failing → fail_command with the exit code."""
+    import subprocess
+
+    import command_runner as cr
+
+    rpc_calls = []
+
+    def fake_run(args, **kwargs):
+        return subprocess.CompletedProcess(args, 2, stdout="", stderr="nope")
+
+    def fake_rpc(fn, payload=None):
+        rpc_calls.append((fn, payload))
+        return None
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(cr, "api_rpc", fake_rpc)
+
+    cr.handle_auth_set_default("cmd-sd-3", {"provider": "openai"})
+
+    fail = [(fn, p) for fn, p in rpc_calls if fn == "fail_command"]
+    assert len(fail) == 1
+    assert fail[0][1]["p_exit_code"] == 2
+
+
+def test_auth_set_api_key_uses_paste_api_key_cli(monkeypatch):
+    """openclaw 5.x stores auth in per-agent SQLite; the api-key path shells
+    out to `openclaw models auth paste-api-key` (NOT writing auth-profiles.json)."""
+    import subprocess
+
+    import command_runner as cr
+
+    runs = []
+    stdins = []
+    rpc_calls = []
+
+    def fake_run(args, **kwargs):
+        runs.append(list(args))
+        stdins.append(kwargs.get("input"))
+        return subprocess.CompletedProcess(args, 0, stdout="ok", stderr="")
+
+    def fake_rpc(fn, payload=None):
+        rpc_calls.append((fn, payload))
+        return None
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(cr, "api_rpc", fake_rpc)
+    monkeypatch.setattr(cr, "api_patch", lambda *a, **k: None)
+    monkeypatch.setattr(cr, "_set_default_model_for_provider", lambda *a, **k: None)
+    # No agents dir in the test env → handler falls back to ["main"].
+    monkeypatch.setattr(cr.os.path, "exists", lambda p: False)
+
+    cr.handle_auth_set_api_key("cmd-ak-1", {"provider": "openai", "api_key": "sk-test"})
+
+    paste = [r for r in runs if r[:4] == ["openclaw", "models", "auth", "paste-api-key"]]
+    assert paste, f"expected paste-api-key invocation, got {runs}"
+    assert "--provider" in paste[0] and "openai" in paste[0]
+    assert "--agent" not in paste[0]  # paste-api-key has no --agent flag in 5.28
+    assert "sk-test\n" in stdins  # key delivered via stdin, not argv
+    assert any(fn == "complete_command" for fn, _ in rpc_calls)

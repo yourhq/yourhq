@@ -590,54 +590,32 @@ def handle_auth_set_api_key(cmd_id, payload):
     except Exception:
         pass
 
-    # Write auth-profiles.json directly. openclaw's paste-token uses an
-    # interactive TUI prompt that doesn't accept piped stdin, so we write
-    # the file ourselves — same approach handle_auth_remove uses to edit it.
-    state_dir = os.environ.get("OPENCLAW_STATE_DIR", os.path.join(HOME, ".openclaw"))
-    base_url = (payload.get("base_url") or "").strip()
-    profile_id = f"{provider}:{profile_name}"
-
-    import glob as _glob
-
-    auth_paths = _glob.glob(os.path.join(state_dir, "agents", "*", "agent", "auth-profiles.json"))
-    if not auth_paths:
-        # No auth-profiles.json exists yet — create one in the main agent dir.
-        main_auth_dir = os.path.join(state_dir, "agents", "main", "agent")
-        os.makedirs(main_auth_dir, exist_ok=True)
-        auth_paths = [os.path.join(main_auth_dir, "auth-profiles.json")]
+    # openclaw 5.x: the blessed non-interactive path is
+    # `openclaw models auth paste-api-key --provider <p>`, which reads the key
+    # from stdin and writes it to auth-profiles.json as profile <provider>:manual
+    # AND updates openclaw.json config (which a raw file write does not do). It
+    # operates on the active agent's auth store — there is no --agent flag.
+    profile_id = f"{provider}:{profile_name}" if profile_name and profile_name != "default" else None
 
     try:
-        seen = set()
-        for path in auth_paths:
-            real = os.path.realpath(path)
-            if real in seen:
-                continue
-            seen.add(real)
+        args = ["openclaw", "models", "auth", "paste-api-key", "--provider", provider]
+        if profile_id:
+            args += ["--profile-id", profile_id]
+        proc = subprocess.run(
+            args,
+            input=api_key + "\n",
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env={**os.environ, "HOME": HOME},
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(f"paste-api-key failed: {(proc.stderr or proc.stdout or '').strip()[:200]}")
 
-            if os.path.exists(real):
-                with open(real, "r") as f:
-                    doc = json.load(f)
-            else:
-                doc = {"profiles": {}}
-
-            profile_entry = {"type": "api_key", "provider": provider, "key": api_key}
-            if base_url:
-                profile_entry["baseUrl"] = base_url
-            doc.setdefault("profiles", {})[profile_id] = profile_entry
-
-            tmp = real + ".tmp"
-            with open(tmp, "w") as f:
-                json.dump(doc, f, indent=2)
-            os.replace(tmp, real)
-            log(f"Wrote {profile_id} to {real}")
-
-        sync_to_shared_auth()
         _set_default_model_for_provider(provider, force=True)
 
         scrubbed = {k: v for k, v in payload.items() if k not in ("api_key", "base_url")}
         scrubbed["api_key_scrubbed"] = True
-        if base_url:
-            scrubbed["base_url_applied"] = True
         try:
             api_patch("agent_commands", cmd_id, {"payload": scrubbed})
         except Exception:
@@ -648,12 +626,12 @@ def handle_auth_set_api_key(cmd_id, payload):
             {
                 "p_command_id": cmd_id,
                 "p_exit_code": 0,
-                "p_stdout": f"Saved {profile_id}",
+                "p_stdout": f"Saved {provider} api key",
                 "p_stderr": None,
             },
         )
     except Exception as e:
-        log(f"Failed to write auth-profiles.json: {e}")
+        log(f"Failed to write provider api key: {e}")
         api_rpc(
             "fail_command",
             {
@@ -1206,20 +1184,10 @@ def handle_auth_set_default(cmd_id, payload):
     except Exception:
         pass
 
-    profile_name = (payload.get("profile_name") or "default").strip() or "default"
-    args = ["openclaw", "models", "set-default", "--provider", target, "--profile-id", profile_name]
-    try:
-        probe = subprocess.run(
-            args,
-            capture_output=True,
-            text=True,
-            timeout=15,
-            env={**os.environ, "HOME": HOME},
-        )
-        if probe.returncode != 0:
-            args = ["openclaw", "models", "set", target]
-    except Exception:
-        args = ["openclaw", "models", "set", target]
+    # openclaw 5.x dropped `models set-default`; `models set <target>` is the
+    # canonical command for setting the default model.
+    args = ["openclaw", "models", "set", target]
+    result = None
     try:
         result = subprocess.run(
             args,
@@ -1228,7 +1196,7 @@ def handle_auth_set_default(cmd_id, payload):
             timeout=30,
             env={**os.environ, "HOME": HOME},
         )
-        if result.returncode == 0:
+        if result is not None and result.returncode == 0:
             api_rpc(
                 "complete_command",
                 {
@@ -1243,10 +1211,10 @@ def handle_auth_set_default(cmd_id, payload):
                 "fail_command",
                 {
                     "p_command_id": cmd_id,
-                    "p_exit_code": result.returncode,
-                    "p_stdout": (result.stdout or "")[-2000:],
-                    "p_stderr": (result.stderr or "")[-2000:],
-                    "p_error": f"openclaw exit {result.returncode}",
+                    "p_exit_code": result.returncode if result else None,
+                    "p_stdout": (result.stdout or "")[-2000:] if result else None,
+                    "p_stderr": (result.stderr or "")[-2000:] if result else None,
+                    "p_error": f"openclaw exit {result.returncode}" if result else "no attempt ran",
                 },
             )
     except Exception as e:

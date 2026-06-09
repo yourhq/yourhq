@@ -25,6 +25,35 @@ describe("parseModelsStatus", () => {
     expect(parseModelsStatus("{broken", GATEWAY)).toEqual([]);
   });
 
+  test("tolerates openclaw 5.x 'Config warnings:' preamble before the JSON", () => {
+    // openclaw >=5.x prints warning lines to stdout ahead of the JSON doc.
+    const stdout =
+      "Config warnings:\n" +
+      "- plugins.entries.hq-bootstrap: plugin present but blocked\n" +
+      JSON.stringify({
+        auth: {
+          oauth: [
+            {
+              provider: "openai",
+              profile: "default",
+              profileId: "openai:default",
+              status: "ok",
+              reason: "ok",
+              isDefault: true,
+            },
+          ],
+        },
+      });
+    const result = parseModelsStatus(stdout, GATEWAY);
+    expect(result).toHaveLength(1);
+    expect(result[0].provider).toBe("openai");
+    expect(result[0].status).toBe("ok");
+  });
+
+  test("still returns empty when preamble is present but JSON is unrecoverable", () => {
+    expect(parseModelsStatus("Config warnings:\nsome noise {not json", GATEWAY)).toEqual([]);
+  });
+
   test("returns empty for non-object JSON", () => {
     expect(parseModelsStatus('"hello"', GATEWAY)).toEqual([]);
   });

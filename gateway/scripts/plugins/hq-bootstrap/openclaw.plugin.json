@@ -2,6 +2,9 @@
   "id": "hq-bootstrap",
   "name": "HQ Bootstrap",
   "description": "Bootstraps HQ registration and boot-doc context for new sessions",
+  "activation": {
+    "onStartup": true
+  },
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

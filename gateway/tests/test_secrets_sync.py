@@ -578,3 +578,78 @@ def test_sync_secrets_preserves_entrypoint_creds_in_gateway_env(monkeypatch, tmp
     assert "SUPABASE_SERVICE_ROLE_KEY=" in content and "srk-123" in content
     assert "EMBEDDER_URL=" in content and "embedder:18801" in content
     assert "CUSTOM_TOKEN=" in content and "my-token" in content
+
+
+def test_bridge_shells_out_to_paste_api_key(monkeypatch):
+    """openclaw 5.x: provider keys are bridged via `openclaw models auth
+    paste-api-key --provider <p>` (key on stdin, NO --agent flag)."""
+    import subprocess
+
+    import secrets_sync as ss
+
+    runs = []
+    stdins = []
+
+    def fake_run(args, **kwargs):
+        runs.append(list(args))
+        stdins.append(kwargs.get("input"))
+        return subprocess.CompletedProcess(args, 0, stdout="ok", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    restarted = []
+    monkeypatch.setattr(ss, "_reload_gateway_auth", lambda: restarted.append(True))
+
+    ss._sync_provider_keys_to_auth_profiles({"OPENAI_API_KEY": "sk-test"})
+
+    paste = [r for r in runs if r[:4] == ["openclaw", "models", "auth", "paste-api-key"]]
+    assert paste, f"expected paste-api-key, got {runs}"
+    assert "--provider" in paste[0] and "openai" in paste[0]
+    assert "--agent" not in paste[0]
+    assert "sk-test\n" in stdins
+    assert restarted == [True], "gateway should reload after a new key"
+
+
+def test_bridge_is_noop_when_key_unchanged(monkeypatch):
+    """The 5-minute re-sync must NOT re-run paste-api-key or restart the
+    gateway when the key hasn't changed (cache hit)."""
+    import subprocess
+
+    import secrets_sync as ss
+
+    calls = {"runs": 0, "restarts": 0}
+
+    def fake_run(args, **kwargs):
+        calls["runs"] += 1
+        return subprocess.CompletedProcess(args, 0, stdout="ok", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(ss, "_reload_gateway_auth", lambda: calls.__setitem__("restarts", calls["restarts"] + 1))
+
+    # First sync writes + restarts.
+    ss._sync_provider_keys_to_auth_profiles({"OPENAI_API_KEY": "sk-test"})
+    assert calls["runs"] == 1 and calls["restarts"] == 1
+    # Second sync with the SAME key is a no-op (cache hit).
+    ss._sync_provider_keys_to_auth_profiles({"OPENAI_API_KEY": "sk-test"})
+    assert calls["runs"] == 1, "unchanged key should not re-run paste-api-key"
+    assert calls["restarts"] == 1, "unchanged key should not restart gateway"
+
+
+def test_bridge_reruns_when_key_changes(monkeypatch):
+    """A changed key value re-runs paste-api-key and restarts the gateway."""
+    import subprocess
+
+    import secrets_sync as ss
+
+    calls = {"runs": 0, "restarts": 0}
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda args, **k: (calls.__setitem__("runs", calls["runs"] + 1), subprocess.CompletedProcess(args, 0, "", ""))[
+            1
+        ],
+    )
+    monkeypatch.setattr(ss, "_reload_gateway_auth", lambda: calls.__setitem__("restarts", calls["restarts"] + 1))
+
+    ss._sync_provider_keys_to_auth_profiles({"OPENAI_API_KEY": "sk-old"})
+    ss._sync_provider_keys_to_auth_profiles({"OPENAI_API_KEY": "sk-new"})
+    assert calls["runs"] == 2 and calls["restarts"] == 2

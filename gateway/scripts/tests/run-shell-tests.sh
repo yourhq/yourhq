@@ -82,6 +82,84 @@ else
   fail "entrypoint.sh should use set -euo pipefail"
 fi
 
+# openclaw >=5.x blocks plugins in world-writable dirs. entrypoint must
+# strip group/other write from the installed plugin dir or it won't load.
+if grep -Eq 'chmod -R go-w "\$PLUGIN_DIR"' "$GATEWAY_DIR/entrypoint.sh"; then
+  pass "entrypoint.sh hardens plugin dir permissions"
+else
+  fail "entrypoint.sh should chmod go-w the plugin dir (openclaw 5.x plugin block)"
+fi
+
+# Functional: chmod -R go-w must actually clear the world-writable bit that
+# triggers the openclaw guard.
+PERM_TMP="$(mktemp -d)"
+mkdir -p "$PERM_TMP/plugin"
+touch "$PERM_TMP/plugin/index.ts"
+chmod -R 0777 "$PERM_TMP/plugin"
+chmod -R go-w "$PERM_TMP/plugin"
+# GNU stat (Linux/CI) uses -c "%a"; BSD stat (macOS) uses -f "%Lp". Try GNU first.
+dir_mode="$(stat -c "%a" "$PERM_TMP/plugin" 2>/dev/null || stat -f "%Lp" "$PERM_TMP/plugin" 2>/dev/null)"
+# After go-w, no group/other write bits → not world-writable (e.g. 0755).
+# Mask must be octal 0022 (group-write + other-write); bare "022" is decimal.
+if [ "$((0$dir_mode & 0022))" -eq 0 ]; then
+  pass "chmod -R go-w clears world-writable bit (mode=$dir_mode)"
+else
+  fail "chmod -R go-w left world-writable bit set (mode=$dir_mode)"
+fi
+rm -rf "$PERM_TMP"
+
+# openclaw >=5.x gates raw conversation hooks (llm_output usage tracking,
+# before_agent_reply budget enforcement) behind allowConversationAccess for
+# non-bundled plugins. entrypoint's config patch must grant it.
+if grep -q 'allowConversationAccess = true' "$GATEWAY_DIR/entrypoint.sh"; then
+  pass "entrypoint.sh grants hq-bootstrap conversation access"
+else
+  fail "entrypoint.sh should grant hq-bootstrap hooks.allowConversationAccess (openclaw 5.x hook gate)"
+fi
+
+# openclaw >=5.x requires channels.telegram.streaming to be an object; the
+# legacy string form blocks gateway startup with a config validation error.
+if grep -q 'channels.telegram.streaming //= "partial"' "$GATEWAY_DIR/entrypoint.sh"; then
+  fail "entrypoint.sh still sets telegram.streaming to a string (breaks openclaw 5.x startup)"
+elif grep -q 'mode: "partial"' "$GATEWAY_DIR/entrypoint.sh"; then
+  pass "entrypoint.sh sets telegram.streaming to object form"
+else
+  fail "entrypoint.sh should set telegram.streaming to object form {mode: ...}"
+fi
+
+# ── Plugin manifest checks ───────────────────────────────────────────
+
+echo ""
+echo "Plugin manifest checks:"
+
+MANIFEST="$GATEWAY_DIR/scripts/plugins/hq-bootstrap/openclaw.plugin.json"
+if [ -f "$MANIFEST" ]; then
+  # Must be valid JSON.
+  if python3 -c "import json,sys; json.load(open('$MANIFEST'))" 2>/dev/null; then
+    pass "hq-bootstrap manifest is valid JSON"
+  else
+    fail "hq-bootstrap manifest is not valid JSON"
+  fi
+  # openclaw >=5.x lazily activates plugins; without activation.onStartup the
+  # plugin loads but register() never runs and no hooks fire.
+  if python3 -c "import json,sys; sys.exit(0 if json.load(open('$MANIFEST')).get('activation',{}).get('onStartup') is True else 1)" 2>/dev/null; then
+    pass "hq-bootstrap manifest declares activation.onStartup=true"
+  else
+    fail "hq-bootstrap manifest should declare activation.onStartup=true (openclaw 5.x lazy activation)"
+  fi
+else
+  fail "hq-bootstrap manifest not found at $MANIFEST"
+fi
+
+# openclaw >=5.x renamed usage fields to camelCase; the plugin must read the
+# new names or token counts record as 0.
+PLUGIN_TS="$GATEWAY_DIR/scripts/plugins/hq-bootstrap/index.ts"
+if [ -f "$PLUGIN_TS" ] && grep -q 'usage.input ??' "$PLUGIN_TS" && grep -q 'usage.totalTokens ??' "$PLUGIN_TS"; then
+  pass "hq-bootstrap reads openclaw 5.x camelCase usage fields"
+else
+  fail "hq-bootstrap should read usage.input/usage.totalTokens (openclaw 5.x field rename)"
+fi
+
 # ── Summary ──────────────────────────────────────────────────────────
 
 echo ""

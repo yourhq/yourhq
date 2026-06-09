@@ -21,6 +21,7 @@ import json
 import os
 import re
 import struct
+import subprocess
 import threading
 import time
 import urllib.parse
@@ -384,77 +385,98 @@ _PROVIDER_ENV_VARS: dict[str, str] = {
 }
 
 
-def _sync_provider_keys_to_auth_profiles(gateway_vars: dict):
-    """Write any model-provider API keys found in gateway_vars into the
-    shared auth-profiles.json so OpenClaw can discover them."""
-    import glob as _glob
+def _reload_gateway_auth():
+    """Make the running gateway pick up a newly-written provider key.
 
+    OpenClaw caches provider auth at boot. `openclaw secrets reload` re-resolves
+    credentials and atomically swaps the runtime snapshot over the gateway's
+    WebSocket — graceful, in-place, no process restart. This matters especially
+    in hosted/e2b mode where the gateway is PID 1: a process kill would take
+    down the whole sandbox, whereas `secrets reload` leaves it running.
+    """
+    try:
+        proc = subprocess.run(
+            ["openclaw", "secrets", "reload"],
+            capture_output=True,
+            text=True,
+            timeout=45,
+            env={**os.environ, "HOME": str(HOME)},
+        )
+        if proc.returncode == 0:
+            _log("Reloaded gateway auth snapshot after key change")
+        else:
+            _log(f"secrets reload non-zero: {(proc.stderr or proc.stdout or '').strip()[:200]}")
+    except Exception as e:
+        _log(f"secrets reload failed: {e}")
+
+
+def _bridge_cache_path() -> Path:
+    return SECRETS_DIR / ".auth-bridge-cache.json"
+
+
+def _load_bridge_cache() -> dict:
+    try:
+        return json.loads(_bridge_cache_path().read_text())
+    except Exception:
+        return {}
+
+
+def _save_bridge_cache(cache: dict):
+    try:
+        SECRETS_DIR.mkdir(parents=True, exist_ok=True)
+        tmp = str(_bridge_cache_path()) + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(cache, f)
+        os.replace(tmp, str(_bridge_cache_path()))
+        os.chmod(str(_bridge_cache_path()), 0o600)
+    except Exception as e:
+        _log(f"Failed to persist auth-bridge cache: {e}")
+
+
+def _sync_provider_keys_to_auth_profiles(gateway_vars: dict):
+    """Bridge model-provider API keys into OpenClaw's auth store.
+
+    Secrets added via Settings → Secrets land in .env files, but OpenClaw reads
+    model credentials from auth-profiles.json. The blessed non-interactive path
+    is `openclaw models auth paste-api-key --provider <p>`, which reads the key
+    from stdin, writes it as profile <provider>:manual, and updates openclaw.json
+    config (a raw file write does neither). It operates on the active agent's
+    auth store — there is no --agent flag. We cache (provider, key-hash) so the
+    5-minute re-sync only shells out when a key actually changed.
+    """
     provider_keys = {_PROVIDER_ENV_VARS[k]: v for k, v in gateway_vars.items() if k in _PROVIDER_ENV_VARS and v}
     if not provider_keys:
         return
 
-    shared_path = OPENCLAW_HOME / "shared-auth" / "auth-profiles.json"
-    shared_path.parent.mkdir(parents=True, exist_ok=True)
-    os.chmod(str(shared_path.parent), 0o700)
-
-    doc: dict = {"profiles": {}}
-    if shared_path.exists():
-        try:
-            doc = json.loads(shared_path.read_text())
-        except Exception:
-            doc = {"profiles": {}}
-
-    changed = False
+    cache = _load_bridge_cache()
+    bridged = 0
     for provider, key in provider_keys.items():
-        profile_id = f"{provider}:default"
-        existing = doc.get("profiles", {}).get(profile_id, {})
-        if existing.get("key") == key:
+        key_hash = hashlib.sha256(key.encode()).hexdigest()[:16]
+        if cache.get(provider) == key_hash:
             continue
-        doc.setdefault("profiles", {})[profile_id] = {
-            "type": "api_key",
-            "provider": provider,
-            "key": key,
-        }
-        changed = True
-
-    if not changed:
-        return
-
-    tmp = str(shared_path) + ".tmp"
-    try:
-        with open(tmp, "w") as f:
-            json.dump(doc, f, indent=2)
-        os.replace(tmp, str(shared_path))
-        os.chmod(str(shared_path), 0o600)
-    except Exception:
         try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
-
-    # Symlink all agent auth-profiles.json → shared copy
-    state_dir = str(OPENCLAW_HOME)
-    agents_base = os.path.realpath(os.path.join(state_dir, "agents"))
-    agent_dirs = _glob.glob(os.path.join(state_dir, "agents", "*", "agent"))
-    shared_real = str(shared_path.resolve())
-    for agent_dir in agent_dirs:
-        if not os.path.realpath(agent_dir).startswith(agents_base + os.sep):
-            _log(f"Path traversal blocked for agent dir: {agent_dir!r}")
-            continue
-        target = os.path.join(agent_dir, "auth-profiles.json")
-        try:
-            if os.path.islink(target):
-                if os.path.realpath(target) == shared_real:
-                    continue
-                os.unlink(target)
-            elif os.path.exists(target):
-                os.unlink(target)
-            os.symlink(str(shared_path), target)
+            proc = subprocess.run(
+                ["openclaw", "models", "auth", "paste-api-key", "--provider", provider],
+                input=key + "\n",
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env={**os.environ, "HOME": str(HOME)},
+            )
+            if proc.returncode == 0:
+                cache[provider] = key_hash
+                bridged += 1
+            else:
+                _log(f"paste-api-key failed for {provider}: {(proc.stderr or proc.stdout or '').strip()[:200]}")
         except Exception as e:
-            _log(f"Failed to link auth to {agent_dir}: {e}")
+            _log(f"paste-api-key error for {provider}: {e}")
 
-    _log(f"Bridged {len(provider_keys)} provider key(s) to auth-profiles.json")
+    if bridged:
+        _save_bridge_cache(cache)
+        _log(f"Bridged {bridged} provider key(s) into auth-profiles.json")
+        # The gateway caches auth at boot — gracefully reload so the new key
+        # takes effect in-place. Only fires when a key actually changed.
+        _reload_gateway_auth()
 
 
 # ── Background loop ───────────────────────────────────────────────────

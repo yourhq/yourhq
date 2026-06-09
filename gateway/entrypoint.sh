@@ -51,8 +51,13 @@ SHARED_AUTH="$OPENCLAW_HOME/shared-auth"
 TEMPLATES_BUNDLED="/opt/templates"
 
 NOVNC_BIND="${NOVNC_BIND:-auto}"
+# Export so the in-process daemons (command_runner, secrets_sync, ...) started
+# later in hosted mode inherit them. Without the export, a daemon can boot with
+# an empty/default GATEWAY_ID and fail to resolve its gateway row (which breaks
+# the secrets→auth-profiles bridge, so agents can't authenticate).
 GATEWAY_ID="${GATEWAY_ID:-default}"
 GATEWAY_LABEL="${GATEWAY_LABEL:-$GATEWAY_ID}"
+export GATEWAY_ID GATEWAY_LABEL
 
 log() { echo "[entrypoint] $*"; }
 
@@ -360,9 +365,21 @@ if [ -f "$CONFIG" ]; then
     .channels.telegram.enabled //= true |
     .channels.telegram.dmPolicy //= "pairing" |
     .channels.telegram.groupPolicy //= "open" |
-    .channels.telegram.streaming //= "partial" |
+    # openclaw >=5.x requires channels.telegram.streaming to be an OBJECT
+    # (mode: ...). The legacy string form fails config validation and blocks
+    # gateway startup. Normalize to the object form unless already an object.
+    .channels.telegram.streaming = (
+      if (.channels.telegram.streaming | type) == "object"
+      then .channels.telegram.streaming
+      else { mode: "partial" }
+      end
+    ) |
     .plugins.entries.telegram.enabled //= true |
     .plugins.entries["hq-bootstrap"].enabled = true |
+    # openclaw >=5.x gates raw conversation hooks (llm_output for usage,
+    # before_agent_reply for budget enforcement, etc.) behind an explicit
+    # grant for non-bundled plugins. Without it the hooks silently never fire.
+    .plugins.entries["hq-bootstrap"].hooks.allowConversationAccess = true |
     .plugins.load.paths = ((.plugins.load.paths // []) + [$plugin_path] | unique)
   ' "$CONFIG" > "$TMP" && mv "$TMP" "$CONFIG"
 fi
@@ -371,6 +388,10 @@ if [ -d "$PLUGIN_SRC" ]; then
   mkdir -p "$PLUGIN_DIR"
   cp -f "$PLUGIN_SRC"/*.json "$PLUGIN_DIR/" 2>/dev/null || true
   cp -f "$PLUGIN_SRC"/*.ts "$PLUGIN_DIR/" 2>/dev/null || true
+  # OpenClaw >=5.x refuses to load plugins from world-writable directories
+  # (security guard against tampering). The volume/copy can leave 0777, so
+  # tighten to 0755 or the plugin is silently blocked at load.
+  chmod -R go-w "$PLUGIN_DIR"
 fi
 
 mkdir -p "$SHARED_AUTH"

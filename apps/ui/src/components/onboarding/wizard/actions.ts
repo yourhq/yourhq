@@ -465,18 +465,6 @@ export async function saveOAuthProvider(provider: string): Promise<ActionResult>
 
 // ─── Agent ────────────────────────────────────────────────────────────────
 
-const PROVIDER_DEFAULT_MODELS: Record<string, string> = {
-  anthropic: "anthropic/claude-sonnet-4-20250514",
-  openai: "openai/gpt-4.1",
-  "openai-codex": "openai/gpt-4.1",
-  google: "google/gemini-2.5-flash",
-  "google-gemini-cli": "google/gemini-2.5-flash",
-  ollama: "ollama/llama3.3",
-  lmstudio: "lmstudio/default",
-  vllm: "vllm/default",
-  sglang: "sglang/default",
-};
-
 export async function createFirstAgent(input: {
   name: string;
   emoji: string;
@@ -545,7 +533,10 @@ export async function createFirstAgent(input: {
           channel: "none",
           name: input.name,
           emoji: input.emoji,
-          model: input.providerId ? PROVIDER_DEFAULT_MODELS[input.providerId] : undefined,
+          // Inherit the gateway's authenticated default model rather than
+          // guessing a per-provider model here — add-agent.sh resolves it
+          // from openclaw config / `models status`, so it never goes stale.
+          model: undefined,
           owner_name: wsRow?.owner_name,
           owner_preferred_name: wsRow?.owner_preferred_name,
           owner_timezone: wsRow?.owner_timezone,
