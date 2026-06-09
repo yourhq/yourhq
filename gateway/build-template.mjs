@@ -6,7 +6,12 @@ const dockerfile = readFileSync("gateway/Dockerfile.e2b", "utf-8");
 console.log(`[e2b] Dockerfile loaded (${dockerfile.split("\n").length} lines)`);
 
 console.log("[e2b] Parsing Dockerfile into template definition...");
-const template = Template({ fileContextPath: "." }).fromDockerfile(dockerfile);
+// skipCache: Dockerfile.e2b does `FROM ghcr.io/yourhq/yourhq-gateway:latest`.
+// E2B caches the FROM layer by tag string, not digest — so after a release
+// republishes :latest, a cached build silently reuses the OLD base image
+// (this shipped a stale gateway once). Skip cache so the base is always
+// re-pulled fresh. Releases are infrequent; correctness > a few minutes.
+const template = Template({ fileContextPath: "." }).skipCache().fromDockerfile(dockerfile);
 console.log("[e2b] Template definition ready");
 
 console.log("[e2b] Starting build (alias=yourhq-gateway, 2 vCPU, 4096 MB)...");
