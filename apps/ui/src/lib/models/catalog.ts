@@ -38,6 +38,9 @@ const CURATED_MODELS: ModelEntry[] = [
   { id: "mistral/mistral-large-latest", displayName: "Mistral Large", provider: "mistral", providerDisplayName: "Mistral", pricing: { inputCostPerMillion: 2, outputCostPerMillion: 6 } },
   { id: "mistral/codestral-latest", displayName: "Codestral", provider: "mistral", providerDisplayName: "Mistral", pricing: { inputCostPerMillion: 0.3, outputCostPerMillion: 0.9 } },
 
+  // MiniMax — large 1M-token context, multimodal, low cost.
+  { id: "minimax/MiniMax-M3", displayName: "MiniMax M3", provider: "minimax", providerDisplayName: "MiniMax", pricing: { inputCostPerMillion: 0.6, outputCostPerMillion: 2.4, cacheReadCostPerMillion: 0.12, cacheWriteCostPerMillion: 0 } },
+
   // xAI
   { id: "xai/grok-3", displayName: "Grok 3", provider: "xai", providerDisplayName: "xAI", pricing: { inputCostPerMillion: 3, outputCostPerMillion: 15 } },
   { id: "xai/grok-3-mini", displayName: "Grok 3 Mini", provider: "xai", providerDisplayName: "xAI", pricing: { inputCostPerMillion: 0.3, outputCostPerMillion: 0.5 } },
