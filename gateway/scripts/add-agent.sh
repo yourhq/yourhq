@@ -248,10 +248,13 @@ if [ -z "$AGENT_MODEL" ]; then
   AGENT_MODEL=$(jq -r '.model // empty' "$AGENT_JSON")
 fi
 if [ -z "$AGENT_MODEL" ]; then
-  AGENT_MODEL=$(jq -r '.models.default // empty' "$CONFIG" 2>/dev/null)
+  # openclaw 5.x stores the default model at .agents.defaults.model.primary.
+  AGENT_MODEL=$(jq -r '.agents.defaults.model.primary // empty' "$CONFIG" 2>/dev/null)
 fi
 if [ -z "$AGENT_MODEL" ]; then
-  AGENT_MODEL=$(openclaw models status --json 2>/dev/null | jq -r '.[0].id // empty' 2>/dev/null || true)
+  # `models status --json` returns an object with resolvedDefault/defaultModel.
+  AGENT_MODEL=$(openclaw models status --json 2>/dev/null \
+    | jq -r '.resolvedDefault // .defaultModel // empty' 2>/dev/null || true)
 fi
 # Browser profile name is the bare agent slug — no workspace prefix, so
 # it's filesystem-safe (used as a dir name, openclaw config key, and

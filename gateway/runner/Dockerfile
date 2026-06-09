@@ -11,7 +11,7 @@ FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     HOME=/home/openclaw \
-    OPENCLAW_VERSION=v2026.4.12 \
+    OPENCLAW_VERSION=v2026.6.1 \
     RUNTIME_MODE=docker
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

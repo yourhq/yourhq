@@ -443,11 +443,13 @@ export default definePluginEntry({
       const provider = event.provider ?? "unknown";
       const isSubscription = SUBSCRIPTION_PROVIDERS.has(provider);
 
-      const inputTokens = usage.input_tokens ?? usage.prompt_tokens ?? 0;
-      const outputTokens = usage.output_tokens ?? usage.completion_tokens ?? 0;
-      const cacheRead = usage.cache_read_input_tokens ?? usage.cache_read ?? 0;
-      const cacheWrite = usage.cache_creation_input_tokens ?? usage.cache_write ?? 0;
-      const totalTokens = inputTokens + outputTokens;
+      // openclaw 5.x usage fields are camelCase (input/output/cacheRead/
+      // cacheWrite/totalTokens) with a computed `cost` object.
+      const inputTokens = usage.input ?? 0;
+      const outputTokens = usage.output ?? 0;
+      const cacheRead = usage.cacheRead ?? 0;
+      const cacheWrite = usage.cacheWrite ?? 0;
+      const totalTokens = usage.totalTokens ?? inputTokens + outputTokens;
 
       let costInput: number | null = null;
       let costOutput: number | null = null;
@@ -455,12 +457,24 @@ export default definePluginEntry({
       let costCacheWrite: number | null = null;
       let costTotal: number | null = null;
 
+      // Prefer the provider-supplied cost object — it's authoritative and
+      // never goes stale. Fall back to our pricing table only when absent.
+      const providerCost = usage.cost;
+
       if (isSubscription) {
         costInput = 0;
         costOutput = 0;
         costCacheRead = 0;
         costCacheWrite = 0;
         costTotal = 0;
+      } else if (providerCost && typeof providerCost === "object") {
+        costInput = providerCost.input ?? null;
+        costOutput = providerCost.output ?? null;
+        costCacheRead = providerCost.cacheRead ?? null;
+        costCacheWrite = providerCost.cacheWrite ?? null;
+        costTotal = providerCost.total
+          ?? [costInput, costOutput, costCacheRead, costCacheWrite]
+            .reduce<number | null>((acc, v) => (v == null ? acc : (acc ?? 0) + v), null);
       } else {
         try {
           let pricing = typeof (globalThis as any).getCachedGatewayModelPricing === "function"
