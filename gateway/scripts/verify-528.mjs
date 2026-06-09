@@ -22,7 +22,6 @@ import { Sandbox } from "e2b";
 const TEMPLATE = process.env.E2B_TEMPLATE_NAME ?? "yourhq-gateway";
 const SUPABASE_URL = required("SUPABASE_URL");
 const SUPABASE_KEY = required("SUPABASE_SERVICE_ROLE_KEY");
-const MODEL = process.env.VERIFY_MODEL ?? "openai-codex/gpt-5.4";
 
 function required(name) {
   const v = process.env[name];
