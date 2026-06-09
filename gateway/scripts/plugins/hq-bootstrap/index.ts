@@ -27,6 +27,7 @@ const FALLBACK_PRICING: Record<string, { input_cost_per_million: number; output_
   "deepseek-reasoner":                    { input_cost_per_million: 0.55,  output_cost_per_million: 2.19, cache_read_cost_per_million: 0.14 },
   "mistral-large-latest":                 { input_cost_per_million: 2,     output_cost_per_million: 6 },
   "codestral-latest":                     { input_cost_per_million: 0.3,   output_cost_per_million: 0.9 },
+  "MiniMax-M3":                           { input_cost_per_million: 0.6,   output_cost_per_million: 2.4,  cache_read_cost_per_million: 0.12, cache_write_cost_per_million: 0 },
   "grok-3":                               { input_cost_per_million: 3,     output_cost_per_million: 15 },
   "grok-3-mini":                          { input_cost_per_million: 0.3,   output_cost_per_million: 0.5 },
   "llama-4-scout-17b-16e-instruct":       { input_cost_per_million: 0.11,  output_cost_per_million: 0.34 },
