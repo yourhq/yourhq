@@ -11,6 +11,30 @@ tagged release.
 
 ## [Unreleased]
 
+### Added
+
+- **OpenClaw 6.1 gateway runtime** — the gateway, dispatcher, and runner images now run OpenClaw `v2026.6.1` (up from `v2026.4.12`). Brings the upstream feature and stability work from the 4.x→6.x line.
+- **MiniMax M3 model** — added `minimax/MiniMax-M3` to the model picker (1M-token context, multimodal, low cost). The MiniMax provider connection (API key or Coding Plan OAuth) was already supported.
+- **Full new-workspace wizard** — "Add Workspace" now has parity with initial onboarding (Name → Focus → Database → Gateway → Provider → Agent → Account), one-click DB migration, and proper `complete_setup()` initialization. Multi-workspace login authenticates across all registered workspaces; switching between authenticated workspaces is instant.
+- **Gateway verification harness** — `gateway/scripts/verify-528.mjs` boots a gateway on a sandbox and asserts the full agent loop (plugin load, secrets→auth, provisioning, agent turn) for upgrade validation.
+
+### Changed
+
+- **Agent default model** — new agents now inherit the gateway's authenticated default model instead of a hardcoded per-provider map (which had gone stale). `add-agent.sh` resolves the default from the live OpenClaw config.
+- **Provider auth bridge** — secrets sync and the connection command now register provider API keys via `openclaw models auth paste-api-key` (then reload in place with `openclaw secrets reload`) rather than hand-writing the auth file, matching OpenClaw's current auth contract.
+
+### Fixed
+
+- **hq-bootstrap plugin on OpenClaw 6.x** — the plugin is installed to a non-world-writable directory, declares `activation.onStartup`, and is granted `hooks.allowConversationAccess` so its usage-tracking, budget-enforcement, and bootstrap-context hooks actually fire (6.x lazily activates plugins and gates raw conversation hooks). Usage events read OpenClaw 6.x's camelCase token fields and the provider-supplied cost.
+- **Gateway boot config** — `channels.telegram.streaming` is normalized to the object form 6.x requires (the legacy string value fails config validation and blocked startup). The entrypoint exports `GATEWAY_ID`/`GATEWAY_LABEL` so in-process daemons inherit them.
+- **Connection status parsing** — tolerates the "Config warnings:" preamble OpenClaw 6.x prints before the JSON in `openclaw models status --json`.
+- **Expired inbox lease retry** — dispatcher reconciliation picks up items where `status=leased` but `leased_until` has expired, preventing permanently stuck tasks.
+
+### Upgrading
+
+- Self-hosted on `:latest`: `docker compose pull && docker compose up -d` picks up the 6.1 images. Provider API keys re-sync automatically; no manual auth migration needed.
+- If you pin image tags, move to `v0.2.0`.
+
 ## [0.1.4] — 2026-05-26
 
 ### Added
