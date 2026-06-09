@@ -11,6 +11,8 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-06-09
+
 ### Added
 
 - **OpenClaw 6.1 gateway runtime** — the gateway, dispatcher, and runner images now run OpenClaw `v2026.6.1` (up from `v2026.4.12`). Brings the upstream feature and stability work from the 4.x→6.x line.
@@ -165,7 +167,8 @@ Initial public release.
 - Vulnerability disclosure via `security@yourhq.ai`; trust model and known risks documented in [SECURITY.md](SECURITY.md).
 - Gateway tokens hashed at rest; service-role key handling documented.
 
-[Unreleased]: https://github.com/yourhq/yourhq/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/yourhq/yourhq/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/yourhq/yourhq/compare/v0.1.4...v0.2.0
 [0.1.4]: https://github.com/yourhq/yourhq/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/yourhq/yourhq/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/yourhq/yourhq/compare/v0.1.1...v0.1.2
