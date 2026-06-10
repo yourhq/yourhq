@@ -715,3 +715,59 @@ def test_cleanup_stale_codex_auth_noop_when_absent(tmp_path, monkeypatch):
 
     monkeypatch.setenv("OPENCLAW_STATE_DIR", str(tmp_path))
     mod._cleanup_stale_codex_auth("openai")  # must not raise
+
+
+# ── resolve_branch / workspace slug race ──────────────────────────────
+
+
+def test_resolve_branch_prefers_payload_workspace_slug(monkeypatch):
+    import command_runner as cr
+
+    monkeypatch.setattr(cr, "WORKSPACE_SLUG", "table-ws")
+    assert cr.resolve_branch("alex", {"workspace_slug": "wizard-ws"}) == "wizard-ws/alex"
+
+
+def test_resolve_branch_falls_back_to_table_lookup(monkeypatch):
+    import command_runner as cr
+
+    monkeypatch.setattr(cr, "WORKSPACE_SLUG", "table-ws")
+    assert cr.resolve_branch("alex", {}) == "table-ws/alex"
+    assert cr.resolve_branch("alex", None) == "table-ws/alex"
+
+
+def test_resolve_branch_bare_when_no_slug_anywhere(monkeypatch):
+    import command_runner as cr
+
+    monkeypatch.setattr(cr, "WORKSPACE_SLUG", None)
+    monkeypatch.setattr(cr, "api_get", lambda *a, **k: [])
+    assert cr.resolve_branch("alex", {}) == "alex"
+
+
+def test_get_workspace_slug_does_not_cache_empty(monkeypatch):
+    import command_runner as cr
+
+    monkeypatch.setattr(cr, "WORKSPACE_SLUG", None)
+    calls = []
+
+    def fake_api_get(*a, **k):
+        calls.append(1)
+        # First call: workspace row not written yet. Second call: it exists.
+        return [] if len(calls) == 1 else [{"slug": "late-ws"}]
+
+    monkeypatch.setattr(cr, "api_get", fake_api_get)
+    assert cr.get_workspace_slug() == ""
+    assert cr.get_workspace_slug() == "late-ws"
+    # Now cached: no further lookups.
+    assert cr.get_workspace_slug() == "late-ws"
+    assert len(calls) == 2
+
+
+def test_provision_branch_uses_payload_workspace_slug(monkeypatch):
+    import command_runner as cr
+
+    monkeypatch.setattr(cr, "WORKSPACE_SLUG", None)
+    monkeypatch.setattr(cr, "api_get", lambda *a, **k: [])
+    args, _desc = cr.build_command(
+        "provision", "alex", {"workspace_slug": "prajoth-hq", "channel": "none"}
+    )
+    assert args[1] == "prajoth-hq/alex"

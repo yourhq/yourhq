@@ -86,6 +86,14 @@ interface Props {
   email?: string;
 }
 
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 40);
+}
+
 export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
   const searchParams = useSearchParams();
   const steps = isHosted ? HOSTED_STEPS : OSS_STEPS;
@@ -382,6 +390,9 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
         agentEmoji: agentData.emoji,
         templateBranch: agentData.templateBranch,
         providerId: providerId ?? undefined,
+        // The workspace row doesn't exist until finalize runs complete_setup,
+        // so pass the slug the workspace WILL get for agent branch naming.
+        workspaceSlug: slugify(label.trim() || "My Workspace"),
       });
       if (!r.ok || !r.data) {
         setError(r.error ?? "Failed to create agent");
@@ -439,6 +450,9 @@ export function NewWorkspaceWizard({ isHosted, email: initialEmail }: Props) {
         password,
         contextPresetKey: intentKey,
         workspaceName: label.trim() || "My Workspace",
+        // Must match the slug passed to createNewWorkspaceAgent so the agent
+        // branch prefix and the workspace row agree.
+        workspaceSlug: slugify(label.trim() || "My Workspace"),
         ownerName: "",
       });
       if (!r.ok) {

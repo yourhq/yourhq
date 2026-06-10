@@ -483,13 +483,22 @@ export async function createFirstAgent(input: {
   try {
     const supabase = await createAdminClient();
 
-    // Workspace info for branch naming and owner profile
-    const { data: wsRow } = await supabase
-      .from("workspace")
-      .select("slug, owner_name, owner_preferred_name, owner_timezone")
-      .limit(1)
-      .maybeSingle();
-    const _wsSlug = (wsRow?.slug as string | null) ?? null;
+    // Workspace info for branch naming and owner profile. The workspace row
+    // is written by complete_setup at the END of onboarding, so it usually
+    // doesn't exist yet here — fall back to the slug held in wizard state so
+    // the gateway can still create the workspace-prefixed agent branch.
+    const [{ data: wsRow }, onboardingState] = await Promise.all([
+      supabase
+        .from("workspace")
+        .select("slug, owner_name, owner_preferred_name, owner_timezone")
+        .limit(1)
+        .maybeSingle(),
+      getOnboardingState(),
+    ]);
+    const str = (v: unknown): string | null =>
+      typeof v === "string" && v ? v : null;
+    const obData = onboardingState?.data ?? {};
+    const wsSlug = (wsRow?.slug as string | null) ?? str(obData.workspaceSlug);
 
     // Default gateway
     const { data: gw } = await supabase
@@ -537,8 +546,12 @@ export async function createFirstAgent(input: {
           // guessing a per-provider model here — add-agent.sh resolves it
           // from openclaw config / `models status`, so it never goes stale.
           model: undefined,
-          owner_name: wsRow?.owner_name,
-          owner_preferred_name: wsRow?.owner_preferred_name,
+          workspace_slug: wsSlug ?? undefined,
+          owner_name: wsRow?.owner_name ?? str(obData.ownerName) ?? undefined,
+          owner_preferred_name:
+            wsRow?.owner_preferred_name ??
+            str(obData.preferredName) ??
+            undefined,
           owner_timezone: wsRow?.owner_timezone,
         },
       })

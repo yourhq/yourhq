@@ -178,25 +178,31 @@ WORKSPACE_SLUG = None
 
 
 def get_workspace_slug():
+    # Only cache a non-empty result. During onboarding the workspace row is
+    # written by complete_setup AFTER the first agent is provisioned, so an
+    # empty lookup must be retried on the next call, not cached for the
+    # daemon's lifetime.
     global WORKSPACE_SLUG
-    if WORKSPACE_SLUG is not None:
+    if WORKSPACE_SLUG:
         return WORKSPACE_SLUG
     try:
         rows = api_get("workspace", {"select": "slug", "limit": "1"})
         if rows and rows[0].get("slug"):
             WORKSPACE_SLUG = rows[0]["slug"]
             log(f"Workspace slug: {WORKSPACE_SLUG}")
-        else:
-            WORKSPACE_SLUG = ""
     except Exception as e:
         log(f"Failed to fetch workspace slug: {e}")
-        WORKSPACE_SLUG = ""
-    return WORKSPACE_SLUG
+    return WORKSPACE_SLUG or ""
 
 
-def resolve_branch(agent_slug):
-    """Resolve agent slug to git branch name (may include workspace prefix)."""
-    ws = get_workspace_slug()
+def resolve_branch(agent_slug, payload=None):
+    """Resolve agent slug to git branch name (may include workspace prefix).
+
+    The provision payload carries workspace_slug from the wizard because the
+    workspace row may not exist yet at agent-creation time (it's written by
+    complete_setup at the end of onboarding / new-workspace flows).
+    """
+    ws = (payload or {}).get("workspace_slug") or get_workspace_slug()
     return f"{ws}/{agent_slug}" if ws else agent_slug
 
 
@@ -226,7 +232,7 @@ def build_command(action, agent_slug, payload):
     """
 
     if action == "provision":
-        branch = resolve_branch(agent_slug)
+        branch = resolve_branch(agent_slug, payload)
         if not validate_slug(agent_slug):
             return None, f"Invalid agent slug: {agent_slug}"
         channel = payload.get("channel", "telegram")

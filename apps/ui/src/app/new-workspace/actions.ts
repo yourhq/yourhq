@@ -691,6 +691,7 @@ export async function createNewWorkspaceAgent(
     agentEmoji: string;
     templateBranch: string;
     providerId?: string;
+    workspaceSlug?: string;
   },
 ): Promise<ActionResult<{ agentId: string; provisionCommandId?: string }>> {
   const slug = (input.agentSlug ?? input.agentName)
@@ -753,6 +754,11 @@ export async function createNewWorkspaceAgent(
           // guessing a per-provider model here — add-agent.sh resolves it
           // from openclaw config / `models status`, so it never goes stale.
           model: undefined,
+          // The workspace row is written by complete_setup at the END of the
+          // wizard, so prefer it but fall back to the wizard's slug so the
+          // gateway can create the workspace-prefixed agent branch.
+          workspace_slug:
+            (wsRow?.slug as string | null) ?? input.workspaceSlug ?? undefined,
           owner_name: wsRow?.owner_name,
           owner_preferred_name: wsRow?.owner_preferred_name,
           owner_timezone: wsRow?.owner_timezone,
