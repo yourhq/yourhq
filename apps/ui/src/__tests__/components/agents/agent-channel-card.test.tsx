@@ -167,3 +167,54 @@ describe("AgentChannelCard", () => {
     expect(screen.getByText("Slack")).toBeInTheDocument();
   });
 });
+
+describe("AgentChannelCard in-flight connect resume", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+  });
+
+  it("resumes pairing flow after remount instead of showing connected", async () => {
+    const { pollProvisionStatus } = await import("@/app/dashboard/agents/actions");
+    vi.mocked(pollProvisionStatus).mockResolvedValue("completed");
+
+    // Simulate the state mid-connect: connectAgentChannel already wrote
+    // meta.channel, the realtime update remounted the tree, and the
+    // in-flight record is in sessionStorage.
+    sessionStorage.setItem(
+      "hq-channel-connect-a-1",
+      JSON.stringify({
+        channel: "telegram",
+        provisionCommandId: "cmd-1",
+        startedAt: Date.now(),
+      }),
+    );
+
+    render(
+      <AgentChannelCard agent={makeAgent({ meta: { channel: "telegram" } })} />,
+    );
+
+    // Must NOT short-circuit to the connected card.
+    expect(screen.queryByText("Connected via Telegram")).not.toBeInTheDocument();
+    // Polling resolves "completed" → pairing phase.
+    expect(
+      await screen.findByText("Pairing code", {}, { timeout: 5000 }),
+    ).toBeInTheDocument();
+  });
+
+  it("ignores stale in-flight records", () => {
+    sessionStorage.setItem(
+      "hq-channel-connect-a-1",
+      JSON.stringify({
+        channel: "telegram",
+        provisionCommandId: "cmd-1",
+        startedAt: Date.now() - 11 * 60_000,
+      }),
+    );
+
+    render(
+      <AgentChannelCard agent={makeAgent({ meta: { channel: "telegram" } })} />,
+    );
+
+    expect(screen.getByText("Connected via Telegram")).toBeInTheDocument();
+  });
+});

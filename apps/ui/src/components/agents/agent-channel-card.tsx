@@ -1,7 +1,7 @@
 "use client";
 
 import type { SVGProps } from "react";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   ArrowRight,
   Check,
@@ -69,12 +69,52 @@ interface AgentChannelCardProps {
   onAgentUpdated?: () => void;
 }
 
+// connectAgentChannel writes meta.channel immediately (before pairing), and
+// the agent detail page force-remounts its tree on every agents-row realtime
+// update — so an in-flight connect must survive remounts or the card falls
+// straight into "connected" and the pairing step is never shown. Track the
+// in-flight connect in sessionStorage, keyed per agent.
+interface InFlightConnect {
+  channel: ChannelId;
+  provisionCommandId: string | null;
+  startedAt: number;
+}
+
+const IN_FLIGHT_TTL_MS = 10 * 60_000;
+
+function readInFlightConnect(key: string): InFlightConnect | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as InFlightConnect;
+    if (!v.channel || Date.now() - v.startedAt > IN_FLIGHT_TTL_MS) {
+      sessionStorage.removeItem(key);
+      return null;
+    }
+    return v;
+  } catch {
+    return null;
+  }
+}
+
 export function AgentChannelCard({ agent, onAgentUpdated }: AgentChannelCardProps) {
   const meta = (agent.meta ?? {}) as AgentMeta;
   const existingChannel = meta.channel && meta.channel !== "none" ? meta.channel : null;
 
-  const [phase, setPhase] = useState<Phase>(existingChannel ? "connected" : "select");
-  const [channelType, setChannelType] = useState<ChannelId | null>(existingChannel ?? null);
+  const inFlightKey = `hq-channel-connect-${agent.id}`;
+  const inFlight = readInFlightConnect(inFlightKey);
+
+  const [phase, setPhase] = useState<Phase>(
+    inFlight ? "provisioning" : existingChannel ? "connected" : "select",
+  );
+  const [channelType, setChannelType] = useState<ChannelId | null>(
+    inFlight?.channel ?? existingChannel ?? null,
+  );
+  const [provisionCommandId, setProvisionCommandId] = useState<string | null>(
+    inFlight?.provisionCommandId ?? null,
+  );
+  const provisionStartedAt = useRef<number>(inFlight?.startedAt ?? 0);
 
   // Credentials
   const [botToken, setBotToken] = useState("");
@@ -144,36 +184,65 @@ export function AgentChannelCard({ agent, onAgentUpdated }: AgentChannelCardProp
 
     completeItem("channelConnected");
 
+    const startedAt = Date.now();
+    provisionStartedAt.current = startedAt;
+    try {
+      sessionStorage.setItem(
+        inFlightKey,
+        JSON.stringify({
+          channel: channelType,
+          provisionCommandId: r.provisionCommandId ?? null,
+          startedAt,
+        } satisfies InFlightConnect),
+      );
+    } catch {
+      // sessionStorage unavailable — the flow still works, it just won't
+      // survive a remount.
+    }
+    setProvisionCommandId(r.provisionCommandId ?? null);
     setPhase("provisioning");
+  }, [agent.id, agent.slug, channelType, botToken, discordServerId, discordUserId, slackAppToken, slackBotToken, inFlightKey]);
 
-    if (r.provisionCommandId) {
-      const startedAt = Date.now();
-      const pollInterval = setInterval(async () => {
-        const status = await pollProvisionStatus(r.provisionCommandId!);
-        if (status === "completed" || status === "error" || Date.now() - startedAt > 120_000) {
-          clearInterval(pollInterval);
-          setProvisionDone(true);
-          if (channelType === "slack") {
-            toast.success("Slack connected");
-            setPhase("connected");
-            onAgentUpdated?.();
-          } else {
-            setPhase("pairing");
-          }
-        }
-      }, 3000);
-      return () => clearInterval(pollInterval);
-    } else {
+  // Drive provision polling from phase state (not inline in the connect
+  // handler) so a remounted card resumes where it left off.
+  useEffect(() => {
+    if (phase !== "provisioning" || !channelType) return;
+    let cancelled = false;
+
+    const finish = () => {
+      if (cancelled) return;
       setProvisionDone(true);
       if (channelType === "slack") {
+        try {
+          sessionStorage.removeItem(inFlightKey);
+        } catch {}
         toast.success("Slack connected");
         setPhase("connected");
         onAgentUpdated?.();
       } else {
         setPhase("pairing");
       }
+    };
+
+    if (!provisionCommandId) {
+      finish();
+      return;
     }
-  }, [agent.id, agent.slug, channelType, botToken, discordServerId, discordUserId, slackAppToken, slackBotToken, onAgentUpdated]);
+
+    const deadline = (provisionStartedAt.current || Date.now()) + 120_000;
+    const interval = setInterval(async () => {
+      const status = await pollProvisionStatus(provisionCommandId);
+      if (cancelled) return;
+      if (status === "completed" || status === "error" || Date.now() > deadline) {
+        clearInterval(interval);
+        finish();
+      }
+    }, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [phase, channelType, provisionCommandId, inFlightKey, onAgentUpdated]);
 
   const handleSubmitPairing = useCallback(async () => {
     if (!channelType || !pairingCode.trim()) return;
@@ -187,6 +256,9 @@ export function AgentChannelCard({ agent, onAgentUpdated }: AgentChannelCardProp
     });
     setPairingBusy(false);
     if (r.ok) {
+      try {
+        sessionStorage.removeItem(inFlightKey);
+      } catch {}
       setPairingResult("done");
       toast.success("Paired successfully");
       setTimeout(() => {
@@ -197,12 +269,15 @@ export function AgentChannelCard({ agent, onAgentUpdated }: AgentChannelCardProp
       setPairingResult("error");
       setErrorMsg(r.error ?? "Pairing failed");
     }
-  }, [agent.id, agent.slug, channelType, pairingCode, onAgentUpdated]);
+  }, [agent.id, agent.slug, channelType, pairingCode, onAgentUpdated, inFlightKey]);
 
   const handleSkipPairing = useCallback(() => {
+    try {
+      sessionStorage.removeItem(inFlightKey);
+    } catch {}
     setPhase("connected");
     onAgentUpdated?.();
-  }, [onAgentUpdated]);
+  }, [onAgentUpdated, inFlightKey]);
 
   // ── Connected state ──────────────────────────────────────────
   if (phase === "connected" && existingChannel && !showReconnect) {
