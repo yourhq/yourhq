@@ -147,8 +147,12 @@ def resolve_agent_id(agent_slug):
             aid = entry.get("id") or ""
             if aid.endswith("/" + agent_slug) or aid.endswith("-" + agent_slug):
                 return aid.replace("/", "-")
-    except Exception:
-        pass
+    except Exception as e:
+        print(
+            f"[dispatcher] resolve_agent_id failed for '{agent_slug}' using {OPENCLAW_CONFIG}: {e}; "
+            "falling back to bare slug",
+            file=sys.stderr,
+        )
     return agent_slug
 
 
