@@ -1,3 +1,4 @@
+import json
 import subprocess
 
 import pytest
@@ -473,3 +474,54 @@ def test_inbox_dispatcher_ws_url(monkeypatch):
     url = dispatcher._ws_url()
     assert url.startswith("wss://abc.supabase.co")
     assert "apikey=my-key" in url
+
+
+# ── resolve_agent_id (openclaw >=6.x workspace-prefixed ids) ───────────
+
+
+def _write_openclaw_config(tmp_path, agent_ids):
+    cfg = {"agents": {"list": [{"id": aid} for aid in agent_ids]}}
+    path = tmp_path / "openclaw.json"
+    path.write_text(json.dumps(cfg))
+    return str(path)
+
+
+def test_resolve_agent_id_normalizes_slash_id_to_dash_form(tmp_path, monkeypatch):
+    import inbox_dispatcher as mod
+
+    path = _write_openclaw_config(tmp_path, ["prajoth-hq/alex"])
+    monkeypatch.setattr(mod, "OPENCLAW_CONFIG", path)
+    # Config registers the slash form, but the CLI addresses agents with
+    # dashes -- the wake call must use the dash form.
+    assert mod.resolve_agent_id("alex") == "prajoth-hq-alex"
+
+
+def test_resolve_agent_id_returns_registered_dash_id(tmp_path, monkeypatch):
+    import inbox_dispatcher as mod
+
+    path = _write_openclaw_config(tmp_path, ["prajoth-hq-alex"])
+    monkeypatch.setattr(mod, "OPENCLAW_CONFIG", path)
+    assert mod.resolve_agent_id("alex") == "prajoth-hq-alex"
+
+
+def test_resolve_agent_id_prefers_exact_match(tmp_path, monkeypatch):
+    import inbox_dispatcher as mod
+
+    path = _write_openclaw_config(tmp_path, ["ws-alex", "alex"])
+    monkeypatch.setattr(mod, "OPENCLAW_CONFIG", path)
+    assert mod.resolve_agent_id("alex") == "alex"
+
+
+def test_resolve_agent_id_falls_back_to_slug_when_unregistered(tmp_path, monkeypatch):
+    import inbox_dispatcher as mod
+
+    path = _write_openclaw_config(tmp_path, ["prajoth-hq/alex"])
+    monkeypatch.setattr(mod, "OPENCLAW_CONFIG", path)
+    assert mod.resolve_agent_id("mary") == "mary"
+
+
+def test_resolve_agent_id_falls_back_when_config_missing(monkeypatch):
+    import inbox_dispatcher as mod
+
+    monkeypatch.setattr(mod, "OPENCLAW_CONFIG", "/nonexistent/openclaw.json")
+    assert mod.resolve_agent_id("alex") == "alex"

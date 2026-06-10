@@ -508,8 +508,29 @@ def cleanup_auth_flow(cmd_id, sock=None):
             pass
 
 
+# openclaw >=6.x folded the CLI-specific providers into their base provider
+# plugin (openai-codex -> openai, google-gemini-cli -> google). The UI
+# catalog sends the new names, but normalize here too so an older UI paired
+# with a newer gateway keeps working.
+PROVIDER_ALIASES = {
+    "openai-codex": "openai",
+    "google-gemini-cli": "google",
+}
+
+
+def normalize_provider(provider):
+    return PROVIDER_ALIASES.get(provider, provider)
+
+
+def normalize_model(model):
+    """Normalize the provider segment of a `provider/model` string."""
+    if "/" in model:
+        provider, rest = model.split("/", 1)
+        return f"{normalize_provider(provider)}/{rest}"
+    return model
+
+
 PROVIDER_DEFAULT_MODELS = {
-    "openai-codex": "openai-codex/gpt-5.4",
     "openai": "openai/gpt-5.4",
     "anthropic": "anthropic/claude-sonnet-4-5-20250514",
     "google": "google/gemini-2.5-pro",
@@ -563,12 +584,33 @@ def _set_default_model_for_provider(provider, force=False):
         log(f"Failed to set default model: {e}")
 
 
+def _cleanup_stale_codex_auth(provider):
+    """Drop the codex plugin's cached credentials after an auth change.
+
+    openclaw's codex plugin caches credentials in codex-home/auth.json. When
+    the operator switches auth flavors (api-key -> ChatGPT OAuth or back),
+    the stale cache wins over the new profile and the Codex runtime fails
+    with "network connection error" / invalid_provider_content_type. Remove
+    the cache so the runtime re-derives auth from the new profile.
+    """
+    if provider != "openai":
+        return
+    state_dir = os.environ.get("OPENCLAW_STATE_DIR", os.path.join(HOME, ".openclaw"))
+    path = os.path.join(state_dir, "codex-home", "auth.json")
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+            log(f"Removed stale codex auth cache at {path}")
+    except Exception as e:
+        log(f"Failed to remove stale codex auth cache at {path}: {e}")
+
+
 def handle_auth_set_api_key(cmd_id, payload):
     """Single-shot path for api_key shape — no interactivity required.
 
     payload: { provider: str, api_key: str, profile_name?: str }
     """
-    provider = (payload.get("provider") or "").strip()
+    provider = normalize_provider((payload.get("provider") or "").strip())
     api_key = payload.get("api_key") or ""
     profile_name = (payload.get("profile_name") or "default").strip() or "default"
 
@@ -612,6 +654,7 @@ def handle_auth_set_api_key(cmd_id, payload):
         if proc.returncode != 0:
             raise RuntimeError(f"paste-api-key failed: {(proc.stderr or proc.stdout or '').strip()[:200]}")
 
+        _cleanup_stale_codex_auth(provider)
         _set_default_model_for_provider(provider, force=True)
 
         scrubbed = {k: v for k, v in payload.items() if k not in ("api_key", "base_url")}
@@ -649,7 +692,7 @@ def handle_auth_start(cmd_id, payload):
 
     payload: { provider: str, profile_name?: str, mode?: 'oauth_paste' | 'device_code' }
     """
-    provider = (payload.get("provider") or "").strip()
+    provider = normalize_provider((payload.get("provider") or "").strip())
     profile_name = (payload.get("profile_name") or "default").strip() or "default"
     mode = payload.get("mode") or "oauth_paste"
 
@@ -838,6 +881,7 @@ def handle_auth_start(cmd_id, payload):
 
     if rc == 0:
         profile_id = f"{provider}:{profile_name}"
+        _cleanup_stale_codex_auth(provider)
         sync_to_shared_auth()
         _set_default_model_for_provider(provider, force=True)
         patch_command_payload(
@@ -1121,7 +1165,7 @@ def handle_auth_refresh(cmd_id, payload):
     args = ["openclaw", "models", "status", "--json", "--probe"]
     if profile_id and ":" in profile_id:
         provider, name = profile_id.split(":", 1)
-        args += ["--probe-provider", provider, "--probe-profile", name]
+        args += ["--probe-provider", normalize_provider(provider), "--probe-profile", name]
 
     try:
         result = subprocess.run(
@@ -1163,8 +1207,8 @@ def handle_auth_set_default(cmd_id, payload):
     Tries `openclaw models set-default --provider <id>` first; if that
     subcommand doesn't exist, falls back to `openclaw models set <provider>`.
     """
-    provider = (payload.get("provider") or "").strip()
-    model = (payload.get("model") or "").strip()
+    provider = normalize_provider((payload.get("provider") or "").strip())
+    model = normalize_model((payload.get("model") or "").strip())
     target = provider or model
     if not target:
         api_rpc(

@@ -577,7 +577,8 @@ def test_auth_set_default_uses_models_set(monkeypatch):
     cr.handle_auth_set_default("cmd-sd-1", {"provider": "openai-codex"})
 
     assert len(runs) == 1
-    assert runs[0] == ["openclaw", "models", "set", "openai-codex"]
+    # openclaw >=6.x folded openai-codex into openai; the runner normalizes.
+    assert runs[0] == ["openclaw", "models", "set", "openai"]
     assert "set-default" not in runs[0]
     assert any(fn == "complete_command" for fn, _ in rpc_calls)
 
@@ -642,3 +643,75 @@ def test_auth_set_api_key_uses_paste_api_key_cli(monkeypatch):
     assert "--agent" not in paste[0]  # paste-api-key has no --agent flag in 5.28
     assert "sk-test\n" in stdins  # key delivered via stdin, not argv
     assert any(fn == "complete_command" for fn, _ in rpc_calls)
+
+
+# ── provider normalization (openclaw >=6.x renames) ────────────────────
+
+
+def test_normalize_provider_maps_openai_codex():
+    import command_runner as mod
+
+    assert mod.normalize_provider("openai-codex") == "openai"
+
+
+def test_normalize_provider_maps_google_gemini_cli():
+    import command_runner as mod
+
+    assert mod.normalize_provider("google-gemini-cli") == "google"
+
+
+def test_normalize_provider_passes_through_unmapped():
+    import command_runner as mod
+
+    assert mod.normalize_provider("anthropic") == "anthropic"
+    assert mod.normalize_provider("openai") == "openai"
+
+
+def test_normalize_model_rewrites_provider_segment():
+    import command_runner as mod
+
+    assert mod.normalize_model("openai-codex/gpt-5.4") == "openai/gpt-5.4"
+    assert mod.normalize_model("anthropic/claude-sonnet-4-5") == "anthropic/claude-sonnet-4-5"
+
+
+def test_normalize_model_leaves_bare_names():
+    import command_runner as mod
+
+    assert mod.normalize_model("gpt-5.4") == "gpt-5.4"
+    assert mod.normalize_model("") == ""
+
+
+# ── codex auth cache cleanup ───────────────────────────────────────────
+
+
+def test_cleanup_stale_codex_auth_removes_cache(tmp_path, monkeypatch):
+    import command_runner as mod
+
+    codex_home = tmp_path / "codex-home"
+    codex_home.mkdir()
+    auth = codex_home / "auth.json"
+    auth.write_text("{}")
+    monkeypatch.setenv("OPENCLAW_STATE_DIR", str(tmp_path))
+
+    mod._cleanup_stale_codex_auth("openai")
+    assert not auth.exists()
+
+
+def test_cleanup_stale_codex_auth_ignores_other_providers(tmp_path, monkeypatch):
+    import command_runner as mod
+
+    codex_home = tmp_path / "codex-home"
+    codex_home.mkdir()
+    auth = codex_home / "auth.json"
+    auth.write_text("{}")
+    monkeypatch.setenv("OPENCLAW_STATE_DIR", str(tmp_path))
+
+    mod._cleanup_stale_codex_auth("anthropic")
+    assert auth.exists()
+
+
+def test_cleanup_stale_codex_auth_noop_when_absent(tmp_path, monkeypatch):
+    import command_runner as mod
+
+    monkeypatch.setenv("OPENCLAW_STATE_DIR", str(tmp_path))
+    mod._cleanup_stale_codex_auth("openai")  # must not raise

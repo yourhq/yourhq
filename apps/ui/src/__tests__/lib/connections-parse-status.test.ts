@@ -264,4 +264,32 @@ describe("parseModelsStatus", () => {
     expect(result).toHaveLength(1);
     expect(result[0].provider).toBe("valid");
   });
+
+  test("captures authType from the profile type field (openclaw >=6.x)", () => {
+    const stdout = JSON.stringify({
+      auth: {
+        oauth: [
+          { provider: "openai", profile: "default", reason: "ok", type: "oauth" },
+        ],
+        providers: {
+          anthropic: {
+            profiles: [{ profile: "default", reason: "ok", type: "api_key" }],
+          },
+        },
+      },
+    });
+    const result = parseModelsStatus(stdout, GATEWAY);
+    const openai = result.find((c) => c.provider === "openai");
+    const anthropic = result.find((c) => c.provider === "anthropic");
+    expect(openai?.authType).toBe("oauth");
+    expect(anthropic?.authType).toBe("api_key");
+  });
+
+  test("authType is undefined when the type field is absent", () => {
+    const stdout = JSON.stringify({
+      auth: { oauth: [{ provider: "openai", reason: "ok" }] },
+    });
+    const result = parseModelsStatus(stdout, GATEWAY);
+    expect(result[0].authType).toBeUndefined();
+  });
 });

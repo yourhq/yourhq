@@ -40,7 +40,7 @@ import {
 } from "@/app/dashboard/settings/connections/actions";
 import {
   CONNECTION_STATUS_META,
-  getProviderCatalog,
+  getProviderCatalogForConnection,
   type Connection,
   type ConnectionStatus,
 } from "@/lib/connections/types";
@@ -125,7 +125,7 @@ export function ConnectionsSettings({
   }, [gatewayId, refresh]);
 
   const onSetDefault = useCallback(async (c: Connection) => {
-    const catalog = getProviderCatalog(c.provider);
+    const catalog = getProviderCatalogForConnection(c.provider, c.authType);
     const r = await enqueueConnectionCommand({
       gatewayId: c.gatewayId,
       action: "auth_set_default",
@@ -328,7 +328,7 @@ export function ConnectionsSettings({
           open
           tone="destructive"
           onCancel={() => setRemoving(null)}
-          title={`Remove ${getProviderCatalog(removing.provider)?.displayName ?? removing.provider}?`}
+          title={`Remove ${getProviderCatalogForConnection(removing.provider, removing.authType)?.displayName ?? removing.provider}?`}
           description={
             <>
               The credential is deleted from this gateway&apos;s auth store.
@@ -358,7 +358,7 @@ function ConnectionRow({
   onRemove: () => void;
   onSetDefault?: () => void;
 }) {
-  const catalog = getProviderCatalog(connection.provider);
+  const catalog = getProviderCatalogForConnection(connection.provider, connection.authType);
   const displayName = catalog?.displayName ?? connection.provider;
   const meta = CONNECTION_STATUS_META[connection.status];
 
