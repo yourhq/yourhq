@@ -16,6 +16,12 @@ COPY --chown=openclaw:openclaw gateway/hosted/e2b/init.sh /opt/yourhq/hooks/init
 COPY --chown=openclaw:openclaw gateway/hosted/e2b/resolve-urls.sh /opt/yourhq/hooks/resolve-urls.sh
 RUN chmod +x /opt/yourhq/hooks/init.sh /opt/yourhq/hooks/resolve-urls.sh
 
+# E2B sandboxes have no IPv6 egress but DNS still returns AAAA records first.
+# Clients that don't do happy-eyeballs (the codex provider transport) hang on
+# the IPv6 attempt and surface "network connection error" from the LLM call.
+# Prefer IPv4 in getaddrinfo ordering host-wide.
+RUN printf 'precedence ::ffff:0:0/96 100\n' > /etc/gai.conf
+
 ENV RUNTIME_MODE=hosted
 
 USER openclaw
