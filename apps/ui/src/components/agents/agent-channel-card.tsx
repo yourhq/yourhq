@@ -500,8 +500,9 @@ export function AgentChannelCard({ agent, onAgentUpdated }: AgentChannelCardProp
                   Pairing code
                 </label>
                 <div className="mt-2">
+                  {/* openclaw pairing codes are 8 characters */}
                   <InputOTP
-                    maxLength={6}
+                    maxLength={8}
                     value={pairingCode}
                     onChange={setPairingCode}
                     onComplete={handleSubmitPairing}
@@ -513,6 +514,8 @@ export function AgentChannelCard({ agent, onAgentUpdated }: AgentChannelCardProp
                       <InputOTPSlot index={3} className="h-10 w-9 text-base" />
                       <InputOTPSlot index={4} className="h-10 w-9 text-base" />
                       <InputOTPSlot index={5} className="h-10 w-9 text-base" />
+                      <InputOTPSlot index={6} className="h-10 w-9 text-base" />
+                      <InputOTPSlot index={7} className="h-10 w-9 text-base" />
                     </InputOTPGroup>
                   </InputOTP>
                 </div>
