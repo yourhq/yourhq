@@ -227,10 +227,13 @@ def _capture_screenshot(cdp_port: int, quality: int = 50) -> bytes | None:
         return None
 
     try:
+        # Chrome gates DevTools WebSocket upgrades by Origin. Agent Chrome
+        # launched from the desktop shortcut allows only http://localhost
+        # (openclaw-managed launches allow *), so present that exact origin.
         ws = websocket.create_connection(
             ws_url,
             timeout=5,
-            origin=f"http://127.0.0.1:{cdp_port}",
+            origin="http://localhost",
             suppress_origin=False,
         )
         try:
