@@ -40,6 +40,13 @@ export interface Connection {
   lastCheckedAt?: string;
   /** Whether this profile is the gateway's default for new agents. */
   isDefault: boolean;
+  /**
+   * Credential kind as reported by openclaw ("oauth", "api_key", "token").
+   * openclaw >=6.x reports both ChatGPT-OAuth and API-key credentials under
+   * the same provider id ("openai"), so this is the only way to tell the
+   * two flavors apart for display.
+   */
+  authType?: string;
 }
 
 // ─── Provider catalog ────────────────────────────────────────────────
@@ -52,8 +59,16 @@ export interface Connection {
 //     round-trip through the gateway.
 
 export interface ProviderCatalogEntry {
-  /** The string passed to `openclaw --provider`. */
+  /** Catalog identity. Also the `openclaw --provider` value unless gatewayProvider is set. */
   id: string;
+  /**
+   * Provider id the gateway actually uses when it differs from the catalog
+   * id. openclaw >=6.x folded the CLI-specific providers into their base
+   * plugin (openai-codex -> openai, google-gemini-cli -> google); the
+   * catalog keeps separate entries because the auth flows the user picks
+   * between are still distinct.
+   */
+  gatewayProvider?: string;
   displayName: string;
   /** What the user sees when picking. */
   category: "recommended" | "open_models" | "all";
@@ -93,7 +108,8 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
   },
   {
     id: "openai-codex",
-    displayName: "OpenAI Codex (ChatGPT)",
+    gatewayProvider: "openai",
+    displayName: "OpenAI (ChatGPT)",
     category: "recommended",
     authShape: "oauth_paste",
     alternateShape: "device_code",
@@ -284,6 +300,7 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
   },
   {
     id: "google-gemini-cli",
+    gatewayProvider: "google",
     displayName: "Gemini CLI",
     category: "all",
     authShape: "oauth_paste",
@@ -294,6 +311,34 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
 
 export function getProviderCatalog(id: string): ProviderCatalogEntry | undefined {
   return PROVIDER_CATALOG.find((p) => p.id === id);
+}
+
+const OAUTH_SHAPES: AuthShape[] = ["oauth_paste", "device_code", "cli_reuse"];
+
+/**
+ * Resolve the catalog entry for a connection reported by the gateway.
+ *
+ * openclaw >=6.x reports OAuth and API-key credentials under the same
+ * provider id, so when several catalog entries map to the same gateway
+ * provider (openai / openai-codex), the connection's authType picks the
+ * right one for display.
+ */
+export function getProviderCatalogForConnection(
+  provider: string,
+  authType?: string,
+): ProviderCatalogEntry | undefined {
+  const candidates = PROVIDER_CATALOG.filter(
+    (p) => p.id === provider || (p.gatewayProvider ?? p.id) === provider,
+  );
+  if (candidates.length <= 1) return candidates[0];
+  if (authType) {
+    const wantOauth = authType !== "api_key";
+    const match = candidates.find((p) =>
+      wantOauth ? OAUTH_SHAPES.includes(p.authShape) : p.authShape === "api_key",
+    );
+    if (match) return match;
+  }
+  return candidates.find((p) => p.id === provider) ?? candidates[0];
 }
 
 export const CONNECTION_STATUS_META: Record<

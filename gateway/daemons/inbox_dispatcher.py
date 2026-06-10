@@ -119,7 +119,36 @@ def log(msg, level="info", **extra):
     print(json.dumps(entry, default=str), flush=True)
 
 
+OPENCLAW_CONFIG = os.path.join(
+    os.environ.get("OPENCLAW_HOME", os.path.expanduser("~/.openclaw")),
+    "openclaw.json",
+)
+
+
 def resolve_agent_id(agent_slug):
+    """Map an HQ agent slug to the id openclaw has the agent registered under.
+
+    openclaw >=6.x registers agents as {workspace-slug}/{agent-slug}
+    (add-agent.sh writes that id into agents.list), so waking the bare slug
+    silently targets a nonexistent agent. Look the slug up in openclaw.json
+    and return the registered id with slashes normalized to dashes — the
+    CLI addresses agents in the dash form (`openclaw status` shows
+    prajoth-hq-alex for a config id of prajoth-hq/alex). Fall back to the
+    bare slug if no entry matches (agent not yet provisioned).
+    """
+    try:
+        with open(OPENCLAW_CONFIG) as f:
+            cfg = json.load(f)
+        entries = cfg.get("agents", {}).get("list") or []
+        for entry in entries:
+            if (entry.get("id") or "") == agent_slug:
+                return agent_slug
+        for entry in entries:
+            aid = entry.get("id") or ""
+            if aid.endswith("/" + agent_slug) or aid.endswith("-" + agent_slug):
+                return aid.replace("/", "-")
+    except Exception:
+        pass
     return agent_slug
 
 

@@ -15,6 +15,8 @@ interface RawProfile {
   expires?: number;
   expiresAt?: string;
   isDefault?: boolean;
+  /** Credential kind: "oauth" | "api_key" | "token" (openclaw >=6.x). */
+  type?: string;
 }
 
 // Known-bad reasons — anything not listed here is treated as "ok"
@@ -89,6 +91,7 @@ export function parseModelsStatus(
       expiresAt,
       lastCheckedAt: new Date().toISOString(),
       isDefault: !!raw.isDefault,
+      authType: raw.type,
     });
   };
 

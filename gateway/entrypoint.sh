@@ -22,7 +22,7 @@
 # OAuth login is NOT run automatically — the UI triggers it via the command
 # queue in Phase 3, or you can run it manually:
 #   docker compose exec gateway openclaw models auth login \
-#     --provider openai-codex --set-default
+#     --provider openai --set-default
 # =============================================================================
 set -euo pipefail
 [[ "${DEBUG:-}" == "1" ]] && set -x
@@ -357,6 +357,10 @@ if [ -f "$CONFIG" ]; then
   jq --arg plugin_path "$PLUGIN_DIR" '
     (if .agents.defaults.tools then del(.agents.defaults.tools) else . end) |
     .tools.profile = "full" |
+    # openclaw >=6.x runs tool execution through the Codex sandbox runtime,
+    # gated by tools.codeMode. Without it agents come up in pure chat mode
+    # with zero tools (no exec, no browser, no web_search).
+    .tools.codeMode = true |
     .gateway.bind = "lan" |
     .browser.executablePath //= "/usr/bin/google-chrome-stable" |
     .browser.defaultProfile //= "openclaw" |
@@ -383,6 +387,21 @@ if [ -f "$CONFIG" ]; then
     .plugins.load.paths = ((.plugins.load.paths // []) + [$plugin_path] | unique)
   ' "$CONFIG" > "$TMP" && mv "$TMP" "$CONFIG"
 fi
+
+# openclaw >=6.x ships provider integrations as installable plugins instead
+# of bundling them. Without the provider plugin, `openclaw models auth`
+# fails and agents can't resolve their model. Install into ~/.openclaw
+# (a volume, so this must happen at boot, not image build). Idempotent —
+# skip anything already installed. Extend via OPENCLAW_PROVIDER_PLUGINS.
+PROVIDER_PLUGINS="${OPENCLAW_PROVIDER_PLUGINS:-openai}"
+INSTALLED_PLUGINS=$(openclaw plugins list 2>/dev/null || true)
+for p in $PROVIDER_PLUGINS; do
+  if ! printf '%s' "$INSTALLED_PLUGINS" | grep -q "$p"; then
+    log "Installing provider plugin: $p ..."
+    openclaw plugins install "$p" \
+      || log "  ⚠ failed to install provider plugin $p — model auth for it will not work"
+  fi
+done
 
 if [ -d "$PLUGIN_SRC" ]; then
   mkdir -p "$PLUGIN_DIR"
@@ -731,7 +750,10 @@ if [ "$RUNTIME_MODE" = "hosted" ]; then
   [ -d "$DAEMON_DIR" ] || DAEMON_DIR="$(dirname "$(readlink -f "$0")")/daemons"
 
   if [ -f "$DAEMON_DIR/embedder.py" ] && [ -z "${EMBEDDER_URL:-}" ]; then
-    export EMBEDDER_URL="http://localhost:18801"
+    # Use port 9100 in hosted mode — 18801 is the first CDP port allocated
+    # by add-agent.sh and would collide with the first agent's Chrome.
+    export EMBEDDER_PORT="${EMBEDDER_PORT:-9100}"
+    export EMBEDDER_URL="http://localhost:${EMBEDDER_PORT}"
   fi
 
   if [ -f "$DAEMON_DIR/embedder.py" ]; then
