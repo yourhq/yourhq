@@ -61,13 +61,6 @@ export async function updateSession(request: NextRequest) {
   }
 
   const cookiePrefix = `hq-${workspace.id.slice(0, 8)}`;
-
-  for (const c of request.cookies.getAll()) {
-    if (c.name.startsWith("hq-") && !c.name.startsWith(cookiePrefix)) {
-      supabaseResponse.cookies.delete(c.name);
-    }
-  }
-
   const supabase = createServerClient(workspace.url, workspace.anonKey, {
     cookieOptions: { name: cookiePrefix },
     cookies: {
