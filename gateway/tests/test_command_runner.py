@@ -767,7 +767,5 @@ def test_provision_branch_uses_payload_workspace_slug(monkeypatch):
 
     monkeypatch.setattr(cr, "WORKSPACE_SLUG", None)
     monkeypatch.setattr(cr, "api_get", lambda *a, **k: [])
-    args, _desc = cr.build_command(
-        "provision", "alex", {"workspace_slug": "prajoth-hq", "channel": "none"}
-    )
+    args, _desc = cr.build_command("provision", "alex", {"workspace_slug": "prajoth-hq", "channel": "none"})
     assert args[1] == "prajoth-hq/alex"
