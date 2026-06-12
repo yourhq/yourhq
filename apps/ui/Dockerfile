@@ -74,4 +74,4 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 EXPOSE 3000
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
-CMD ["node", "server.js"]
+CMD ["node", "--max-http-header-size=65536", "server.js"]
