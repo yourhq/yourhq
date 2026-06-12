@@ -55,6 +55,12 @@ export async function POST(req: NextRequest) {
   const jar = await cookies();
   const cookiePrefix = `hq-${workspace.id.slice(0, 8)}`;
 
+  for (const c of jar.getAll()) {
+    if (c.name.startsWith("hq-") && !c.name.startsWith(cookiePrefix)) {
+      jar.delete(c.name);
+    }
+  }
+
   const targetSupabase = createServerClient(workspace.url, workspace.anonKey, {
     cookieOptions: { name: cookiePrefix },
     cookies: {
