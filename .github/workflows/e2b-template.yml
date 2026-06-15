@@ -1,12 +1,10 @@
 name: Build E2B gateway template
 
 # Runs AFTER "Publish images" finishes, never in parallel with it.
-# The template's Dockerfile.e2b does `FROM ghcr.io/yourhq/yourhq-gateway:latest`,
-# so the gateway base image must already be republished before this builds —
-# otherwise the template ends up FROM a stale base (this once shipped a
-# template running an old OpenClaw despite a correct base build). Triggering
-# on workflow_run guarantees the ordering; build-template.mjs uses skipCache()
-# so the base layer is always re-pulled fresh.
+# build-template.mjs resolves the semver tag from git (v0.2.0 → 0.2.0) and
+# injects it into Dockerfile.e2b's GATEWAY_TAG arg so the E2B template is
+# pinned to the exact release. skipCache() ensures the base layer is always
+# re-pulled fresh.
 on:
   workflow_run:
     workflows: ["Publish images"]
@@ -44,7 +42,16 @@ jobs:
       - name: Install E2B SDK
         run: npm install e2b
 
+      - name: Resolve gateway image tag
+        id: tag
+        run: |
+          # Strip 'v' prefix from the git tag (v0.2.0 → 0.2.0) to match
+          # the semver image tags published by docker-publish.yml.
+          RAW=$(git describe --tags --abbrev=0 2>/dev/null || echo "latest")
+          echo "gateway_tag=${RAW#v}" >> "$GITHUB_OUTPUT"
+
       - name: Build and push template
         env:
           E2B_API_KEY: ${{ secrets.E2B_API_KEY }}
+          GATEWAY_TAG: ${{ steps.tag.outputs.gateway_tag }}
         run: node gateway/build-template.mjs

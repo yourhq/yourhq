@@ -1,4 +1,5 @@
-FROM ghcr.io/yourhq/yourhq-gateway:latest
+ARG GATEWAY_TAG=latest
+FROM ghcr.io/yourhq/yourhq-gateway:${GATEWAY_TAG}
 
 USER root
 
