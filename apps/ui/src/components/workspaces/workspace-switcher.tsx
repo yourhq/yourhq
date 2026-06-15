@@ -37,7 +37,15 @@ async function switchWorkspace(workspaceId: string) {
     console.error("Workspace switch failed", await res.text());
     return;
   }
-  window.location.reload();
+  // Navigate to the section root instead of reloading the current URL.
+  // e.g. /dashboard/agents/sierra → /dashboard/agents
+  // This avoids 404s when the new workspace doesn't have the same resource.
+  const segments = window.location.pathname.split("/").filter(Boolean);
+  const sectionRoot =
+    segments.length > 2
+      ? "/" + segments.slice(0, 2).join("/")
+      : window.location.pathname;
+  window.location.href = sectionRoot;
 }
 
 export function WorkspaceSwitcher({
