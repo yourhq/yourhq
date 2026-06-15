@@ -225,8 +225,9 @@ function GatewayBackupRow({
   onBackup: () => void;
   onDelete: () => void;
 }) {
+  const [now] = useState(() => globalThis.Date.now());
   const isOnline = info.gatewayStatus === "ready" && info.lastSeenAt &&
-    Date.now() - new Date(info.lastSeenAt).getTime() < 90_000;
+    now - new Date(info.lastSeenAt).getTime() < 90_000;
 
   return (
     <div

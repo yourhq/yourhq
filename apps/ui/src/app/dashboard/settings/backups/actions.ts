@@ -3,7 +3,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth } from "@/lib/supabase/require-auth";
 import { enqueueAgentCommand } from "@/app/dashboard/agents/actions";
-import type { Gateway } from "@/lib/gateways/types";
 
 export interface BackupInfo {
   gatewayId: string;
