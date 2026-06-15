@@ -553,6 +553,141 @@ def test_sync_to_shared_auth_skips_when_nothing_found(monkeypatch, tmp_path):
     assert not shared.exists()
 
 
+def _make_sqlite_auth(path, agent_id, auth_data='{"version":1,"profiles":{"openai:test":{"type":"oauth"}}}'):
+    """Helper: create a valid openclaw-agent.sqlite with auth data."""
+    import sqlite3
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(path))
+    conn.execute(
+        "CREATE TABLE schema_meta "
+        "(meta_key TEXT, type TEXT, version TEXT, agent_id TEXT, "
+        "extra TEXT, created_at INTEGER, updated_at INTEGER)"
+    )
+    conn.execute(
+        "INSERT INTO schema_meta VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ("primary", "agent", "1", agent_id, None, 0, 0),
+    )
+    conn.execute("CREATE TABLE auth_profile_store (key TEXT, store_json TEXT, updated_at INTEGER)")
+    if auth_data:
+        conn.execute("INSERT INTO auth_profile_store VALUES (?, ?, ?)", ("primary", auth_data, 0))
+    conn.execute("CREATE TABLE cache_entries (key TEXT, value TEXT)")
+    conn.execute("CREATE TABLE auth_profile_state (key TEXT, state_json TEXT, updated_at INTEGER)")
+    conn.commit()
+    conn.close()
+
+
+def test_sqlite_auth_clone_to_new_agent(monkeypatch, tmp_path):
+    """New agents without SQLite auth get cloned from the source agent."""
+    import command_runner as cr
+
+    state_dir = tmp_path / ".openclaw"
+    monkeypatch.setenv("OPENCLAW_STATE_DIR", str(state_dir))
+    monkeypatch.setattr(cr, "HOME", str(tmp_path))
+
+    # Source agent with valid auth
+    src = state_dir / "agents" / "agent-a" / "agent"
+    _make_sqlite_auth(src / "openclaw-agent.sqlite", "agent-a")
+
+    # Target agent with no SQLite
+    tgt = state_dir / "agents" / "agent-b" / "agent"
+    tgt.mkdir(parents=True)
+
+    cr.sync_to_shared_auth()
+
+    import sqlite3
+
+    db = sqlite3.connect(str(tgt / "openclaw-agent.sqlite"))
+    aid = db.execute("SELECT agent_id FROM schema_meta WHERE meta_key = 'primary'").fetchone()
+    store = db.execute("SELECT store_json FROM auth_profile_store LIMIT 1").fetchone()
+    db.close()
+
+    assert aid[0] == "agent-b"
+    assert store is not None and len(store[0]) > 10
+
+
+def test_sqlite_auth_clone_patches_agent_id(monkeypatch, tmp_path):
+    """Cloned SQLite must have agent_id patched to match the target directory."""
+    import sqlite3
+
+    import command_runner as cr
+
+    state_dir = tmp_path / ".openclaw"
+    monkeypatch.setenv("OPENCLAW_STATE_DIR", str(state_dir))
+    monkeypatch.setattr(cr, "HOME", str(tmp_path))
+
+    src = state_dir / "agents" / "source" / "agent"
+    _make_sqlite_auth(src / "openclaw-agent.sqlite", "source")
+
+    for name in ["target-1", "target-2"]:
+        (state_dir / "agents" / name / "agent").mkdir(parents=True)
+
+    cr.sync_to_shared_auth()
+
+    for name in ["target-1", "target-2"]:
+        db = sqlite3.connect(str(state_dir / "agents" / name / "agent" / "openclaw-agent.sqlite"))
+        aid = db.execute("SELECT agent_id FROM schema_meta WHERE meta_key = 'primary'").fetchone()
+        db.close()
+        assert aid[0] == name
+
+
+def test_sqlite_auth_skips_agent_with_valid_auth(monkeypatch, tmp_path):
+    """Agents that already have valid auth and correct agent_id are not overwritten."""
+    import sqlite3
+
+    import command_runner as cr
+
+    state_dir = tmp_path / ".openclaw"
+    monkeypatch.setenv("OPENCLAW_STATE_DIR", str(state_dir))
+    monkeypatch.setattr(cr, "HOME", str(tmp_path))
+
+    src = state_dir / "agents" / "agent-a" / "agent"
+    _make_sqlite_auth(src / "openclaw-agent.sqlite", "agent-a")
+
+    tgt = state_dir / "agents" / "agent-b" / "agent"
+    own_auth = '{"version":1,"profiles":{"anthropic:own":{"type":"api-key"}}}'
+    _make_sqlite_auth(tgt / "openclaw-agent.sqlite", "agent-b", auth_data=own_auth)
+
+    cr.sync_to_shared_auth()
+
+    db = sqlite3.connect(str(tgt / "openclaw-agent.sqlite"))
+    store = db.execute("SELECT store_json FROM auth_profile_store LIMIT 1").fetchone()
+    db.close()
+    assert "anthropic:own" in store[0]
+
+
+def test_sqlite_auth_fixes_mismatched_agent_id(monkeypatch, tmp_path):
+    """An existing SQLite with wrong agent_id gets re-cloned with the correct ID."""
+    import sqlite3
+    import time
+
+    import command_runner as cr
+
+    state_dir = tmp_path / ".openclaw"
+    monkeypatch.setenv("OPENCLAW_STATE_DIR", str(state_dir))
+    monkeypatch.setattr(cr, "HOME", str(tmp_path))
+
+    # Source agent — created first so it's the only valid candidate.
+    src = state_dir / "agents" / "agent-a" / "agent"
+    _make_sqlite_auth(src / "openclaw-agent.sqlite", "agent-a")
+    # Ensure src has a newer mtime than the target.
+    import os
+
+    future = time.time() + 1
+    os.utime(str(src / "openclaw-agent.sqlite"), (future, future))
+
+    # Target: has auth but wrong agent_id (simulates a raw copy without patching).
+    tgt = state_dir / "agents" / "agent-b" / "agent"
+    _make_sqlite_auth(tgt / "openclaw-agent.sqlite", "agent-a")
+
+    cr.sync_to_shared_auth()
+
+    db = sqlite3.connect(str(tgt / "openclaw-agent.sqlite"))
+    aid = db.execute("SELECT agent_id FROM schema_meta WHERE meta_key = 'primary'").fetchone()
+    db.close()
+    assert aid[0] == "agent-b"
+
+
 def test_auth_set_default_uses_models_set(monkeypatch):
     """openclaw 5.x: default model is set via `models set <target>` (the
     legacy `set-default` subcommand was removed)."""

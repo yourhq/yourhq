@@ -89,9 +89,33 @@ def now_iso():
 RUNTIME_MODE = os.environ.get("RUNTIME_MODE", "systemd")
 COMPOSE_PROJECT = os.environ.get("COMPOSE_PROJECT", "yourhq")
 
+
 # This gateway's identity. Used to filter lease_command calls so multiple
 # gateways running against the same Supabase don't steal each other's work.
-GATEWAY_ID = os.environ.get("GATEWAY_ID", "default")
+# Prefer the process env, but fall back to gateway.env (which the entrypoint
+# persists after slug resolution) so daemons restarted outside the entrypoint
+# still pick up the correct ID.
+def _resolve_gateway_id():
+    gid = os.environ.get("GATEWAY_ID")
+    if gid and gid != "default":
+        return gid
+    _gw_env = os.path.join(
+        os.environ.get("OPENCLAW_STATE_DIR", os.path.join(HOME, ".openclaw")),
+        "secrets",
+        "gateway.env",
+    )
+    if os.path.isfile(_gw_env):
+        with open(_gw_env) as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("GATEWAY_ID="):
+                    val = line.split("=", 1)[1].strip("'\"")
+                    if val:
+                        return val
+    return gid or "default"
+
+
+GATEWAY_ID = _resolve_gateway_id()
 GATEWAY_LABEL = os.environ.get("GATEWAY_LABEL", GATEWAY_ID)
 
 DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000000"
@@ -324,6 +348,13 @@ def build_command(action, agent_slug, payload):
         if RUNTIME_MODE == "e2b":
             return None, "Gateway updates in e2b mode are managed by the worker service"
         return ["bash", "-c", "cd ~ && git pull && ./install.sh --update"], "Updating gateway (git pull)"
+
+    elif action == "backup_gateway":
+        daemon_dir = os.environ.get("DAEMON_DIR", "/opt/yourhq/daemons")
+        backup_script = os.path.join(daemon_dir, "gateway_backup.py")
+        if not os.path.isfile(backup_script):
+            backup_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gateway_backup.py")
+        return ["python3", backup_script, "backup"], "Backing up gateway state"
 
     else:
         return None, f"Unknown action: {action}"
@@ -1280,15 +1311,111 @@ def handle_auth_set_default(cmd_id, payload):
         )
 
 
-def sync_to_shared_auth():
-    """Copy the latest auth-profiles.json into shared-auth and propagate to all
-    agent directories so every agent (existing and future) has credentials."""
+def _sync_sqlite_auth():
+    """Clone the SQLite auth store from the source agent to all others.
+
+    OpenClaw ≥6.6 stores auth in per-agent SQLite databases at
+    agents/<id>/agent/openclaw-agent.sqlite. The schema_meta table has an
+    agent_id field that must match the owning agent's directory name.
+
+    Returns True if SQLite auth was found and synced, False otherwise.
+    """
+    import glob as _glob
+    import shutil
+    import sqlite3
+
+    state_dir = os.environ.get("OPENCLAW_STATE_DIR", os.path.join(HOME, ".openclaw"))
+    agent_dirs = _glob.glob(os.path.join(state_dir, "agents", "*", "agent"))
+    if not agent_dirs:
+        return False
+
+    SQLITE_NAME = "openclaw-agent.sqlite"
+
+    # Find the best source: most recently modified SQLite with actual auth data.
+    best_src = None
+    best_mtime = 0
+    for d in agent_dirs:
+        db_path = os.path.join(d, SQLITE_NAME)
+        if not os.path.isfile(db_path):
+            continue
+        try:
+            mt = os.path.getmtime(db_path)
+        except OSError:
+            continue
+        if mt <= best_mtime:
+            continue
+        try:
+            conn = sqlite3.connect(db_path)
+            row = conn.execute("SELECT store_json FROM auth_profile_store LIMIT 1").fetchone()
+            conn.close()
+            if row and len(row[0]) > 10:
+                best_src = db_path
+                best_mtime = mt
+        except Exception:
+            continue
+
+    if not best_src:
+        return False
+
+    cloned = 0
+    for d in agent_dirs:
+        dest = os.path.join(d, SQLITE_NAME)
+        if os.path.realpath(dest) == os.path.realpath(best_src):
+            continue
+
+        agent_name = os.path.basename(os.path.dirname(d))
+
+        # Skip if dest already has valid auth (don't overwrite a working store).
+        if os.path.isfile(dest):
+            try:
+                conn = sqlite3.connect(dest)
+                row = conn.execute("SELECT store_json FROM auth_profile_store LIMIT 1").fetchone()
+                aid = conn.execute("SELECT agent_id FROM schema_meta WHERE meta_key = 'primary'").fetchone()
+                conn.close()
+                if row and len(row[0]) > 10 and aid and aid[0] == agent_name:
+                    continue
+            except Exception:
+                pass
+
+        # Copy and patch agent_id.
+        try:
+            for ext in ("", "-wal", "-shm", "-journal"):
+                stale = dest + ext
+                if os.path.exists(stale):
+                    os.remove(stale)
+            shutil.copy2(best_src, dest)
+            conn = sqlite3.connect(dest)
+            conn.execute(
+                "UPDATE schema_meta SET agent_id = ? WHERE meta_key = ?",
+                (agent_name, "primary"),
+            )
+            conn.commit()
+            conn.close()
+            try:
+                import pwd
+
+                uid = pwd.getpwnam("openclaw").pw_uid
+                gid = pwd.getpwnam("openclaw").pw_gid
+                os.chown(dest, uid, gid)
+            except Exception:
+                pass
+            cloned += 1
+        except Exception as e:
+            log(f"Failed to clone SQLite auth to {agent_name}: {e}")
+
+    if cloned:
+        log(f"Cloned SQLite auth to {cloned} agent(s) from {best_src}")
+    return True
+
+
+def _sync_json_auth():
+    """Legacy: propagate auth-profiles.json via shared-auth symlinks (OpenClaw <6.6)."""
+    import glob as _glob
+    import shutil
+
     state_dir = os.environ.get("OPENCLAW_STATE_DIR", os.path.join(HOME, ".openclaw"))
     shared_dir = os.path.join(state_dir, "shared-auth")
     shared_path = os.path.join(shared_dir, "auth-profiles.json")
-
-    import glob as _glob
-    import shutil
 
     agent_dirs = _glob.glob(os.path.join(state_dir, "agents", "*", "agent"))
     agent_auth_files = [os.path.join(d, "auth-profiles.json") for d in agent_dirs]
@@ -1300,9 +1427,6 @@ def sync_to_shared_auth():
             existing = [gateway_auth]
 
     if not existing:
-        # Broad search: openclaw may write auth to a subdirectory we don't
-        # anticipate (e.g. gateway/agent/, a default profile dir, etc.).
-        # Walk the state dir to find any auth-profiles.json we missed.
         for root, _dirs, files in os.walk(state_dir):
             if "shared-auth" in root:
                 continue
@@ -1342,7 +1466,6 @@ def sync_to_shared_auth():
         log(f"Failed to sync shared-auth: {e}")
         return
 
-    # Also sync auth-state.json if present alongside the best source
     best_dir = os.path.dirname(best)
     state_src = os.path.join(best_dir, "auth-state.json")
     state_dst = os.path.join(shared_dir, "auth-state.json")
@@ -1364,7 +1487,6 @@ def sync_to_shared_auth():
             elif os.path.exists(target):
                 os.unlink(target)
             os.symlink(shared_path, target)
-            # Also link auth-state.json
             state_target = os.path.join(agent_dir, "auth-state.json")
             if os.path.exists(state_dst):
                 if os.path.islink(state_target) or os.path.exists(state_target):
@@ -1372,6 +1494,20 @@ def sync_to_shared_auth():
                 os.symlink(state_dst, state_target)
         except Exception as e:
             log(f"Failed to link auth to {agent_dir}: {e}")
+
+
+def sync_to_shared_auth():
+    """Propagate auth credentials to all agents.
+
+    Tries SQLite auth stores first (OpenClaw ≥6.6), falls back to the
+    legacy auth-profiles.json symlink approach for older versions.
+    """
+    try:
+        if _sync_sqlite_auth():
+            return
+    except Exception as e:
+        log(f"SQLite auth sync failed, falling back to JSON: {e}")
+    _sync_json_auth()
 
 
 def handle_set_agent_model(cmd_id, payload):

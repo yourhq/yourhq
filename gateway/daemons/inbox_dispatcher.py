@@ -57,8 +57,28 @@ SUPABASE_KEY = ""
 RECONCILE_INTERVAL = int(os.environ.get("RECONCILE_INTERVAL", "120"))
 WAKE_COOLDOWN = int(os.environ.get("WAKE_COOLDOWN", "30"))
 
+
 # This gateway's slug — only wake agents bound to this gateway.
-GATEWAY_ID = os.environ.get("GATEWAY_ID", "default")
+# Prefer process env, fall back to gateway.env so daemons restarted
+# outside the entrypoint still get the right ID.
+def _resolve_gateway_id():
+    gid = os.environ.get("GATEWAY_ID")
+    if gid and gid != "default":
+        return gid
+    _state = os.environ.get("OPENCLAW_HOME", os.path.expanduser("~/.openclaw"))
+    _gw_env = os.path.join(_state, "secrets", "gateway.env")
+    if os.path.isfile(_gw_env):
+        with open(_gw_env) as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("GATEWAY_ID="):
+                    val = line.split("=", 1)[1].strip("'\"")
+                    if val:
+                        return val
+    return gid or "default"
+
+
+GATEWAY_ID = _resolve_gateway_id()
 
 DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000000"
 TENANT_ID = os.environ.get("TENANT_ID", DEFAULT_TENANT_ID)

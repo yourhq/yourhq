@@ -38,6 +38,8 @@ export interface Gateway {
   label: string;
   status: GatewayStatus;
   last_seen_at: string | null;
+  last_backup_at: string | null;
+  last_backup_size_bytes: number | null;
   created_at: string;
   updated_at: string;
   meta: GatewayMeta;

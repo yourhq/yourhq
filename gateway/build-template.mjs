@@ -1,16 +1,29 @@
 import { Template, defaultBuildLogger } from "e2b";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
+import { execSync } from "node:child_process";
+
+// Resolve the gateway image tag from the git tag (v0.2.0 → 0.2.0) so the
+// E2B template is pinned to the exact release that was just published.
+let gatewayTag = process.env.GATEWAY_TAG || "";
+if (!gatewayTag) {
+  try {
+    const raw = execSync("git describe --tags --abbrev=0", { encoding: "utf-8" }).trim();
+    gatewayTag = raw.replace(/^v/, "");
+  } catch {
+    gatewayTag = "latest";
+  }
+}
+console.log(`[e2b] Using gateway base image tag: ${gatewayTag}`);
 
 console.log("[e2b] Reading gateway/Dockerfile.e2b...");
-const dockerfile = readFileSync("gateway/Dockerfile.e2b", "utf-8");
+let dockerfile = readFileSync("gateway/Dockerfile.e2b", "utf-8");
+dockerfile = dockerfile.replace(/^ARG GATEWAY_TAG=.*$/m, `ARG GATEWAY_TAG=${gatewayTag}`);
 console.log(`[e2b] Dockerfile loaded (${dockerfile.split("\n").length} lines)`);
 
 console.log("[e2b] Parsing Dockerfile into template definition...");
-// skipCache: Dockerfile.e2b does `FROM ghcr.io/yourhq/yourhq-gateway:latest`.
-// E2B caches the FROM layer by tag string, not digest — so after a release
-// republishes :latest, a cached build silently reuses the OLD base image
-// (this shipped a stale gateway once). Skip cache so the base is always
-// re-pulled fresh. Releases are infrequent; correctness > a few minutes.
+// skipCache: E2B caches the FROM layer by tag string, not digest — so after
+// a release republishes a tag, a cached build silently reuses the OLD base
+// image. Skip cache so the base is always re-pulled fresh.
 const template = Template({ fileContextPath: "." }).skipCache().fromDockerfile(dockerfile);
 console.log("[e2b] Template definition ready");
 

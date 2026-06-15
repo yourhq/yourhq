@@ -245,11 +245,11 @@ if [ -n "$AGENT_MODEL_ARG" ]; then
   AGENT_MODEL="$AGENT_MODEL_ARG"
 fi
 if [ -z "$AGENT_MODEL" ]; then
-  AGENT_MODEL=$(jq -r '.model // empty' "$AGENT_JSON")
+  AGENT_MODEL=$(jq -r '.model // empty' "$AGENT_JSON" 2>/dev/null || true)
 fi
 if [ -z "$AGENT_MODEL" ]; then
   # openclaw 5.x stores the default model at .agents.defaults.model.primary.
-  AGENT_MODEL=$(jq -r '.agents.defaults.model.primary // empty' "$CONFIG" 2>/dev/null)
+  AGENT_MODEL=$(jq -r '.agents.defaults.model.primary // empty' "$CONFIG" 2>/dev/null || true)
 fi
 if [ -z "$AGENT_MODEL" ]; then
   # `models status --json` returns an object with resolvedDefault/defaultModel.

@@ -39,8 +39,19 @@ if [ -f /opt/yourhq/hooks/init.sh ]; then
   source /opt/yourhq/hooks/init.sh
 fi
 
-# Forward SIGTERM from tini to children
-trap 'kill -TERM $(jobs -p) 2>/dev/null || true; exit 0' TERM INT
+# On SIGTERM: backup state to Supabase Storage, then forward signal to children.
+_shutdown() {
+  log "SIGTERM received — backing up gateway state before exit ..."
+  BACKUP_SCRIPT="${DAEMON_DIR:-/opt/yourhq/daemons}/gateway_backup.py"
+  [ -f "$BACKUP_SCRIPT" ] || BACKUP_SCRIPT="$(dirname "$(readlink -f "$0")")/daemons/gateway_backup.py"
+  if [ -f "$BACKUP_SCRIPT" ] && [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
+    timeout 60 python3 "$BACKUP_SCRIPT" backup 2>&1 | while read -r line; do log "$line"; done || true
+  fi
+  # shellcheck disable=SC2046
+  kill -TERM $(jobs -p) 2>/dev/null || true
+  exit 0
+}
+trap '_shutdown' TERM INT
 
 OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
 CONFIG="$OPENCLAW_HOME/openclaw.json"
@@ -187,12 +198,36 @@ if [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
   mkdir -p "$_secrets_dir"
   chmod 700 "$_secrets_dir"
   cat > "$_secrets_dir/gateway.env" <<GWEOF
+GATEWAY_ID=${GATEWAY_ID}
 SUPABASE_URL=${SUPABASE_URL}
 SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
 EMBEDDER_URL=${EMBEDDER_URL:-http://embedder:18801}
 EMBEDDER_MODEL=${EMBEDDER_MODEL:-BAAI/bge-small-en-v1.5}
 GWEOF
   chmod 600 "$_secrets_dir/gateway.env"
+fi
+
+# ─────────────────────────────────────────────────────────────
+# 0b. Restore from backup (if no local agent state exists).
+#     If the gateway is starting fresh (no agents dir = first boot
+#     or recreated sandbox), check Supabase Storage for a previous
+#     backup and extract it. This restores auth tokens, configs,
+#     and secrets so the gateway comes back online without reauth.
+# ─────────────────────────────────────────────────────────────
+
+if [ ! -d "$OPENCLAW_HOME/agents" ] && [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
+  BACKUP_SCRIPT="${DAEMON_DIR:-/opt/yourhq/daemons}/gateway_backup.py"
+  [ -f "$BACKUP_SCRIPT" ] || BACKUP_SCRIPT="$(dirname "$(readlink -f "$0")")/daemons/gateway_backup.py"
+  if [ -f "$BACKUP_SCRIPT" ]; then
+    log "No local agent state — checking for backup to restore ..."
+    if python3 "$BACKUP_SCRIPT" restore 2>&1 | while read -r line; do log "$line"; done; then
+      log "Backup restore complete."
+    else
+      log "No backup found or restore failed — continuing with fresh setup."
+    fi
+  fi
+elif [ -d "$OPENCLAW_HOME/agents" ]; then
+  log "Local agent state exists — skipping restore."
 fi
 
 # ─────────────────────────────────────────────────────────────
@@ -738,6 +773,15 @@ fi
 log "Clearing stale Chrome Singleton* locks in all agent profiles ..."
 find "$HOME/.openclaw/browser" -maxdepth 3 -name "Singleton*" -delete 2>/dev/null || true
 
+# OpenClaw >=6.6 blocks plugins whose path is world-writable (mode & 002).
+# E2B sandboxes create npm project dirs with 777 perms, which triggers this
+# check for the codex plugin. Tighten all dirs/files under the npm tree.
+if [ -d "$HOME/.openclaw/npm" ]; then
+  find "$HOME/.openclaw/npm" -type d -perm /o+w -exec chmod 755 {} + 2>/dev/null || true
+  find "$HOME/.openclaw/npm" -type f -perm /o+w -exec chmod 644 {} + 2>/dev/null || true
+  find "$HOME/.openclaw/npm" -path "*/bin/*" -type f -exec chmod 755 {} + 2>/dev/null || true
+fi
+
 # ─────────────────────────────────────────────────────────────
 # 12. In hosted mode, start daemons in-process.
 #     In docker mode they run as separate containers (dispatcher,
@@ -748,6 +792,15 @@ find "$HOME/.openclaw/browser" -maxdepth 3 -name "Singleton*" -delete 2>/dev/nul
 if [ "$RUNTIME_MODE" = "hosted" ]; then
   DAEMON_DIR="/opt/yourhq/daemons"
   [ -d "$DAEMON_DIR" ] || DAEMON_DIR="$(dirname "$(readlink -f "$0")")/daemons"
+
+  # Kill stale daemons left over from a previous crashed run. In hosted mode
+  # there is no container boundary — orphaned processes survive gateway crashes
+  # and pile up on each restart.
+  log "Killing stale daemons from previous run (if any) ..."
+  for _daemon in embedder.py inbox_dispatcher.py command_runner.py file_processor.py source_sync.py plugin_runner.py; do
+    pkill -f "python3.*${_daemon}" 2>/dev/null || true
+  done
+  sleep 1
 
   if [ -f "$DAEMON_DIR/embedder.py" ] && [ -z "${EMBEDDER_URL:-}" ]; then
     # Use port 9100 in hosted mode — 18801 is the first CDP port allocated
