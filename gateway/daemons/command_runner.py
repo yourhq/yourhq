@@ -89,6 +89,7 @@ def now_iso():
 RUNTIME_MODE = os.environ.get("RUNTIME_MODE", "systemd")
 COMPOSE_PROJECT = os.environ.get("COMPOSE_PROJECT", "yourhq")
 
+
 # This gateway's identity. Used to filter lease_command calls so multiple
 # gateways running against the same Supabase don't steal each other's work.
 # Prefer the process env, but fall back to gateway.env (which the entrypoint
@@ -100,7 +101,8 @@ def _resolve_gateway_id():
         return gid
     _gw_env = os.path.join(
         os.environ.get("OPENCLAW_STATE_DIR", os.path.join(HOME, ".openclaw")),
-        "secrets", "gateway.env",
+        "secrets",
+        "gateway.env",
     )
     if os.path.isfile(_gw_env):
         with open(_gw_env) as f:
@@ -111,6 +113,7 @@ def _resolve_gateway_id():
                     if val:
                         return val
     return gid or "default"
+
 
 GATEWAY_ID = _resolve_gateway_id()
 GATEWAY_LABEL = os.environ.get("GATEWAY_LABEL", GATEWAY_ID)
@@ -1343,9 +1346,7 @@ def _sync_sqlite_auth():
             continue
         try:
             conn = sqlite3.connect(db_path)
-            row = conn.execute(
-                "SELECT store_json FROM auth_profile_store LIMIT 1"
-            ).fetchone()
+            row = conn.execute("SELECT store_json FROM auth_profile_store LIMIT 1").fetchone()
             conn.close()
             if row and len(row[0]) > 10:
                 best_src = db_path
@@ -1368,12 +1369,8 @@ def _sync_sqlite_auth():
         if os.path.isfile(dest):
             try:
                 conn = sqlite3.connect(dest)
-                row = conn.execute(
-                    "SELECT store_json FROM auth_profile_store LIMIT 1"
-                ).fetchone()
-                aid = conn.execute(
-                    "SELECT agent_id FROM schema_meta WHERE meta_key = 'primary'"
-                ).fetchone()
+                row = conn.execute("SELECT store_json FROM auth_profile_store LIMIT 1").fetchone()
+                aid = conn.execute("SELECT agent_id FROM schema_meta WHERE meta_key = 'primary'").fetchone()
                 conn.close()
                 if row and len(row[0]) > 10 and aid and aid[0] == agent_name:
                     continue
@@ -1396,6 +1393,7 @@ def _sync_sqlite_auth():
             conn.close()
             try:
                 import pwd
+
                 uid = pwd.getpwnam("openclaw").pw_uid
                 gid = pwd.getpwnam("openclaw").pw_gid
                 os.chown(dest, uid, gid)

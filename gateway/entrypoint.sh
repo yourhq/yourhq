@@ -47,6 +47,7 @@ _shutdown() {
   if [ -f "$BACKUP_SCRIPT" ] && [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
     timeout 60 python3 "$BACKUP_SCRIPT" backup 2>&1 | while read -r line; do log "$line"; done || true
   fi
+  # shellcheck disable=SC2046
   kill -TERM $(jobs -p) 2>/dev/null || true
   exit 0
 }

@@ -28,9 +28,7 @@ import time
 import urllib.error
 import urllib.request
 
-logging.basicConfig(
-    level=logging.INFO, format="[gateway_backup] %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="[gateway_backup] %(message)s")
 log = logging.getLogger("gateway_backup")
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
@@ -56,7 +54,9 @@ def _storage_api(method: str, endpoint: str, body: dict | None = None, timeout: 
     url = f"{SUPABASE_URL.rstrip('/')}/storage/v1/{endpoint}"
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(
-        url, data=data, method=method,
+        url,
+        data=data,
+        method=method,
         headers={
             "apikey": SUPABASE_KEY,
             "Authorization": f"Bearer {SUPABASE_KEY}",
@@ -72,7 +72,9 @@ def _api_patch(table: str, match: dict, body: dict) -> None:
     url = f"{SUPABASE_URL.rstrip('/')}/rest/v1/{table}?{params}"
     data = json.dumps(body).encode()
     req = urllib.request.Request(
-        url, data=data, method="PATCH",
+        url,
+        data=data,
+        method="PATCH",
         headers={
             "apikey": SUPABASE_KEY,
             "Authorization": f"Bearer {SUPABASE_KEY}",
@@ -89,11 +91,15 @@ def _api_patch(table: str, match: dict, body: dict) -> None:
 def _list_backups() -> list[dict]:
     """List all backup files for this gateway, sorted newest-first."""
     try:
-        items = _storage_api("POST", f"object/list/{BUCKET}", {
-            "prefix": f"{GATEWAY_ID}/",
-            "limit": 100,
-            "sortBy": {"column": "name", "order": "desc"},
-        })
+        items = _storage_api(
+            "POST",
+            f"object/list/{BUCKET}",
+            {
+                "prefix": f"{GATEWAY_ID}/",
+                "limit": 100,
+                "sortBy": {"column": "name", "order": "desc"},
+            },
+        )
     except urllib.error.URLError as e:
         log.warning("Failed to list backups: %s", e)
         return []
@@ -181,7 +187,9 @@ def create_backup() -> dict:
 
     url = _storage_url(storage_path)
     req = urllib.request.Request(
-        url, data=data, method="PUT",
+        url,
+        data=data,
+        method="PUT",
         headers={
             "apikey": SUPABASE_KEY,
             "Authorization": f"Bearer {SUPABASE_KEY}",
@@ -232,7 +240,8 @@ def restore_backup() -> dict:
         file_path = f"{GATEWAY_ID}/{b['name']}"
         url = _storage_url(file_path)
         req = urllib.request.Request(
-            url, headers={
+            url,
+            headers={
                 "apikey": SUPABASE_KEY,
                 "Authorization": f"Bearer {SUPABASE_KEY}",
             },
@@ -265,6 +274,7 @@ def restore_backup() -> dict:
         # Fix ownership if running as root but openclaw user exists
         try:
             import pwd
+
             pw = pwd.getpwnam("openclaw")
             uid, gid = pw.pw_uid, pw.pw_gid
             for root, dirs, files in os.walk(OPENCLAW_HOME, followlinks=False):
@@ -291,9 +301,12 @@ def get_status() -> dict:
 
     backups = _list_backups()
 
-    url = f"{SUPABASE_URL.rstrip('/')}/rest/v1/gateways?slug=eq.{GATEWAY_ID}&select=last_backup_at,last_backup_size_bytes"
+    url = (
+        f"{SUPABASE_URL.rstrip('/')}/rest/v1/gateways?slug=eq.{GATEWAY_ID}&select=last_backup_at,last_backup_size_bytes"
+    )
     req = urllib.request.Request(
-        url, headers={
+        url,
+        headers={
             "apikey": SUPABASE_KEY,
             "Authorization": f"Bearer {SUPABASE_KEY}",
             "Accept": "application/json",

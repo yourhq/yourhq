@@ -672,6 +672,7 @@ def test_sqlite_auth_fixes_mismatched_agent_id(monkeypatch, tmp_path):
     _make_sqlite_auth(src / "openclaw-agent.sqlite", "agent-a")
     # Ensure src has a newer mtime than the target.
     import os
+
     future = time.time() + 1
     os.utime(str(src / "openclaw-agent.sqlite"), (future, future))
 

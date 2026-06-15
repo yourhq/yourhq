@@ -57,6 +57,7 @@ SUPABASE_KEY = ""
 RECONCILE_INTERVAL = int(os.environ.get("RECONCILE_INTERVAL", "120"))
 WAKE_COOLDOWN = int(os.environ.get("WAKE_COOLDOWN", "30"))
 
+
 # This gateway's slug — only wake agents bound to this gateway.
 # Prefer process env, fall back to gateway.env so daemons restarted
 # outside the entrypoint still get the right ID.
@@ -75,6 +76,7 @@ def _resolve_gateway_id():
                     if val:
                         return val
     return gid or "default"
+
 
 GATEWAY_ID = _resolve_gateway_id()
 
