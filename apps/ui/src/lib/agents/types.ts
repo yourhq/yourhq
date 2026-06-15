@@ -103,7 +103,8 @@ export type CommandAction =
   | "collection_list"
   | "collection_query"
   | "collection_record_create"
-  | "collection_record_update";
+  | "collection_record_update"
+  | "backup_gateway";
 
 export type CommandStatus = "pending" | "leased" | "running" | "done" | "failed";
 
@@ -134,7 +135,7 @@ export const AGENT_COMMAND_ACTIONS: CommandAction[] = [
 ];
 
 export const SYSTEM_COMMAND_ACTIONS: CommandAction[] = [
-  "restart_gateway", "update_all", "restart_dispatcher", "update_gateway",
+  "restart_gateway", "update_all", "restart_dispatcher", "update_gateway", "backup_gateway",
 ];
 
 export const CONNECTION_COMMAND_ACTIONS: CommandAction[] = [
@@ -168,6 +169,7 @@ export const COMMAND_ACTION_LABELS: Record<CommandAction, string> = {
   collection_query: "Query collection",
   collection_record_create: "Create record",
   collection_record_update: "Update record",
+  backup_gateway: "Backup Gateway",
 };
 
 export const COMMAND_STATUS_COLORS: Record<CommandStatus, string> = {

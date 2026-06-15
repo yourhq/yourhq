@@ -23,6 +23,7 @@ import {
   Settings,
   Tag,
   LayoutTemplate,
+  HardDrive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -94,6 +95,7 @@ const SETTINGS_NAV: NavGroup[] = [
       { href: "/dashboard/settings/secrets", label: "Secrets", icon: Lock },
       { href: "/dashboard/settings/budgets", label: "Budget Defaults", icon: DollarSign },
       { href: "/dashboard/settings/plugins", label: "Plugins", icon: Blocks },
+      { href: "/dashboard/settings/backups", label: "Backups", icon: HardDrive },
     ],
   },
   {

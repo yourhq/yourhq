@@ -346,6 +346,13 @@ def build_command(action, agent_slug, payload):
             return None, "Gateway updates in e2b mode are managed by the worker service"
         return ["bash", "-c", "cd ~ && git pull && ./install.sh --update"], "Updating gateway (git pull)"
 
+    elif action == "backup_gateway":
+        daemon_dir = os.environ.get("DAEMON_DIR", "/opt/yourhq/daemons")
+        backup_script = os.path.join(daemon_dir, "gateway_backup.py")
+        if not os.path.isfile(backup_script):
+            backup_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gateway_backup.py")
+        return ["python3", backup_script, "backup"], "Backing up gateway state"
+
     else:
         return None, f"Unknown action: {action}"
 
