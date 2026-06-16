@@ -17,7 +17,8 @@ console.log(`[e2b] Using gateway base image tag: ${gatewayTag}`);
 
 console.log("[e2b] Reading gateway/Dockerfile.e2b...");
 let dockerfile = readFileSync("gateway/Dockerfile.e2b", "utf-8");
-dockerfile = dockerfile.replace(/^ARG GATEWAY_TAG=.*$/m, `ARG GATEWAY_TAG=${gatewayTag}`);
+dockerfile = dockerfile.replace(/^ARG GATEWAY_TAG=.*\n?/m, "");
+dockerfile = dockerfile.replaceAll("${GATEWAY_TAG}", gatewayTag);
 console.log(`[e2b] Dockerfile loaded (${dockerfile.split("\n").length} lines)`);
 
 console.log("[e2b] Parsing Dockerfile into template definition...");
