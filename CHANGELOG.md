@@ -11,6 +11,8 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-06-16
+
 ### Added
 
 - **Gateway backup & restore** — gateway state (auth tokens, agent configs, secrets, Telegram pairing) is automatically backed up to Supabase Storage on shutdown and restored on fresh boot. Manual backup trigger from Settings → Backups. Retention: 3 backups per gateway, 7-day max age, newest-first restore with fallback.
@@ -194,7 +196,8 @@ Initial public release.
 - Vulnerability disclosure via `security@yourhq.ai`; trust model and known risks documented in [SECURITY.md](SECURITY.md).
 - Gateway tokens hashed at rest; service-role key handling documented.
 
-[Unreleased]: https://github.com/yourhq/yourhq/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/yourhq/yourhq/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/yourhq/yourhq/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/yourhq/yourhq/compare/v0.1.4...v0.2.0
 [0.1.4]: https://github.com/yourhq/yourhq/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/yourhq/yourhq/compare/v0.1.2...v0.1.3
