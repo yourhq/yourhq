@@ -11,6 +11,33 @@ tagged release.
 
 ## [Unreleased]
 
+### Added
+
+- **Gateway backup & restore** — gateway state (auth tokens, agent configs, secrets, Telegram pairing) is automatically backed up to Supabase Storage on shutdown and restored on fresh boot. Manual backup trigger from Settings → Backups. Retention: 3 backups per gateway, 7-day max age, newest-first restore with fallback.
+- **Backups settings page** — new Settings → Backups UI showing per-gateway backup status, on-demand backup button, and delete action. Real-time updates via Supabase Realtime.
+
+### Changed
+
+- **OpenClaw 6.6 runtime** — gateway upgraded from 6.1 to 6.6. Entrypoint hardened with backup/restore lifecycle, improved bin permission fixes, and shellcheck compliance.
+- **Workspace switcher** — switching workspaces now navigates to the section root (e.g. `/dashboard/agents`) instead of reloading the current URL, preventing 404 loops when the target workspace doesn't have the same resource.
+- **Dependencies** — bumped UI production deps (incl. OpenTelemetry hoist), sentry-sdk, cryptography (CVE fix), dompurify (security advisory), and 13 GitHub Actions updates.
+
+### Fixed
+
+- **Telegram pairing lost on remount** — pairing step no longer resets when Supabase Realtime triggers a component remount during the connect flow.
+- **Pairing code truncation** — input field now accepts OpenClaw's full 8-character pairing codes.
+- **Agent provisioning race** — workspace slug is carried through the full provisioning flow, preventing agents from being created in the wrong context.
+- **CDP screenshot websocket** — `http://localhost` origin now presented correctly on the websocket handshake.
+- **E2B IPv4 preference** — sandboxes prefer IPv4 in `getaddrinfo` since E2B has no IPv6 egress.
+- **Multi-workspace cookie overflow** — raised max HTTP header size to 64KB to accommodate auth cookies across many workspaces.
+- **E2B template build ordering** — template build now runs after image publish completes, not in parallel.
+- **Bare except clause** — replaced bare `except` with specific exception types (CodeQL finding).
+
+### Security
+
+- **cryptography 46.0.7** — patches non-contiguous buffer overflow (CVE).
+- **dompurify** — patched XSS advisory.
+
 ## [0.2.0] — 2026-06-09
 
 ### Added
