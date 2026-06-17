@@ -30,18 +30,16 @@ def _resolve_agent_slug() -> str:
     env_slug = os.environ.get("AGENT_SLUG", "").strip()
     if env_slug:
         return env_slug
-    # 2. Walk up from cwd looking for an agent.json
+    # 2. Derive from workspace directory name — this is the canonical slug.
+    #    OpenClaw workspaces live at ~/.openclaw/workspace-<ws>/<slug>/,
+    #    so the directory containing agent.json IS the slug.
+    #    agent.json may still carry a stale template slug from before
+    #    add-agent.sh patched it, so the directory name takes precedence.
     for base in (Path.cwd(), Path(__file__).resolve().parent):
         for parent in (base, *base.parents):
             candidate = parent / "agent.json"
             if candidate.is_file():
-                try:
-                    data = json.loads(candidate.read_text())
-                    slug = str(data.get("slug", "")).strip()
-                    if slug:
-                        return slug
-                except (json.JSONDecodeError, OSError):
-                    pass
+                return parent.name
     # 3. Last-ditch fallback: cwd basename (original behavior)
     return Path.cwd().name
 
