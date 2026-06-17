@@ -123,16 +123,21 @@ def fetch_boot_knowledge() -> list:
         if item["id"] in seen:
             continue
         seen.add(item["id"])
+        scope = item.get("scope") or "workspace"
+        is_pinned_workspace = scope == "workspace" and item.get("id") in {
+            i["id"] for i in workspace_items
+        }
         entry = {
             "id": item.get("id"),
             "title": item.get("title") or "Untitled",
             "kind": item.get("kind") or "page",
             "tags": item.get("tags") or [],
-            "scope": item.get("scope") or "workspace",
+            "scope": scope,
             "updatedAt": item.get("updated_at"),
-            "content": item.get("plain_text") or item.get("content") or "",
             "folderId": item.get("folder_id"),
         }
+        if is_pinned_workspace:
+            entry["content"] = item.get("plain_text") or item.get("content") or ""
         meta = item.get("meta") or {}
         if isinstance(meta, dict) and meta.get("provider"):
             entry["provider"] = meta["provider"]

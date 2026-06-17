@@ -392,11 +392,10 @@ function renderBootContext(state: any) {
   }
 
   if (agent.length > 0) {
-    parts.push("\n### Agent Knowledge");
+    parts.push("\n### Agent Knowledge (index — use hq_get_doc or hq_search_docs to retrieve full content)");
     for (const item of agent) {
-      parts.push(`\n#### ${item.title || "Untitled"} [${formatKindLabel(item)}]`);
-      if (Array.isArray(item.tags) && item.tags.length) parts.push(`Tags: ${item.tags.join(", ")}`);
-      if (item.content) parts.push(String(item.content));
+      const tags = Array.isArray(item.tags) && item.tags.length ? ` [${item.tags.join(", ")}]` : "";
+      parts.push(`- **${item.title || "Untitled"}** (${formatKindLabel(item)}, id: ${item.id})${tags}`);
     }
   }
 
