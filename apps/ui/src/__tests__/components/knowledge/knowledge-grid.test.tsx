@@ -40,7 +40,6 @@ function makeItem(overrides: Partial<KnowledgeItem> = {}): KnowledgeItem {
     source_synced_at: null,
     scope: "workspace",
     tags: [],
-    pinned: false,
     meta: {},
     embedding_status: "indexed",
     chunk_status: "indexed",
@@ -97,10 +96,10 @@ describe("KnowledgeGrid", () => {
     expect(screen.getByText("Agent")).toBeInTheDocument();
   });
 
-  it("shows icon and pinned indicator", () => {
+  it("shows icon", () => {
     render(
       <KnowledgeGrid
-        items={[makeItem({ icon: "🔖", pinned: true })]}
+        items={[makeItem({ icon: "🔖" })]}
         onArchive={noop}
         onRestore={noop}
         onDelete={noop}

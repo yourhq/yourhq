@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch boot knowledge: workspace pinned items + agent-scoped items."""
+"""Fetch boot knowledge: workspace-scoped items (full) + agent-scoped items (index)."""
 
 import os
 import sys
@@ -17,7 +17,6 @@ workspace_items = (
         {
             "select": "id,title,kind,content,plain_text,tags,scope,folder_id,updated_at",
             "scope": "eq.workspace",
-            "pinned": "eq.true",
             "archived_at": "is.null",
         },
     )

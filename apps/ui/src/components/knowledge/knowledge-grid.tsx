@@ -4,7 +4,7 @@ import type { KnowledgeItem, KnowledgeChunkSearchResult } from "@/lib/knowledge/
 import { KnowledgeKindBadge } from "./knowledge-kind-badge";
 import { KnowledgeScopeBadge } from "./knowledge-scope-badge";
 import { EmbeddingStatus } from "./embedding-status";
-import { MoreHorizontal, Archive, RotateCcw, Trash2, Pin, Loader2, AlertCircle } from "lucide-react";
+import { MoreHorizontal, Archive, RotateCcw, Trash2, Loader2, AlertCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import {
   DropdownMenu,
@@ -51,9 +51,6 @@ export function KnowledgeGrid({
                 <span className="text-sm font-medium truncate">
                   {item.title}
                 </span>
-                {item.pinned && (
-                  <Pin className="h-3 w-3 text-status-warning shrink-0" />
-                )}
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

@@ -1,5 +1,5 @@
 export type KnowledgeKind = "page" | "skill" | "file" | "source";
-export type KnowledgeScope = "workspace" | "agent";
+export type KnowledgeScope = "workspace" | "agent" | "library";
 
 export interface KnowledgeFolder {
   id: string;
@@ -32,7 +32,6 @@ export interface KnowledgeItem {
   source_synced_at: string | null;
   scope: KnowledgeScope;
   tags: string[];
-  pinned: boolean;
   meta: Record<string, unknown>;
   embedding_status: "pending" | "indexed" | "failed";
   chunk_status: "pending" | "indexed" | "failed";

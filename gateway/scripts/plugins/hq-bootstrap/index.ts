@@ -402,8 +402,13 @@ function renderBootContext(state: any) {
     parts.push("- Before starting any task, review this index and fetch documents relevant to the work.");
     parts.push("- When a task or routine links a document (you'll see it in `context.links` with `target_type: knowledge_item`), always fetch it with `hq_get_doc.py <id>` before proceeding.");
     parts.push("- When a task references a skill, also fetch related skills that support it — check tags and titles in the index for related material.");
-    parts.push("- Use `hq_search_docs.py \"<query>\"` to find docs not in your index (workspace docs, other agents' shared work).");
+    parts.push("- Use `hq_search_docs.py \"<query>\"` to find docs not in your index (library docs, other agents' shared work).");
     parts.push("- Fetch first, then act. Don't work from memory or assumptions when a source document exists.");
+    parts.push("");
+    parts.push("**When creating documents:**");
+    parts.push("- Research, notes, and output default to `--scope library` (searchable by all, not auto-injected).");
+    parts.push("- Skills and procedures use `hq_skill_upsert.py` which handles scope automatically.");
+    parts.push("- Never create documents with `--scope workspace` — only the workspace owner promotes docs to workspace scope.");
   }
 
   if (sources.length > 0) {

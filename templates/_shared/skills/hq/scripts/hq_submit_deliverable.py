@@ -116,7 +116,7 @@ if args.type == "page":
     ki_payload = {
         "title": args.title,
         "kind": "page",
-        "scope": "workspace",
+        "scope": "library",
         "content": tiptap_json,
         "plain_text": plain_text,
         "embedding_status": "pending",
