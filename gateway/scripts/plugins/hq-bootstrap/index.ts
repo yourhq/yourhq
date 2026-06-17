@@ -392,12 +392,18 @@ function renderBootContext(state: any) {
   }
 
   if (agent.length > 0) {
-    parts.push("\n### Agent Knowledge");
+    parts.push("\n### Agent Knowledge (index)");
     for (const item of agent) {
-      parts.push(`\n#### ${item.title || "Untitled"} [${formatKindLabel(item)}]`);
-      if (Array.isArray(item.tags) && item.tags.length) parts.push(`Tags: ${item.tags.join(", ")}`);
-      if (item.content) parts.push(String(item.content));
+      const tags = Array.isArray(item.tags) && item.tags.length ? ` [${item.tags.join(", ")}]` : "";
+      parts.push(`- **${item.title || "Untitled"}** (${formatKindLabel(item)}, id: ${item.id})${tags}`);
     }
+    parts.push("");
+    parts.push("**How to use your knowledge:**");
+    parts.push("- Before starting any task, review this index and fetch documents relevant to the work.");
+    parts.push("- When a task or routine links a document (you'll see it in `context.links` with `target_type: knowledge_item`), always fetch it with `hq_get_doc.py <id>` before proceeding.");
+    parts.push("- When a task references a skill, also fetch related skills that support it — check tags and titles in the index for related material.");
+    parts.push("- Use `hq_search_docs.py \"<query>\"` to find docs not in your index (workspace docs, other agents' shared work).");
+    parts.push("- Fetch first, then act. Don't work from memory or assumptions when a source document exists.");
   }
 
   if (sources.length > 0) {
