@@ -56,6 +56,11 @@ SUPABASE_URL = ""
 SUPABASE_KEY = ""
 RECONCILE_INTERVAL = int(os.environ.get("RECONCILE_INTERVAL", "120"))
 WAKE_COOLDOWN = int(os.environ.get("WAKE_COOLDOWN", "30"))
+MAX_WAKE_COOLDOWN = int(os.environ.get("MAX_WAKE_COOLDOWN", "900"))  # 15 min cap
+MAX_CONSECUTIVE_FAILURES = int(os.environ.get("MAX_CONSECUTIVE_FAILURES", "5"))
+STALE_ITEM_AGE_HOURS = int(os.environ.get("STALE_ITEM_AGE_HOURS", "24"))
+MAX_CONCURRENT_WAKES = int(os.environ.get("MAX_CONCURRENT_WAKES", "2"))
+AGENT_PROCESS_TIMEOUT = int(os.environ.get("AGENT_PROCESS_TIMEOUT", "300"))  # 5 min
 
 
 # This gateway's slug — only wake agents bound to this gateway.
@@ -84,6 +89,7 @@ DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000000"
 TENANT_ID = os.environ.get("TENANT_ID", DEFAULT_TENANT_ID)
 # Cached set of agent IDs on this gateway. Refreshed periodically.
 LOCAL_AGENT_IDS = set()
+LOCAL_AGENT_SLUG_TO_ID = {}  # slug -> uuid
 LOCAL_AGENT_IDS_LOCK = threading.Lock()
 
 HEARTBEAT_INTERVAL = 30
@@ -189,24 +195,152 @@ class WakeTracker:
     - Whether the agent has actionable inbox work (pending or retryable items)
     - Whether background processing already appears active (leased items)
     - Minimum cooldown between wakes to prevent spam
+    - Exponential backoff on repeated failures (prevents runaway CPU loops)
+    - Global concurrency cap to protect the instance from OOM
+    - Process timeout to kill hung agent processes
+    - Hard give-up after MAX_CONSECUTIVE_FAILURES → stall items + notify operator
     """
 
     def __init__(self, cooldown_seconds):
         self.cooldown = cooldown_seconds
         self.last_wake = {}  # agent_slug -> timestamp
-        self.wake_in_flight = {}  # agent_slug -> bool
+        self.wake_in_flight = {}  # agent_slug -> (subprocess.Popen, start_time) | None
+        self.consecutive_failures = {}  # agent_slug -> int
+        self.stalled_agents = set()  # agents that hit the give-up threshold
+        self.stalled_cleaned = set()  # stalled agents whose items have been marked
+        self.concurrency_waitlist = []  # (agent_slug, agent_id) tuples waiting for a slot
         self.lock = threading.Lock()
+
+    def _effective_cooldown(self, agent_slug):
+        failures = self.consecutive_failures.get(agent_slug, 0)
+        if failures == 0:
+            return self.cooldown
+        return min(self.cooldown * (2 ** failures), MAX_WAKE_COOLDOWN)
+
+    def _active_process_count(self):
+        """Count agent processes currently in flight. Must be called under self.lock."""
+        count = 0
+        for entry in self.wake_in_flight.values():
+            if entry is not None:
+                proc, _ = entry
+                if proc.poll() is None:
+                    count += 1
+        return count
+
+    def _reap_in_flight(self, agent_slug):
+        """Check if a previously launched agent process has finished and
+        whether it succeeded or failed. Kills hung processes that exceed
+        the timeout. Must be called under self.lock."""
+        entry = self.wake_in_flight.get(agent_slug)
+        if entry is None:
+            return
+        proc, start_time = entry
+        rc = proc.poll()
+
+        # Kill hung processes
+        if rc is None and (time.time() - start_time) > AGENT_PROCESS_TIMEOUT:
+            try:
+                proc.terminate()
+                proc.wait(timeout=5)
+            except Exception:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+            log(
+                f"Killed hung agent process for {agent_slug} "
+                f"(ran {int(time.time() - start_time)}s, limit {AGENT_PROCESS_TIMEOUT}s)",
+                level="warn",
+            )
+            rc = -1  # treat as failure
+
+        if rc is None:
+            return  # still running within timeout
+
+        self.wake_in_flight[agent_slug] = None
+        if rc == 0:
+            self.consecutive_failures[agent_slug] = 0
+            self.stalled_agents.discard(agent_slug)
+            self.stalled_cleaned.discard(agent_slug)
+        else:
+            prev = self.consecutive_failures.get(agent_slug, 0)
+            self.consecutive_failures[agent_slug] = prev + 1
+            cd = self._effective_cooldown(agent_slug)
+            log(
+                f"Agent {agent_slug} wake exited with code {rc} "
+                f"(failure #{prev + 1}, next cooldown {cd}s)",
+                level="warn",
+            )
+            if prev + 1 >= MAX_CONSECUTIVE_FAILURES:
+                self.stalled_agents.add(agent_slug)
+                log(
+                    f"Agent {agent_slug} stalled after {prev + 1} consecutive failures — "
+                    f"giving up until new context arrives",
+                    level="error",
+                )
+
+    def reap_all_in_flight(self):
+        """Sweep all tracked processes for timeouts. Called from reconciliation."""
+        with self.lock:
+            for slug in list(self.wake_in_flight.keys()):
+                self._reap_in_flight(slug)
+
+    def drain_waitlist(self):
+        """Pop agents from the concurrency waitlist and return those that
+        now have a free slot. Caller is responsible for calling wake_agent."""
+        ready = []
+        with self.lock:
+            # Remove stalled agents from the waitlist first
+            self.concurrency_waitlist = [
+                (s, a) for s, a in self.concurrency_waitlist
+                if s not in self.stalled_agents
+            ]
+            while self.concurrency_waitlist and self._active_process_count() < MAX_CONCURRENT_WAKES:
+                slug, agent_id = self.concurrency_waitlist.pop(0)
+                ready.append((slug, agent_id))
+        return ready
+
+    def get_uncleaned_stalled_agents(self):
+        """Return stalled agents whose items haven't been marked yet."""
+        with self.lock:
+            return self.stalled_agents - self.stalled_cleaned
+
+    def mark_stalled_cleaned(self, agent_slug):
+        """Record that we've already marked this stalled agent's items."""
+        with self.lock:
+            self.stalled_cleaned.add(agent_slug)
+
+    def reset_backoff(self, agent_slug):
+        """Reset backoff for an agent when context changes (new inbox item,
+        provider cooldown expired, etc). Clears stalled state too."""
+        with self.lock:
+            self.consecutive_failures[agent_slug] = 0
+            self.stalled_agents.discard(agent_slug)
+            self.stalled_cleaned.discard(agent_slug)
 
     def should_wake(self, agent_slug, agent_id):
         with self.lock:
-            # Cooldown check
-            last = self.last_wake.get(agent_slug, 0)
-            if (time.time() - last) < self.cooldown:
-                return False, "cooldown"
+            self._reap_in_flight(agent_slug)
 
-            # Don't pile up wakes
-            if self.wake_in_flight.get(agent_slug):
+            # Agent hit give-up threshold
+            if agent_slug in self.stalled_agents:
+                return False, "stalled"
+
+            # Still running from last wake
+            if self.wake_in_flight.get(agent_slug) is not None:
                 return False, "wake_in_flight"
+
+            # Global concurrency cap — add to waitlist instead of silently dropping
+            if self._active_process_count() >= MAX_CONCURRENT_WAKES:
+                if not any(s == agent_slug for s, _ in self.concurrency_waitlist):
+                    self.concurrency_waitlist.append((agent_slug, agent_id))
+                return False, "concurrency_limit"
+
+            # Cooldown check (exponential on failures)
+            last = self.last_wake.get(agent_slug, 0)
+            cd = self._effective_cooldown(agent_slug)
+            if (time.time() - last) < cd:
+                return False, f"cooldown({cd}s)"
 
         # Skip paused or hibernating agents
         try:
@@ -267,21 +401,29 @@ class WakeTracker:
                 },
             )
             if not actionable:
+                with self.lock:
+                    self.consecutive_failures[agent_slug] = 0
+                    self.stalled_agents.discard(agent_slug)
+                    self.stalled_cleaned.discard(agent_slug)
                 return False, "no_actionable_work"
         except Exception:
             pass  # If we can't check, allow the wake
 
         return True, "ok"
 
-    def record_wake_start(self, agent_slug):
+    def record_wake_start(self, agent_slug, proc=None):
         with self.lock:
-            self.wake_in_flight[agent_slug] = True
+            self.wake_in_flight[agent_slug] = (proc, time.time()) if proc else None
+            self.last_wake[agent_slug] = time.time()
 
     def record_wake_done(self, agent_slug, success):
         with self.lock:
-            self.wake_in_flight[agent_slug] = False
+            self.wake_in_flight[agent_slug] = None
             if success:
                 self.last_wake[agent_slug] = time.time()
+            else:
+                prev = self.consecutive_failures.get(agent_slug, 0)
+                self.consecutive_failures[agent_slug] = prev + 1
 
 
 def wake_agent(agent_slug, agent_id, reason, tracker, context=None):
@@ -290,8 +432,6 @@ def wake_agent(agent_slug, agent_id, reason, tracker, context=None):
     if not should:
         log(f"Skipping wake for {agent_slug} ({skip_reason})")
         return False
-
-    tracker.record_wake_start(agent_slug)
 
     message = (
         f"[inbox] {reason}\n\n"
@@ -319,13 +459,12 @@ def wake_agent(agent_slug, agent_id, reason, tracker, context=None):
         if thinking_override:
             cmd += ["--thinking", thinking_override]
 
-        # Fire and forget — don't block the dispatcher waiting for the agent to finish
-        subprocess.Popen(
+        proc = subprocess.Popen(
             cmd,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        tracker.record_wake_done(agent_slug, True)
+        tracker.record_wake_start(agent_slug, proc)
         extra = ""
         if model_override or thinking_override:
             parts = []
@@ -358,13 +497,11 @@ def refresh_local_agents():
         rows = api_get(
             "agents",
             {
-                "select": "id",
+                "select": "id,slug",
                 "gateway_id": f"eq.(select id from gateways where slug='{GATEWAY_ID}')",
             },
         )
     except Exception:
-        # The "eq.(select …)" trick doesn't work in PostgREST; fall back to
-        # a two-step resolve.
         try:
             gw = api_get("gateways", {"select": "id", "slug": f"eq.{GATEWAY_ID}", "limit": "1"})
             if not gw:
@@ -373,7 +510,7 @@ def refresh_local_agents():
             rows = api_get(
                 "agents",
                 {
-                    "select": "id",
+                    "select": "id,slug",
                     "gateway_id": f"eq.{gateway_uuid}",
                 },
             )
@@ -381,9 +518,12 @@ def refresh_local_agents():
             log(f"refresh_local_agents error: {e}")
             return
     ids = {r["id"] for r in rows}
+    slug_map = {r["slug"]: r["id"] for r in rows if r.get("slug")}
     with LOCAL_AGENT_IDS_LOCK:
         LOCAL_AGENT_IDS.clear()
         LOCAL_AGENT_IDS.update(ids)
+        LOCAL_AGENT_SLUG_TO_ID.clear()
+        LOCAL_AGENT_SLUG_TO_ID.update(slug_map)
 
 
 def is_local_agent(agent_id):
@@ -391,14 +531,112 @@ def is_local_agent(agent_id):
         return agent_id in LOCAL_AGENT_IDS
 
 
+def _expire_stale_items():
+    """Mark pending/failed inbox items older than STALE_ITEM_AGE_HOURS as failed.
+    Prevents the dispatcher from endlessly retrying items that will never succeed."""
+    if STALE_ITEM_AGE_HOURS <= 0:
+        return 0
+    cutoff = datetime.now(timezone.utc) - __import__("datetime").timedelta(hours=STALE_ITEM_AGE_HOURS)
+    cutoff_iso = cutoff.replace(microsecond=0).isoformat()
+    try:
+        url = (
+            SUPABASE_URL.rstrip("/")
+            + "/rest/v1/agent_inbox_items?"
+            + urllib.parse.urlencode({
+                "status": "eq.pending",
+                "created_at": f"lt.{cutoff_iso}",
+            })
+        )
+        data = json.dumps({
+            "status": "failed",
+            "failed_at": now_iso(),
+            "attempt_count": 3,
+        }).encode()
+        req = urllib.request.Request(
+            url,
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=representation",
+            },
+            method="PATCH",
+            data=data,
+        )
+        with urllib.request.urlopen(req, timeout=15) as r:
+            expired = json.loads(r.read().decode())
+        if expired:
+            slugs = {i.get("agent_slug", "?") for i in expired}
+            log(f"Expired {len(expired)} stale inbox item(s) older than {STALE_ITEM_AGE_HOURS}h: {', '.join(slugs)}")
+        return len(expired) if isinstance(expired, list) else 0
+    except Exception as e:
+        log(f"Stale item expiry error: {e}", level="warn")
+        return 0
+
+
+def _stall_agent_items(agent_slug, agent_id):
+    """Mark all pending items for a stalled agent and create a notification
+    so the operator knows the agent is stuck."""
+    try:
+        url = (
+            SUPABASE_URL.rstrip("/")
+            + "/rest/v1/agent_inbox_items?"
+            + urllib.parse.urlencode({
+                "agent_id": f"eq.{agent_id}",
+                "status": "eq.pending",
+            })
+        )
+        data = json.dumps({
+            "status": "failed",
+            "failed_at": now_iso(),
+            "attempt_count": MAX_CONSECUTIVE_FAILURES,
+        }).encode()
+        req = urllib.request.Request(
+            url,
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=representation",
+            },
+            method="PATCH",
+            data=data,
+        )
+        with urllib.request.urlopen(req, timeout=15) as r:
+            stalled = json.loads(r.read().decode())
+        count = len(stalled) if isinstance(stalled, list) else 0
+        if count:
+            log(f"Marked {count} pending item(s) as failed for stalled agent {agent_slug}")
+    except Exception as e:
+        log(f"Failed to stall items for {agent_slug}: {e}", level="warn")
+
+
 def reconcile(tracker):
     """
     Safety sweep: find agents *on this gateway* with pending/retryable inbox
     items that haven't been woken recently. Wake them.
+    Also expires stale items, reaps hung processes, and handles stalled agents.
     """
     refresh_local_agents()
+    _expire_stale_items()
+    tracker.reap_all_in_flight()
+
+    # Handle stalled agents — mark their pending items as failed (once)
+    needs_cleanup = tracker.get_uncleaned_stalled_agents()
+    if needs_cleanup:
+        with LOCAL_AGENT_IDS_LOCK:
+            slug_map = dict(LOCAL_AGENT_SLUG_TO_ID)
+        for slug in needs_cleanup:
+            agent_id = slug_map.get(slug)
+            if agent_id:
+                _stall_agent_items(slug, agent_id)
+            tracker.mark_stalled_cleaned(slug)
+
+    # Drain concurrency waitlist — wake agents that were queued behind the cap
+    for slug, agent_id in tracker.drain_waitlist():
+        wake_agent(slug, agent_id, "Concurrency slot freed — processing queued work", tracker)
+
     try:
-        # Find all agents with actionable inbox items
         items = api_get(
             "agent_inbox_items",
             {
@@ -408,7 +646,6 @@ def reconcile(tracker):
             },
         )
 
-        # Dedupe by agent and filter to this gateway's agents
         agents_needing_wake = {}
         for item in items:
             agent_id = item["agent_id"]
@@ -437,6 +674,21 @@ def start_reconciliation_loop(tracker):
     t = threading.Thread(target=loop, daemon=True)
     t.start()
     log(f"Reconciliation loop started (every {RECONCILE_INTERVAL}s)")
+
+
+def start_slot_watcher(tracker):
+    """Short-interval loop that reaps finished processes and drains the
+    concurrency waitlist. Only does real work when agents are queued —
+    otherwise it's just a cheap poll() call on tracked Popen objects."""
+    def loop():
+        while True:
+            time.sleep(5)
+            tracker.reap_all_in_flight()
+            for slug, agent_id in tracker.drain_waitlist():
+                wake_agent(slug, agent_id, "Concurrency slot freed", tracker)
+
+    t = threading.Thread(target=loop, daemon=True)
+    t.start()
 
 
 HEARTBEAT_FILE = "/tmp/heartbeat.txt"
@@ -552,6 +804,11 @@ class InboxDispatcher:
                 return
 
         log(f"New inbox item for {agent_slug}: {event_type} — {summary}")
+
+        # New context → reset backoff so the agent gets a fresh chance.
+        # If the agent was stalled from prior failures, a new item means
+        # the situation has changed and it's worth retrying.
+        self.tracker.reset_backoff(agent_slug)
 
         # Update wake tracking on the item
         try:
@@ -695,6 +952,9 @@ def main():
 
     # Start periodic reconciliation
     start_reconciliation_loop(tracker)
+
+    # Start slot watcher (drains concurrency waitlist when processes finish)
+    start_slot_watcher(tracker)
 
     # Start heartbeat file for Docker healthcheck
     start_heartbeat_file_loop()

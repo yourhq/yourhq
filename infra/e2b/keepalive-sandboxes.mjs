@@ -17,7 +17,7 @@
 
 import { Sandbox } from "e2b";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -71,6 +71,17 @@ async function healthCheck(sandboxId) {
 async function triggerBackup(sandboxId, workspaceName) {
   try {
     const sb = await Sandbox.connect(sandboxId, { apiKey: API_KEY });
+
+    // Ensure gateway_backup.py exists (may be missing on pre-v0.2.2 images).
+    const repoRoot = resolve(__dirname, "../..");
+    const backupPyLocal = join(repoRoot, "gateway/daemons/gateway_backup.py");
+    if (existsSync(backupPyLocal)) {
+      await sb.files.write(
+        "/opt/yourhq/daemons/gateway_backup.py",
+        readFileSync(backupPyLocal),
+      );
+    }
+
     console.log(ts(), `  triggering backup inside ${sandboxId} (${workspaceName}) ...`);
     const result = await sb.commands.run(
       "python3 /opt/yourhq/daemons/gateway_backup.py backup 2>&1",
@@ -99,9 +110,10 @@ async function triggerBackup(sandboxId, workspaceName) {
 // sleeps 30s, and exits. We must:
 //   1. Create sandbox (entrypoint starts + exits harmlessly).
 //   2. Wait for the entrypoint to finish exiting.
-//   3. Write .gateway-slug for persistent gateway ID.
-//   4. Run the entrypoint in the background with env vars passed inline.
-//   5. Wait for the gateway process to come up.
+//   3. Upload gateway_backup.py + entrypoint.sh (may be missing in pre-v0.2.2 images).
+//   4. Write .gateway-slug for persistent gateway ID.
+//   5. Run the entrypoint in the background with env vars passed inline.
+//   6. Wait for the gateway process to come up.
 
 function buildEnvString(envs) {
   return Object.entries(envs)
@@ -137,14 +149,36 @@ async function recoverWorkspace(wsConfig) {
     console.log(ts(), `  waiting for initial entrypoint to exit ...`);
     await new Promise((r) => setTimeout(r, 35_000));
 
-    // Step 3: Write .gateway-slug so the entrypoint picks up the right ID.
+    // Step 3: Upload critical files that may be missing from pre-v0.2.2 images.
+    // Without gateway_backup.py, the entrypoint can't restore from backup and
+    // treats recovery as first boot — seeding templates and corrupting agents.
+    console.log(ts(), `  uploading gateway scripts to sandbox ...`);
+    const repoRoot = resolve(__dirname, "../..");
+    const filesToUpload = [
+      { local: "gateway/daemons/gateway_backup.py", remote: "/opt/yourhq/daemons/gateway_backup.py" },
+      { local: "gateway/daemons/inbox_dispatcher.py", remote: "/opt/yourhq/daemons/inbox_dispatcher.py" },
+      { local: "gateway/entrypoint.sh", remote: "/usr/local/bin/entrypoint.sh" },
+    ];
+    for (const { local, remote } of filesToUpload) {
+      const localPath = join(repoRoot, local);
+      if (existsSync(localPath)) {
+        const content = readFileSync(localPath);
+        await sb.files.write(remote, content);
+        console.log(ts(), `    uploaded ${local}`);
+      } else {
+        console.warn(ts(), `    ⚠ ${local} not found locally, skipping`);
+      }
+    }
+    await sb.commands.run("chmod +x /usr/local/bin/entrypoint.sh", { timeoutMs: 5_000 });
+
+    // Step 4: Write .gateway-slug so the entrypoint picks up the right ID.
     const gatewayId = envs.GATEWAY_ID || "default";
     await sb.commands.run(
       `mkdir -p /home/openclaw/.openclaw && echo '${gatewayId}' > /home/openclaw/.openclaw/.gateway-slug`,
       { timeoutMs: 10_000 }
     );
 
-    // Step 4: Run entrypoint in background with inline env vars.
+    // Step 5: Run entrypoint in background with inline env vars.
     // setsid detaches from the E2B command session so it survives after
     // commands.run() returns. The entrypoint ends with `exec openclaw gateway run`
     // which is a long-running process.
@@ -155,7 +189,7 @@ async function recoverWorkspace(wsConfig) {
       { timeoutMs: 15_000 }
     );
 
-    // Step 5: Wait for gateway to come up (entrypoint takes ~60-90s to
+    // Step 6: Wait for gateway to come up (entrypoint takes ~60-90s to
     // restore backup, set up VNC, install plugins, register, start gateway).
     console.log(ts(), `  waiting for gateway to start ...`);
     let healthy = false;

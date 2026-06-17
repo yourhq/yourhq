@@ -35,6 +35,7 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 GATEWAY_ID = os.environ.get("GATEWAY_ID", "default")
 OPENCLAW_HOME = os.environ.get("OPENCLAW_HOME", os.path.expanduser("~/.openclaw"))
+CHROME_DATA_DIR = os.path.expanduser("~/.config/google-chrome")
 
 BUCKET = "gateway-backups"
 MAX_BACKUPS = 5
@@ -42,6 +43,23 @@ MAX_AGE_DAYS = 7
 
 EXCLUDE_DIRS = {"npm", "node_modules", "browser", "plugins", ".tmp", "tmp", "cache", "Cache", "repos"}
 EXCLUDE_EXTENSIONS = {".log", ".pid", ".sock", ".sqlite-wal", ".sqlite-shm"}
+
+# Chrome dirs to skip when backing up the browser profile — caches and models
+# that Chrome regenerates on launch. Keeps backup ~6MB instead of ~180MB.
+CHROME_EXCLUDE_DIRS = {
+    "optimization_guide_model_store", "WasmTtsEngine", "component_crx_cache",
+    "Safe Browsing", "DeferredBrowserMetrics", "OnDeviceHeadSuggestModel",
+    "CertificateRevocation", "hyphen-data", "ZxcvbnData", "OptimizationHints",
+    "PKIMetadata", "ActorSafetyLists", "Crowd Deny", "Subresource Filter",
+    "GraphiteDawnCache", "extensions_crx_cache", "SafetyTips",
+    "segmentation_platform", "GPUPersistentCache", "BrowserMetrics",
+    "Crash Reports", "WidevineCdm", "NativeMessagingHosts", "OriginTrials",
+    "SSLErrorAssistant", "MEIPreload", "FileTypePolicies", "CaptchaProviders",
+    "TrustTokenKeyCommitments", "FirstPartySetsPreloaded",
+    "AmountExtractionHeuristicRegexes", "PrivacySandboxAttestationsPreloaded",
+    "Service Worker", "Cache", "Code Cache", "GPUCache", "GrShaderCache",
+    "ShaderCache", "blob_storage",
+}
 
 TIMESTAMP_RE = re.compile(r"state-(\d{8}T\d{6}Z)\.tar\.gz$")
 
@@ -170,6 +188,15 @@ def create_backup() -> dict:
     timestamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
     storage_path = f"{GATEWAY_ID}/state-{timestamp}.tar.gz"
 
+    def _chrome_filter(tarinfo: tarfile.TarInfo) -> tarfile.TarInfo | None:
+        parts = tarinfo.name.split("/")
+        for part in parts:
+            if part in CHROME_EXCLUDE_DIRS:
+                return None
+        if tarinfo.size > 50 * 1024 * 1024:
+            return None
+        return tarinfo
+
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:gz") as tar:
         for entry in sorted(os.listdir(OPENCLAW_HOME)):
@@ -180,6 +207,14 @@ def create_backup() -> dict:
                 tar.add(full, arcname=entry, filter=_tar_filter)
             except (PermissionError, OSError) as e:
                 log.warning("Skipping %s: %s", entry, e)
+
+        # Include Chrome profile data (OAuth sessions, cookies, local storage)
+        if os.path.isdir(CHROME_DATA_DIR):
+            try:
+                tar.add(CHROME_DATA_DIR, arcname="_chrome_profile", filter=_chrome_filter)
+                log.info("Included Chrome profile data")
+            except (PermissionError, OSError) as e:
+                log.warning("Skipping Chrome profile: %s", e)
 
     data = buf.getvalue()
     size = len(data)
@@ -263,6 +298,20 @@ def restore_backup() -> dict:
         log.info("Downloaded %s: %d bytes. Extracting ...", b["name"], len(data))
 
         os.makedirs(OPENCLAW_HOME, exist_ok=True)
+        # Make existing files writable so tar can overwrite read-only git objects
+        for root, dirs, files in os.walk(OPENCLAW_HOME, followlinks=False):
+            for d in dirs:
+                try:
+                    os.chmod(os.path.join(root, d), 0o755)
+                except OSError:
+                    pass
+            for f in files:
+                try:
+                    p = os.path.join(root, f)
+                    st = os.stat(p)
+                    os.chmod(p, st.st_mode | 0o200)
+                except OSError:
+                    pass
         buf = io.BytesIO(data)
         try:
             with tarfile.open(fileobj=buf, mode="r:gz") as tar:
@@ -271,18 +320,36 @@ def restore_backup() -> dict:
             log.warning("Corrupt backup %s: %s — trying next ...", b["name"], e)
             continue
 
+        # Relocate Chrome profile data from backup staging path
+        chrome_staging = os.path.join(OPENCLAW_HOME, "_chrome_profile")
+        if os.path.isdir(chrome_staging):
+            import shutil
+
+            os.makedirs(CHROME_DATA_DIR, exist_ok=True)
+            for item in os.listdir(chrome_staging):
+                src = os.path.join(chrome_staging, item)
+                dst = os.path.join(CHROME_DATA_DIR, item)
+                if os.path.isdir(dst):
+                    shutil.rmtree(dst, ignore_errors=True)
+                elif os.path.exists(dst):
+                    os.remove(dst)
+                shutil.move(src, dst)
+            shutil.rmtree(chrome_staging, ignore_errors=True)
+            log.info("Restored Chrome profile to %s", CHROME_DATA_DIR)
+
         # Fix ownership if running as root but openclaw user exists
         try:
             import pwd
 
             pw = pwd.getpwnam("openclaw")
             uid, gid = pw.pw_uid, pw.pw_gid
-            for root, dirs, files in os.walk(OPENCLAW_HOME, followlinks=False):
-                for name in dirs + files:
-                    try:
-                        os.lchown(os.path.join(root, name), uid, gid)
-                    except (FileNotFoundError, OSError):
-                        pass
+            for target in [OPENCLAW_HOME, CHROME_DATA_DIR]:
+                for root, dirs, files in os.walk(target, followlinks=False):
+                    for name in dirs + files:
+                        try:
+                            os.lchown(os.path.join(root, name), uid, gid)
+                        except (FileNotFoundError, OSError):
+                            pass
             log.info("Fixed ownership to openclaw:%d", uid)
         except (KeyError, PermissionError):
             pass

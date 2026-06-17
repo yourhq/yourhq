@@ -84,13 +84,15 @@ def test_should_wake_returns_false_during_cooldown(tracker, monkeypatch):
 
     should, reason = tracker.should_wake("agent-1", "uuid-1")
     assert should is False
-    assert reason == "cooldown"
+    assert reason.startswith("cooldown")
 
 
 def test_should_wake_returns_false_when_wake_in_flight(tracker, monkeypatch):
+    import time
 
+    fake_proc = FakePopen(returncode=None)  # still running
     with tracker.lock:
-        tracker.wake_in_flight["agent-1"] = True
+        tracker.wake_in_flight["agent-1"] = (fake_proc, time.time())
 
     should, reason = tracker.should_wake("agent-1", "uuid-1")
     assert should is False
@@ -445,11 +447,12 @@ def test_wake_tracker_record_wake_done_success():
     from inbox_dispatcher import WakeTracker
 
     tracker = WakeTracker(cooldown_seconds=30)
-    tracker.record_wake_start("agent-1")
-    assert tracker.wake_in_flight.get("agent-1") is True
+    fake_proc = FakePopen(returncode=None)
+    tracker.record_wake_start("agent-1", fake_proc)
+    assert tracker.wake_in_flight.get("agent-1") is not None
 
     tracker.record_wake_done("agent-1", True)
-    assert tracker.wake_in_flight.get("agent-1") is False
+    assert tracker.wake_in_flight.get("agent-1") is None
     assert tracker.last_wake.get("agent-1") is not None
 
 
@@ -457,10 +460,11 @@ def test_wake_tracker_record_wake_done_failure():
     from inbox_dispatcher import WakeTracker
 
     tracker = WakeTracker(cooldown_seconds=30)
-    tracker.record_wake_start("agent-1")
+    fake_proc = FakePopen(returncode=None)
+    tracker.record_wake_start("agent-1", fake_proc)
     tracker.record_wake_done("agent-1", False)
-    assert tracker.wake_in_flight.get("agent-1") is False
-    assert tracker.last_wake.get("agent-1", 0) == 0
+    assert tracker.wake_in_flight.get("agent-1") is None
+    assert tracker.consecutive_failures.get("agent-1", 0) == 1
 
 
 def test_inbox_dispatcher_ws_url(monkeypatch):
