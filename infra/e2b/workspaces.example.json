@@ -1,0 +1,14 @@
+[
+  {
+    "name": "flight-recap",
+    "template": "63mosin5qjme5x1uaz96",
+    "envs": {
+      "SUPABASE_URL": "https://xxx.supabase.co",
+      "SUPABASE_ANON_KEY": "sb_publishable_xxx",
+      "SUPABASE_SERVICE_ROLE_KEY": "sb_secret_xxx",
+      "GATEWAY_ID": "default-2",
+      "GATEWAY_AUTH_TOKEN": "",
+      "VNC_PASSWORD": "xxx"
+    }
+  }
+]

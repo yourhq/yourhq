@@ -196,6 +196,10 @@ COPY --chown=openclaw:openclaw gateway/daemons/git_backup_sweep.py /opt/yourhq/d
 COPY --chown=openclaw:openclaw gateway/daemons/secrets_sync.py /opt/yourhq/daemons/secrets_sync.py
 COPY --chown=openclaw:openclaw gateway/daemons/file_processor.py /opt/yourhq/daemons/file_processor.py
 COPY --chown=openclaw:openclaw gateway/daemons/source_sync.py /opt/yourhq/daemons/source_sync.py
+COPY --chown=openclaw:openclaw gateway/daemons/gateway_backup.py /opt/yourhq/daemons/gateway_backup.py
+COPY --chown=openclaw:openclaw gateway/daemons/plugin_runner.py /opt/yourhq/daemons/plugin_runner.py
+COPY --chown=openclaw:openclaw gateway/daemons/sentry_init.py /opt/yourhq/daemons/sentry_init.py
+COPY --chown=openclaw:openclaw gateway/daemons/memory_pressure.py /opt/yourhq/daemons/memory_pressure.py
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # noVNC (when enabled) listens on 6901 inside the container. The compose file

@@ -1,0 +1,8 @@
+# E2B sandbox template configuration — XL variant (8 GB / 4 vCPU).
+# Build: `e2b template build --config gateway/e2b-xl.toml --path .` from the repo root.
+
+dockerfile = "gateway/Dockerfile.e2b"
+template_name = "yourhq-gateway-xl"
+start_cmd = "/usr/local/bin/entrypoint.sh"
+memory_mb = 8192
+vcpus = 4
