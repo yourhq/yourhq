@@ -215,7 +215,7 @@ class WakeTracker:
         failures = self.consecutive_failures.get(agent_slug, 0)
         if failures == 0:
             return self.cooldown
-        return min(self.cooldown * (2 ** failures), MAX_WAKE_COOLDOWN)
+        return min(self.cooldown * (2**failures), MAX_WAKE_COOLDOWN)
 
     def _active_process_count(self):
         """Count agent processes currently in flight. Must be called under self.lock."""
@@ -267,8 +267,7 @@ class WakeTracker:
             self.consecutive_failures[agent_slug] = prev + 1
             cd = self._effective_cooldown(agent_slug)
             log(
-                f"Agent {agent_slug} wake exited with code {rc} "
-                f"(failure #{prev + 1}, next cooldown {cd}s)",
+                f"Agent {agent_slug} wake exited with code {rc} (failure #{prev + 1}, next cooldown {cd}s)",
                 level="warn",
             )
             if prev + 1 >= MAX_CONSECUTIVE_FAILURES:
@@ -291,10 +290,7 @@ class WakeTracker:
         ready = []
         with self.lock:
             # Remove stalled agents from the waitlist first
-            self.concurrency_waitlist = [
-                (s, a) for s, a in self.concurrency_waitlist
-                if s not in self.stalled_agents
-            ]
+            self.concurrency_waitlist = [(s, a) for s, a in self.concurrency_waitlist if s not in self.stalled_agents]
             while self.concurrency_waitlist and self._active_process_count() < MAX_CONCURRENT_WAKES:
                 slug, agent_id = self.concurrency_waitlist.pop(0)
                 ready.append((slug, agent_id))
@@ -542,16 +538,20 @@ def _expire_stale_items():
         url = (
             SUPABASE_URL.rstrip("/")
             + "/rest/v1/agent_inbox_items?"
-            + urllib.parse.urlencode({
-                "status": "eq.pending",
-                "created_at": f"lt.{cutoff_iso}",
-            })
+            + urllib.parse.urlencode(
+                {
+                    "status": "eq.pending",
+                    "created_at": f"lt.{cutoff_iso}",
+                }
+            )
         )
-        data = json.dumps({
-            "status": "failed",
-            "failed_at": now_iso(),
-            "attempt_count": 3,
-        }).encode()
+        data = json.dumps(
+            {
+                "status": "failed",
+                "failed_at": now_iso(),
+                "attempt_count": 3,
+            }
+        ).encode()
         req = urllib.request.Request(
             url,
             headers={
@@ -581,16 +581,20 @@ def _stall_agent_items(agent_slug, agent_id):
         url = (
             SUPABASE_URL.rstrip("/")
             + "/rest/v1/agent_inbox_items?"
-            + urllib.parse.urlencode({
-                "agent_id": f"eq.{agent_id}",
-                "status": "eq.pending",
-            })
+            + urllib.parse.urlencode(
+                {
+                    "agent_id": f"eq.{agent_id}",
+                    "status": "eq.pending",
+                }
+            )
         )
-        data = json.dumps({
-            "status": "failed",
-            "failed_at": now_iso(),
-            "attempt_count": MAX_CONSECUTIVE_FAILURES,
-        }).encode()
+        data = json.dumps(
+            {
+                "status": "failed",
+                "failed_at": now_iso(),
+                "attempt_count": MAX_CONSECUTIVE_FAILURES,
+            }
+        ).encode()
         req = urllib.request.Request(
             url,
             headers={
@@ -680,6 +684,7 @@ def start_slot_watcher(tracker):
     """Short-interval loop that reaps finished processes and drains the
     concurrency waitlist. Only does real work when agents are queued —
     otherwise it's just a cheap poll() call on tracked Popen objects."""
+
     def loop():
         while True:
             time.sleep(5)
