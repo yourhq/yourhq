@@ -124,9 +124,7 @@ def fetch_boot_knowledge() -> list:
             continue
         seen.add(item["id"])
         scope = item.get("scope") or "workspace"
-        is_pinned_workspace = scope == "workspace" and item.get("id") in {
-            i["id"] for i in workspace_items
-        }
+        is_pinned_workspace = scope == "workspace" and item.get("id") in {i["id"] for i in workspace_items}
         entry = {
             "id": item.get("id"),
             "title": item.get("title") or "Untitled",
