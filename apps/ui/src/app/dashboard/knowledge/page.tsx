@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Search, Archive, LayoutList, LayoutGrid, BookOpen, FolderOpen, FileUp, Bot } from "lucide-react";
+import { Search, Archive, LayoutList, LayoutGrid, BookOpen, FolderOpen, FileUp, Bot, Library } from "lucide-react";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -263,6 +263,12 @@ function KnowledgeContent() {
             <SelectContent>
               <SelectItem value="all">All scopes</SelectItem>
               <SelectItem value="workspace">Workspace</SelectItem>
+              <SelectItem value="library">
+                <span className="flex items-center gap-1.5">
+                  <Library className="h-3 w-3" />
+                  Library
+                </span>
+              </SelectItem>
               {agents.length > 0 && (
                 <SelectGroup>
                   <SelectLabel className="text-[10px] text-muted-foreground/60 px-2">Agents</SelectLabel>

@@ -22,9 +22,8 @@ import {
   FolderOpen,
   Globe2,
   Bot,
+  Library,
   Loader2,
-  Pin,
-  PinOff,
   RefreshCw,
   RotateCw,
   Tag,
@@ -65,7 +64,6 @@ export function KnowledgeDetailEditor({
   const [saved, setSaved] = useState(false);
   const [folderId, setFolderId] = useState(item.folder_id || "none");
   const [tags, setTags] = useState<string[]>(item.tags || []);
-  const [pinned, setPinned] = useState(item.pinned);
   const [scope, setScope] = useState(item.scope);
   const [showHistory, setShowHistory] = useState(false);
   const [allAgents, setAllAgents] = useState<{ id: string; name: string; emoji?: string }[]>([]);
@@ -180,10 +178,10 @@ export function KnowledgeDetailEditor({
   }
 
   async function handleScopeChange(value: string) {
-    const newScope = value as "workspace" | "agent";
+    const newScope = value as "workspace" | "agent" | "library";
     setScope(newScope);
     save({ scope: newScope });
-    if (newScope === "workspace") {
+    if (newScope !== "agent") {
       await supabase.from("knowledge_item_agents").delete().eq("knowledge_item_id", item.id);
       setAssignedAgentIds([]);
     }
@@ -204,12 +202,6 @@ export function KnowledgeDetailEditor({
         .insert({ knowledge_item_id: item.id, agent_id: agentId });
       setAssignedAgentIds((prev) => [...prev, agentId]);
     }
-  }
-
-  async function handleTogglePin() {
-    const newPinned = !pinned;
-    setPinned(newPinned);
-    save({ pinned: newPinned });
   }
 
   async function handleArchive() {
@@ -334,20 +326,6 @@ export function KnowledgeDetailEditor({
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
-            onClick={handleTogglePin}
-            title={pinned ? "Unpin" : "Pin"}
-          >
-            {pinned ? (
-              <PinOff className="h-3.5 w-3.5" />
-            ) : (
-              <Pin className="h-3.5 w-3.5" />
-            )}
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
             className="hidden h-7 w-7 text-muted-foreground hover:text-foreground lg:inline-flex"
             onClick={() => setShowHistory(!showHistory)}
             title="History"
@@ -415,8 +393,10 @@ export function KnowledgeDetailEditor({
               <span className="w-24 shrink-0 flex items-center gap-1.5 text-xs text-muted-foreground select-none">
                 {scope === "workspace" ? (
                   <Globe2 className="h-3.5 w-3.5" />
-                ) : (
+                ) : scope === "agent" ? (
                   <Bot className="h-3.5 w-3.5" />
+                ) : (
+                  <Library className="h-3.5 w-3.5" />
                 )}
                 Scope
               </span>
@@ -435,6 +415,12 @@ export function KnowledgeDetailEditor({
                     <span className="flex items-center gap-1.5">
                       <Bot className="h-3.5 w-3.5" />
                       Agent
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="library">
+                    <span className="flex items-center gap-1.5">
+                      <Library className="h-3.5 w-3.5" />
+                      Library
                     </span>
                   </SelectItem>
                 </SelectContent>

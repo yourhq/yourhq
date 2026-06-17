@@ -5,7 +5,7 @@ import { KnowledgeKindBadge } from "./knowledge-kind-badge";
 import { KnowledgeScopeBadge } from "./knowledge-scope-badge";
 import { EmbeddingStatus } from "./embedding-status";
 import { ProviderIcon } from "@/components/sources/provider-icon";
-import { MoreHorizontal, Archive, RotateCcw, Trash2, Pin, Loader2, AlertCircle } from "lucide-react";
+import { MoreHorizontal, Archive, RotateCcw, Trash2, Loader2, AlertCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import {
   DropdownMenu,
@@ -68,10 +68,6 @@ export function KnowledgeList({
             <KnowledgeKindBadge kind={item.kind} />
           )}
           <KnowledgeScopeBadge scope={item.scope} />
-
-          {item.pinned && (
-            <Pin className="h-3 w-3 text-status-warning shrink-0" />
-          )}
 
           {item.kind === "file" && item.processing_status === "processing" && (
             <Loader2 className="h-3 w-3 text-status-info animate-spin shrink-0" />

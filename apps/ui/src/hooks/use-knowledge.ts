@@ -117,13 +117,12 @@ export function useKnowledge() {
       let results = (data ?? []).map(
         (r: { id: string; title: string; kind: string; content: unknown; tags: string[]; folder_id: string | null; scope: string; updated_at: string; meta: Record<string, unknown>; similarity: number }) => ({
           ...r,
-          pinned: false,
           archived_at: null,
         })
       ) as unknown as KnowledgeItem[];
 
-      if (scopeFilter === "workspace") {
-        results = results.filter((item) => item.scope === "workspace");
+      if (scopeFilter === "workspace" || scopeFilter === "library") {
+        results = results.filter((item) => item.scope === scopeFilter);
       } else if (scopeFilter !== "all") {
         const { data: junctionRows } = await supabase
           .from("knowledge_item_agents")
@@ -179,7 +178,6 @@ export function useKnowledge() {
       let query = supabase
         .from("knowledge_items")
         .select("*, folder:knowledge_folders(id, name)")
-        .order("pinned", { ascending: false })
         .order("updated_at", { ascending: false });
 
       if (showArchived) {
@@ -192,10 +190,10 @@ export function useKnowledge() {
         query = query.eq("kind", kindFilter);
       }
 
-      if (scopeFilter !== "all" && scopeFilter !== "workspace") {
+      if (scopeFilter === "workspace" || scopeFilter === "library") {
+        query = query.eq("scope", scopeFilter);
+      } else if (scopeFilter !== "all" && scopeFilter !== "workspace") {
         query = query.eq("scope", "agent");
-      } else if (scopeFilter === "workspace") {
-        query = query.eq("scope", "workspace");
       }
 
       if (folderId !== "all") {
@@ -207,7 +205,7 @@ export function useKnowledge() {
       if (!error && data) {
         let filtered = data as unknown as KnowledgeItem[];
 
-        if (scopeFilter !== "all" && scopeFilter !== "workspace") {
+        if (scopeFilter !== "all" && scopeFilter !== "workspace" && scopeFilter !== "library") {
           const { data: junctionRows } = await supabase
             .from("knowledge_item_agents")
             .select("knowledge_item_id")
@@ -263,7 +261,7 @@ export function useKnowledge() {
     kind: KnowledgeKind;
     title: string;
     folderId?: string | null;
-    scope?: "workspace" | "agent";
+    scope?: "workspace" | "agent" | "library";
     agentIds?: string[];
   }) {
     const { data, error } = await supabase
@@ -468,7 +466,7 @@ export function useKnowledge() {
 
   async function updateScope(
     id: string,
-    scope: "workspace" | "agent",
+    scope: "workspace" | "agent" | "library",
     agentIds?: string[]
   ) {
     await supabase.from("knowledge_items").update({ scope }).eq("id", id);
