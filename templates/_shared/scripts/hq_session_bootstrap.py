@@ -68,8 +68,9 @@ def register_agent() -> dict:
 def fetch_boot_knowledge() -> list:
     """Fetch knowledge items for agent boot context.
 
-    Workspace-scoped pinned items (available to all agents) plus
-    agent-scoped items linked to this agent via the junction table.
+    Workspace-scoped items are injected in full (core shared context).
+    Agent-scoped items (linked via junction table) are index-only.
+    Library-scoped items are not fetched — agents search for them on demand.
     """
     agent_id = None
     agents = api_get("agents", {"select": "id", "slug": f"eq.{AGENT_SLUG}", "limit": "1"})
@@ -84,7 +85,6 @@ def fetch_boot_knowledge() -> list:
             {
                 "select": item_select,
                 "scope": "eq.workspace",
-                "pinned": "eq.true",
                 "archived_at": "is.null",
             },
         )
@@ -123,16 +123,18 @@ def fetch_boot_knowledge() -> list:
         if item["id"] in seen:
             continue
         seen.add(item["id"])
+        scope = item.get("scope") or "workspace"
         entry = {
             "id": item.get("id"),
             "title": item.get("title") or "Untitled",
             "kind": item.get("kind") or "page",
             "tags": item.get("tags") or [],
-            "scope": item.get("scope") or "workspace",
+            "scope": scope,
             "updatedAt": item.get("updated_at"),
-            "content": item.get("plain_text") or item.get("content") or "",
             "folderId": item.get("folder_id"),
         }
+        if scope == "workspace":
+            entry["content"] = item.get("plain_text") or item.get("content") or ""
         meta = item.get("meta") or {}
         if isinstance(meta, dict) and meta.get("provider"):
             entry["provider"] = meta["provider"]

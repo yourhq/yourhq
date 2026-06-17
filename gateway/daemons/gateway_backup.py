@@ -37,11 +37,11 @@ GATEWAY_ID = os.environ.get("GATEWAY_ID", "default")
 OPENCLAW_HOME = os.environ.get("OPENCLAW_HOME", os.path.expanduser("~/.openclaw"))
 
 BUCKET = "gateway-backups"
-MAX_BACKUPS = 3
+MAX_BACKUPS = 5
 MAX_AGE_DAYS = 7
 
-EXCLUDE_DIRS = {"npm", "node_modules", "browser", "repo.git", "plugins"}
-EXCLUDE_EXTENSIONS = {".log", ".pid", ".sock"}
+EXCLUDE_DIRS = {"npm", "node_modules", "browser", "plugins", ".tmp", "tmp", "cache", "Cache", "repos"}
+EXCLUDE_EXTENSIONS = {".log", ".pid", ".sock", ".sqlite-wal", ".sqlite-shm"}
 
 TIMESTAMP_RE = re.compile(r"state-(\d{8}T\d{6}Z)\.tar\.gz$")
 

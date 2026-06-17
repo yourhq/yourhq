@@ -222,6 +222,13 @@ if [ ! -d "$OPENCLAW_HOME/agents" ] && [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUP
     log "No local agent state — checking for backup to restore ..."
     if python3 "$BACKUP_SCRIPT" restore 2>&1 | while read -r line; do log "$line"; done; then
       log "Backup restore complete."
+      # Export VNC password from backup so the VNC setup section reuses it
+      # instead of generating a random one.
+      if [ -f "$OPENCLAW_HOME/.vnc-password" ]; then
+        VNC_PASSWORD="$(cat "$OPENCLAW_HOME/.vnc-password")"
+        export VNC_PASSWORD
+        log "  restored VNC password from backup"
+      fi
     else
       log "No backup found or restore failed — continuing with fresh setup."
     fi

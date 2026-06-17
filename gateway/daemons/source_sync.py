@@ -203,7 +203,7 @@ def upsert_item(
                 "title": content.title,
                 "plain_text": content.markdown,
                 "content_hash": new_hash,
-                "scope": "workspace",
+                "scope": "library",
                 "source_connection_id": connection_id,
                 "source_external_id": external_id,
                 "source_sync_status": "synced",

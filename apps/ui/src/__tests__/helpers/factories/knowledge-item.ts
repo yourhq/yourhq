@@ -21,7 +21,6 @@ export function buildKnowledgeItem(overrides: Record<string, unknown> = {}) {
     source_synced_at: null as string | null,
     scope: "workspace" as const,
     tags: [] as string[],
-    pinned: false,
     meta: {},
     embedding_status: "pending" as const,
     chunk_status: "pending" as const,
