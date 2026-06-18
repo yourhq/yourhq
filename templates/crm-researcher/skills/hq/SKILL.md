@@ -1,6 +1,6 @@
 ---
 name: hq
-description: Connect to the HQ via Supabase. Use when you need to register yourself, search knowledge, create/update pages and skills, claim tasks, post comments, manage contacts and organizations, log interactions, or query the audit trail. Also use at session startup to register and load pinned knowledge items.
+description: Connect to the HQ via Supabase. Use when you need to register yourself, search knowledge, create/update pages and skills, claim tasks, post comments, manage contacts and organizations, log interactions, or query the audit trail. Also use at session startup to register and load boot knowledge.
 ---
 
 # HQ
@@ -25,11 +25,11 @@ python3 skills/hq/scripts/hq_register.py
 ```
 This upserts your agent in the `agents` table and sets status to `online`.
 
-### 2. Load pinned knowledge items
+### 2. Load boot knowledge
 ```bash
 python3 skills/hq/scripts/hq_boot_docs.py
 ```
-This fetches all pinned knowledge items scoped to workspace (all agents) and agent (you specifically). Read the output — it's your shared context.
+This fetches workspace-scoped knowledge items (shared context for all agents) and your agent-scoped items (index only). Read the output — it's your shared context.
 
 ## Field & Pipeline Discovery
 
