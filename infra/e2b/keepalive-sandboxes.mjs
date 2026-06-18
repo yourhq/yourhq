@@ -1,14 +1,28 @@
 /**
  * E2B sandbox keepalive, health-check, backup, and auto-recovery.
  *
- * Cron: `0 * /3 * * *` (every 3 hours).
+ * Two cron schedules on the EC2 host:
  *
- * Each run:
- *   1. Discover running sandboxes via Sandbox.list().
- *   2. Health-check each: connect + run a probe command.
- *   3. Extend healthy sandboxes to 24h.
- *   4. Once per day (00:00 UTC run): trigger a backup inside each sandbox.
- *   5. Dead/unhealthy sandboxes: auto-recover from latest backup.
+ *   # Health check — every 20 minutes
+ *   *​/20 * * * *  cd ~/yourhq && E2B_API_KEY=... node infra/e2b/keepalive-sandboxes.mjs >> ~/keepalive-sandboxes.log 2>&1
+ *
+ *   # Daily renewal + backup — 02:00 UTC
+ *   0 2 * * *     cd ~/yourhq && E2B_API_KEY=... node infra/e2b/keepalive-sandboxes.mjs --renew >> ~/keepalive-sandboxes.log 2>&1
+ *
+ * Health-check runs (default, no flags):
+ *   - Discover running/paused sandboxes.
+ *   - Resume any found paused (e.g. left paused by a failed renewal).
+ *   - Health-check each: is the gateway process alive?
+ *   - Dead → auto-recover from latest backup.
+ *   - Safety net: if remaining lifetime < 3h, force backup + renewal.
+ *
+ * Renewal runs (--renew flag):
+ *   - Backup all healthy sandboxes first.
+ *   - Pause/resume each to reset the 24h lifetime clock.
+ *   - Health-check after resume to confirm processes survived.
+ *
+ * Backup-only runs (--backup flag, e.g. 14:00 UTC midday snapshot):
+ *   - Health-check + backup all healthy sandboxes. No renewal.
  *
  * Requires:
  *   - E2B_API_KEY env var
@@ -22,13 +36,19 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const MAX_TTL = 24 * 60 * 60 * 1000;
+const MAX_TTL_MS = 24 * 60 * 60 * 1000;
+const MAX_TTL_S = 24 * 60 * 60;
+// Safety net: force-renew if a sandbox has less than this remaining.
+// With 20-min health checks, 3h gives 9 chances to catch it.
+const SAFETY_THRESHOLD_MS = 3 * 60 * 60 * 1000;
 const API_KEY = process.env.E2B_API_KEY;
 if (!API_KEY) { console.error("E2B_API_KEY not set"); process.exit(1); }
 
 const HEALTH_TIMEOUT = 15_000;
 const BACKUP_TIMEOUT = 120_000;
-const ENTRYPOINT_TIMEOUT = 180_000;
+
+const MODE_RENEW = process.argv.includes("--renew");
+const MODE_BACKUP = process.argv.includes("--backup");
 
 // ── Load workspace config ──────────────────────────────────────────
 
@@ -66,13 +86,57 @@ async function healthCheck(sandboxId) {
   }
 }
 
+// ── Pause/resume to renew the 24h lifetime ─────────────────────────
+
+async function renewViaPauseResume(sandboxId, name) {
+  try {
+    const sb = await Sandbox.connect(sandboxId, { apiKey: API_KEY });
+    console.log(ts(), `  pausing ${sandboxId} (${name}) ...`);
+    await sb.pause();
+
+    console.log(ts(), `  resuming ${sandboxId} (${name}) with 24h timeout ...`);
+    const res = await fetch(`https://api.e2b.dev/sandboxes/${sandboxId}/resume`, {
+      method: "POST",
+      headers: { "X-API-Key": API_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ timeout: MAX_TTL_S }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error(ts(), `  ✗ resume failed for ${sandboxId}: ${res.status} ${body}`);
+      return false;
+    }
+
+    // Verify the new endAt
+    const page = Sandbox.list({ apiKey: API_KEY });
+    const items = await page.nextItems();
+    const renewed = items.find((s) => s.sandboxId === sandboxId);
+    if (renewed) {
+      const newRemaining = ((new Date(renewed.endAt).getTime() - Date.now()) / 3600000).toFixed(1);
+      console.log(ts(), `  ✓ ${sandboxId} (${name}) renewed — ${newRemaining}h remaining`);
+    }
+
+    await new Promise((r) => setTimeout(r, 5_000));
+
+    const healthy = await healthCheck(sandboxId);
+    if (!healthy) {
+      console.error(ts(), `  ⚠ ${sandboxId} (${name}) unhealthy after resume — may need recovery`);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error(ts(), `  ✗ pause/resume failed for ${sandboxId} (${name}): ${err.message}`);
+    return false;
+  }
+}
+
 // ── Trigger backup inside a sandbox ────────────────────────────────
 
 async function triggerBackup(sandboxId, workspaceName) {
   try {
     const sb = await Sandbox.connect(sandboxId, { apiKey: API_KEY });
 
-    // Ensure gateway_backup.py exists (may be missing on pre-v0.2.2 images).
     const repoRoot = resolve(__dirname, "../..");
     const backupPyLocal = join(repoRoot, "gateway/daemons/gateway_backup.py");
     if (existsSync(backupPyLocal)) {
@@ -103,17 +167,6 @@ async function triggerBackup(sandboxId, workspaceName) {
 }
 
 // ── Auto-recovery: create new sandbox from backup ──────────────────
-//
-// E2B env-var race condition: the template's start_cmd (entrypoint.sh)
-// begins before envd injects the `envs` we pass to Sandbox.create().
-// The entrypoint sees empty SUPABASE_URL, thinks it's a template build,
-// sleeps 30s, and exits. We must:
-//   1. Create sandbox (entrypoint starts + exits harmlessly).
-//   2. Wait for the entrypoint to finish exiting.
-//   3. Upload gateway_backup.py + entrypoint.sh (may be missing in pre-v0.2.2 images).
-//   4. Write .gateway-slug for persistent gateway ID.
-//   5. Run the entrypoint in the background with env vars passed inline.
-//   6. Wait for the gateway process to come up.
 
 function buildEnvString(envs) {
   return Object.entries(envs)
@@ -133,25 +186,18 @@ async function recoverWorkspace(wsConfig) {
   };
 
   try {
-    // Step 1: Create sandbox. The entrypoint will start but exit because
-    // it won't see SUPABASE_URL in time. We pass envs anyway — they'll be
-    // available for subsequent commands.run() calls.
     const sb = await Sandbox.create(template, {
       apiKey: API_KEY,
-      timeoutMs: MAX_TTL,
+      timeoutMs: MAX_TTL_MS,
       envs: fullEnvs,
       metadata: { workspace: name },
     });
 
     console.log(ts(), `  created sandbox ${sb.sandboxId} for ${name}`);
 
-    // Step 2: Wait for the initial entrypoint to exit (it sleeps 30s then exits).
     console.log(ts(), `  waiting for initial entrypoint to exit ...`);
     await new Promise((r) => setTimeout(r, 35_000));
 
-    // Step 3: Upload critical files that may be missing from pre-v0.2.2 images.
-    // Without gateway_backup.py, the entrypoint can't restore from backup and
-    // treats recovery as first boot — seeding templates and corrupting agents.
     console.log(ts(), `  uploading gateway scripts to sandbox ...`);
     const repoRoot = resolve(__dirname, "../..");
     const filesToUpload = [
@@ -171,17 +217,15 @@ async function recoverWorkspace(wsConfig) {
     }
     await sb.commands.run("chmod +x /usr/local/bin/entrypoint.sh", { timeoutMs: 5_000 });
 
-    // Step 4: Write .gateway-slug so the entrypoint picks up the right ID.
     const gatewayId = envs.GATEWAY_ID || "default";
     await sb.commands.run(
       `mkdir -p /home/openclaw/.openclaw && echo '${gatewayId}' > /home/openclaw/.openclaw/.gateway-slug`,
       { timeoutMs: 10_000 }
     );
 
-    // Step 5: Run entrypoint in background with inline env vars.
-    // setsid detaches from the E2B command session so it survives after
-    // commands.run() returns. The entrypoint ends with `exec openclaw gateway run`
-    // which is a long-running process.
+    const sandboxHost = `${sb.sandboxId}.e2b.app`;
+    await sb.commands.run(`echo '${sandboxHost}' > /tmp/sandbox-host`, { timeoutMs: 5_000 });
+
     const envStr = buildEnvString(fullEnvs);
     console.log(ts(), `  starting entrypoint on ${sb.sandboxId} ...`);
     await sb.commands.run(
@@ -189,8 +233,6 @@ async function recoverWorkspace(wsConfig) {
       { timeoutMs: 15_000 }
     );
 
-    // Step 6: Wait for gateway to come up (entrypoint takes ~60-90s to
-    // restore backup, set up VNC, install plugins, register, start gateway).
     console.log(ts(), `  waiting for gateway to start ...`);
     let healthy = false;
     for (let attempt = 0; attempt < 12; attempt++) {
@@ -219,32 +261,31 @@ async function recoverWorkspace(wsConfig) {
   }
 }
 
-// ── Determine if we should run backups this cycle ──────────────────
-
-function shouldRunBackups() {
-  const hour = new Date().getUTCHours();
-  // Run backups at the 00:00 and 12:00 UTC cycles (twice daily).
-  return hour === 0 || hour === 12;
-}
-
 // ── Main ───────────────────────────────────────────────────────────
+
+if (MODE_RENEW) {
+  console.log(ts(), "🔄 Renewal run — backup all, then pause/resume all.");
+} else if (MODE_BACKUP) {
+  console.log(ts(), "📦 Backup run — health-check + backup all.");
+} else {
+  console.log(ts(), "🩺 Health-check run.");
+}
 
 const page = Sandbox.list({ apiKey: API_KEY });
 const items = await page.nextItems();
 
-const runningByWorkspace = new Map();
+const byWorkspace = new Map();
 for (const sb of items) {
   const ws = sb.metadata?.workspace;
   if (ws) {
-    if (!runningByWorkspace.has(ws)) runningByWorkspace.set(ws, []);
-    runningByWorkspace.get(ws).push(sb);
+    if (!byWorkspace.has(ws)) byWorkspace.set(ws, []);
+    byWorkspace.get(ws).push(sb);
   } else {
     console.log(ts(), `⊘ ${sb.sandboxId} — no workspace metadata, skipping`);
   }
 }
 
-// Warn about duplicates.
-for (const [ws, sbs] of runningByWorkspace) {
+for (const [ws, sbs] of byWorkspace) {
   if (sbs.length > 1) {
     console.warn(
       ts(),
@@ -254,17 +295,14 @@ for (const [ws, sbs] of runningByWorkspace) {
   }
 }
 
-const doBackups = shouldRunBackups();
-if (doBackups) console.log(ts(), "📦 Backup cycle — will trigger backups on healthy sandboxes.");
-
-// Process each workspace from config.
 for (const wsConfig of workspaces) {
   const { name } = wsConfig;
-  const sbs = runningByWorkspace.get(name) || [];
+  const sbs = byWorkspace.get(name) || [];
   const activeSb = sbs.length > 0
     ? sbs.sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt))[0]
     : null;
 
+  // ── No sandbox found → recover from backup ──
   if (!activeSb) {
     console.log(ts(), `✗ ${name} — no running sandbox found.`);
     const newId = await recoverWorkspace(wsConfig);
@@ -278,20 +316,19 @@ for (const wsConfig of workspaces) {
 
   const sbId = activeSb.sandboxId;
 
-  // Resume paused sandboxes first.
+  // ── Resume paused sandboxes (left over from a failed renewal) ──
   if (activeSb.state === "paused") {
     try {
       const res = await fetch(`https://api.e2b.dev/sandboxes/${sbId}/resume`, {
         method: "POST",
         headers: { "X-API-Key": API_KEY, "Content-Type": "application/json" },
-        body: JSON.stringify({ timeoutMs: MAX_TTL }),
+        body: JSON.stringify({ timeout: MAX_TTL_S }),
       });
       if (res.ok) {
-        console.log(ts(), `↻ ${sbId} (${name}) — resumed + extended to 24h`);
+        console.log(ts(), `↻ ${sbId} (${name}) — resumed with 24h timeout`);
       } else {
         const body = await res.text().catch(() => "");
         console.error(ts(), `✗ ${sbId} (${name}) resume failed: ${res.status} ${body}`);
-        // If resume fails, the sandbox is likely dead. Try recovery.
         const newId = await recoverWorkspace(wsConfig);
         if (newId) console.log(ts(), `✓ ${name} — recovered on ${newId}`);
         continue;
@@ -300,11 +337,10 @@ for (const wsConfig of workspaces) {
       console.error(ts(), `✗ ${sbId} (${name}) resume error: ${err.message}`);
       continue;
     }
-    // Give it a moment to fully resume before health check.
-    await new Promise((r) => setTimeout(r, 5000));
+    await new Promise((r) => setTimeout(r, 5_000));
   }
 
-  // Health check.
+  // ── Health check ──
   const healthy = await healthCheck(sbId);
   if (!healthy) {
     console.error(ts(), `✗ ${sbId} (${name}) — UNHEALTHY. Attempting recovery ...`);
@@ -317,18 +353,52 @@ for (const wsConfig of workspaces) {
     continue;
   }
 
-  // Extend timeout.
-  try {
-    await Sandbox.setTimeout(sbId, MAX_TTL, { apiKey: API_KEY });
-    console.log(ts(), `✓ ${sbId} (${name}) — healthy, extended to 24h`);
-  } catch (err) {
-    console.error(ts(), `✗ ${sbId} (${name}) extend error: ${err.message}`);
+  const endAt = activeSb.endAt ? new Date(activeSb.endAt).getTime() : Infinity;
+  const remaining = endAt - Date.now();
+  const remainH = (remaining / 3600000).toFixed(1);
+
+  // ── Renewal run (--renew): backup first, then pause/resume ──
+  if (MODE_RENEW) {
+    await triggerBackup(sbId, name);
+    console.log(ts(), `⏰ ${sbId} (${name}) — renewing (${remainH}h was remaining) ...`);
+    const renewed = await renewViaPauseResume(sbId, name);
+    if (!renewed) {
+      console.error(ts(), `  ✗ pause/resume failed for ${name}. Falling back to recovery ...`);
+      const newId = await recoverWorkspace(wsConfig);
+      if (newId) {
+        console.log(ts(), `✓ ${name} — recovered on ${newId}`);
+      } else {
+        console.error(ts(), `✗ ${name} — RECOVERY FAILED.`);
+      }
+    }
+    continue;
   }
 
-  // Backup (if it's a backup cycle).
-  if (doBackups) {
+  // ── Backup run (--backup): backup only ──
+  if (MODE_BACKUP) {
     await triggerBackup(sbId, name);
+    console.log(ts(), `✓ ${sbId} (${name}) — healthy, ${remainH}h remaining`);
+    continue;
   }
+
+  // ── Regular health-check run: safety net for missed renewals ──
+  if (remaining < SAFETY_THRESHOLD_MS) {
+    console.log(ts(), `⚠ ${sbId} (${name}) — only ${remainH}h remaining! Safety-net renewal ...`);
+    await triggerBackup(sbId, name);
+    const renewed = await renewViaPauseResume(sbId, name);
+    if (!renewed) {
+      console.error(ts(), `  ✗ safety-net renewal failed for ${name}. Falling back to recovery ...`);
+      const newId = await recoverWorkspace(wsConfig);
+      if (newId) {
+        console.log(ts(), `✓ ${name} — recovered on ${newId}`);
+      } else {
+        console.error(ts(), `✗ ${name} — RECOVERY FAILED. Sandbox expires in ${remainH}h.`);
+      }
+    }
+    continue;
+  }
+
+  console.log(ts(), `✓ ${sbId} (${name}) — healthy, ${remainH}h remaining`);
 }
 
 console.log(ts(), "Done.");
