@@ -75,6 +75,10 @@ vi.mock("@/components/tasks/task-deliverables", () => ({
   TaskDeliverables: () => <div data-testid="task-deliverables" />,
 }));
 
+vi.mock("@/components/tasks/task-subtasks", () => ({
+  TaskSubtasks: () => <div data-testid="task-subtasks" />,
+}));
+
 vi.mock("@/components/tasks/task-labels-picker", () => ({
   TaskLabelsPicker: () => <div data-testid="labels-picker" />,
   TaskLabelPills: () => <div data-testid="label-pills" />,
@@ -351,6 +355,48 @@ describe("TaskForm", () => {
     render(<TaskForm {...defaultProps} defaultTitle="Prefilled title" />);
     const titleInput = screen.getByPlaceholderText("What needs to be done?");
     expect((titleInput as HTMLTextAreaElement).value).toBe("Prefilled title");
+  });
+
+  it("shows subtask section for parent tasks in edit mode", () => {
+    const task = buildTask({ title: "Parent task", id: "parent-1", parent_id: null });
+    render(<TaskForm {...defaultProps} editingTask={task as unknown as Task} />);
+    expect(screen.getByTestId("task-subtasks")).toBeDefined();
+  });
+
+  it("does not show subtask section for subtasks (tasks with parent_id)", () => {
+    const task = buildTask({ title: "Child task", id: "child-1", parent_id: "parent-1" });
+    render(<TaskForm {...defaultProps} editingTask={task as unknown as Task} />);
+    expect(screen.queryByTestId("task-subtasks")).toBeNull();
+  });
+
+  it("shows parent breadcrumb when editing a subtask with onOpenTask", async () => {
+    const task = buildTask({ title: "Child task", id: "child-1", parent_id: "parent-1" });
+    const onOpenTask = vi.fn();
+
+    // Mock the parent task fetch
+    mockSupabase = createMockSupabaseClient({
+      tables: new Map([
+        ["agents", { select: { data: [{ id: "agent-1", name: "TestBot", slug: "testbot", avatar_url: null }], error: null } }],
+        ["tasks", {
+          select: { data: [{ id: "parent-1", title: "Parent Task Title" }], error: null },
+          insert: { data: [{ id: "new-task-1" }], error: null },
+          update: { data: [], error: null },
+        }],
+        ["task_series", { select: { data: [], error: null } }],
+      ]),
+    });
+
+    render(
+      <TaskForm
+        {...defaultProps}
+        editingTask={task as unknown as Task}
+        onOpenTask={onOpenTask}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Parent Task Title")).toBeDefined();
+    });
   });
 
   it("submits form on Create click", async () => {

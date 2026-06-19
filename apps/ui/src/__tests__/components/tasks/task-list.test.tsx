@@ -263,6 +263,18 @@ describe("TaskList", () => {
     expect(screen.getByTestId("label-pills")).toBeDefined();
   });
 
+  it("shows subtask count when task has subtasks", () => {
+    const tasks = [buildTask({ title: "Parent", subtask_count: 5, subtask_done_count: 2 })];
+    render(<TaskList {...defaultProps} tasks={tasks} />);
+    expect(screen.getByText("2/5")).toBeDefined();
+  });
+
+  it("does not show subtask count when task has no subtasks", () => {
+    const tasks = [buildTask({ title: "No subtasks", subtask_count: 0, subtask_done_count: 0 })];
+    render(<TaskList {...defaultProps} tasks={tasks} />);
+    expect(screen.queryByText("0/0")).toBeNull();
+  });
+
   it("shows archive option in dropdown for non-archived tasks", () => {
     const onArchive = vi.fn();
     const tasks = [buildTask({ title: "Archivable" })];

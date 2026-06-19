@@ -54,6 +54,8 @@ export interface Task {
   comment_count?: number;
   attachment_count?: number;
   subtasks?: Task[];
+  subtask_count?: number;
+  subtask_done_count?: number;
   labels?: Label[];
   blocker_count?: number;
   deliverable_count?: number;

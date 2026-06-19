@@ -36,6 +36,8 @@ export function buildTask(overrides: Record<string, unknown> = {}) {
     labels: [] as { id: string; created_at: string; name: string; color: string; description: string | null }[],
     blocker_count: 0,
     deliverable_count: 0,
+    subtask_count: 0,
+    subtask_done_count: 0,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     ...overrides,

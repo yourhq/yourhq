@@ -55,6 +55,18 @@ describe("TaskCard", () => {
     expect(screen.getByText("Me")).toBeInTheDocument();
   });
 
+  it("shows subtask progress when subtask_count > 0", () => {
+    const task = buildTask({ subtask_count: 4, subtask_done_count: 3 });
+    render(<TaskCard task={task} />);
+    expect(screen.getByText("3/4")).toBeInTheDocument();
+  });
+
+  it("does not show subtask progress when subtask_count is 0", () => {
+    const task = buildTask({ subtask_count: 0, subtask_done_count: 0 });
+    render(<TaskCard task={task} />);
+    expect(screen.queryByText("0/0")).not.toBeInTheDocument();
+  });
+
   it("shows label pills when labels are present", () => {
     const labels = [
       buildLabel({ name: "Bug" }),

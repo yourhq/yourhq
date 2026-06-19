@@ -135,7 +135,7 @@ export function useTasks() {
       if (taskList.length > 0) {
         const taskIds = taskList.map((t) => t.id);
 
-        const [linkResult, labelResult, blockerResult, commentResult] = await Promise.all([
+        const [linkResult, labelResult, blockerResult, commentResult, subtaskResult] = await Promise.all([
           supabase
             .from("entity_links")
             .select("owner_id, is_deliverable")
@@ -155,6 +155,11 @@ export function useTasks() {
             .select("entity_id")
             .eq("entity_type", "task")
             .in("entity_id", taskIds),
+          supabase
+            .from("tasks")
+            .select("parent_id, status")
+            .in("parent_id", taskIds)
+            .is("archived_at", null),
         ]);
 
         if (linkResult.data) {
@@ -206,6 +211,21 @@ export function useTasks() {
             task.comment_count = commentMap.get(task.id) ?? 0;
           }
         }
+
+        if (subtaskResult.data) {
+          const countMap = new Map<string, number>();
+          const doneMap = new Map<string, number>();
+          for (const row of subtaskResult.data as { parent_id: string; status: string }[]) {
+            countMap.set(row.parent_id, (countMap.get(row.parent_id) ?? 0) + 1);
+            if (row.status === "done") {
+              doneMap.set(row.parent_id, (doneMap.get(row.parent_id) ?? 0) + 1);
+            }
+          }
+          for (const task of taskList) {
+            task.subtask_count = countMap.get(task.id) ?? 0;
+            task.subtask_done_count = doneMap.get(task.id) ?? 0;
+          }
+        }
       }
 
       const filtered = labelFilter !== "all"
@@ -225,7 +245,7 @@ export function useTasks() {
   // Real-time: sync tasks via single-row refetch (has stream + agent JOINs)
   const taskPostProcess = useCallback(
     async (task: Task): Promise<Task> => {
-      const [linkResult, labelResult, blockerResult, commentResult] = await Promise.all([
+      const [linkResult, labelResult, blockerResult, commentResult, subtaskResult] = await Promise.all([
         supabase
           .from("entity_links")
           .select("owner_id, is_deliverable")
@@ -245,6 +265,11 @@ export function useTasks() {
           .select("id")
           .eq("entity_type", "task")
           .eq("entity_id", task.id),
+        supabase
+          .from("tasks")
+          .select("status")
+          .eq("parent_id", task.id)
+          .is("archived_at", null),
       ]);
 
       const nonDeliverableLinks = (linkResult.data ?? []).filter(
@@ -254,6 +279,8 @@ export function useTasks() {
       task.deliverable_count = (linkResult.data ?? []).length - nonDeliverableLinks.length;
       task.blocker_count = blockerResult.data?.length ?? 0;
       task.comment_count = commentResult.data?.length ?? 0;
+      task.subtask_count = subtaskResult.data?.length ?? 0;
+      task.subtask_done_count = subtaskResult.data?.filter((r: { status: string }) => r.status === "done").length ?? 0;
 
       if (labelResult.data) {
         task.labels = (labelResult.data as unknown as { labels: { id: string; name: string; color: string; description: string | null; created_at: string } | null }[])

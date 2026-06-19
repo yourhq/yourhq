@@ -33,8 +33,10 @@ import {
   AlertTriangle,
   Tag,
   Check,
+  CornerDownRight,
 } from "lucide-react";
 import { TaskRelations } from "./task-relations";
+import { TaskSubtasks } from "./task-subtasks";
 import { TaskLabelsPicker } from "./task-labels-picker";
 import { TaskDeliverables } from "./task-deliverables";
 import { TaskTimeline } from "./task-timeline";
@@ -78,11 +80,12 @@ interface TaskFormProps {
   onSave: (createdTaskId?: string) => void;
   onCancel: () => void;
   onArchive?: (id: string) => void;
+  onOpenTask?: (id: string) => void;
   defaultTitle?: string;
   defaultAssignee?: string;
 }
 
-export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, defaultTitle, defaultAssignee }: TaskFormProps) {
+export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, onOpenTask, defaultTitle, defaultAssignee }: TaskFormProps) {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -317,6 +320,23 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
         setInboxFailed(!!data?.length);
       });
   }, [savedTaskId, hasAgentAssignee, supabase]);
+
+  // Fetch parent task title for breadcrumb
+  const [parentTask, setParentTask] = useState<{ id: string; title: string } | null>(null);
+  useEffect(() => {
+    if (!editingTask?.parent_id) {
+      setParentTask(null);
+      return;
+    }
+    supabase
+      .from("tasks")
+      .select("id, title")
+      .eq("id", editingTask.parent_id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setParentTask(data);
+      });
+  }, [editingTask?.parent_id, supabase]);
 
   // Auto-resize title
   useEffect(() => {
@@ -554,8 +574,20 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
           </div>
         )}
 
+        {/* Parent breadcrumb */}
+        {parentTask && onOpenTask && (
+          <button
+            type="button"
+            onClick={() => onOpenTask(parentTask.id)}
+            className="flex items-center gap-1.5 px-4 sm:px-5 pt-3 pb-0 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0"
+          >
+            <CornerDownRight className="h-3 w-3" />
+            <span className="truncate max-w-[300px]">{parentTask.title}</span>
+          </button>
+        )}
+
         {/* Title + description + save status */}
-        <div className="px-4 sm:px-5 pt-4 sm:pt-5 pb-1 shrink-0">
+        <div className={cn("px-4 sm:px-5 pb-1 shrink-0", parentTask ? "pt-1" : "pt-4 sm:pt-5")}>
           <div className="flex items-start gap-2">
             <textarea
               ref={titleRef}
@@ -724,6 +756,16 @@ export function TaskForm({ streams, editingTask, onSave, onCancel, onArchive, de
           {/* ── Content sections ── */}
           {savedTaskId ? (
             <>
+              {!editingTask?.parent_id && (
+                <div className="border-t border-border/40 px-4 sm:px-5 py-2.5">
+                  <TaskSubtasks
+                    taskId={savedTaskId}
+                    streamId={streamId !== "none" ? streamId : null}
+                    onOpenSubtask={(t) => onOpenTask?.(t.id)}
+                  />
+                </div>
+              )}
+
               <div className="border-t border-border/40 px-4 sm:px-5 py-2.5">
                 <TaskRelations taskId={savedTaskId} />
               </div>

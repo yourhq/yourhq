@@ -308,6 +308,7 @@ function TasksContent() {
               onSave={tasks.form.onFormSaved}
               onCancel={tasks.form.closeForm}
               onArchive={tasks.actions.handleArchiveTask}
+              onOpenTask={tasks.form.openTaskById}
               defaultTitle={onboardingTitle || undefined}
               defaultAssignee={onboardingAgent || undefined}
             />

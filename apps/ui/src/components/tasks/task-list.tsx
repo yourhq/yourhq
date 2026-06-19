@@ -33,6 +33,7 @@ import {
   Repeat,
   Ban,
   SearchX,
+  ListChecks,
 } from "lucide-react";
 import { AgentStatusChip } from "./agent-status-chip";
 import { TaskLabelPills } from "./task-labels-picker";
@@ -250,6 +251,15 @@ export function TaskList({
 
             {/* Counts */}
             <div className="flex shrink-0 items-center gap-2 text-[11px] text-muted-foreground">
+              {!!task.subtask_count && task.subtask_count > 0 && (
+                <span className={cn(
+                  "flex items-center gap-0.5 tabular-nums",
+                  (task.subtask_done_count ?? 0) === task.subtask_count && "text-[var(--status-success)]"
+                )}>
+                  <ListChecks className="h-3 w-3" />
+                  {task.subtask_done_count ?? 0}/{task.subtask_count}
+                </span>
+              )}
               {!!task.attachment_count && task.attachment_count > 0 && (
                 <span className="flex items-center gap-0.5 tabular-nums">
                   <Paperclip className="h-3 w-3" />

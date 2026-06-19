@@ -19,6 +19,7 @@ import {
   Archive,
   Pencil,
   Repeat,
+  ListChecks,
 } from "lucide-react";
 import { AgentStatusChip } from "./agent-status-chip";
 import { TaskLabelPills } from "./task-labels-picker";
@@ -127,7 +128,8 @@ export function TaskCard({ task, onClick, onArchive }: TaskCardProps) {
       {(task.assignee_type ||
         task.due_date ||
         task.attachment_count ||
-        task.comment_count) && (
+        task.comment_count ||
+        task.subtask_count) && (
         <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
           <div className="flex items-center gap-2">
             {task.assignee_type === "agent" && task.assignee_agent ? (
@@ -151,6 +153,15 @@ export function TaskCard({ task, onClick, onArchive }: TaskCardProps) {
             )}
           </div>
           <div className="flex items-center gap-2 tabular-nums">
+            {!!task.subtask_count && task.subtask_count > 0 && (
+              <span className={cn(
+                "flex items-center gap-0.5",
+                (task.subtask_done_count ?? 0) === task.subtask_count && "text-[var(--status-success)]"
+              )}>
+                <ListChecks className="h-3 w-3" />
+                {task.subtask_done_count ?? 0}/{task.subtask_count}
+              </span>
+            )}
             {!!task.attachment_count && task.attachment_count > 0 && (
               <span className="flex items-center gap-0.5">
                 <Paperclip className="h-3 w-3" />
