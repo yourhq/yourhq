@@ -13,8 +13,6 @@ tagged release.
 
 ## [0.2.3] — 2026-06-23
 
-## [0.2.3] — 2026-06-23
-
 ### Fixed
 
 - **Search RPCs broken** — all four knowledge search functions (`search_knowledge_items`, `search_knowledge_items_text`, `search_knowledge_chunks`, `search_knowledge_chunks_text`) failed at runtime because `SET search_path = ''` prevented resolution of `current_tenant_id()` and the `<=>` vector distance operator. Changed to `SET search_path = public, extensions`.
