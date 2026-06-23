@@ -11,6 +11,8 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-06-23
+
 ### Added
 
 - **Subtask UI** — task detail modal now has a subtask section with inline create, status toggle, and progress bar. Parent breadcrumb navigation lets you jump between parent and subtask. List and board views show subtask progress chips (done/total). One-level nesting enforced.
@@ -219,7 +221,8 @@ Initial public release.
 - Vulnerability disclosure via `security@yourhq.ai`; trust model and known risks documented in [SECURITY.md](SECURITY.md).
 - Gateway tokens hashed at rest; service-role key handling documented.
 
-[Unreleased]: https://github.com/yourhq/yourhq/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/yourhq/yourhq/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/yourhq/yourhq/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/yourhq/yourhq/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/yourhq/yourhq/compare/v0.1.4...v0.2.0
 [0.1.4]: https://github.com/yourhq/yourhq/compare/v0.1.3...v0.1.4
