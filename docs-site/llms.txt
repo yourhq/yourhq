@@ -1,6 +1,6 @@
 # HQ
 
-> HQ (v0.2.2) is an AI operations platform — agents, CRM, tasks with subtasks, knowledge (workspace/agent/library scopes), and routines. Available as a hosted service at app.yourhq.ai ($30/mo per workspace) or self-hosted for free on your own infrastructure. Both run the same open-source codebase. Supabase is the backend; Docker gateway hosts running OpenClaw 6.6 (or cloud sandboxes for hosted) run agents. Each agent can run a different model and thinking level, with per-task overrides for one-off reasoning depth changes. Gateway state is automatically backed up to Supabase Storage and restored on boot.
+> HQ (v0.2.3) is an AI operations platform — agents, CRM, tasks with subtasks, knowledge (workspace/agent/library scopes), and routines. Available as a hosted service at app.yourhq.ai ($30/mo per workspace) or self-hosted for free on your own infrastructure. Both run the same open-source codebase. Supabase is the backend; Docker gateway hosts running OpenClaw 6.6 (or cloud sandboxes for hosted) run agents. Each agent can run a different model and thinking level, with per-task overrides for one-off reasoning depth changes. Gateway state is automatically backed up to Supabase Storage and restored on boot.
 
 ## Primary docs
 
@@ -8,7 +8,7 @@
 - [Why HQ](https://docs.yourhq.ai/concepts/why-hq): Design philosophy and honest comparison against CrewAI, OpenAI Agents SDK, and n8n. Read this if you're deciding whether HQ is the right fit.
 - [Choose your path](https://docs.yourhq.ai/getting-started/choose-your-path): Audience-based starting points — hosted, self-host, agent builders, developers, and security reviewers.
 - [What HQ includes](https://docs.yourhq.ai/concepts/features): Product tour of agents, per-agent model selection, secrets management, source connectors, CRM, tasks (with subtasks), documents, automations, gateway backups, plugins, usage, and budgets.
-- [Changelog](https://docs.yourhq.ai/getting-started/changelog): What's new in each HQ release — highlights from v0.1.0 through v0.2.2.
+- [Changelog](https://docs.yourhq.ai/getting-started/changelog): What's new in each HQ release — highlights from v0.1.0 through v0.2.3.
 - [Community](https://docs.yourhq.ai/getting-started/community): Discord, GitHub Issues, Discussions, Twitter, and contribution entry points.
 - [Roadmap](https://docs.yourhq.ai/getting-started/roadmap): Shipped areas and planned work.
 
@@ -101,7 +101,7 @@
 
 ## Notes for AI agents
 
-- HQ v0.2.2 is the latest release (June 2026). The gateway runs OpenClaw 6.6.
+- HQ v0.2.3 is the latest release (June 2026). The gateway runs OpenClaw 6.6.
 - HQ is available as a hosted service (app.yourhq.ai, $30/mo) and as a self-hosted open-source project (free). Users may be on either — check context before assuming.
 - Supabase is the main state backbone. Hosted users get a dedicated Supabase project managed by the platform; self-hosted users bring their own. 39 migrations (001-039) run automatically during onboarding.
 - Gateway hosts run agents in Docker and store local agent worktrees, browser profiles, and OpenClaw state. Gateway state is automatically backed up to Supabase Storage on shutdown and restored on fresh boot. Retention: 3 backups per gateway, 7-day max age.

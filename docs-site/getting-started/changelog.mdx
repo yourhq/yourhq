@@ -1,6 +1,6 @@
 ---
 title: "Changelog"
-description: "What's new in each HQ release, from v0.1.0 through v0.2.2."
+description: "What's new in each HQ release, from v0.1.0 through v0.2.3."
 ---
 
 Every tagged release includes full release notes on GitHub. Below are highlights from recent versions.
@@ -10,6 +10,12 @@ Every tagged release includes full release notes on GitHub. Below are highlights
 </Card>
 
 ---
+
+## v0.2.3 — June 23, 2026
+
+- Fixed all four knowledge search RPCs (`search_knowledge_items`, `search_knowledge_items_text`, `search_knowledge_chunks`, `search_knowledge_chunks_text`) — `SET search_path = ''` prevented resolution of `current_tenant_id()` and the vector distance operator at runtime
+- Fixed radix-ui dialog/popover crash affecting all pages — restored lockfile to pin transitive sub-deps to working versions
+- Documentation brought fully current through v0.2.2 (20+ pages updated, `llms-full.txt` regenerated)
 
 ## v0.2.2 — June 23, 2026
 

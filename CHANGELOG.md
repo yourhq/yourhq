@@ -11,6 +11,17 @@ tagged release.
 
 ## [Unreleased]
 
+## [0.2.3] — 2026-06-23
+
+### Fixed
+
+- **Search RPCs broken** — all four knowledge search functions (`search_knowledge_items`, `search_knowledge_items_text`, `search_knowledge_chunks`, `search_knowledge_chunks_text`) failed at runtime because `SET search_path = ''` prevented resolution of `current_tenant_id()` and the `<=>` vector distance operator. Changed to `SET search_path = public, extensions`.
+- **radix-ui dialog crash** — restored `package-lock.json` to pin radix-ui transitive sub-deps (`@radix-ui/react-dialog`, `@radix-ui/react-popover`) to working 1.1.16 versions. The 1.1.17 releases broke `DialogPortal` / `PopoverTrigger` context, crashing all pages.
+
+### Changed
+
+- **Documentation** — brought all 20+ docs pages current through v0.2.2 (subtasks, knowledge scopes, backups, dispatcher hardening, plugin events, and more). Regenerated `llms-full.txt`.
+
 ## [0.2.2] — 2026-06-23
 
 ### Added
@@ -221,7 +232,8 @@ Initial public release.
 - Vulnerability disclosure via `security@yourhq.ai`; trust model and known risks documented in [SECURITY.md](SECURITY.md).
 - Gateway tokens hashed at rest; service-role key handling documented.
 
-[Unreleased]: https://github.com/yourhq/yourhq/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/yourhq/yourhq/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/yourhq/yourhq/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/yourhq/yourhq/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/yourhq/yourhq/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/yourhq/yourhq/compare/v0.1.4...v0.2.0
