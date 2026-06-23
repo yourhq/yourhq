@@ -41,7 +41,19 @@ BUCKET = "gateway-backups"
 MAX_BACKUPS = 5
 MAX_AGE_DAYS = 7
 
-EXCLUDE_DIRS = {"npm", "node_modules", "browser", "plugins", ".tmp", "tmp", "cache", "Cache", "repos", "sessions", "codex-home"}
+EXCLUDE_DIRS = {
+    "npm",
+    "node_modules",
+    "browser",
+    "plugins",
+    ".tmp",
+    "tmp",
+    "cache",
+    "Cache",
+    "repos",
+    "sessions",
+    "codex-home",
+}
 EXCLUDE_EXTENSIONS = {".log", ".pid", ".sock", ".sqlite-wal", ".sqlite-shm"}
 
 # Chrome dirs to skip when backing up the browser profile — caches and models

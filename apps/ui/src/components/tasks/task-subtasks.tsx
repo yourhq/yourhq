@@ -54,20 +54,21 @@ export function TaskSubtasks({ taskId, streamId, onOpenSubtask }: TaskSubtasksPr
   const [creating, setCreating] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const fetchSubtasks = useCallback(async () => {
-    const { data } = await supabase
+  useEffect(() => {
+    let cancelled = false;
+    supabase
       .from("tasks")
       .select("*, assignee_agent:agents!tasks_assignee_agent_id_fkey(id, name, slug, avatar_url, meta)")
       .eq("parent_id", taskId)
       .is("archived_at", null)
-      .order("created_at", { ascending: true });
-    if (data) setSubtasks(data as unknown as Task[]);
-    setLoading(false);
+      .order("created_at", { ascending: true })
+      .then(({ data }) => {
+        if (cancelled) return;
+        if (data) setSubtasks(data as unknown as Task[]);
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
   }, [supabase, taskId]);
-
-  useEffect(() => {
-    fetchSubtasks();
-  }, [fetchSubtasks]);
 
   const handleStatusToggle = useCallback(
     async (subtask: Task, e: React.MouseEvent) => {
