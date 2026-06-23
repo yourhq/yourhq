@@ -49,7 +49,9 @@ The first boot flow is intentionally config-light:
 2. Open the UI and sign in.
 3. Complete the onboarding wizard.
 
-After setup, the workspace can be managed from Settings. The UI stores workspace metadata in `/config/workspaces.json` and workspace secrets in `/config/secrets.json` on the `ui-config` volume. The active workspace is selected at runtime, so the published UI image does not need a rebuild for each user's Supabase project.
+After setup, the workspace can be managed from Settings. Additional workspaces can be added from Settings → Workspaces — the "Add Workspace" flow has full parity with the initial onboarding wizard, including intent selection, infrastructure connection, model provider setup, and first agent creation.
+
+The UI stores workspace metadata in `/config/workspaces.json` and workspace secrets in `/config/secrets.json` on the `ui-config` volume. The active workspace is selected at runtime, so the published UI image does not need a rebuild for each user's Supabase project.
 
 ## Onboarding
 
@@ -233,6 +235,7 @@ Tasks support:
 - Statuses such as todo, in progress, blocked, done, cancelled, and missed.
 - Priorities and due dates.
 - Recurrence rules.
+- **Subtasks** — tasks support one-level nesting via `parent_id`. Create subtasks inline from the task detail panel. Parent tasks display a progress chip (done/total) in both list and board views, with a progress bar in the detail panel. Subtask status can be toggled directly from the subtask list. Subtasks inherit the parent's stream and show a breadcrumb link back to the parent task.
 - **Per-task model and thinking overrides** — when assigned to an agent, override the model or reasoning depth for this specific execution without changing the agent's default.
 - **Relations and dependencies** — link tasks with `blocked_by`, `blocks`, `relates_to`, `parent_of`, and `child_of` relationships. Blockers are highlighted in the task list and task form. When a blocking task completes, a `notify_blocker_resolved` trigger creates an inbox item for the unblocked task's assignee.
 - **Labels** — managed workspace labels with configurable colors. Labels can be created from Settings → Labels or inline from the task form. Tasks display label pills in list and board views, and a label filter is available in the toolbar.
@@ -255,13 +258,14 @@ The knowledge system is the unified store for all workspace knowledge. It replac
 - **Files** — uploaded files (PDFs, images, spreadsheets, audio, video).
 - **Sources** — externally synced content from connected integrations via the plugin-based source connector system.
 
-Knowledge items support folders, tags, pinned state, rich editing, and semantic + full-text search.
+Knowledge items support folders, tags, rich editing, and semantic + full-text search.
 
 Source connectors are self-contained plugins — each provider is a folder under `gateway/connectors/<provider>/` with a `manifest.json` that declares auth, UI metadata, and capabilities. The platform handles credential encryption, OAuth flows, UI forms, sync scheduling, and embedding automatically. Providers that support it can enable two-way sync with a `writable` toggle per connection. See [Knowledge system — Source connectors](/concepts/knowledge#source-connectors) for the architecture.
 
-Agent boot context is controlled by **scope** and **pinning**:
+Agent boot context is controlled by **scope**:
 
-- A **workspace-scoped, pinned** item is included in every agent's startup context.
+- A **library-scoped** item is shared workspace-wide context, included in every agent's startup context.
+- A **workspace-scoped** item lives in the workspace knowledge base but is not automatically injected into agent context.
 - An **agent-scoped** item assigned to specific agents is included only for those agents.
 
 See [Knowledge system](/concepts/knowledge) for the full architecture and [Knowledge and agent context](/guides/agent-boot-docs) for the practical guide.
@@ -307,12 +311,18 @@ The Settings -> Gateways UI supports:
 - Editing labels and reachable URL overrides.
 - Opening the noVNC desktop modal.
 
+## Gateway Backup and Restore
+
+Gateway state — auth tokens, agent configurations, secrets, and messaging channel pairing (e.g. Telegram) — is automatically backed up to Supabase Storage on shutdown and restored on fresh boot. This means a gateway can be destroyed and recreated without losing its operational state.
+
+Backups are managed from **Settings → Backups**, where you can view existing backups, trigger a manual backup, or restore from a previous snapshot.
+
 ## Provider Connections and Models
 
 HQ is model-agnostic. Agents work with whatever provider you connect — there is no required or default provider.
 
 <CardGroup cols={3}>
-  <Card title="API key" icon="key">OpenAI, Anthropic, Gemini, DeepSeek, Mistral, and more.</Card>
+  <Card title="API key" icon="key">OpenAI, Anthropic, Gemini, DeepSeek, Mistral, MiniMax, and more.</Card>
   <Card title="OAuth / device code" icon="right-to-bracket">OpenAI subscription, GitHub Copilot, and interactive flows.</Card>
   <Card title="Local models" icon="server">Ollama, LM Studio, vLLM, and OpenAI-compatible servers.</Card>
 </CardGroup>

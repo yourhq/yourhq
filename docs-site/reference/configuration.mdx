@@ -47,7 +47,13 @@ Use (1) only as an override — e.g. a remote gateway that must always point at 
 
 - **`EMBEDDER_MODEL`** — Optional. Defaults to `BAAI/bge-small-en-v1.5`. The default model (~45 MB) is pre-loaded in the embedder Docker image for instant startup. Override with any [fastembed-compatible model name](https://qdrant.github.io/fastembed/examples/Supported_Models/) — non-default models download on first boot and are cached in the `gateway-embedding-cache` volume for subsequent restarts.
 
+- **`EMBEDDER_PORT`** — Optional. Default `18801` in Docker mode, `9100` in hosted mode. The in-container port the embedder HTTP server listens on. In hosted mode the default shifts to `9100` because `18801` is the first CDP port allocated by `add-agent.sh` and would collide with the first agent's Chrome.
+
+- **`EMBEDDER_CACHE_DIR`** — Optional. Default `/models` (inside the `gateway-embedding-cache` volume in Docker mode), `/opt/yourhq/models` in hosted mode. Directory where the embedder caches downloaded model files. Persisted across restarts so non-default models don't re-download on every boot.
+
 - **`EMBEDDER_CHUNK_CHARS`**, **`EMBEDDER_CHUNK_OVERLAP`**, **`EMBEDDER_MAX_CHUNKS`** — Optional. Defaults to `3500`, `500`, and `500`. These tune the source-agnostic knowledge chunker used for documents now and future file/external-source indexing.
+
+- **`REGISTRY_TIMEOUT`** — Optional. Default `600` (10 minutes). Seconds the gateway waits for the workspace registry (`/config/workspaces.json` + `/config/secrets.json`) to become available on boot. Only relevant for co-located installs where the gateway starts before the UI has completed onboarding. Increase if your first-boot onboarding takes longer than 10 minutes.
 
 **Where the real creds live**: the workspace registry files (`/config/workspaces.json` for URL + anon key, `/config/secrets.json` for service role key). Don't edit these by hand — use the onboarding screen on first boot, or Settings → Database afterward.
 
@@ -143,7 +149,7 @@ Control loops in the dispatcher and runner daemons. Defaults are sensible; overr
 
 - **`GIT_SYNC_INTERVAL`** — **Optional**. Default `1800` (30 min). Seconds between backup-sweep passes in the runner (commits dirty worktrees, fast-forwards branches that moved on the remote). Set to `0` to disable the sweep entirely — event-driven commits and the post-commit auto-push still work.
 
-- **`RUNTIME_MODE`** — **Optional**. Default `docker`. One of `docker`, `systemd`, or `e2b`. Controls how `restart_gateway`, `restart_dispatcher`, and `update_gateway` commands are executed. `docker` uses `docker compose` commands; `systemd` uses `openclaw gateway restart` and `systemctl`; `e2b` adapts the entrypoint for cloud sandbox environments. Self-hosted installs should use `docker` (default).
+- **`RUNTIME_MODE`** — **Optional**. Default `docker`. One of `docker`, `systemd`, `hosted`, or `e2b`. Controls how `restart_gateway`, `restart_dispatcher`, and `update_gateway` commands are executed and which subsystems the entrypoint starts. `docker` uses `docker compose` commands (daemons run as separate containers); `systemd` uses `openclaw gateway restart` and `systemctl`; `hosted` runs all daemons in-process within a single container (used by the hosted offering's cloud sandboxes); `e2b` is a legacy alias for `hosted`. Additionally, `RUNTIME_MODE` controls Sentry initialization in Python daemons — Sentry only activates when the mode is `hosted` or `e2b`, never in self-hosted installs. Self-hosted installs should use `docker` (default).
 
 - **`TENANT_ID`** — **Optional**. Default `00000000-0000-0000-0000-000000000000`. The UUID of the tenant row this gateway and its agents belong to. Self-hosted installs use the default nil UUID. Override only if you're running a multi-tenant setup.
 
@@ -155,7 +161,11 @@ These are rarely needed but documented for completeness and troubleshooting.
 
 - **`DEBUG`** — **Optional**. Default unset. Set to `1` to enable `set -x` in the gateway entrypoint, printing every shell command to the container log. Noisy but useful for diagnosing boot failures.
 
-### 2.9 Image overrides
+- **`OPENCLAW_PROVIDER_PLUGINS`** — **Optional**. Default `openai`. Space-separated list of OpenClaw provider plugin names to install at gateway boot. OpenClaw 6.x ships provider integrations as installable plugins rather than bundling them — without the provider plugin, `openclaw models auth` fails and agents cannot resolve their model. The entrypoint installs any plugins in this list that aren't already installed. Override to add additional providers (e.g. `openai anthropic google`).
+
+- **`OPENCLAW_VERSION`** — **Optional**. Default unset. Informational version string written into the `gateways.meta.version` field during registration. Used by the UI to display the gateway's OpenClaw version. Typically set at image build time.
+
+### 2.10 Image overrides
 
 Pin specific image tags for reproducible production deploys. All four default to `:latest`.
 
@@ -168,7 +178,7 @@ Pin specific image tags for reproducible production deploys. All four default to
 
 Override to `ghcr.io/yourhq/yourhq-<svc>:2026.04.20` (or similar date-pinned tag) for production. Don't pin in dev — you want to track `:latest`.
 
-### 2.10 Codespaces / reverse-proxy origin allowlist
+### 2.11 Codespaces / reverse-proxy origin allowlist
 
 Next.js enforces an origin allowlist on server actions and form submissions. When the UI is fronted by a reverse proxy or GitHub Codespaces port-forward, the apparent origin differs from `localhost:3000` and requests get rejected as CSRF. These variables extend the allowlist.
 
@@ -193,7 +203,7 @@ Now the UI reads its Supabase config at **runtime** from the workspace registry 
 
 ---
 
-### 2.11 Secrets encryption
+### 2.12 Secrets encryption
 
 These variables control how user-managed secrets (channel tokens, API keys, OAuth tokens) are encrypted in the `secrets` table and decrypted on the gateway.
 
@@ -203,7 +213,7 @@ These variables control how user-managed secrets (channel tokens, API keys, OAut
 
 Self-hosted deployments do not need `HOSTED_SECRETS_KEY` — the encryption key is automatically derived from `SUPABASE_SERVICE_ROLE_KEY` via HKDF-SHA256 (salt: `yourhq-secrets-v1`, info: `aes-256-gcm`, 32 bytes). This means rotating your service role key requires re-encrypting all secrets.
 
-### 2.12 Hosted-only observability (Sentry + PostHog)
+### 2.13 Hosted-only observability (Sentry + PostHog)
 
 These services are **only active in the hosted offering** (`DEPLOYMENT_MODE=hosted`). Self-hosted deployments never load the Sentry or PostHog SDKs, never send telemetry, and never need these variables. If you're self-hosting, skip this section entirely.
 

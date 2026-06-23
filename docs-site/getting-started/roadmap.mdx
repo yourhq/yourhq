@@ -4,11 +4,10 @@ Where HQ is headed. For what's already shipped, see the [feature tour](../concep
 
 ## v0.2 — Connectors & Hardening
 
-HQ ships with one source connector (Notion). v0.2 is about proving the connector architecture generalizes and shoring up the rough edges from v0.1.
+The gateway runtime and workspace foundations are solid after v0.2.0–v0.2.2. The remaining v0.2 work focuses on expanding the connector layer and closing the last polish gaps.
 
 - **Source connector expansion** — Google Drive, Gmail, and improvements to the connector SDK to make community contributions frictionless.
-- **Test coverage hardening** — close the worker app coverage gap, expand UI component coverage, and add end-to-end install validation across platforms (VPS, M-series Mac, Raspberry Pi).
-- **Onboarding polish** — stabilize the first-run experience across all install paths. Auth propagation, gateway credential resolution, and login redirects all saw patches in v0.1.2–v0.1.3 and need to be solid.
+- **Test coverage hardening** — expand UI component coverage and add end-to-end install validation across platforms (VPS, M-series Mac, Raspberry Pi).
 - **Task recurrence** — enable the recurrence system (built but currently disabled) with schedule presets and UI controls.
 - **Templates source UI** — let workspaces point at a custom git URL for their own template library instead of only the bundled set.
 - **Import existing OpenClaw** — bring an existing OpenClaw setup into HQ without starting over. Detect running agents, import their state, and register the host as an HQ gateway.
@@ -34,6 +33,31 @@ Remove hard dependencies and give operators real choices.
 - **Community template marketplace** — discover, share, and fork agent templates across the community.
 - **Native apps** — macOS menu bar, iOS Shortcuts.
 - **Stronger per-agent isolation** — stricter security boundaries for multi-operator deployments.
+
+## Shipped
+
+Items that graduated from the roadmap into a release.
+
+### v0.2.2 (June 2026)
+
+- **Subtask UI** — task detail modal with inline subtask create, status toggle, progress bar, and parent breadcrumb navigation. Board and list views show subtask progress chips.
+- **Knowledge library scope** — knowledge items can now be scoped to `library` for workspace-wide shared context.
+- **E2B keepalive enhancements** — sandbox health-check and renewal logic with pause/resume functionality.
+- **Dispatcher hardening** — burst-aware batch sizing, inbox dedup, backoff for unprovisioned agents. Prevents wake-loop resource exhaustion on small instances.
+
+### v0.2.1 (June 2026)
+
+- **Gateway backup & restore** — gateway state automatically backed up to Supabase Storage on shutdown and restored on fresh boot. Manual trigger from Settings → Backups.
+- **Backups settings page** — per-gateway backup status, on-demand backup, and delete action with real-time updates.
+- **OpenClaw 6.6 runtime** — gateway upgraded from 6.1 to 6.6 with entrypoint hardening and backup/restore lifecycle.
+
+### v0.2.0 (June 2026)
+
+- **OpenClaw 6.1 gateway runtime** — gateway, dispatcher, and runner images upgraded from 4.12 to 6.1.
+- **MiniMax M3 model** — added to the model picker (1M-token context, multimodal, low cost).
+- **Full new-workspace wizard** — "Add Workspace" now has parity with initial onboarding, one-click DB migration, and multi-workspace auth.
+- **Gateway verification harness** — automated boot-and-assert test for the full agent loop on sandbox.
+- **Onboarding polish** — first-run experience stabilized across all install paths (auth propagation, gateway credential resolution, login redirects).
 
 ## How to Influence the Roadmap
 

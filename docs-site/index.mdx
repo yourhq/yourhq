@@ -1,6 +1,6 @@
 ---
 title: "Your HQ"
-description: "Self-hostable AI agent operations platform — agents, CRM, tasks, knowledge, and routines on infrastructure you control."
+description: "Self-hostable AI agent operations platform — agents, CRM, tasks, knowledge, and routines on infrastructure you control. v0.2.2, running OpenClaw 6.6."
 ---
 
 <img
@@ -14,7 +14,7 @@ description: "Self-hostable AI agent operations platform — agents, CRM, tasks,
   alt="HQ diagram"
 />
 
-**HQ is an AI operations workspace — agents, CRM, tasks, knowledge, and routines.** Run it on your own infrastructure or let us host it for you.
+**HQ is an AI operations workspace — agents, CRM, tasks, knowledge, and routines.** Run it on your own infrastructure or let us host it for you. Currently at v0.2.2, powered by OpenClaw 6.6.
 
 <CardGroup cols={3}>
   <Card title="Hosted — ready in 2 min" icon="cloud" href="/hosted/getting-started">
@@ -49,10 +49,10 @@ Your **database** (Supabase) stores all your data — owned by you, on your own 
     Templates, memory, channels, knowledge, org chart, and delegation.
   </Card>
   <Card title="Manage work" icon="list-check" href="/concepts/features">
-    CRM, tasks, knowledge, routines, collections, and notifications.
+    CRM, tasks with subtasks, knowledge (workspace/agent/library scopes), routines, collections, and notifications.
   </Card>
   <Card title="Self-host anywhere" icon="server" href="/self-host/requirements">
-    Laptop, Mac mini, Raspberry Pi, VPS, or multiple hosts.
+    Laptop, Mac mini, Raspberry Pi, VPS, or multiple hosts. Automatic gateway backups and restore.
   </Card>
   <Card title="Pick models per agent" icon="sliders" href="/guides/connect-model-provider#per-agent-model-overrides">
     Different model and thinking level per agent. Per-task overrides for one-off reasoning. Mix providers freely.
@@ -60,8 +60,11 @@ Your **database** (Supabase) stores all your data — owned by you, on your own 
   <Card title="Control spend" icon="gauge-high" href="/guides/usage-budgets">
     Per-agent monthly budgets with soft warnings and hard cutoffs.
   </Card>
+  <Card title="Plugins and connectors" icon="puzzle-piece" href="/concepts/plugins">
+    Built-in plugin system, source connectors for external data, and webhook integrations.
+  </Card>
   <Card title="Fork and extend" icon="code-branch" href="/development/local-development">
-    Templates, skills, UI modules, gateway commands, migrations.
+    Templates, skills, UI modules, gateway commands, plugins, and migrations.
   </Card>
 </CardGroup>
 
@@ -83,6 +86,27 @@ Your **database** (Supabase) stores all your data — owned by you, on your own 
     Standard Next.js + Python + Supabase stack. Write templates, plugins, and UI modules. Fork it, customize it, submit PRs.
   </Card>
 </CardGroup>
+
+---
+
+## What's new in v0.2
+
+<CardGroup cols={2}>
+  <Card title="Subtasks" icon="list-tree" href="/getting-started/changelog">
+    Tasks support one level of subtasks with inline create, progress tracking, and parent breadcrumb navigation.
+  </Card>
+  <Card title="Gateway backups" icon="cloud-arrow-up" href="/getting-started/changelog">
+    Automatic backup to Supabase Storage on shutdown, restore on boot. Manual trigger from Settings. Manages ephemeral and persistent gateways alike.
+  </Card>
+  <Card title="Knowledge scopes" icon="layer-group" href="/concepts/knowledge">
+    Knowledge items can be workspace-wide, agent-scoped, or library-scoped for fine-grained visibility control.
+  </Card>
+  <Card title="OpenClaw 6.6 runtime" icon="microchip" href="/getting-started/changelog">
+    Latest OpenClaw runtime with hardened entrypoint, improved plugin activation, and provider auth bridge.
+  </Card>
+</CardGroup>
+
+See the full [changelog](/getting-started/changelog) for all releases.
 
 ---
 

@@ -5,6 +5,43 @@ description: "The queues that coordinate the UI, gateways, and agents."
 
 HQ uses Supabase tables as durable queues. Everything the UI tells a gateway to do — and everything agents do in the background — flows through these queues.
 
+## Tasks
+
+Tasks are the main coordination primitive. They live in the `tasks` table and support statuses (`todo`, `in_progress`, `blocked`, `done`, `cancelled`, `missed`), priorities, due dates, streams, recurrence, labels, comments, entity links, and deliverables.
+
+### Subtasks
+
+Tasks support one-level nesting. A subtask is a regular task row with its `parent_id` set to the parent task's ID. There is no deeper nesting — subtasks cannot themselves have subtasks.
+
+The main task list filters out subtasks by default (`.is("parent_id", null)`), so they only appear within their parent's detail panel. In the detail panel, the subtask section shows:
+
+- A progress summary (done/total) and a visual progress bar.
+- An inline list of subtasks with status icons, assignee, and due date.
+- A status toggle button to mark subtasks done or reopen them directly from the list.
+- An inline input to create new subtasks without leaving the parent task.
+
+Subtasks inherit the parent task's `stream_id` at creation time. List and board views show a subtask progress chip on parent tasks so the operator can see completion at a glance.
+
+The `Task` type includes `subtask_count` and `subtask_done_count` fields populated via a batch-fetch query for efficient rendering in list views.
+
+### Task relations
+
+The `task_relations` table links tasks with typed dependencies:
+
+| Relation type | Meaning | Inverse |
+|---|---|---|
+| `blocked_by` | This task cannot proceed until the target completes | `blocks` |
+| `blocks` | This task blocks the target from proceeding | `blocked_by` |
+| `relates_to` | Informational link, no blocking semantics | `relates_to` |
+| `parent_of` | This task is a parent of the target | `child_of` |
+| `child_of` | This task is a child (sub-task) of the target | `parent_of` |
+
+When a blocking task transitions to `done` or `cancelled`, the `notify_blocker_resolved` database trigger creates an inbox item for the unblocked task's assignee so they know the dependency has cleared.
+
+### Overdue escalation
+
+A `escalate_overdue_tasks` pg_cron job runs every minute. It finds tasks past their `due_date` that are still in an active status and transitions them to `missed`. For each escalated task, the job creates an inbox item for the assigned agent (or a notification for a human assignee). The task form shows a missed-task banner with a reopen action.
+
 ## The two queues
 
 <CardGroup cols={2}>

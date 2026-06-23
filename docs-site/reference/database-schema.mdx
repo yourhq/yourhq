@@ -43,6 +43,8 @@ HQ stores shared state in one Supabase project per workspace. The SQL source of 
 | `035_interactions_nullable_contact.sql` | Allow interactions without a linked contact |
 | `036_collection_agent_commands.sql` | Agent commands for collection record operations |
 | `037_source_plugin_support.sql` | Extended source connector plugin support |
+| `038_gateway_backups.sql` | Gateway backup storage bucket, backup metadata columns on `gateways`, `backup_gateway` command action |
+| `039_knowledge_library_scope.sql` | `library` scope for knowledge items, `pinned` column removal and migration |
 
 For a fresh Supabase project, the onboarding wizard handles schema installation automatically with a one-click install. You can also run all files in filename order from the SQL Editor manually.
 
@@ -70,7 +72,7 @@ Disable public email signup in Supabase unless you intentionally want every sign
 ### Agents and Gateways
 
 - `agents` — agent metadata, slug, status, gateway assignment, manager assignment, model/thinking configuration, and template metadata.
-- `gateways` — registered gateway hosts, heartbeat state, labels, and reachable URLs.
+- `gateways` — registered gateway hosts, heartbeat state, labels, reachable URLs, and backup metadata (`last_backup_at`, `last_backup_size_bytes`).
 - `gateway_registration_tokens` — short-lived hashed tokens used by Settings → Gateways → Add Gateway.
 - `agent_commands` — command queue consumed by the runner daemon.
 - `agent_inbox_items` — background-work queue consumed by agents through the dispatcher/runtime path.
@@ -104,7 +106,7 @@ Important RPCs:
 
 ### Tasks
 
-- `tasks` — operator and agent work items. Supports `model_override` and `thinking_override` columns for per-task model selection when assigned to an agent. Status enum includes `missed` for overdue escalation.
+- `tasks` — operator and agent work items. Supports `model_override` and `thinking_override` columns for per-task model selection when assigned to an agent. Status enum includes `missed` for overdue escalation. Tasks support subtasks via the `parent_id` column — tasks with `parent_id` set are subtasks of the referenced parent task. The main task list filters on `parent_id IS NULL` to show only top-level tasks; subtasks are displayed inline under their parent.
 - `streams` — task grouping and workflow lanes.
 - `task_series` — recurring task definitions. Series-level `model_override` and `thinking_override` propagate to spawned instances.
 - `task_relations` — task-to-task dependency links. Relation types: `blocked_by`, `blocks`, `relates_to`, `parent_of`, `child_of`. The `get_task_relations(p_task_id)` RPC returns relations with joined task metadata. A `notify_blocker_resolved` trigger fires when a blocking task reaches `done` or `cancelled`, creating inbox items for the unblocked task's assignee.
@@ -118,15 +120,16 @@ Task assignment and comment mention triggers enqueue `agent_inbox_items` for aff
 
 ### Knowledge
 
-- `knowledge_items` — unified knowledge store for pages, skills, files, and sources. Supports scope (`workspace` or `agent`), pinning, folders, tags, embeddings, and full-text search.
+- `knowledge_items` — unified knowledge store for pages, skills, files, and sources. Supports scope (`workspace`, `agent`, or `library`), folders, tags, embeddings, and full-text search.
 - `knowledge_folders` — folder hierarchy for organizing knowledge items.
 - `knowledge_item_agents` — junction table linking agent-scoped items to specific agents. Also used to track agent-created skills.
 - `knowledge_chunks` — chunked content with per-chunk embeddings for granular retrieval. References `knowledge_item_id`.
 
-Boot context is controlled by scope and pinning:
+Boot context is controlled by scope:
 
-- A **workspace-scoped, pinned** item is included in every agent's startup context.
-- An **agent-scoped** item assigned to specific agents via `knowledge_item_agents` is included only for those agents.
+- A **workspace-scoped** item is injected in full into every agent's startup context.
+- An **agent-scoped** item assigned to specific agents via `knowledge_item_agents` is index-only in those agents' boot context and fetched on demand.
+- A **library-scoped** item is not included in boot context. It remains searchable and fetchable on demand.
 
 Agents can autonomously create skills (`kind = 'skill'`, `scope = 'agent'`) via `hq_skill_upsert.py`. The script inserts into `knowledge_items`, links via `knowledge_item_agents`, and logs an audit entry with `actor_type = 'agent'`. The `audit_log.summary` field carries the agent's one-line reason, which is surfaced on the agent detail page.
 

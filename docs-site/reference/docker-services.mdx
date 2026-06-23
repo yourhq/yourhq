@@ -3,26 +3,26 @@ title: "Docker services"
 description: "The containers in the HQ Compose stack and what each one does."
 ---
 
-HQ's default Compose stack has seven services that work together. The UI runs on its own; the other six are gateway services that run agents, process data, and handle event-driven plugins.
+HQ's default Compose stack has seven services that work together. The UI runs on its own; the other six are gateway services that run agents, process data, and handle event-driven plugins. The gateway runs OpenClaw 6.6 as its agent runtime.
 
 <CardGroup cols={2}>
   <Card title="ui" icon="browser">
     **Next.js dashboard.** Renders the workspace — agents, CRM, tasks, knowledge, routines, settings — and writes to Supabase through server actions. Port `3000`.
   </Card>
   <Card title="gateway" icon="server">
-    **Agent runtime host.** Runs OpenClaw, Chrome/Chromium, XFCE desktop, noVNC, and the files API. This is where agents live. Port `18790` (files API). noVNC runs inside the container and is proxied through the UI — no host port needed.
+    **Agent runtime host.** Runs OpenClaw 6.6, Chrome/Chromium, XFCE desktop, noVNC, and the files API. This is where agents live. Port `18790` (files API). noVNC runs inside the container and is proxied through the UI — no host port needed.
   </Card>
   <Card title="dispatcher" icon="inbox">
-    **Inbox daemon.** Watches `agent_inbox_items` for new work, filters to agents on the local gateway, checks budget status, and wakes agents through OpenClaw.
+    **Inbox daemon.** Watches `agent_inbox_items` for new work, filters to agents on the local gateway, checks budget status, and wakes agents through OpenClaw. Includes burst-aware batch sizing, inbox dedup, and exponential backoff for unprovisioned agents (v0.2.2). See [Inbox dispatch](/reference/inbox-dispatch).
   </Card>
   <Card title="runner" icon="terminal">
     **Command daemon.** Watches `agent_commands`, leases commands for the local gateway, executes lifecycle and auth operations, and reports results back to Supabase.
   </Card>
   <Card title="embedder" icon="search">
-    **Knowledge indexing daemon.** Runs FastEmbed locally with the BGE embedding model pre-loaded in the image. Indexes pending knowledge items into searchable knowledge chunks. Override the model via `EMBEDDER_MODEL` env var — non-default models download on first boot.
+    **Knowledge indexing daemon.** Runs FastEmbed locally with the BGE embedding model pre-loaded in the image. Indexes pending knowledge items into searchable knowledge chunks. Override the model via `EMBEDDER_MODEL` env var — non-default models download on first boot. Uses memory-aware batch sizing — reads `/proc/meminfo` and throttles (or pauses) when available RAM is low to prevent OOM on small instances.
   </Card>
   <Card title="file-processor" icon="file-import">
-    **File processing daemon.** Leases uploaded knowledge files (PDF, DOCX, XLSX, CSV, PPTX, TXT), extracts plain text, and triggers embedding. Runs independently so file processing doesn't block other gateway operations.
+    **File processing daemon.** Leases uploaded knowledge files (PDF, DOCX, XLSX, CSV, PPTX, TXT), extracts plain text, and triggers embedding. Runs independently so file processing doesn't block other gateway operations. Uses memory-aware batch sizing (same mechanism as the embedder) to stay safe on constrained hosts.
   </Card>
   <Card title="plugin-runner" icon="puzzle-piece">
     **Plugin daemon.** Watches the `hq_plugin_event_queue` for events emitted by SQL triggers and dispatches them to enabled plugins — local Python handlers or remote webhook endpoints with HMAC signatures. See [Plugins](/concepts/plugins).
@@ -38,3 +38,51 @@ The `runner` additionally mounts `/var/run/docker.sock` so it can restart siblin
 <Tip>
   For single-host installs, start everything with `docker compose --profile gateway up -d`. For multi-host setups, run `docker compose up -d ui` separately from the gateway services. See [Add a gateway](/self-host/add-gateway).
 </Tip>
+
+## Shared modules
+
+Several gateway daemons share helper modules that aren't standalone services but affect behavior across the stack.
+
+### Gateway backup (`gateway_backup.py`)
+
+Handles automatic backup and restore of gateway state (`~/.openclaw/`) to Supabase Storage. Used by:
+
+- **`entrypoint.sh`** — restores on boot (if no local state exists), backs up on `SIGTERM`.
+- **`command_runner.py`** — exposes `backup_gateway` as a command action triggered from the UI.
+- **Keepalive scripts** — backs up before extending sandbox timeout.
+
+Backups are gzipped tarballs uploaded to a `gateway-backups` storage bucket, keyed by gateway ID and timestamp. Chrome profile data (OAuth sessions, cookies, local storage) is included but regeneratable caches are excluded to keep archives small (~6 MB vs ~180 MB unfiltered). Retention keeps the 5 most recent backups per gateway and prunes anything older than 7 days. Restore tries backups newest-first and falls back to the next if an archive is corrupt.
+
+CLI usage inside the container:
+
+```bash
+python3 gateway_backup.py backup
+python3 gateway_backup.py restore
+python3 gateway_backup.py status   # prints JSON with last backup info
+```
+
+### Sentry initialization (`sentry_init.py`)
+
+Shared Sentry setup for all gateway daemons. Each daemon calls `init_sentry("daemon_name")` at startup. Sentry is **only active** when both conditions are met:
+
+1. `SENTRY_DSN` environment variable is set.
+2. `RUNTIME_MODE` is `hosted` or `e2b`.
+
+Self-hosted instances never send telemetry. When active, the module tags every event with `gateway_id`, `tenant_id`, `daemon_name`, and `runtime_mode`. A `before_send` filter drops noisy transient errors (closed connections, WebSocket handshake failures, timeouts, connection refused) to keep the Sentry project clean.
+
+Daemons import `capture(exc)` to report exceptions — the function is a safe no-op when Sentry is unavailable.
+
+### Memory pressure (`memory_pressure.py`)
+
+Provides memory-aware batch sizing for the `embedder` and `file-processor` daemons. Reads `MemAvailable` from `/proc/meminfo` on each processing cycle and adjusts the effective batch size:
+
+| Available RAM | Batch size |
+|---|---|
+| >= `HQ_MEMORY_COMFORTABLE_MB` (default 1024) | Full configured batch |
+| >= `HQ_MEMORY_LOW_MB` (default 512) | Half of configured batch |
+| >= `HQ_MEMORY_CRITICAL_MB` (default 256) | 1 item at a time |
+| Below critical | 0 — skip the cycle entirely and back off for `HQ_MEMORY_BACKOFF_SECONDS` (default 30) |
+
+When processing is paused due to critical memory pressure, the module creates a dashboard notification so operators know the gateway is throttled. Notifications are rate-limited to one every 10 minutes.
+
+On non-Linux hosts (macOS dev environments), `/proc/meminfo` is unavailable and the module falls back to the full configured batch size.

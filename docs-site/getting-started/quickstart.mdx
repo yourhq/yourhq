@@ -1,6 +1,6 @@
 ---
 title: "Quickstart"
-description: "Get HQ running in about 10 minutes. You need Docker, a free Supabase account, and a model API key."
+description: "Get HQ v0.2.2 running in about 10 minutes. You need Docker, a free Supabase account, and a model API key."
 ---
 
 <Info>
@@ -118,7 +118,7 @@ After creation, you land on the **Tasks** page with a suggested first task pre-f
 
 ## You're set up
 
-Your HQ is running with a connected database, model provider, and first agent.
+Your HQ (v0.2.2) is running with a connected database, model provider, and first agent. The gateway runs OpenClaw 6.6 and includes automatic backup/restore — your agent state is backed up to Supabase Storage on shutdown and restored on fresh boot.
 
 <Warning>
   **Putting this on the internet?** The default install binds services to `127.0.0.1` — safe on a laptop. The runner mounts the Docker socket (so it can restart the stack from the UI), and your Supabase service-role key sits in `.env` with full database access. Read the [security policy and hardening guide](/security/security-policy) before exposing HQ beyond localhost.
@@ -138,6 +138,9 @@ Here's what to explore next:
   </Card>
   <Card title="Access from other devices" icon="network-wired" href="/self-host/networking">
     Set up Tailscale so your phone and laptop can reach HQ.
+  </Card>
+  <Card title="Add knowledge" icon="book" href="/concepts/knowledge">
+    Upload files, write pages, or sync sources. Scope items to workspace, agent, or library.
   </Card>
   <Card title="Troubleshooting" icon="wrench" href="/troubleshooting/common-issues">
     Something didn't work? Common fixes are here.

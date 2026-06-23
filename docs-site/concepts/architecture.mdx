@@ -1,6 +1,6 @@
 # HQ — Architecture
 
-HQ (the codebase at [`yourhq/yourhq`](https://github.com/yourhq/yourhq), hosted at [app.yourhq.ai](https://app.yourhq.ai)) is a self-hostable operations platform for running a fleet of personal AI agents. One Next.js UI manages your work — CRM, tasks, knowledge, routines — and one or more gateway hosts run the agents themselves inside Docker containers you control. The target user is a founder, solo team, or power user who wants their agents to do real work on their behalf, in their own environment, against their own Supabase project. This document is the top-to-bottom tour of how the pieces fit together. It assumes you've skimmed the [README](https://github.com/yourhq/yourhq#readme) and want to know where things actually live.
+HQ (the codebase at [`yourhq/yourhq`](https://github.com/yourhq/yourhq), hosted at [app.yourhq.ai](https://app.yourhq.ai)) is a self-hostable operations platform for running a fleet of personal AI agents. One Next.js UI manages your work — CRM, tasks, knowledge, routines — and one or more gateway hosts run the agents themselves inside Docker containers you control. The agent runtime is [OpenClaw 6.6](https://github.com/yourhq/openclaw). The target user is a founder, solo team, or power user who wants their agents to do real work on their behalf, in their own environment, against their own Supabase project. This document is the top-to-bottom tour of how the pieces fit together. It assumes you've skimmed the [README](https://github.com/yourhq/yourhq#readme) and want to know where things actually live.
 
 For deeper dives, see:
 
@@ -15,7 +15,7 @@ For deeper dives, see:
 
 ## 1. Intro
 
-An agent, in HQ, is a long-lived workspace consisting of a git branch, a Chrome profile, an OpenClaw session, and a messaging channel (Telegram, Discord, Slack, or none). The UI never speaks to agents directly. Every instruction the UI gives — "create this agent", "edit this file", "restart this gateway" — travels through Supabase, where it becomes a row in a queue. Python daemons on each gateway host subscribe to that queue over Supabase Realtime and execute the work locally. The result: the UI can run on your laptop, on a VPS, or in a browser tab from a hotel Wi-Fi, and the gateways can run anywhere you have Docker, with no inbound connections needed between them.
+An agent, in HQ, is a long-lived workspace consisting of a git branch, a Chrome profile, an OpenClaw 6.6 session, and a messaging channel (Telegram, Discord, Slack, or none). The UI never speaks to agents directly. Every instruction the UI gives — "create this agent", "edit this file", "restart this gateway" — travels through Supabase, where it becomes a row in a queue. Python daemons on each gateway host subscribe to that queue over Supabase Realtime and execute the work locally. The result: the UI can run on your laptop, on a VPS, or in a browser tab from a hotel Wi-Fi, and the gateways can run anywhere you have Docker, with no inbound connections needed between them.
 
 Every table enforces tenant-scoped RLS via `tenant_id` — authenticated users can only access rows belonging to their tenant (extracted from the JWT's `app_metadata.tenant_id`). Self-hosted installs use a single default tenant, so all authenticated users see all data. The hosted offering layers account management and automated provisioning on top of this same topology.
 
@@ -65,7 +65,7 @@ All services live in the same monorepo ([`docker-compose.yml`](https://github.co
 | Service | Role | Key files | Ports | Reads from Supabase | Writes to Supabase |
 |---|---|---|---|---|---|
 | `ui` | The Next.js admin dashboard. Renders the CRM, tasks, agents, knowledge, settings, routines. Issues server actions that enqueue commands and proxy file edits. | [`apps/ui/`](https://github.com/yourhq/yourhq/tree/main/apps/ui/) — App Router under `src/app/`; server actions in `src/app/dashboard/*/actions.ts`; gateway proxy in [`src/lib/agent-repo/gateway-backend.ts`](https://github.com/yourhq/yourhq/tree/main/apps/ui/src/lib/agent-repo/gateway-backend.ts); auth middleware in [`src/middleware.ts`](https://github.com/yourhq/yourhq/tree/main/apps/ui/src/middleware.ts) | `3000` (host) | everything (uses authenticated user's session + service role for privileged inserts) | contacts, tasks, agents, `agent_commands`, `agent_inbox_items`, `audit_log`, `routines`, everything |
-| `gateway` | The container that hosts the agents. Runs Xtigervnc + XFCE + Chrome + OpenClaw gateway + the files-API. noVNC runs inside the container and is proxied through the UI (no host port). | [`gateway/entrypoint.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/entrypoint.sh), [`gateway/files_api.py`](https://github.com/yourhq/yourhq/tree/main/gateway/files_api.py), [`gateway/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/Dockerfile) | `18790` (files-API) | `workspace.slug` at boot to prefix branches | `gateways` row upsert at boot with reachable URLs |
+| `gateway` | The container that hosts the agents. Runs Xtigervnc + XFCE + Chrome + OpenClaw 6.6 gateway + the files-API. noVNC runs inside the container and is proxied through the UI (no host port). On shutdown, backs up state to Supabase Storage; on fresh boot, restores from the latest backup if no local state exists. | [`gateway/entrypoint.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/entrypoint.sh), [`gateway/files_api.py`](https://github.com/yourhq/yourhq/tree/main/gateway/files_api.py), [`gateway/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/Dockerfile) | `18790` (files-API) | `workspace.slug` at boot to prefix branches | `gateways` row upsert at boot with reachable URLs |
 | `dispatcher` | Python daemon. Subscribes to `agent_inbox_items` INSERT events and wakes the owning agent via `openclaw agent --agent …`. Only wakes agents bound to this gateway. | [`gateway/daemons/inbox_dispatcher.py`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/inbox_dispatcher.py), [`gateway/dispatcher/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/dispatcher/Dockerfile) | none | `agent_inbox_items`, `agents`, `gateways`, `workspace` | `agent_inbox_items.last_wake_*` |
 | `runner` | Python daemon. Subscribes to `agent_commands` INSERT events, leases via `lease_command(gateway_slug=…)`, executes `add-agent.sh` / `update-agent.sh` / `docker compose restart …`, reports back stdout/stderr/exit code. Also runs `secrets_sync` — subscribes to the `secrets` table via Realtime, decrypts secrets (AES-256-GCM), and writes per-agent `.env` files to disk. | [`gateway/daemons/command_runner.py`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/command_runner.py), [`gateway/daemons/secrets_sync.py`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/secrets_sync.py), [`gateway/runner/Dockerfile`](https://github.com/yourhq/yourhq/tree/main/gateway/runner/Dockerfile), [`gateway/scripts/add-agent.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/scripts/add-agent.sh) | none | `agent_commands`, `secrets`, `workspace`, `gateways`, `agents` | `agent_commands.status/stdout/stderr`, `secrets.sync_status/last_synced_at`, `gateways.last_seen_at` (30 s heartbeat) |
 | `embedder` | Python daemon. Eagerly downloads/loads the local BGE model, serves embeddings over an internal HTTP endpoint, and indexes pending knowledge items into searchable chunks. Supports pages, skills, files, and external sources. | [`gateway/embedder/`](https://github.com/yourhq/yourhq/tree/main/gateway/embedder) | none | `knowledge_items` via `lease_knowledge_items_for_indexing` RPC | `knowledge_chunks`, `knowledge_items.embedding`, indexing status metadata |
@@ -141,9 +141,19 @@ The file browser at `/dashboard/agents/[id]` is the one place the UI talks direc
 
 **Why not push straight to GitHub?** Two reasons. First, the agent's source of truth is its local worktree on the gateway, not a remote — the agent reads and writes that worktree during its turn, and conflicts are worse than stale reads. Second, the UI is decoupled from the gateway's networking model (Tailscale/public/local); going through the files-API means the UI only needs one secret (`GATEWAY_AUTH_TOKEN`) and one URL (`GATEWAY_URL`), not a GitHub PAT per operator plus a remote URL per gateway. Optional GitHub mirroring exists — set `GIT_REMOTE_URL` and the gateway will fetch on boot — but that's for off-site backup, not the live edit path.
 
-## 7. Gateway internals
+## 7. Data flow: gateway backup and restore
 
-The `gateway` container is deliberately fat in Phase 1 — it's one image that runs every user-facing process. The layout, from [`gateway/entrypoint.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/entrypoint.sh):
+Gateway state — auth tokens, `openclaw.json`, the VNC password, per-agent secrets, and Chrome profiles — is automatically backed up to Supabase Storage and restored on fresh boot. This keeps hosted sandboxes and self-hosted gateways resilient to container recreation.
+
+**Backup (on shutdown).** When the gateway receives `SIGTERM`, the entrypoint's shutdown handler runs [`gateway/daemons/gateway_backup.py backup`](https://github.com/yourhq/yourhq/tree/main/gateway/daemons/gateway_backup.py) before forwarding the signal to child processes. The script tars the critical directories under `$OPENCLAW_HOME` (excluding large transient data like worktrees and the bare repo), uploads the archive to a `gateway-backups` bucket in Supabase Storage keyed by `GATEWAY_ID`, and prunes old backups (retains the 3 most recent, anything older than 7 days is deleted). The UI can also trigger a backup on demand via the `backup_gateway` command action.
+
+**Restore (on boot).** If the gateway starts with no local agent state (`$OPENCLAW_HOME/agents` does not exist) — indicating a fresh boot or a recreated sandbox — the entrypoint checks Supabase Storage for the newest backup for this `GATEWAY_ID` and extracts it. This restores auth tokens, configs, secrets, and the VNC password so the gateway comes back online without requiring re-authentication. If no backup is found or restore fails, the gateway continues with a clean first-boot setup.
+
+This backup/restore cycle is the primary state-persistence mechanism for hosted (E2B) sandboxes, where the container filesystem is ephemeral. Self-hosted gateways with persistent Docker volumes benefit less (the volume already survives restarts), but the backup still provides an off-host safety net.
+
+## 8. Gateway internals
+
+The `gateway` container is deliberately fat — it's one image that runs every user-facing process. The layout, from [`gateway/entrypoint.sh`](https://github.com/yourhq/yourhq/tree/main/gateway/entrypoint.sh):
 
 - **Xtigervnc** on `:1` — a combined X server + VNC server (replaces the older Xvfb + x0vncserver pair because the scraping-server perl wrapper on Ubuntu 24.04 is broken). Listens on `localhost:5901`.
 - **XFCE** — a full desktop (panel, Whisker menu, Thunar, xfce4-terminal, xfce4-goodies). We ship the real desktop so the remote-desktop experience matches what the operator sees locally — no minimized WM, no surprises.
@@ -164,7 +174,7 @@ The `gateway` container is deliberately fat in Phase 1 — it's one image that r
 - `gateway-chrome-profile` (mounted at `/home/openclaw/.config/google-chrome`): Chrome's own profile dir. Kept separate so you can blow it away without destroying agent workspaces.
 - `gateway-embedding-cache` (mounted at `/models` in the embedder): cached BGE model files so restarts don't re-download.
 
-## 8. The agent workspace model
+## 9. The agent workspace model
 
 HQ does not push to GitHub. Each gateway has a **local bare git repository** at `$HOME/.openclaw/repo.git`, seeded on first boot from [`templates/`](/reference/templates) (bundled into the gateway image at `/opt/templates`, or cloned from `$TEMPLATES_SOURCE` if set). Each template becomes a branch called `template/<dirname>`. A `default` template becomes branch `default`, which is the bare repo's HEAD.
 
@@ -178,7 +188,7 @@ That worktree is a real checkout. The agent reads and writes it during its turn.
 
 **Optional remote.** If `GIT_REMOTE_URL` is set (and `GIT_DEPLOY_KEY` for SSH), the gateway adds it as `origin` and fetches on boot. Push on write is not automatic; the design intent is that the remote is a backup, not a source of truth. A nightly push is a reasonable operator cron; the platform does not assume one.
 
-## 9. Networking model
+## 10. Networking model
 
 Networking in HQ is intentionally boring: the containers publish ports to the host, and the host's network configuration decides who can reach them. Tailscale, TLS, reverse proxies — all of it lives on the host, not in any container.
 
@@ -196,7 +206,7 @@ The installer ([`installer/install.sh`](https://github.com/yourhq/yourhq/tree/ma
 
 Full details in [Networking](/self-host/networking).
 
-## 10. Multi-machine topologies
+## 11. Multi-machine topologies
 
 Because the only shared state is Supabase and gateways publish their own reachable URLs, the same code handles three deployment shapes with no conditionals:
 
@@ -215,7 +225,7 @@ Adding another gateway is normally UI-driven:
 
 Manual registration still works for development or advanced operators: set a unique `GATEWAY_ID`, point the host at the same Supabase project, and run `docker compose --profile gateway up -d`.
 
-## 11. Trust model / security boundaries
+## 12. Trust model / security boundaries
 
 HQ enforces tenant-scoped RLS on every table — each row has a `tenant_id`, and policies restrict access to rows matching the JWT's `app_metadata.tenant_id`. Self-hosted installs use a single default tenant, so in practice all authenticated users share the workspace. There is no request-signing between services. The trust boundaries that matter are:
 
@@ -229,7 +239,7 @@ HQ enforces tenant-scoped RLS on every table — each row has a `tenant_id`, and
 
 What HQ **does not** provide: per-agent privilege separation, user-facing audit of the service role key's usage, network egress filtering from the gateway container, or any protection against a compromised Supabase project. If any of those matter to you, they need to be layered on top — typically at the host level (container user namespacing, network policies, a secondary firewall).
 
-## 12. Supabase as the backbone
+## 13. Supabase as the backbone
 
 Supabase is the backbone. Every piece of coordination — commands, inbox items, heartbeats, audit trails, realtime subscriptions, cross-agent observability — is a row in a Postgres table.
 
@@ -244,9 +254,12 @@ The structures to know:
 - **`agent_usage` / `agent_budgets`** — usage source-of-truth and per-agent current-period rollup from [`016_usage_budgets.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/016_usage_budgets.sql). Runtime usage is logged by the HQ bootstrap OpenClaw plugin; hard budget cutoffs are enforced both before replies and before dispatcher wakes.
 - **`agents.reports_to_id`** — lightweight org chart from [`008_agents.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/008_agents.sql). The `agent_reports_chain` RPC lets the UI prevent cycles before saving manager changes.
 - **Realtime**. Both daemons open a WebSocket to `/realtime/v1/websocket` and subscribe to `postgres_changes` on `agent_commands` / `agent_inbox_items` INSERT. Fallback poll every `POLL_INTERVAL` (30 s runner) / `RECONCILE_INTERVAL` (120 s dispatcher) catches anything Realtime missed during a reconnect.
-- **Triggers worth knowing**: `enqueue_task_assignment` enqueues inbox items when a task is assigned (defined in [`014_agent_inbox.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/014_agent_inbox.sql)); `enqueue_comment_mentions` does the same for @-mentions (in [`011_comments.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/011_comments.sql)); `process_routine_event` runs routines on contact inserts/updates (in [`020_routines.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/020_routines.sql)); `notify_blocker_resolved` creates inbox items when a blocking task completes (in [`028_task_relations.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/028_task_relations.sql)); `escalate_overdue_tasks` pg_cron job marks overdue tasks as `missed` (in [`031_overdue_escalation.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/031_overdue_escalation.sql)); `032_notification_gaps.sql` and `033_knowledge_chunk_pipeline.sql` add notification and embedding pipeline improvements.
+- **`hq_plugin_event_queue`** — lightweight append-only queue that bridges SQL triggers to the plugin runner daemon. Triggers on `tasks`, `agents`, `knowledge_items`, `agent_inbox_items`, `comments`, and `secrets` write to this table; `plugin_runner.py` subscribes via Realtime and dispatches matching events to enabled plugins. 1-hour retention via pg_cron.
+- **Subtask model.** Tasks support one-level nesting via `parent_id`. The main task list filters to top-level tasks only (`parent_id IS NULL`); subtasks render inline under their parent. The relation is enforced at the application level — there is no recursive hierarchy.
+- **Knowledge scopes.** Knowledge items have a `scope` field: `workspace` (visible to all agents), `agent` (scoped to a specific agent via `knowledge_item_agents`), or `library` (injected into all agent boot contexts automatically). Library-scoped items provide shared reference material across the fleet.
+- **Triggers worth knowing**: `enqueue_task_assignment` enqueues inbox items when a task is assigned (defined in [`014_agent_inbox.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/014_agent_inbox.sql)); `enqueue_comment_mentions` does the same for @-mentions (in [`011_comments.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/011_comments.sql)); `process_routine_event` runs routines on contact inserts/updates (in [`020_routines.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/020_routines.sql)); `notify_blocker_resolved` creates inbox items when a blocking task completes (in [`028_task_relations.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/028_task_relations.sql)); `escalate_overdue_tasks` pg_cron job marks overdue tasks as `missed` (in [`031_overdue_escalation.sql`](https://github.com/yourhq/yourhq/blob/main/db/migrations/031_overdue_escalation.sql)); `032_notification_gaps.sql` and `033_knowledge_chunk_pipeline.sql` add notification and embedding pipeline improvements. Later migrations (`038_gateway_backups.sql`, `039_knowledge_library_scope.sql`) add gateway backup storage support and the `library` knowledge scope.
 
-## 13. Extensibility
+## 14. Extensibility
 
 The UI is designed to be configured, not coded, for most everyday changes:
 
@@ -262,20 +275,20 @@ The UI is designed to be configured, not coded, for most everyday changes:
 - **Source connectors.** Add a folder under [`gateway/connectors/<provider>/`](https://github.com/yourhq/yourhq/tree/main/gateway/connectors) with a `manifest.json` and a `BaseConnector` subclass. The auto-discovery registry picks it up, the build script generates UI types from the manifest, and the platform handles secrets, OAuth, sync scheduling, and embedding. Copy `_template/` to start. See `CONTRIBUTING-SOURCES.md`.
 - **Plugins.** HQ has a full event-driven plugin system. Local plugins are Python modules in `gateway/plugins/<id>/` that subclass `BasePlugin` and implement `on_event()`. Webhook plugins are remote HTTP endpoints registered from Settings → Plugins — zero gateway code. Both receive the same events (task.created, agent.status_changed, budget.exceeded, etc.) from SQL triggers and daemon emission points. The plugin runner daemon (`gateway/daemons/plugin_runner.py`) subscribes to the `hq_plugin_event_queue` via Realtime and dispatches to all matching plugins. Full details in [Plugins](/concepts/plugins).
 
-## 14. Hosted deployment
+## 15. Hosted deployment
 
 The hosted offering at [app.yourhq.ai](https://app.yourhq.ai) runs the same codebase, controlled by `DEPLOYMENT_MODE=hosted`:
 
 - **UI** at `app.yourhq.ai` — the same Next.js dashboard, with hosted-specific routes for signup, account management, and billing.
 - **Worker** (`apps/worker/`) at `worker.yourhq.ai` — a standalone Hono service that handles provisioning, billing (Stripe), sandbox lifecycle, and the master accounts database.
-- **Gateways** — per-workspace cloud sandboxes running the gateway Dockerfile with `RUNTIME_MODE=e2b`. Provisioned and destroyed by the Worker on demand.
+- **Gateways** — per-workspace cloud sandboxes running the gateway Dockerfile with `RUNTIME_MODE=e2b`. Provisioned and destroyed by the Worker on demand. Sandboxes have enhanced health-check and renewal logic with pause/resume — the keepalive system monitors sandbox liveness, automatically extends timeouts before expiry, and can pause/resume sandboxes to conserve resources when idle. Gateway state is backed up to Supabase Storage on shutdown and restored on fresh boot (see section 7).
 - **Master DB** — a dedicated Supabase project storing `hosted_users`, `hosted_workspaces`, and `sandbox_events`. Each workspace gets its own isolated Supabase project.
 
 Self-hosted code is unaffected — hosted routes are gated behind `DEPLOYMENT_MODE=hosted` and the Worker service is a separate app.
 
-**Hosted-only observability.** The hosted offering includes Sentry (error tracking) and PostHog (product analytics). Both are strictly gated on `DEPLOYMENT_MODE=hosted` — self-hosted installs never load these SDKs, never send telemetry, and never need the associated environment variables. Sentry covers all runtimes (UI client/server/edge, worker, Python gateway daemons) with environment tags for triage. PostHog covers client-side analytics in the UI and server-side events in the worker. See [Configuration § 2.12](/reference/configuration#212-hosted-only-observability-sentry--posthog) for the full variable reference.
+**Hosted-only observability.** The hosted offering includes Sentry (error tracking) and PostHog (product analytics). Both are strictly gated on `DEPLOYMENT_MODE=hosted` — self-hosted installs never load these SDKs, never send telemetry, and never need the associated environment variables. Sentry covers all runtimes (UI client/server/edge, worker, Python gateway daemons) with environment tags for triage. PostHog covers client-side analytics in the UI and server-side events in the worker. See [Configuration § 2.13](/reference/configuration#213-hosted-only-observability-sentry--posthog) for the full variable reference.
 
-## 15. Where things are going
+## 16. Where things are going
 
 - **Connectors & hardening.** More source connectors (Google Drive, Gmail), test coverage expansion, and onboarding polish.
 - **Deeper autonomy.** Richer OpenClaw integration (channel hand-off, browser delegation), agent-to-agent workflows, and more channels (WhatsApp, Signal).

@@ -46,6 +46,8 @@ Migrations live in [`db/migrations/`](https://github.com/yourhq/yourhq/tree/main
 | `035_interactions_nullable_contact.sql` | Allow interactions without a linked contact |
 | `036_collection_agent_commands.sql` | Agent commands for collection record operations |
 | `037_source_plugin_support.sql` | Extended source connector plugin support |
+| `038_gateway_backups.sql` | Gateway backup storage bucket (`gateway-backups`), backup metadata columns on `gateways` (`last_backup_at`, `last_backup_size_bytes`), `backup_gateway` command action |
+| `039_knowledge_library_scope.sql` | `library` scope for `knowledge_items`, migration of unpinned workspace items to library scope, `pinned` column removal, index rebuild |
 
 ## Migration CLI
 

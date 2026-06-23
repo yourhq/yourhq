@@ -42,12 +42,14 @@ Before calling `openclaw agent`, the dispatcher checks a series of conditions. A
 
 | Condition | Skip reason | Details |
 |---|---|---|
-| Cooldown | `cooldown` | At least `WAKE_COOLDOWN` seconds (default 30) must have passed since the last successful wake for this agent |
+| Cooldown | `cooldown(<N>s)` | At least `WAKE_COOLDOWN` seconds (default 30) must have passed since the last successful wake for this agent. Cooldown increases exponentially on consecutive failures (see [Exponential backoff](#exponential-backoff) below) |
 | In-flight wake | `wake_in_flight` | A wake for this agent is already running (in-memory, per-process) |
+| Concurrency limit | `concurrency_limit` | `MAX_CONCURRENT_WAKES` (default 2) agent processes are already running. The agent is added to a waitlist and woken when a slot frees up |
+| Stalled | `stalled` | Agent hit `MAX_CONSECUTIVE_FAILURES` (default 5) and has been given up on until new context arrives (new inbox item resets backoff) |
 | Agent paused/hibernating | `agent_paused` | Checks `agents.status` — won't wake a user-paused or hibernating agent |
 | Active lease | `active_lease` | Agent already has a `status=leased` inbox item with a future `leased_until` — background processing is already in progress |
 | Budget exceeded | `budget_exceeded` | `agent_budgets.status = 'exceeded'` AND `hard_cutoff = true` — hard budget limit enforced here as a second ring (the plugin is ring 1 during prompt build) |
-| No actionable work | `no_actionable_work` | No items in `pending` status, and no `failed` items with `attempt_count < 3` |
+| No actionable work | `no_actionable_work` | No items in `pending` status, no `failed` items with `attempt_count < 3`, and no expired leases |
 
 Skip reasons are logged at `info` level so you can see why an agent wasn't woken:
 
@@ -77,16 +79,24 @@ These are tracking fields only — they don't affect processing.
 Every `RECONCILE_INTERVAL` seconds (default 120), the dispatcher:
 
 1. Refreshes its cache of agents bound to this gateway
-2. Queries for all items with `status=pending` or `status=failed AND attempt_count < 3`
-3. Dedupes by agent, filters to local agents, calls `wake_agent` for each
+2. Expires stale items older than `STALE_ITEM_AGE_HOURS` (default 24) by marking them as failed
+3. Reaps hung agent processes that exceed `AGENT_PROCESS_TIMEOUT` (default 300s)
+4. Cleans up stalled agents — marks their pending items as failed so they stop accumulating
+5. Drains the concurrency waitlist — wakes agents that were queued behind the `MAX_CONCURRENT_WAKES` cap
+6. Queries for all items with `status=pending`, `status=failed AND attempt_count < 3`, or **`status=leased AND leased_until` expired** (v0.2.0)
+7. Dedupes by agent, filters to local agents, calls `wake_agent` for each
 
 The reconciliation sweep catches anything Realtime missed (dropped WebSocket message, agent provisioned mid-flight, items inserted while the daemon was restarting). It applies the same wake gates, so the cooldown prevents spam even if multiple items exist for the same agent.
+
+#### Expired lease retry (v0.2.0)
+
+The `or` filter in step 6 includes `status=leased AND leased_until < now()`. This catches items where an agent leased work but crashed or timed out before completing it. Without this, a stuck lease would permanently block the item. The reconciliation sweep picks it up and wakes the agent for another attempt.
 
 ---
 
 ## Gateway filtering
 
-The dispatcher only wakes agents bound to **this gateway**. It maintains a local cache (`LOCAL_AGENT_IDS`) of agent UUIDs belonging to this gateway's slug, refreshed on:
+The dispatcher only wakes agents bound to **this gateway**, identified by the `GATEWAY_ID` environment variable. It maintains a local cache (`LOCAL_AGENT_IDS`) of agent UUIDs belonging to this gateway's slug, refreshed on:
 
 - Startup
 - Every reconciliation sweep
@@ -94,17 +104,64 @@ The dispatcher only wakes agents bound to **this gateway**. It maintains a local
 
 If an agent was just provisioned it may not be in the cache yet — the one-time refresh on unknown agent handles this without waiting for the next reconciliation.
 
+`GATEWAY_ID` is resolved from the process environment first. If unset or `default`, the dispatcher falls back to reading `~/.openclaw/secrets/gateway.env`, so daemons restarted outside the entrypoint still pick up the correct identity.
+
 ---
 
 ## Blocker enrichment
 
-For `task_assignment` inbox items, the dispatcher queries `task_relations` to check for unresolved `blocked_by` dependencies. If the assigned task has active blockers (blocking tasks not in `done` or `cancelled` status), the dispatcher appends a note to the inbox summary:
+For `task_assignment` inbox items, the dispatcher queries `task_relations` to check for unresolved `blocked_by` dependencies. If the assigned task has active blockers (blocking tasks not in `done` or `cancelled` status), the dispatcher appends the blocker names to the wake message:
 
 ```
-⚠ This task has N unresolved blocker(s). Check dependencies before starting.
+Note: This task has 2 unresolved blocker(s): Design mockups, API schema review.
+Consider working on unblocked tasks first or doing preparatory work.
 ```
+
+The query joins through `tasks!task_relations_target_task_id_fkey` to fetch blocker titles and statuses in a single call. If the enrichment query fails (network issue, table not yet migrated), the wake proceeds with the original unenriched summary and logs a warning.
 
 This gives the agent awareness of dependency constraints without requiring it to query relations itself.
+
+---
+
+## Dispatcher hardening (v0.2.2)
+
+Several mechanisms were added to prevent the dispatcher from overwhelming small instances or getting stuck in runaway loops.
+
+### Burst-aware concurrency cap
+
+`MAX_CONCURRENT_WAKES` (default 2) limits how many `openclaw agent` processes run simultaneously. When the cap is reached, additional agents are added to a waitlist instead of being silently dropped. A slot watcher thread (5-second polling interval) reaps finished processes and wakes the next agent in the queue.
+
+### Exponential backoff
+
+When an agent's wake process exits with a non-zero code, the dispatcher doubles the cooldown for that agent. The effective cooldown is `WAKE_COOLDOWN * 2^failures`, capped at `MAX_WAKE_COOLDOWN` (default 900 seconds / 15 minutes). This prevents the wake-loop bug where an unprovisioned or broken agent consumed all gateway resources with rapid fire-and-fail cycles.
+
+After `MAX_CONSECUTIVE_FAILURES` (default 5) consecutive failures, the agent enters a **stalled** state. The dispatcher stops attempting to wake it and marks its pending inbox items as failed. When a new inbox item arrives via Realtime, the backoff is reset and the agent gets a fresh chance — the new context may resolve whatever caused the failures.
+
+### Process timeout
+
+Agent processes that run longer than `AGENT_PROCESS_TIMEOUT` (default 300 seconds) are terminated. The dispatcher first sends `SIGTERM` and waits 5 seconds, then escalates to `SIGKILL`. The timed-out process counts as a failure for backoff purposes.
+
+### Stale item expiry
+
+Reconciliation expires pending items older than `STALE_ITEM_AGE_HOURS` (default 24) by setting their status to `failed` and `attempt_count` to 3 (the retry ceiling). This prevents ancient items from keeping agents in an endless retry loop.
+
+### Inbox dedup
+
+Reconciliation deduplicates by agent — if multiple pending items exist for the same agent, only one wake call is made. The agent's inbox processing script handles all pending items in a single session.
+
+---
+
+## Configuration reference
+
+| Variable | Default | Description |
+|---|---|---|
+| `RECONCILE_INTERVAL` | `120` | Seconds between reconciliation sweeps |
+| `WAKE_COOLDOWN` | `30` | Minimum seconds between wakes for the same agent |
+| `MAX_WAKE_COOLDOWN` | `900` | Upper bound for exponential backoff cooldown (15 min) |
+| `MAX_CONSECUTIVE_FAILURES` | `5` | Failures before the agent enters stalled state |
+| `MAX_CONCURRENT_WAKES` | `2` | Maximum simultaneous `openclaw agent` processes |
+| `AGENT_PROCESS_TIMEOUT` | `300` | Seconds before a hung agent process is killed |
+| `STALE_ITEM_AGE_HOURS` | `24` | Hours after which pending items are expired |
 
 ---
 

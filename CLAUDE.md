@@ -108,7 +108,7 @@ Plugins:
 
 ## Database
 
-`db/migrations/` contains 37 ordered migrations (001–037). Key tables:
+`db/migrations/` contains 39 ordered migrations (001–039). Key tables:
 
 - `gateways` — one row per gateway host. Seeded with a `default` row so single-gateway setups work immediately.
 - `agents` — agent definitions with `gateway_id`, `reports_to_id` hierarchy.

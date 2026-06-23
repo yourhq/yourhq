@@ -3,7 +3,7 @@ title: "Gateways"
 description: "Docker hosts that run your agents, browsers, and daemons."
 ---
 
-A gateway is a Docker host that runs agents on infrastructure you control. Each gateway is a self-contained runtime environment — agents, browsers, files, and daemons all live inside it. The gateway has no direct network link to the UI; all coordination happens through Supabase.
+A gateway is a Docker host that runs agents on infrastructure you control. Each gateway is a self-contained runtime environment — agents, browsers, files, and daemons all live inside it. The gateway runs OpenClaw v2026.6.6 as its agent runtime. The gateway has no direct network link to the UI; all coordination happens through Supabase.
 
 ## What's inside a gateway
 
@@ -14,7 +14,7 @@ A gateway deployment is a set of Docker containers that work together:
     Runs OpenClaw (agent runtime), Chrome/Chromium, XFCE desktop, noVNC (remote desktop), and the files API. This is where agents actually execute.
   </Card>
   <Card title="Dispatcher daemon" icon="inbox">
-    Subscribes to `agent_inbox_items` via Supabase Realtime. When new work arrives (task assignments, comment mentions, routines), it wakes the right agent on this gateway.
+    Subscribes to `agent_inbox_items` via Supabase Realtime. When new work arrives (task assignments, comment mentions, routines), it wakes the right agent on this gateway. Includes burst-aware batch sizing, inbox deduplication, and backoff for unprovisioned agents to prevent resource exhaustion.
   </Card>
   <Card title="Runner daemon" icon="terminal">
     Subscribes to `agent_commands` via Supabase Realtime. Leases and executes lifecycle commands: provision, update, remove, provider auth, shell commands, gateway operations. Also runs heartbeat (every 30s) and secrets sync.
@@ -52,8 +52,10 @@ The one exception is **noVNC**: when you open an agent's remote desktop, the UI 
 
 ### Boot sequence
 
-When a gateway container starts, `entrypoint.sh` runs a 10-step boot sequence:
+When a gateway container starts, `entrypoint.sh` runs a multi-step boot sequence:
 
+0. Resolve Supabase credentials (env, token exchange, or workspace registry)
+0b. **Restore from backup** — if no local agent state exists, check Supabase Storage for a previous backup and extract it (restores auth tokens, configs, secrets, Telegram pairing)
 1. Seed the local bare git repo from `/opt/templates/` (or `$TEMPLATES_SOURCE`)
 2. Optionally attach to `$GIT_REMOTE_URL` for branch backup
 3. Optionally bring up Tailscale (`$TAILSCALE_AUTH_KEY`)
@@ -64,6 +66,8 @@ When a gateway container starts, `entrypoint.sh` runs a 10-step boot sequence:
 8. Start websockify → noVNC
 9. Upsert this gateway's row in the `gateways` table with reachable URLs
 10. Exec `openclaw gateway start` as the main process
+
+On **shutdown** (SIGTERM), the entrypoint automatically backs up gateway state to Supabase Storage before forwarding the signal to child processes.
 
 See [Gateway boot](/self-host/gateway-boot) for the detailed walkthrough.
 
@@ -76,6 +80,10 @@ The runner daemon writes `last_heartbeat_at` to the `gateways` table every 30 se
 - **No signal** — gateway has never reported
 
 If a gateway goes stale, its agents can still have pending work queued — it will be processed when the gateway comes back online.
+
+### Keepalive (hosted/E2B)
+
+For gateways running in hosted mode (E2B sandboxes), a keepalive daemon maintains the sandbox lifecycle. It performs periodic health checks and renewal requests to prevent the sandbox from being reclaimed. The keepalive supports pause/resume functionality — when no agents are actively running, the keepalive can be paused to reduce overhead, and it automatically resumes when new work arrives.
 
 ### Registration
 
@@ -110,7 +118,13 @@ Each gateway owns a Docker volume (`gateway-state`) that holds:
 - **Secrets** — decrypted `.env` files written by the secrets sync daemon (plaintext on disk, `chmod 0600`).
 - **Desktop state** — XFCE config, wallpapers, shortcuts.
 
-If you lose the `gateway-state` volume, agents can be reprovisioned from the database, but accumulated browser sessions, local files, and auth tokens are gone. Use `GIT_REMOTE_URL` to continuously back up agent branches to GitHub/Gitea. See [Operations → Backing up](/self-host/operations#backing-up).
+### Automatic backup & restore
+
+Since v0.2.1, gateway state is automatically backed up to Supabase Storage on every shutdown and restored on fresh boot. The backup includes auth tokens, agent configs, secrets, and Telegram pairing data. It excludes `sessions` and `codex-home` directories to keep backups small.
+
+Retention policy: **3 backups per gateway, 7-day max age**, newest-first restore with fallback to older backups if the most recent is corrupted. You can also trigger manual backups and view backup status from **Settings → Backups** in the UI.
+
+If you lose the `gateway-state` volume, the gateway will automatically restore from the most recent backup on next boot — no manual intervention needed. Agents can also be reprovisioned from the database if no backup is available. Use `GIT_REMOTE_URL` to continuously back up agent branches to GitHub/Gitea for an additional layer of protection. See [Operations → Backing up](/self-host/operations#backing-up).
 
 ## Adding a gateway
 

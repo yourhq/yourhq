@@ -62,23 +62,31 @@ Skills can also be created autonomously by agents during work via `hq_skill_upse
 
 Every item has a `scope` that controls who can access it:
 
-**Workspace scope** (`scope = 'workspace'`) — visible to all agents. When **pinned**, the item is included in every agent's boot context automatically.
+**Workspace scope** (`scope = 'workspace'`) — injected in full into every agent's boot context automatically. Use this for critical shared context that all agents must see on every wake: company brief, style guides, brand voice.
 
-**Agent scope** (`scope = 'agent'`) — visible only to agents explicitly assigned via the `knowledge_item_agents` junction table. Each row links one item to one agent.
+**Agent scope** (`scope = 'agent'`) — visible only to agents explicitly assigned via the `knowledge_item_agents` junction table. Each row links one item to one agent. Agent-scoped items are included as **index-only** in the agent's boot context (title and metadata, not full content). The agent fetches full content on demand when it needs it. This keeps boot context lean — agents know what knowledge exists without paying the token cost of loading everything upfront.
 
-This replaces the old `boot:all` / `boot:<slug>` tag convention with explicit, queryable relationships. The scope is a column, not a tag — it can be filtered, indexed, and enforced at the database level.
+**Library scope** (`scope = 'library'`) — workspace-wide shared context that is **not** injected into boot context at all. Library items are searchable and fetchable on demand by any agent, but they don't appear in startup context. Use this for reference material, archives, and large documents that agents should be able to find but don't need on every session.
+
+The scope is a column on `knowledge_items`, not a tag — it can be filtered, indexed, and enforced at the database level.
+
+<Note>
+In v0.2.2, the `library` scope replaced the old `pinned` boolean column. Previously, workspace-scoped items could be pinned to force inclusion in boot context. Now the three-way scope (`workspace` / `agent` / `library`) handles this more cleanly: workspace items are always in boot context, library items never are. The migration (`039_knowledge_library_scope.sql`) moved unpinned workspace items to library scope and dropped the pinned column.
+</Note>
 
 ### How agents receive knowledge at boot
 
 When an agent starts a session, the bootstrap script:
 
-1. Fetches all workspace-scoped items where `pinned = true`.
+1. Fetches all workspace-scoped items (injected in full — these are the critical shared context).
 2. Looks up the agent's ID from its slug.
-3. Fetches all items linked to that agent via `knowledge_item_agents`.
-4. Deduplicates (an item can be both workspace-pinned and agent-assigned).
+3. Fetches all items linked to that agent via `knowledge_item_agents` (injected as index-only — title and metadata, not full content).
+4. Deduplicates (an item can be both workspace-scoped and agent-assigned).
 5. Injects the combined set into the agent's startup context, grouped by scope.
 
-The gateway's HQ bootstrap plugin renders this context with kind labels (`[page]`, `[skill]`, `[file]`) and scope grouping (`Workspace Knowledge` vs `Your Knowledge`).
+Library-scoped items are excluded from boot context entirely. Agents discover them through search when they need them.
+
+The gateway's HQ bootstrap plugin renders this context with kind labels (`[page]`, `[skill]`, `[file]`) and scope grouping (`Workspace Knowledge` vs `Your Knowledge`). The index-only approach for agent-scoped items significantly reduces token waste at boot — agents see a table of contents rather than every document's full text.
 
 ## Folders and organization
 
@@ -117,6 +125,10 @@ The gateway embedder daemon handles indexing:
 
 Items in `pending` or `failed` embedding status are picked up automatically. The lease mechanism prevents parallel embedders from duplicating work.
 
+### Memory-aware batch sizing
+
+Since v0.1.4, both the embedder and file processor check available system memory (`/proc/meminfo`) before each polling cycle. When free RAM drops below a threshold, the batch size is automatically reduced to prevent OOM kills on small instances. This is particularly important during bulk operations like initial workspace setup or large file uploads, where many items queue up simultaneously. On larger hosts the batches stay at their normal size with no operator configuration needed.
+
 ## Entity links
 
 Knowledge items participate in the **entity links** system. Any owner entity (task, routine, collection record, agent) can link to any target entity (knowledge item, collection record, contact, organization, task, or URL).
@@ -143,7 +155,7 @@ Every agent template ships with HQ skills that interact with the knowledge syste
 
 | Script | Purpose |
 |---|---|
-| `hq_session_bootstrap.py` | Fetches workspace-pinned + agent-specific items at session start |
+| `hq_session_bootstrap.py` | Fetches workspace-scoped (full) + agent-specific (index-only) items at session start |
 | `hq_boot_docs.py` | Loads boot context using scope + junction queries |
 | `hq_skill_upsert.py` | Creates or updates agent-scoped skills with auto-embedding and junction linking |
 | `hq_create_doc.py` | Creates a new knowledge item (page or skill) |

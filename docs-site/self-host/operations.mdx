@@ -132,6 +132,21 @@ All images in a running stack should be from the same release. Don't mix a v0.2.
 
 ## Backing up
 
+### Automatic gateway backups
+
+Since v0.2.1, gateway state (auth tokens, agent configs, secrets, Telegram pairing) is **automatically backed up to Supabase Storage** on every container shutdown and restored on fresh boot. This means recreated containers, redeployed sandboxes, and volume-loss scenarios recover automatically without manual intervention.
+
+- **Retention:** 3 backups per gateway, 7-day max age. Oldest backups are pruned automatically.
+- **Restore on boot:** When a fresh gateway container starts with no local agent state, it checks Supabase Storage for a previous backup and restores from the newest available. If the newest is corrupted, it falls back to older backups.
+- **Manual backups:** Trigger a manual backup from **Settings → Backups** in the UI. This page also shows backup status, timestamps, and lets you delete old backups.
+- **Excluded directories:** `sessions` and `codex-home` are excluded to keep backups small and fast.
+
+<Tip>
+  Automatic backups cover gateway runtime state (auth, configs, secrets). They do not replace database backups or git remote sync for agent branches — you still need all three layers below.
+</Tip>
+
+### Manual backup layers
+
 Three things to back up. Don't skip any of them. ([HQ hosted](/hosted/getting-started) handles backups and updates automatically.)
 
 <AccordionGroup>
@@ -165,7 +180,7 @@ Three things to back up. Don't skip any of them. ([HQ hosted](/hosted/getting-st
   <Accordion title="2. Gateway state volume — agent files" icon="folder">
     The `gateway-state` Docker volume holds everything that lives on the gateway: agent git branches, OpenClaw config, Chrome profiles, desktop shortcuts, auth tokens, plugins, and the VNC password.
 
-    Losing this means losing your agents' memory, skills, and browser sessions. They can be reprovisioned, but you'll lose accumulated state.
+    Losing this volume is less catastrophic than it used to be — automatic backups to Supabase Storage (see above) will restore auth tokens, configs, and secrets on the next boot. However, browser profiles, Chrome sessions, and desktop state are not included in automatic backups. Agents can be reprovisioned from the database, but you'll lose accumulated browser state.
 
     **Back up the volume:**
     ```bash

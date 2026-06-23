@@ -1,6 +1,6 @@
 ---
 title: "Changelog"
-description: "What's new in each HQ release."
+description: "What's new in each HQ release, from v0.1.0 through v0.2.2."
 ---
 
 Every tagged release includes full release notes on GitHub. Below are highlights from recent versions.
@@ -10,6 +10,47 @@ Every tagged release includes full release notes on GitHub. Below are highlights
 </Card>
 
 ---
+
+## v0.2.2 — June 23, 2026
+
+- Subtask UI with inline create, status toggle, progress bar, and parent breadcrumb navigation. List and board views show subtask progress chips. One-level nesting enforced.
+- Knowledge library scope — items can now be scoped to `library` for workspace-wide shared context. Removed `pinned` column in favor of scope-based visibility.
+- E2B keepalive enhancements with pause/resume functionality and new `keepalive-sandboxes.mjs` orchestrator
+- Dispatcher hardening — burst-aware batch sizing, inbox dedup, backoff for unprovisioned agents
+- Backup reliability — exclude `sessions` and `codex-home` from gateway backups
+- Agent boot context trimmed to index-only, reducing token waste on boot
+- Template SKILL.md cleanup — removed pinned column references
+- Security patches: dompurify 3.4.11, undici 7.28.0, esbuild 0.28.1, @hono/node-server 2.0.5
+
+## v0.2.1 — June 16, 2026
+
+- Gateway backup and restore — gateway state (auth tokens, agent configs, secrets, Telegram pairing) is automatically backed up to Supabase Storage on shutdown and restored on fresh boot. Manual trigger from Settings. Retention: 3 backups per gateway, 7-day max age.
+- Backups settings page with per-gateway backup status, on-demand backup button, and delete action
+- OpenClaw 6.6 runtime upgrade with hardened entrypoint and shellcheck compliance
+- Workspace switcher navigates to section root instead of reloading the current URL, preventing 404 loops
+- Telegram pairing fix — pairing step no longer resets on Supabase Realtime remount
+- Pairing code truncation fix — input field now accepts full 8-character codes
+- Agent provisioning race fix — workspace slug carried through full provisioning flow
+- E2B IPv4 preference since E2B has no IPv6 egress
+- Multi-workspace cookie overflow fix — raised max HTTP header size to 64KB
+- Security patches: cryptography 46.0.7 (CVE), dompurify XSS advisory
+
+## v0.2.0 — June 9, 2026
+
+- OpenClaw 6.1 gateway runtime — gateway, dispatcher, and runner images now run OpenClaw v2026.6.1 (up from v2026.4.12)
+- MiniMax M3 model added to the model picker (1M-token context, multimodal, low cost)
+- Full new-workspace wizard with parity to initial onboarding, one-click DB migration, and multi-workspace login
+- Gateway verification harness for upgrade validation
+- Agent default model now inherits the gateway's authenticated default instead of a hardcoded per-provider map
+- Provider auth bridge uses `openclaw models auth paste-api-key` instead of hand-writing auth files
+- hq-bootstrap plugin fixed for OpenClaw 6.x (non-world-writable directory, `activation.onStartup`, camelCase token fields)
+- Gateway boot config fix — `channels.telegram.streaming` normalized to the object form 6.x requires
+- Connection status parsing tolerates the "Config warnings:" preamble 6.x prints before JSON
+- Expired inbox lease retry — dispatcher reconciliation picks up items where `leased_until` has expired
+
+<Note>
+  **Upgrading to v0.2.0:** Self-hosted on `:latest`: `docker compose pull && docker compose up -d` picks up the 6.1 images. Provider API keys re-sync automatically. If you pin image tags, move to `v0.2.0`.
+</Note>
 
 ## v0.1.4 — May 26, 2026
 

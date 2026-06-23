@@ -52,7 +52,7 @@ description: "Common questions about HQ — what it is, how it works, and how to
   </Accordion>
 
   <Accordion title="Is this just a wrapper around OpenClaw / ChatGPT?">
-    No. OpenClaw is the agent *runtime* — it handles the inner loop of executing prompts and tool calls. HQ is the *operations layer* around it: provisioning, lifecycle management, queues, knowledge base, CRM, tasks, routines, budgets, and the entire UI. Think of OpenClaw as the engine and HQ as the car, dashboard, and garage.
+    No. OpenClaw is the agent *runtime* — it handles the inner loop of executing prompts and tool calls. HQ (v0.2.2, running OpenClaw 6.6) is the *operations layer* around it: provisioning, lifecycle management, queues, knowledge base, CRM, tasks with subtask support, routines, budgets, plugins, and the entire UI. Think of OpenClaw as the engine and HQ as the car, dashboard, and garage.
 
     HQ is also model-agnostic — it works with any provider (OpenAI, Anthropic, Gemini, Ollama, etc.), not just one.
   </Accordion>
@@ -68,7 +68,7 @@ description: "Common questions about HQ — what it is, how it works, and how to
   </Accordion>
 
   <Accordion title="Can I rip out the CRM / tasks / knowledge and just use the agents?">
-    The workspace modules (CRM, tasks, knowledge, collections) are tightly integrated — agents reference contacts, create tasks, search knowledge, and submit deliverables. You can ignore modules you don't need (just don't navigate to them), but removing them from the codebase would break the agent context system.
+    The workspace modules (CRM, tasks with subtasks, knowledge, collections) are tightly integrated — agents reference contacts, create tasks and subtasks, search knowledge across scopes (workspace, agent, and library), and submit deliverables. You can ignore modules you don't need (just don't navigate to them), but removing them from the codebase would break the agent context system.
 
     If you want agents without the workspace, a framework like CrewAI is a better fit.
   </Accordion>
@@ -140,6 +140,24 @@ description: "Common questions about HQ — what it is, how it works, and how to
     - **Hard cutoff enabled** — the runtime blocks further LLM replies and the dispatcher stops waking the agent for background work. The agent is effectively paused until the next budget period (first of the month) or until you raise the limit.
 
     See [Usage budgets →](/guides/usage-budgets)
+  </Accordion>
+
+  <Accordion title="Do tasks support subtasks?">
+    Yes (v0.2.2+). Tasks can have one level of subtasks. You can create subtasks inline from the task detail modal, toggle their status independently, and see a progress bar (done/total) on the parent task. List and board views show subtask progress chips. The nesting is intentionally limited to one level to keep things simple.
+
+    See [Tasks →](/concepts/tasks-inbox-and-commands)
+  </Accordion>
+
+  <Accordion title="How does knowledge scoping work?">
+    Knowledge items have three scopes:
+
+    - **Workspace** — visible to all agents in the workspace. Good for company-wide context, SOPs, and reference material.
+    - **Agent** — scoped to a specific agent via the knowledge-agent junction table. Only that agent sees it in its context.
+    - **Library** — workspace-wide shared context (v0.2.2+). Library items are available for reference across the workspace without being injected into every agent's boot context.
+
+    Each scope determines who sees the item and how it's surfaced during agent execution. Items can be pages, skills, files, or source-synced content.
+
+    See [Knowledge →](/concepts/knowledge)
   </Accordion>
 
   <Accordion title="What agent templates are included?">
@@ -243,10 +261,23 @@ description: "Common questions about HQ — what it is, how it works, and how to
     Three things to back up:
 
     1. **Supabase** — your contacts, tasks, agents, knowledge items, audit log. Use Supabase built-in backups (Pro tier) or `pg_dump` to a file. See [Operations →](/self-host/operations)
-    2. **Gateway state volume** — per-agent git branches, Chrome profiles, OpenClaw config. Back up with `docker run --rm -v yourhq-gateway-state:/src -v $(pwd):/dst alpine tar -czf /dst/gateway-state.tar.gz -C /src .`
+    2. **Gateway state** — auth tokens, agent configs, secrets, and Telegram pairing. Since v0.2.1, gateways **automatically back up to Supabase Storage** on shutdown and restore on fresh boot. You can also trigger a manual backup from **Settings → Backups**. Retention: 5 backups per gateway, 7-day max age.
     3. **`.env`** — contains secrets. Store in a password manager or encrypted disk.
 
     Optional: set `GIT_REMOTE_URL` in `.env` to continuously sync agent branches to GitHub/Gitea.
+  </Accordion>
+
+  <Accordion title="How are gateway backups handled?">
+    Gateway backup and restore is built in (v0.2.1+). On shutdown (SIGTERM), the gateway automatically packages its state — auth tokens, agent configs, encrypted secrets, Telegram pairing — into a tarball and uploads it to Supabase Storage. On a fresh boot with no local state, the gateway downloads and restores the latest backup automatically.
+
+    You can also:
+    - **Trigger a manual backup** from **Settings → Backups** in the UI
+    - **View backup status** per gateway, including last backup time and size
+    - **Delete old backups** from the UI
+
+    Retention is 5 backups per gateway with a 7-day max age. If the newest backup is corrupt, restore falls back to the next available one.
+
+    This means ephemeral gateways (like E2B sandboxes) can shut down and come back with full state intact.
   </Accordion>
 
   <Accordion title="How do I uninstall?">
