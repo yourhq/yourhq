@@ -14,23 +14,29 @@ import {
 } from "@/components/ui/drawer"
 import { cn } from "@/lib/utils"
 
+const MobileCtx = React.createContext(false)
+
 function ResponsivePopover({
   children,
   ...props
 }: React.ComponentProps<typeof Popover>) {
   const mobile = useIsMobile()
 
-  if (mobile) {
-    return <Drawer {...props}>{children}</Drawer>
-  }
-
-  return <Popover {...props}>{children}</Popover>
+  return (
+    <MobileCtx.Provider value={mobile}>
+      {mobile ? (
+        <Drawer {...props}>{children}</Drawer>
+      ) : (
+        <Popover {...props}>{children}</Popover>
+      )}
+    </MobileCtx.Provider>
+  )
 }
 
 function ResponsivePopoverTrigger({
   ...props
 }: React.ComponentProps<typeof PopoverTrigger>) {
-  const mobile = useIsMobile()
+  const mobile = React.useContext(MobileCtx)
   return mobile ? <DrawerTrigger {...props} /> : <PopoverTrigger {...props} />
 }
 
@@ -39,7 +45,7 @@ function ResponsivePopoverContent({
   children,
   ...props
 }: React.ComponentProps<typeof PopoverContent>) {
-  const mobile = useIsMobile()
+  const mobile = React.useContext(MobileCtx)
 
   if (mobile) {
     return (
