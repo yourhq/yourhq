@@ -55,9 +55,8 @@ CREATE TABLE IF NOT EXISTS knowledge_items (
   source_sync_status    text CHECK (source_sync_status IS NULL OR source_sync_status IN ('synced', 'stale', 'error', 'source_deleted')),
   source_synced_at      timestamptz,
   content_hash          text,
-  scope                 text NOT NULL DEFAULT 'workspace' CHECK (scope IN ('workspace', 'agent')),
+  scope                 text NOT NULL DEFAULT 'workspace' CHECK (scope IN ('workspace', 'agent', 'library')),
   tags                  text[] NOT NULL DEFAULT '{}',
-  pinned                boolean DEFAULT false,
   meta                  jsonb NOT NULL DEFAULT '{}',
   embedding             extensions.vector(384),
   embedding_model       text,
@@ -87,7 +86,6 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_items_folder ON knowledge_items(folder_
 CREATE INDEX IF NOT EXISTS idx_knowledge_items_kind ON knowledge_items(kind);
 CREATE INDEX IF NOT EXISTS idx_knowledge_items_scope ON knowledge_items(scope);
 CREATE INDEX IF NOT EXISTS idx_knowledge_items_tags ON knowledge_items USING gin(tags);
-CREATE INDEX IF NOT EXISTS idx_knowledge_items_pinned ON knowledge_items(pinned) WHERE pinned = true;
 CREATE INDEX IF NOT EXISTS idx_knowledge_items_active ON knowledge_items(created_at DESC) WHERE archived_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_knowledge_items_embedding_status
   ON knowledge_items(embedding_status, embedding_leased_until) WHERE archived_at IS NULL;
@@ -102,7 +100,7 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_items_embedding_hnsw
   WITH (m = 16, ef_construction = 64);
 
 CREATE INDEX IF NOT EXISTS idx_knowledge_items_browse
-  ON knowledge_items (tenant_id, kind, pinned DESC, updated_at DESC)
+  ON knowledge_items (tenant_id, kind, updated_at DESC)
   WHERE archived_at IS NULL;
 
 DROP TRIGGER IF EXISTS knowledge_items_updated_at ON knowledge_items;
@@ -298,7 +296,7 @@ RETURNS TABLE (
   similarity float
 )
 LANGUAGE plpgsql
-SET search_path = ''
+SET search_path = public, extensions
 AS $$
 BEGIN
   RETURN QUERY
@@ -333,7 +331,7 @@ RETURNS TABLE (
   similarity float
 )
 LANGUAGE plpgsql
-SET search_path = ''
+SET search_path = public, extensions
 AS $$
 DECLARE
   normalized_query text := btrim(coalesce(query_text, ''));
@@ -487,7 +485,7 @@ RETURNS TABLE (
   section_path text[], meta jsonb, updated_at timestamptz, similarity float
 )
 LANGUAGE plpgsql
-SET search_path = ''
+SET search_path = public, extensions
 AS $$
 BEGIN
   RETURN QUERY
@@ -527,7 +525,7 @@ RETURNS TABLE (
   section_path text[], meta jsonb, updated_at timestamptz, similarity float
 )
 LANGUAGE plpgsql
-SET search_path = ''
+SET search_path = public, extensions
 AS $$
 DECLARE
   normalized_query text := btrim(coalesce(query_text, ''));
