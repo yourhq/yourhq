@@ -11,6 +11,29 @@ tagged release.
 
 ## [Unreleased]
 
+### Added
+
+- **Subtask UI** — task detail modal now has a subtask section with inline create, status toggle, and progress bar. Parent breadcrumb navigation lets you jump between parent and subtask. List and board views show subtask progress chips (done/total). One-level nesting enforced.
+- **Knowledge library scope** — knowledge items can now be scoped to `library` (workspace-wide shared context). Removed the `pinned` column in favor of scope-based visibility. Migration 039.
+- **E2B keepalive enhancements** — sandbox health-check and renewal logic with pause/resume functionality. New `keepalive-sandboxes.mjs` orchestrator with workspace config.
+- **usePlugins test coverage** — first external contribution (#103 by @Kkkakania).
+
+### Fixed
+
+- **Dispatcher hardening** — burst-aware batch sizing, inbox dedup, backoff for unprovisioned agents. Prevents wake-loop resource exhaustion on small instances.
+- **Backup reliability** — exclude `sessions` and `codex-home` from gateway backups. Backup/restore auto-recovery improvements.
+- **Agent boot context** — trimmed to index-only, reducing token waste on boot (#102).
+- **Template SKILL.md** — removed pinned column references across shared and crm-researcher templates.
+- **E2B Dockerfile** — inline `GATEWAY_TAG` substitution fix.
+- **CI compliance** — fixed python-lint (ruff format), shellcheck (SC2155), and ui-lint (synchronous setState in effect).
+
+### Security
+
+- **dompurify 3.4.11** — leaky config for hooks via `setConfig`.
+- **undici 7.28.0** — 7 security advisories patched.
+- **esbuild 0.28.1** — path traversal on Windows dev server.
+- **@hono/node-server 2.0.5** — serve static bypass on Windows.
+
 ## [0.2.1] — 2026-06-16
 
 ### Added
