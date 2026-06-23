@@ -225,8 +225,7 @@ if [ ! -d "$OPENCLAW_HOME/agents" ] && [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUP
       # Export VNC password from backup so the VNC setup section reuses it
       # instead of generating a random one.
       if [ -f "$OPENCLAW_HOME/.vnc-password" ]; then
-        VNC_PASSWORD="$(cat "$OPENCLAW_HOME/.vnc-password")"
-        export VNC_PASSWORD
+        export VNC_PASSWORD="$(cat "$OPENCLAW_HOME/.vnc-password")"
         log "  restored VNC password from backup"
       fi
     else
