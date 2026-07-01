@@ -11,10 +11,10 @@
     "dev": "tsx src/cli.ts"
   },
   "dependencies": {
-    "pg": "^8.21.0"
+    "pg": "^8.22.0"
   },
   "devDependencies": {
-    "@types/node": "^25.9.3",
+    "@types/node": "^26.0.1",
     "@types/pg": "^8.11.10",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3"
