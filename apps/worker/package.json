@@ -10,17 +10,17 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@hono/node-server": "^2.0.5",
+    "@hono/node-server": "^2.0.6",
     "@sentry/node": "^9.47.1",
-    "@supabase/supabase-js": "^2.108.2",
+    "@supabase/supabase-js": "^2.110.0",
     "e2b": "^1.4.0",
-    "hono": "^4.12.26",
+    "hono": "^4.12.27",
     "posthog-node": "^4.0.0",
     "resend": "^4.2.0",
     "stripe": "^17.7.0"
   },
   "devDependencies": {
-    "@types/node": "^22.19.21",
+    "@types/node": "^22.20.0",
     "tsup": "^8.4.0",
     "tsx": "^4.22.4",
     "typescript": "^5.7.0"
