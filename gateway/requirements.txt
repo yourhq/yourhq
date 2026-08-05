@@ -1,6 +1,6 @@
 websocket-client==1.9.0
 websockify==0.13.0
-cryptography==48.0.1
+cryptography==50.0.0
 pymupdf==1.27.2.3
 python-docx==1.2.0
 openpyxl==3.1.5
