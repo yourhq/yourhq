@@ -14,7 +14,7 @@
     "@sentry/node": "^9.47.1",
     "@supabase/supabase-js": "^2.108.2",
     "e2b": "^1.4.0",
-    "hono": "^4.12.26",
+    "hono": "^4.13.5",
     "posthog-node": "^4.0.0",
     "resend": "^4.2.0",
     "stripe": "^17.7.0"
